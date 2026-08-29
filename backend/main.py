@@ -48,7 +48,6 @@ IMPORTANT:
 """
 
 import os
-import re
 import logging
 import json
 import base64
@@ -56,13 +55,12 @@ import time
 from datetime import datetime, timezone, timedelta
 from typing import Any, Dict, List, Optional
 from enum import Enum
-from uuid import UUID
 
-from fastapi import FastAPI, HTTPException, Request, Depends, Header, status
+from fastapi import FastAPI, HTTPException, Request, Depends, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from fastapi.responses import JSONResponse
-from pydantic import BaseModel, EmailStr, Field, ConfigDict, validator
+from pydantic import BaseModel, EmailStr, Field, ConfigDict, field_validator
 from supabase import create_client, Client
 import httpx
 
@@ -78,8 +76,6 @@ logger = logging.getLogger("masika-api")
 
 SUPABASE_URL = os.getenv("SUPABASE_URL")
 SUPABASE_SERVICE_ROLE_KEY = os.getenv("SUPABASE_SERVICE_ROLE_KEY")
-SUPABASE_JWT_SECRET = os.getenv("SUPABASE_JWT_SECRET")
-
 FRONTEND_URL = os.getenv("FRONTEND_URL", "https://www.masikabbs.com")
 API_VERSION = "2.0.0"
 ENVIRONMENT = os.getenv("ENVIRONMENT", "development")
@@ -92,20 +88,7 @@ MPESA_SHORTCODE = os.getenv("MPESA_SHORTCODE", "348127")
 MPESA_ENVIRONMENT = os.getenv("MPESA_ENVIRONMENT", "sandbox")
 MPESA_CALLBACK_URL = os.getenv("MPESA_CALLBACK_URL", "https://masika-c921.onrender.com/api/webhooks/mpesa")
 
-# Enable docs on Render (always enabled in production)
-ENABLE_DOCS = os.getenv("ENABLE_DOCS", "true").lower() == "true"
-
-if not SUPABASE_URL:
-    logger.warning("⚠️ SUPABASE_URL is not configured.")
-if not SUPABASE_SERVICE_ROLE_KEY:
-    logger.warning("⚠️ SUPABASE_SERVICE_ROLE_KEY is not configured.")
-if not MPESA_CONSUMER_KEY:
-    logger.warning("⚠️ MPESA_CONSUMER_KEY is not configured.")
-if not MPESA_PASSKEY:
-    logger.warning("⚠️ MPESA_PASSKEY is not configured.")
-
 logger.info(f"🌐 Environment: {ENVIRONMENT}")
-logger.info(f"📚 API Docs Enabled: {ENABLE_DOCS}")
 logger.info(f"💰 M-Pesa Environment: {MPESA_ENVIRONMENT}")
 
 # ============================================================
@@ -129,7 +112,6 @@ def get_supabase() -> Client:
 # FASTAPI APP
 # ============================================================
 
-# Always enable docs - they will be available at /api/docs
 app = FastAPI(
     title="MASIKA F. Benevolent API",
     description="Backend API for MASIKA F. Benevolent membership, registration, agents, and payments.",
@@ -153,6 +135,7 @@ app.add_middleware(
         "http://localhost:3000",
         "http://localhost:8000",
         "https://masika-c921.onrender.com",
+        "*",  # Allow all during development
     ],
     allow_credentials=True,
     allow_methods=["*"],
@@ -178,7 +161,6 @@ async def verify_staff_token(credentials: Optional[HTTPAuthorizationCredentials]
     database = get_supabase()
     
     try:
-        # Verify token with Supabase
         response = database.auth.get_user(token)
         
         if not response.user:
@@ -187,7 +169,6 @@ async def verify_staff_token(credentials: Optional[HTTPAuthorizationCredentials]
                 detail="Invalid or expired token"
             )
         
-        # Check if user is a staff member
         staff_check = database.table("admin_profiles").select("id, role, is_active").eq("user_id", response.user.id).eq("is_active", True).execute()
         
         if not staff_check.data:
@@ -256,7 +237,8 @@ class RegistrationRequest(BaseModel):
     benefit_option: BenefitOptionEnum = BenefitOptionEnum.SERVICE
     dependants: List[Dict[str, Any]] = Field(default_factory=list)
     
-    @validator('date_of_birth')
+    @field_validator('date_of_birth')
+    @classmethod
     def validate_dob(cls, v):
         try:
             datetime.strptime(v, "%Y-%m-%d")
@@ -302,10 +284,6 @@ class SalesCodeRequest(BaseModel):
     code_prefix: Optional[str] = "MASIKA"
     count: int = Field(..., ge=1, le=100)
     expires_at: Optional[str] = None
-
-class StaffLoginRequest(BaseModel):
-    email: EmailStr
-    password: str = Field(..., min_length=6)
 
 class MemberUpdateRequest(BaseModel):
     model_config = ConfigDict(extra="ignore")
@@ -407,14 +385,6 @@ def generate_member_number() -> str:
     seq = str(random.randint(1000, 9999))
     return f"MAS-{year}-{seq}"
 
-def parse_date(date_str: str) -> Optional[datetime]:
-    if not date_str:
-        return None
-    try:
-        return datetime.strptime(date_str, "%Y-%m-%d")
-    except ValueError:
-        return None
-
 # ============================================================
 # PAYMENT HELPERS
 # ============================================================
@@ -481,7 +451,6 @@ async def initiate_stk_push(phone: str, amount: float, account_reference: str, t
             logger.info(f"MOCK STK Push: {phone} - KES {amount} - {account_reference}")
             checkout_id = f"ws_CO_{int(time.time())}_mock"
             
-            # Save payment record
             database = get_supabase()
             payment_data = {
                 "member_id": None,
@@ -506,7 +475,6 @@ async def initiate_stk_push(phone: str, amount: float, account_reference: str, t
                 "payment_id": result.data[0]["id"] if result.data else None
             }
         
-        # Get access token
         access_token = await get_mpesa_access_token()
         if access_token == "mock_token":
             return {
@@ -515,12 +483,10 @@ async def initiate_stk_push(phone: str, amount: float, account_reference: str, t
                 "status": "failed"
             }
         
-        # Generate timestamp and password
         timestamp = datetime.now().strftime("%Y%m%d%H%M%S")
         password_str = f"{MPESA_SHORTCODE}{MPESA_PASSKEY}{timestamp}"
         password = base64.b64encode(password_str.encode()).decode("utf-8")
         
-        # Prepare payload
         payload = {
             "BusinessShortCode": MPESA_SHORTCODE,
             "Password": password,
@@ -566,7 +532,6 @@ async def initiate_stk_push(phone: str, amount: float, account_reference: str, t
             
             checkout_request_id = data.get("CheckoutRequestID")
             
-            # Save payment record
             database = get_supabase()
             payment_data = {
                 "member_id": None,
@@ -606,7 +571,6 @@ async def query_stk_status(checkout_request_id: str) -> Dict[str, Any]:
     """Query STK Push status."""
     database = get_supabase()
     
-    # Check database first
     existing = database.table("payments").select("*").eq("checkout_request_id", checkout_request_id).execute()
     if existing.data and existing.data[0].get("status") == "confirmed":
         return {
@@ -614,7 +578,6 @@ async def query_stk_status(checkout_request_id: str) -> Dict[str, Any]:
             "payment": existing.data[0]
         }
     
-    # Mock mode
     if MPESA_ENVIRONMENT != "production" or not MPESA_CONSUMER_KEY:
         return {
             "status": "pending",
@@ -655,7 +618,6 @@ async def query_stk_status(checkout_request_id: str) -> Dict[str, Any]:
             result_code = data.get("ResultCode")
             
             if result_code == "0":
-                # Payment successful
                 metadata = data.get("CallbackMetadata", {})
                 items = metadata.get("Item", [])
                 receipt = None
@@ -667,7 +629,6 @@ async def query_stk_status(checkout_request_id: str) -> Dict[str, Any]:
                     elif item.get("Name") == "Amount":
                         amount = item.get("Value")
                 
-                # Update payment
                 update_data = {
                     "status": "confirmed",
                     "confirmed_at": datetime.now(timezone.utc).isoformat(),
@@ -676,7 +637,6 @@ async def query_stk_status(checkout_request_id: str) -> Dict[str, Any]:
                 }
                 database.table("payments").update(update_data).eq("checkout_request_id", checkout_request_id).execute()
                 
-                # Update member if linked
                 payment = database.table("payments").select("*").eq("checkout_request_id", checkout_request_id).execute()
                 if payment.data and payment.data[0].get("member_id"):
                     database.table("members").update({
@@ -692,7 +652,6 @@ async def query_stk_status(checkout_request_id: str) -> Dict[str, Any]:
             elif result_code in ["1037", "1032"]:
                 return {"status": "pending"}
             else:
-                # Update as failed
                 database.table("payments").update({
                     "status": "failed",
                     "notes": f"STK Query: {data.get('ResultDesc', 'Failed')}"
@@ -711,8 +670,9 @@ async def query_stk_status(checkout_request_id: str) -> Dict[str, Any]:
 # ROOT ENDPOINT
 # ============================================================
 
-@app.get("/", response_model=APIResponse)
+@app.get("/")
 async def root():
+    """Root endpoint - API information."""
     return {
         "success": True,
         "message": "MASIKA F. Benevolent API",
@@ -731,8 +691,9 @@ async def root():
 # HEALTH CHECK
 # ============================================================
 
-@app.get("/api/health", response_model=APIResponse)
+@app.get("/api/health")
 async def health():
+    """Health check endpoint."""
     database_status = "not_configured"
     
     try:
@@ -755,10 +716,10 @@ async def health():
     }
 
 # ============================================================
-# PUBLIC ENDPOINTS (No Auth Required)
+# PUBLIC ENDPOINTS
 # ============================================================
 
-@app.get("/api/public/plans", response_model=APIResponse)
+@app.get("/api/public/plans")
 async def get_public_plans():
     """Get all available membership plans."""
     return {
@@ -768,69 +729,28 @@ async def get_public_plans():
             {
                 "code": "COMFORT",
                 "name": "Comfort Plan",
-                "description": "Basic membership protection for individuals and families",
                 "monthly_fee": 300,
                 "registration_fee": PLAN_FEES["COMFORT"],
                 "waiting_period": 4,
-                "age_range": "1-69",
-                "features": [
-                    "Main member + spouse + up to 4 children",
-                    "Hearse transportation",
-                    "Mortuary storage up to 14 days",
-                    "Tents & chairs for 200 people",
-                    "Gazebo & lowering gear",
-                    "Flowers (Heart, Round, Cross)",
-                    "PA system",
-                    "Memorial portrait",
-                    "Coffin/casket"
-                ]
             },
             {
                 "code": "DIGNITY",
                 "name": "Dignity Plan",
-                "description": "Enhanced family protection for seniors",
                 "monthly_fee": 1000,
                 "registration_fee": PLAN_FEES["DIGNITY"],
                 "waiting_period": 6,
-                "age_range": "70-80",
-                "features": [
-                    "Spouse + children under 18",
-                    "Gazebo",
-                    "Hearse transportation",
-                    "Mortuary storage up to 14 days",
-                    "Tents & chairs for 200 people",
-                    "Lowering gear",
-                    "Flowers (Heart, Round, Cross)",
-                    "PA system",
-                    "Memorial portrait",
-                    "Coffin/casket"
-                ]
             },
             {
                 "code": "WAZAZI",
                 "name": "Wazazi Plan",
-                "description": "Comprehensive parent and family protection (Add-on)",
                 "monthly_fee": 350,
                 "registration_fee": PLAN_FEES["WAZAZI"],
                 "waiting_period": 6,
-                "age_range": "40-70",
-                "features": [
-                    "Parents / in-laws (max 4)",
-                    "Gazebo",
-                    "Hearse transportation",
-                    "Mortuary storage up to 14 days",
-                    "Tents & chairs for 200 people",
-                    "Lowering gear",
-                    "Flowers (Heart, Round, Cross)",
-                    "PA system",
-                    "Memorial portrait",
-                    "Coffin/casket"
-                ]
             }
         ]
     }
 
-@app.get("/api/public/plans/{plan_code}", response_model=APIResponse)
+@app.get("/api/public/plans/{plan_code}")
 async def get_plan_details(plan_code: str):
     """Get details for a specific plan."""
     plan_code = plan_code.upper()
@@ -870,7 +790,7 @@ async def get_plan_details(plan_code: str):
         "data": plans[plan_code]
     }
 
-@app.post("/api/public/register", response_model=RegistrationResponse)
+@app.post("/api/public/register")
 async def public_register(registration: RegistrationRequest):
     """
     PUBLIC MEMBER REGISTRATION - No Login Required.
@@ -879,70 +799,41 @@ async def public_register(registration: RegistrationRequest):
     """
     database = get_supabase()
     
-    # Normalize phone
     try:
         phone = normalize_phone(registration.phone)
     except ValueError as exc:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc))
     
-    # Check for existing member
     try:
-        existing = database.table("members").select("id, phone, is_active").eq("phone", phone).execute()
+        existing = database.table("members").select("id, phone").eq("phone", phone).execute()
         if existing.data:
             raise HTTPException(
                 status_code=status.HTTP_409_CONFLICT,
-                detail={
-                    "message": "A member with this phone number already exists",
-                    "member_id": existing.data[0].get("id")
-                }
+                detail=f"A member with phone {phone} already exists"
             )
     except HTTPException:
         raise
     except Exception as e:
         logger.warning(f"Duplicate check failed: {e}")
     
-    # Check email
-    if registration.email:
-        try:
-            existing = database.table("members").select("id, email").eq("email", str(registration.email)).execute()
-            if existing.data:
-                raise HTTPException(
-                    status_code=status.HTTP_409_CONFLICT,
-                    detail="A member with this email already exists"
-                )
-        except HTTPException:
-            raise
-        except Exception as e:
-            logger.warning(f"Email duplicate check failed: {e}")
-    
-    # Calculate registration fee
     fee = calculate_registration_fee(registration.plan.value, registration.dependants)
-    
-    # Generate member number
     member_number = generate_member_number()
     
-    # Prepare member data
     member_data = {
         "first_name": registration.first_name.strip(),
         "last_name": registration.last_name.strip(),
-        "other_name": registration.other_name.strip() if registration.other_name else None,
         "phone": phone,
-        "email": str(registration.email) if registration.email else None,
         "id_number": registration.id_number.strip(),
         "date_of_birth": registration.date_of_birth,
         "gender": registration.gender,
         "county": registration.county.strip(),
-        "location": registration.location.strip() if registration.location else None,
-        "address": registration.address.strip() if registration.address else None,
         "plan": registration.plan.value.lower(),
         "benefit_option": registration.benefit_option.value,
         "member_number": member_number,
         "registration_fee_paid": False,
         "is_active": True,
-        "waiting_period_months": 4 if registration.plan == PlanEnum.COMFORT else 6,
     }
     
-    # Insert member
     try:
         result = database.table("members").insert(member_data).execute()
         member = result.data[0] if result.data else None
@@ -955,31 +846,6 @@ async def public_register(registration: RegistrationRequest):
         
         member_id = member.get("id")
         
-    except Exception as e:
-        logger.error(f"Member insertion failed: {e}")
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Unable to create membership registration"
-        )
-    
-    # Insert dependants
-    if registration.dependants and member_id:
-        for dep in registration.dependants:
-            try:
-                dep_data = {
-                    "member_id": member_id,
-                    "first_name": dep.get("first_name", "").strip(),
-                    "last_name": dep.get("last_name", "").strip(),
-                    "date_of_birth": dep.get("date_of_birth"),
-                    "relationship": dep.get("relationship", "OTHER").lower(),
-                    "is_active": True
-                }
-                database.table("dependants").insert(dep_data).execute()
-            except Exception as e:
-                logger.warning(f"Failed to insert dependant: {e}")
-    
-    # Create payment record
-    try:
         payment_data = {
             "member_id": member_id,
             "amount": fee,
@@ -987,24 +853,396 @@ async def public_register(registration: RegistrationRequest):
             "status": "pending",
             "paybill_number": "348127",
             "account_number": member_number,
-            "notes": f"Registration payment - {registration.first_name} {registration.last_name}"
         }
         database.table("payments").insert(payment_data).execute()
+        
+        return {
+            "success": True,
+            "message": "Registration submitted successfully. Please proceed to payment.",
+            "member_id": str(member_id),
+            "member_number": member_number,
+            "registration_amount": fee,
+            "payment_required": True,
+        }
+        
     except Exception as e:
-        logger.warning(f"Failed to create payment record: {e}")
-    
-    return RegistrationResponse(
-        success=True,
-        message="Registration submitted successfully. Please proceed to payment.",
-        member_id=str(member_id),
-        member_number=member_number,
-        registration_amount=fee,
-        payment_required=True,
-    )
+        logger.error(f"Registration error: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to register member"
+        )
 
-@app.post("/api/public/payment/stk-push", response_model=APIResponse)
+@app.post("/api/public/payment/stk-push")
 async def public_stk_push(request: STKPushRequest):
     """
-    PUBLIC STK PUSH PAYMENT - No Login Required.
+    Initiate M-Pesa STK Push payment.
+    """
+    database = get_supabase()
     
-    Initiate M-Pesa ST
+    try:
+        member = database.table("members").select("*").eq("id", request.member_id).execute()
+        if not member.data:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Member not found"
+            )
+        member_data = member.data[0]
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Member verification failed: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to verify member"
+        )
+    
+    if member_data.get("registration_fee_paid"):
+        return {
+            "success": True,
+            "message": "Registration fee already paid",
+            "data": {
+                "already_paid": True,
+                "member_id": request.member_id
+            }
+        }
+    
+    try:
+        phone = normalize_phone(request.phone)
+    except ValueError as exc:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc))
+    
+    account_reference = member_data.get("member_number", f"MEM-{request.member_id[:8]}")
+    
+    result = await initiate_stk_push(
+        phone=phone,
+        amount=request.amount,
+        account_reference=account_reference,
+        transaction_desc=request.transaction_desc
+    )
+    
+    if result.get("success") and result.get("payment_id"):
+        database.table("payments").update({
+            "member_id": request.member_id,
+            "phone": phone
+        }).eq("id", result["payment_id"]).execute()
+    
+    return {
+        "success": result.get("success", False),
+        "message": result.get("message", "Payment initiated"),
+        "data": {
+            "checkout_request_id": result.get("checkout_request_id"),
+            "status": result.get("status", "pending"),
+            "mock": result.get("mock", False),
+            "member_id": request.member_id,
+        }
+    }
+
+@app.get("/api/public/payment/status/{checkout_request_id}")
+async def public_payment_status(checkout_request_id: str):
+    """Check payment status."""
+    try:
+        result = await query_stk_status(checkout_request_id)
+        
+        return {
+            "success": True,
+            "message": "Payment status retrieved",
+            "data": {
+                "checkout_request_id": checkout_request_id,
+                "status": result.get("status"),
+                "receipt": result.get("receipt"),
+                "amount": result.get("amount"),
+                "mock": result.get("mock", False),
+            }
+        }
+        
+    except Exception as e:
+        logger.error(f"Payment status error: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to get payment status"
+        )
+
+@app.post("/api/public/payment/confirm")
+async def public_confirm_payment(payment: PaymentConfirmRequest):
+    """Confirm payment manually."""
+    database = get_supabase()
+    
+    try:
+        member = database.table("members").select("*").eq("id", payment.member_id).execute()
+        if not member.data:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Member not found"
+            )
+        member_data = member.data[0]
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Member verification failed: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to verify member"
+        )
+    
+    if member_data.get("registration_fee_paid"):
+        return {
+            "success": True,
+            "message": "Registration fee already paid",
+            "data": {"member_id": payment.member_id, "already_paid": True}
+        }
+    
+    try:
+        payment_update = {
+            "status": "confirmed",
+            "mpesa_receipt": payment.mpesa_receipt,
+            "confirmed_at": datetime.now(timezone.utc).isoformat()
+        }
+        
+        result = database.table("payments").update(payment_update).eq("member_id", payment.member_id).eq("payment_type", "registration").execute()
+        
+        if not result.data:
+            payment_data = {
+                "member_id": payment.member_id,
+                "amount": payment.amount,
+                "payment_type": "registration",
+                "status": "confirmed",
+                "mpesa_receipt": payment.mpesa_receipt,
+                "paybill_number": payment.paybill_number,
+                "account_number": member_data.get("member_number"),
+                "confirmed_at": datetime.now(timezone.utc).isoformat()
+            }
+            database.table("payments").insert(payment_data).execute()
+        
+        database.table("members").update({
+            "registration_fee_paid": True,
+            "coverage_start_date": datetime.now(timezone.utc).isoformat()
+        }).eq("id", payment.member_id).execute()
+        
+        return {
+            "success": True,
+            "message": "Payment confirmed successfully",
+            "data": {
+                "member_id": payment.member_id,
+                "member_number": member_data.get("member_number"),
+                "amount": payment.amount,
+                "receipt": payment.mpesa_receipt
+            }
+        }
+        
+    except Exception as e:
+        logger.error(f"Payment confirmation failed: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to confirm payment"
+        )
+
+@app.post("/api/public/agent/apply")
+async def public_agent_apply(application: AgentApplicationRequest):
+    """Apply to become a sales agent."""
+    database = get_supabase()
+    
+    try:
+        phone = normalize_phone(application.phone)
+    except ValueError as exc:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc))
+    
+    try:
+        existing = database.table("agent_applications").select("id").or_(f"email.eq.{application.email},phone.eq.{phone}").execute()
+        if existing.data:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail="Application with this email or phone already exists"
+            )
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.warning(f"Duplicate check failed: {e}")
+    
+    try:
+        app_data = {
+            "full_name": application.full_name.strip(),
+            "email": str(application.email),
+            "phone": phone,
+            "id_number": application.id_number.strip(),
+            "county": application.county.strip(),
+            "location": application.location.strip() if application.location else None,
+            "experience": application.experience.strip() if application.experience else None,
+            "reason": application.reason.strip(),
+            "referral_code": application.referral_code.strip() if application.referral_code else None,
+            "status": "pending"
+        }
+        
+        result = database.table("agent_applications").insert(app_data).execute()
+        app = result.data[0] if result.data else None
+        
+        if not app:
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="Failed to submit application"
+            )
+        
+        return {
+            "success": True,
+            "message": "Application submitted successfully. Our team will review it.",
+            "application_id": str(app.get("id")),
+            "status": "pending"
+        }
+        
+    except Exception as e:
+        logger.error(f"Agent application failed: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Unable to submit application. Please try again."
+        )
+
+@app.get("/api/public/check-member/{phone}")
+async def check_member(phone: str):
+    """Check if a member exists."""
+    try:
+        phone = normalize_phone(phone)
+    except ValueError as exc:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc))
+    
+    database = get_supabase()
+    
+    try:
+        result = database.table("members").select("id, first_name, last_name, is_active, registration_fee_paid").eq("phone", phone).execute()
+        
+        if result.data:
+            return {
+                "success": True,
+                "message": "Member found",
+                "data": {
+                    "exists": True,
+                    "member": result.data[0]
+                }
+            }
+        else:
+            return {
+                "success": True,
+                "message": "No member found",
+                "data": {"exists": False}
+            }
+            
+    except Exception as e:
+        logger.error(f"Member check failed: {e}")
+        return {
+            "success": False,
+            "message": "Failed to check member",
+            "data": {"exists": False}
+        }
+
+# ============================================================
+# STAFF ENDPOINTS (Auth Required)
+# ============================================================
+
+@app.get("/api/staff/dashboard")
+async def staff_dashboard(auth: Dict = Depends(verify_staff_token)):
+    """Get staff dashboard statistics."""
+    database = get_supabase()
+    
+    try:
+        total_members = database.table("members").select("id", count="exact").execute()
+        active_members = database.table("members").select("id", count="exact").eq("is_active", True).execute()
+        pending_registrations = database.table("members").select("id", count="exact").eq("registration_fee_paid", False).execute()
+        
+        return {
+            "success": True,
+            "message": "Dashboard data retrieved",
+            "data": {
+                "stats": {
+                    "total_members": total_members.count or 0,
+                    "active_members": active_members.count or 0,
+                    "pending_registrations": pending_registrations.count or 0,
+                }
+            }
+        }
+        
+    except Exception as e:
+        logger.error(f"Dashboard error: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to load dashboard data"
+        )
+
+# ============================================================
+# WEBHOOKS
+# ============================================================
+
+@app.post("/api/webhooks/mpesa")
+async def mpesa_webhook(request: Request):
+    """M-Pesa webhook endpoint."""
+    try:
+        body = await request.json()
+        logger.info(f"M-Pesa webhook received")
+        
+        stk_callback = body.get("Body", {}).get("stkCallback", {})
+        checkout_request_id = stk_callback.get("CheckoutRequestID")
+        result_code = stk_callback.get("ResultCode")
+        result_desc = stk_callback.get("ResultDesc")
+        
+        if not checkout_request_id:
+            return {"ResultCode": 1, "ResultDesc": "No CheckoutRequestID"}
+        
+        database = get_supabase()
+        
+        if result_code == "0":
+            database.table("payments").update({
+                "status": "confirmed",
+                "confirmed_at": datetime.now(timezone.utc).isoformat()
+            }).eq("checkout_request_id", checkout_request_id).execute()
+            
+            logger.info(f"Payment confirmed via webhook: {checkout_request_id}")
+            return {"ResultCode": 0, "ResultDesc": "Success"}
+        else:
+            database.table("payments").update({
+                "status": "failed",
+                "notes": f"Webhook: {result_desc}"
+            }).eq("checkout_request_id", checkout_request_id).execute()
+            
+            logger.warning(f"Payment failed via webhook: {checkout_request_id}")
+            return {"ResultCode": 0, "ResultDesc": "Payment failed recorded"}
+            
+    except Exception as e:
+        logger.error(f"Webhook error: {e}")
+        return {"ResultCode": 1, "ResultDesc": f"Error: {str(e)}"}
+
+@app.get("/api/webhooks/health")
+async def webhook_health():
+    """Webhook health check."""
+    return {
+        "success": True,
+        "status": "healthy",
+        "service": "webhook",
+        "timestamp": datetime.now(timezone.utc).isoformat()
+    }
+
+# ============================================================
+# ERROR HANDLER
+# ============================================================
+
+@app.exception_handler(Exception)
+async def global_exception_handler(request: Request, exc: Exception):
+    logger.exception(f"Unhandled exception: {exc}")
+    return JSONResponse(
+        status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+        content={
+            "success": False,
+            "message": "Internal server error",
+            "error": str(exc) if os.getenv("DEBUG") == "true" else None,
+            "timestamp": datetime.now(timezone.utc).isoformat(),
+        }
+    )
+
+# ============================================================
+# MAIN ENTRYPOINT
+# ============================================================
+
+if __name__ == "__main__":
+    import uvicorn
+    uvicorn.run(
+        "main:app",
+        host="0.0.0.0",
+        port=8000,
+        reload=os.getenv("DEBUG") == "true",
+    )
