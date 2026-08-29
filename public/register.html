@@ -143,6 +143,41 @@
             transform: none !important;
         }
 
+        /* SERVER STATUS BADGE */
+        .server-status {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 12px;
+            padding: 6px 10px;
+            border-radius: 20px;
+            background: rgba(255,255,255,0.15);
+            color: white;
+        }
+
+        .server-status .dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: var(--secondary);
+            animation: pulse 1.4s infinite ease-in-out;
+        }
+
+        .server-status.online .dot {
+            background: #7ee6a3;
+            animation: none;
+        }
+
+        .server-status.offline .dot {
+            background: #f28b8b;
+            animation: none;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: .35; }
+        }
+
         /* CONTENT */
         .container {
             width: min(1180px, calc(100% - 32px));
@@ -440,6 +475,12 @@
             color: #166534;
         }
 
+        .alert.info {
+            background: #eef6fb;
+            border: 1px solid #bcdcf0;
+            color: #1c5a85;
+        }
+
         .loading {
             display: none;
             margin-left: 7px;
@@ -549,6 +590,10 @@
         </div>
 
         <div class="top-actions">
+            <span id="serverStatus" class="server-status">
+                <span class="dot"></span>
+                <span id="serverStatusText">Connecting…</span>
+            </span>
             <a href="index.html" class="btn btn-outline-light">
                 ← Home
             </a>
@@ -665,6 +710,14 @@
                     <input type="text" id="location" placeholder="Town or location">
                 </div>
 
+                <div class="form-group">
+                    <label>Agent Sales Code</label>
+                    <select id="salesCode">
+                        <option value="">No agent / not applicable</option>
+                    </select>
+                    <span class="help-text">Optional — select the referring agent, if any.</span>
+                </div>
+
                 <div class="form-group full">
                     <label>Physical Address</label>
                     <textarea id="address" placeholder="Enter physical address"></textarea>
@@ -679,27 +732,15 @@
                 <p>Choose the appropriate Masika Benevolent membership plan.</p>
             </div>
 
-            <div class="plans">
-                <label class="plan" data-plan="COMFORT">
-                    <input type="radio" name="plan" value="COMFORT">
-                    <div class="plan-name">COMFORT</div>
-                    <div class="plan-description">Basic membership protection for individuals and families.</div>
-                    <div class="plan-price">KES <span id="comfortPrice">200</span></div>
-                </label>
-
-                <label class="plan" data-plan="DIGNITY">
-                    <input type="radio" name="plan" value="DIGNITY">
-                    <div class="plan-name">DIGNITY</div>
-                    <div class="plan-description">Enhanced family protection and benevolent support.</div>
-                    <div class="plan-price">KES <span id="dignityPrice">500</span></div>
-                </label>
-
-                <label class="plan" data-plan="WAZAZI">
-                    <input type="radio" name="plan" value="WAZAZI">
-                    <div class="plan-name">WAZAZI</div>
-                    <div class="plan-description">Comprehensive parent and family protection.</div>
-                    <div class="plan-price">KES <span id="wazaziPrice">100</span></div>
-                </label>
+            <div class="form-group">
+                <label>Membership Plan <span class="required">*</span></label>
+                <select id="planSelect" required>
+                    <option value="">Select a plan</option>
+                    <option value="COMFORT">COMFORT — KES 200 registration</option>
+                    <option value="DIGNITY">DIGNITY — KES 500 registration</option>
+                    <option value="WAZAZI">WAZAZI — KES 100 registration</option>
+                </select>
+                <span class="help-text" id="planDescription">&nbsp;</span>
             </div>
         </section>
 
@@ -770,12 +811,26 @@
 
 const API_BASE_URL = 'https://masika-c921.onrender.com';
 
+// Render free-tier instances spin down after inactivity and can take
+// 30-60s to wake back up. A cold request during that window often
+// fails outright with "Failed to fetch" rather than just being slow.
+// To avoid that hitting the user on their first real submit, we:
+//   1) Ping a lightweight health endpoint as soon as the page loads,
+//      so the instance is already warming up in the background.
+//   2) Wrap real API calls in a retry-with-backoff so a request that
+//      fails purely due to a network/cold-start error is retried a
+//      few times before we show the user an error.
+const WAKEUP_PATH = '/api/health';
+const MAX_RETRIES = 4;
+const RETRY_DELAYS_MS = [1500, 3000, 6000, 10000]; // backoff between attempts
+
 /* ============================================================
    STATE
    ============================================================ */
 
 let calculatedRegistration = null;
 let dependantIndex = 0;
+let serverIsAwake = false;
 
 /* ============================================================
    DOM REFERENCES
@@ -794,6 +849,7 @@ const email = document.getElementById("email");
 const county = document.getElementById("county");
 const locationField = document.getElementById("location");
 const address = document.getElementById("address");
+const salesCode = document.getElementById("salesCode");
 
 const dependantsContainer = document.getElementById("dependantsContainer");
 const dependantCount = document.getElementById("dependantCount");
@@ -801,6 +857,9 @@ const addDependantBtn = document.getElementById("addDependantBtn");
 const calculateBtn = document.getElementById("calculateBtn");
 const registerBtn = document.getElementById("registerBtn");
 const resetBtn = document.getElementById("resetBtn");
+
+const serverStatusEl = document.getElementById("serverStatus");
+const serverStatusText = document.getElementById("serverStatusText");
 
 /* ============================================================
    ALERT FUNCTIONS
@@ -818,19 +877,79 @@ function clearAlert() {
 }
 
 /* ============================================================
+   SERVER WAKE-UP / STATUS INDICATOR
+   ============================================================ */
+
+function setServerStatus(state, text) {
+    // state: 'connecting' | 'online' | 'offline'
+    serverStatusEl.className = "server-status " + (state === "connecting" ? "" : state);
+    serverStatusText.textContent = text;
+}
+
+async function pingServer(timeoutMs = 8000) {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), timeoutMs);
+    try {
+        const response = await fetch(`${API_BASE_URL}${WAKEUP_PATH}`, {
+            method: "GET",
+            signal: controller.signal
+        });
+        clearTimeout(timer);
+        return response.ok;
+    } catch (err) {
+        clearTimeout(timer);
+        return false;
+    }
+}
+
+async function warmUpServer() {
+    setServerStatus("connecting", "Connecting to server…");
+
+    // Try a few times in the background; Render cold starts can take
+    // up to ~60s. We don't block the form on this — the user can fill
+    // in details while it wakes up — we just keep the status updated
+    // and it means the "Calculate"/"Register" clicks are far less
+    // likely to hit a cold instance.
+    for (let attempt = 0; attempt < 6; attempt++) {
+        const ok = await pingServer();
+        if (ok) {
+            serverIsAwake = true;
+            setServerStatus("online", "Server ready");
+            return;
+        }
+        setServerStatus("connecting", attempt === 0
+            ? "Waking up server…"
+            : "Still waking up server…");
+        await sleep(4000);
+    }
+
+    // Gave up pinging in the background; real requests will still be
+    // retried individually when the user actually submits.
+    setServerStatus("offline", "Server slow to respond");
+}
+
+function sleep(ms) {
+    return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+/* ============================================================
    PLAN SELECTION
    ============================================================ */
 
-document.querySelectorAll(".plan").forEach(plan => {
-    plan.addEventListener("click", () => {
-        document.querySelectorAll(".plan").forEach(item => item.classList.remove("selected"));
-        plan.classList.add("selected");
-        const radio = plan.querySelector("input");
-        radio.checked = true;
-        calculatedRegistration = null;
-        registerBtn.disabled = true;
-        updateSummary();
-    });
+const planSelect = document.getElementById("planSelect");
+const planDescription = document.getElementById("planDescription");
+
+const PLAN_DESCRIPTIONS = {
+    COMFORT: "Basic membership protection for individuals and families.",
+    DIGNITY: "Enhanced family protection and benevolent support.",
+    WAZAZI: "Comprehensive parent and family protection."
+};
+
+planSelect.addEventListener("change", () => {
+    calculatedRegistration = null;
+    registerBtn.disabled = true;
+    planDescription.textContent = PLAN_DESCRIPTIONS[planSelect.value] || "\u00A0";
+    updateSummary();
 });
 
 /* ============================================================
@@ -893,8 +1012,7 @@ function getDependants() {
    ============================================================ */
 
 function getSelectedPlan() {
-    const selected = document.querySelector('input[name="plan"]:checked');
-    return selected ? selected.value : null;
+    return planSelect.value || null;
 }
 
 /* ============================================================
@@ -958,6 +1076,7 @@ function getMemberPayload() {
         county: county.value,
         location: locationField.value.trim() || null,
         address: address.value.trim() || null,
+        sales_code: salesCode.value || null,
         plan: getSelectedPlan(),
         benefit_option: 'service',
         dependants: getDependants().map(dep => ({
@@ -970,39 +1089,64 @@ function getMemberPayload() {
 }
 
 /* ============================================================
-   API HELPER
+   API HELPER (with retry-with-backoff for network/cold-start errors)
    ============================================================ */
 
-async function apiRequest(path, options = {}) {
-    let response;
-    try {
-        response = await fetch(`${API_BASE_URL}${path}`, {
-            headers: { 'Content-Type': 'application/json' },
-            ...options
-        });
-    } catch (networkError) {
-        console.error("Network error calling API:", networkError);
-        throw new Error("Unable to reach the server. Please check your connection and try again.");
+function isRetryableNetworkError(err) {
+    // "Failed to fetch" / TypeError from the browser means the request
+    // never got a response at all — the classic Render cold-start
+    // symptom. HTTP errors (4xx/5xx with an actual response) are NOT
+    // retried here since retrying won't fix a validation or server
+    // logic error.
+    return err instanceof TypeError;
+}
+
+async function apiRequest(path, options = {}, { onRetry } = {}) {
+    let lastError = null;
+
+    for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
+        let response;
+        try {
+            response = await fetch(`${API_BASE_URL}${path}`, {
+                headers: { 'Content-Type': 'application/json' },
+                ...options
+            });
+        } catch (networkError) {
+            lastError = networkError;
+            console.error(`Network error calling API (attempt ${attempt + 1}/${MAX_RETRIES + 1}):`, networkError);
+
+            if (isRetryableNetworkError(networkError) && attempt < MAX_RETRIES) {
+                const delay = RETRY_DELAYS_MS[Math.min(attempt, RETRY_DELAYS_MS.length - 1)];
+                if (onRetry) onRetry(attempt + 1, delay);
+                await sleep(delay);
+                continue;
+            }
+
+            throw new Error("Unable to reach the server. Please check your connection and try again.");
+        }
+
+        let body = null;
+        try {
+            body = await response.json();
+        } catch (parseError) {
+            // Non-JSON response body; fall through with body = null
+        }
+
+        if (!response.ok) {
+            const detail = body && body.detail;
+            const message =
+                (typeof detail === "string" && detail) ||
+                (detail && detail.message) ||
+                (body && body.message) ||
+                `Request failed (HTTP ${response.status}).`;
+            throw new Error(message);
+        }
+
+        return body;
     }
 
-    let body = null;
-    try {
-        body = await response.json();
-    } catch (parseError) {
-        // Non-JSON response body; fall through with body = null
-    }
-
-    if (!response.ok) {
-        const detail = body && body.detail;
-        const message =
-            (typeof detail === "string" && detail) ||
-            (detail && detail.message) ||
-            (body && body.message) ||
-            `Request failed (HTTP ${response.status}).`;
-        throw new Error(message);
-    }
-
-    return body;
+    // Should not reach here, but just in case.
+    throw lastError || new Error("Unable to reach the server. Please check your connection and try again.");
 }
 
 /* ============================================================
@@ -1101,11 +1245,10 @@ function formatCurrency(value) {
 }
 
 /* ============================================================
-   REGISTER MEMBER — now goes through the FastAPI backend instead
-   of inserting into Supabase directly from the browser. The
-   backend re-validates everything, computes the authoritative
-   fee server-side, checks for duplicate phone/email, and
-   generates the real member_number.
+   REGISTER MEMBER — goes through the FastAPI backend, which
+   re-validates everything, computes the authoritative fee
+   server-side, checks for duplicate phone/email, and generates
+   the real member_number.
    ============================================================ */
 
 registerBtn.addEventListener("click", registerMember);
@@ -1127,16 +1270,24 @@ async function registerMember() {
         const result = await apiRequest('/api/public/register', {
             method: 'POST',
             body: JSON.stringify(payload)
+        }, {
+            onRetry: (attemptNumber, delayMs) => {
+                showAlert(
+                    `Server is waking up — retrying (attempt ${attemptNumber} of ${MAX_RETRIES})…`,
+                    "info"
+                );
+            }
         });
 
         if (!result || !result.success) {
             throw new Error((result && result.message) || "Failed to register member.");
         }
 
-        showAlert(
-            `✅ Member "${payload.first_name} ${payload.last_name}" registered successfully! Member number: ${result.member_number}`,
-            "success"
-        );
+        let successMessage = `✅ Member "${payload.first_name} ${payload.last_name}" registered successfully! Member number: ${result.member_number}`;
+        if (payload.sales_code && result.sales_code_applied === false) {
+            successMessage += ` (Note: the agent sales code "${payload.sales_code}" could not be applied.)`;
+        }
+        showAlert(successMessage, "success");
 
         // Store server-confirmed values for the payment page — never the
         // client's own estimate, since the backend is authoritative.
@@ -1211,6 +1362,30 @@ document.addEventListener('keydown', function(e) {
 });
 
 /* ============================================================
+   LOAD AGENT SALES CODES INTO DROPDOWN
+   ============================================================ */
+
+async function loadSalesCodes() {
+    try {
+        const result = await apiRequest('/api/public/sales-codes', { method: 'GET' });
+        const codes = (result && result.data) || [];
+
+        // Keep the default "No agent" option, append the rest.
+        codes.forEach(entry => {
+            const option = document.createElement("option");
+            option.value = entry.code;
+            option.textContent = entry.agent_name
+                ? `${entry.agent_name} (${entry.code})`
+                : entry.code;
+            salesCode.appendChild(option);
+        });
+    } catch (error) {
+        // Non-fatal — registration works fine with no agent selected.
+        console.warn("Could not load agent sales codes:", error.message);
+    }
+}
+
+/* ============================================================
    INITIALIZE
    ============================================================ */
 
@@ -1221,6 +1396,13 @@ function init() {
     const defaultDate = new Date();
     defaultDate.setFullYear(defaultDate.getFullYear() - 18);
     dateOfBirth.value = defaultDate.toISOString().split('T')[0];
+
+    // Kick off the background warm-up ping immediately so the Render
+    // instance has a head start waking up before the user submits.
+    warmUpServer();
+
+    // Populate the agent sales code dropdown (best-effort, non-blocking).
+    loadSalesCodes();
 }
 
 init();
