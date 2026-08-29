@@ -932,6 +932,70 @@ async def health():
 # PUBLIC ENDPOINTS
 # ============================================================
 
+@app.get("/api/public/sales-codes")
+async def get_public_sales_codes():
+    """
+    Public list of active agent sales codes, for populating a
+    'register through an agent' dropdown on the registration form.
+
+    ASSUMPTION — adjust to match your actual schema: this expects a
+    `sales_codes` table (code, agent_id, is_active) and, optionally,
+    an `agents` table (id, full_name) to attach a readable name to
+    each code. If the `agents` table/join doesn't match your schema,
+    this still returns the bare codes — it just won't have names.
+    Never raises: if the table isn't set up yet, returns an empty list
+    so the dropdown just shows "No agent".
+    """
+    database = get_supabase()
+
+    try:
+        result = (
+            database.table("sales_codes")
+            .select("id, code, agent_id")
+            .eq("is_active", True)
+            .order("code")
+            .execute()
+        )
+        codes = result.data or []
+    except Exception as e:
+        logger.warning(f"Failed to fetch public sales codes: {e}")
+        return {"success": True, "message": "No sales codes available", "data": []}
+
+    agent_names: Dict[str, str] = {}
+    agent_ids = [c["agent_id"] for c in codes if c.get("agent_id")]
+
+    if agent_ids:
+        try:
+            agents_result = (
+                database.table("agents")
+                .select("id, full_name")
+                .in_("id", agent_ids)
+                .execute()
+            )
+            agent_names = {
+                a["id"]: a.get("full_name")
+                for a in (agents_result.data or [])
+                if a.get("full_name")
+            }
+        except Exception as e:
+            logger.warning(f"Could not enrich sales codes with agent names: {e}")
+
+    data = [
+        {
+            "code": c["code"],
+            "agent_id": c.get("agent_id"),
+            "agent_name": agent_names.get(c.get("agent_id")),
+        }
+        for c in codes
+        if c.get("code")
+    ]
+
+    return {
+        "success": True,
+        "message": "Sales codes retrieved",
+        "data": data,
+    }
+
 @app.get("/api/public/plans")
 async def get_public_plans():
     """Get all available membership plans."""
