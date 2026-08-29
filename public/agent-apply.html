@@ -1,0 +1,162 @@
+// ============================================================
+// ADMIN AGENTS
+// ============================================================
+
+let currentAgentId = null;
+
+document.addEventListener('DOMContentLoaded', async function() {
+    const authenticated = await checkAdminAuth();
+    if (authenticated) {
+        updateAdminUI();
+        loadApplications();
+        loadSalesCodes();
+        loadAllAgents();
+        loadAgentStats();
+        loadAgentSelect();
+        
+        // Tab switching
+        document.querySelectorAll('.tab-btn').forEach(btn => {
+            btn.addEventListener('click', function() {
+                document.querySelectorAll('.tab-btn').forEach(b => {
+                    b.style.background = 'transparent';
+                    b.style.color = '#6b7280';
+                    b.style.boxShadow = 'none';
+                });
+                this.style.background = 'white';
+                this.style.color = '#0b5d3b';
+                this.style.boxShadow = '0 2px 8px rgba(0,0,0,0.08)';
+                
+                const tab = this.dataset.tab;
+                document.querySelectorAll('.tab-content').forEach(c => {
+                    c.style.display = 'none';
+                });
+                document.getElementById('tab-' + tab).style.display = 'block';
+            });
+        });
+    }
+});
+
+// ============================================================
+// LOAD AGENT STATS
+// ============================================================
+
+async function loadAgentStats() {
+    try {
+        // Pending count
+        const { count: pending } = await window.supabaseClient
+            .from('agent_applications')
+            .select('*', { count: 'exact', head: true })
+            .eq('status', 'pending');
+        
+        // Active agents
+        const { count: active } = await window.supabaseClient
+            .from('agent_profiles')
+            .select('*', { count: 'exact', head: true })
+            .eq('status', 'approved');
+        
+        document.getElementById('pendingCount').textContent = pending || 0;
+        document.getElementById('activeCount').textContent = active || 0;
+        document.getElementById('pendingBadge').textContent = pending || 0;
+        
+    } catch (error) {
+        console.error('Stats error:', error);
+    }
+}
+
+// ============================================================
+// LOAD APPLICATIONS
+// ============================================================
+
+async function loadApplications() {
+    const container = document.getElementById('applicationsContainer');
+    
+    try {
+        const { data, error } = await window.supabaseClient
+            .from('agent_applications')
+            .select('*')
+            .order('created_at', { ascending: false });
+        
+        if (error) throw error;
+        
+        document.getElementById('appCount').textContent = `${data?.length || 0} applications`;
+        
+        if (!data || data.length === 0) {
+            container.innerHTML = `<div style="text-align:center;padding:40px;color:#6b7280;">No applications found</div>`;
+            return;
+        }
+        
+        container.innerHTML = `
+            <div class="table-wrapper">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Name</th>
+                            <th>Email</th>
+                            <th>Phone</th>
+                            <th>Status</th>
+                            <th>Date</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${data.map(app => `
+                            <tr>
+                                <td><strong>${app.full_name || 'N/A'}</strong></td>
+                                <td>${app.email || '-'}</td>
+                                <td>${app.phone || '-'}</td>
+                                <td><span class="status-badge ${app.status}">${app.status || 'pending'}</span></td>
+                                <td>${app.created_at ? new Date(app.created_at).toLocaleDateString('en-KE') : '-'}</td>
+                                <td>
+                                    ${app.status === 'pending' ? `
+                                        <button onclick="viewApplication('${app.id}')" class="btn-sm primary">Review</button>
+                                    ` : `
+                                        <span style="color:#6b7280;font-size:12px;">Reviewed</span>
+                                    `}
+                                </td>
+                            </tr>
+                        `).join('')}
+                    </tbody>
+                </table>
+            </div>
+        `;
+        
+    } catch (error) {
+        console.error('Applications error:', error);
+        container.innerHTML = `<div style="text-align:center;padding:20px;color:#dc3545;">Error loading applications</div>`;
+    }
+}
+
+// ============================================================
+// VIEW APPLICATION
+// ============================================================
+
+async function viewApplication(appId) {
+    currentAgentId = appId;
+    
+    try {
+        const { data, error } = await window.supabaseClient
+            .from('agent_applications')
+            .select('*')
+            .eq('id', appId)
+            .single();
+        
+        if (error) throw error;
+        
+        const modal = document.getElementById('agentModal');
+        const body = document.getElementById('modalBody');
+        
+        document.getElementById('modalTitle').textContent = 'Review Agent Application';
+        
+        body.innerHTML = `
+            <div style="margin-bottom:16px;">
+                <p><strong>Full Name:</strong> ${data.full_name || 'N/A'}</p>
+                <p><strong>Email:</strong> ${data.email || 'N/A'}</p>
+                <p><strong>Phone:</strong> ${data.phone || 'N/A'}</p>
+                <p><strong>ID Number:</strong> ${data.id_number || 'N/A'}</p>
+                <p><strong>Location:</strong> ${data.location || 'N/A'}</p>
+                <p><strong>Experience:</strong> ${data.experience || 'N/A'}</p>
+                <p><strong>Status:</strong> <span class="status-badge ${data.status}">${data.status || 'pending'}</span></p>
+                <p><strong>Applied:</strong> ${data.created_at ? new Date(data.created_at).toLocaleString('en-KE') : '-'}</p>
+            </div>
+            <div style="display:flex;gap:10px;flex-wrap:wrap;">
+                <button onclick="approveAgent('${appId}
