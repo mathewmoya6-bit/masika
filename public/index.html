@@ -408,6 +408,64 @@
         }
 
         /* =========================================================
+           DROPDOWN MENU
+           ========================================================= */
+
+        .dropdown {
+            position: relative;
+        }
+
+        .dropdown-menu {
+            display: none;
+            position: absolute;
+            top: 100%;
+            left: 0;
+            background: var(--white);
+            min-width: 220px;
+            box-shadow: var(--shadow-hover);
+            border-radius: 12px;
+            padding: 8px 0;
+            margin-top: 8px;
+            z-index: 100;
+            border: 1px solid rgba(0,0,0,0.05);
+        }
+
+        .dropdown-menu.show {
+            display: block;
+        }
+
+        .dropdown-menu a {
+            display: block;
+            padding: 10px 20px;
+            color: var(--text-gray);
+            text-decoration: none;
+            font-size: 14px;
+            font-weight: 500;
+            transition: var(--transition);
+        }
+
+        .dropdown-menu a:hover {
+            background: var(--bg-light);
+            color: var(--primary-700);
+        }
+
+        .dropdown-menu a i {
+            width: 20px;
+            margin-right: 8px;
+            color: var(--primary-500);
+        }
+
+        .dropdown-toggle {
+            cursor: pointer;
+        }
+
+        .dropdown-toggle .fa-chevron-down {
+            font-size: 10px;
+            margin-left: 4px;
+            opacity: 0.6;
+        }
+
+        /* =========================================================
            TAGLINE
            ========================================================= */
 
@@ -1662,6 +1720,18 @@
                 border-bottom: 1px solid #e9ecef;
             }
 
+            .dropdown-menu {
+                position: static;
+                box-shadow: none;
+                padding-left: 20px;
+                margin-top: 4px;
+                border: none;
+            }
+
+            .dropdown-menu.show {
+                display: block;
+            }
+
             .mobile-menu-btn {
                 display: block;
             }
@@ -1826,6 +1896,21 @@
                 <a href="#coverage">Coverage</a>
                 <a href="#how-it-works">How It Works</a>
                 <a href="#payments">Payments</a>
+                <a href="privacy.html">Privacy</a>
+
+                <!-- Dropdown: More -->
+                <div class="dropdown">
+                    <span class="dropdown-toggle" onclick="toggleDropdown()" style="color:var(--text-gray);font-weight:500;font-size:15px;cursor:pointer;display:flex;align-items:center;gap:4px;">
+                        More <i class="fas fa-chevron-down"></i>
+                    </span>
+                    <div class="dropdown-menu" id="dropdownMenu">
+                        <a href="agent-apply.html"><i class="fas fa-user-tie"></i> Become an Agent</a>
+                        <a href="members.html"><i class="fas fa-users"></i> Members</a>
+                        <a href="member-details.html"><i class="fas fa-user"></i> Member Details</a>
+                        <a href="payment.html"><i class="fas fa-credit-card"></i> Payments</a>
+                        <a href="admin/admin-login.html"><i class="fas fa-lock"></i> Admin Login</a>
+                    </div>
+                </div>
 
                 <!-- Dynamic Auth Links -->
                 <div id="authLinks">
@@ -1897,6 +1982,14 @@
                                 View Plans
                             </a>
 
+                            <a
+                                href="agent-apply.html"
+                                class="btn btn-outline btn-large"
+                            >
+                                <i class="fas fa-user-tie"></i>
+                                Become an Agent
+                            </a>
+
                         </div>
 
                         <div class="hero-stats">
@@ -1914,6 +2007,11 @@
                             <div class="stat">
                                 <span class="stat-number">98%</span>
                                 <span class="stat-label">Satisfaction Rate</span>
+                            </div>
+
+                            <div class="stat">
+                                <span class="stat-number">150+</span>
+                                <span class="stat-label">Active Agents</span>
                             </div>
 
                         </div>
@@ -2912,7 +3010,7 @@
                         </ul>
 
                         <a
-                            href="register.html"
+                            href="payment.html"
                             class="btn btn-gold"
                             id="paymentBtn"
                         >
@@ -3115,6 +3213,14 @@
                             View Plans
                         </a>
 
+                        <a
+                            href="agent-apply.html"
+                            class="btn btn-outline btn-large"
+                        >
+                            <i class="fas fa-user-tie"></i>
+                            Become an Agent
+                        </a>
+
                     </div>
 
                 </div>
@@ -3161,33 +3267,15 @@
                         Quick Links
                     </h4>
 
-                    <a href="#home">
-                        Home
-                    </a>
-
-                    <a href="#plans">
-                        Membership Plans
-                    </a>
-
-                    <a href="#benefits">
-                        Benefits
-                    </a>
-
-                    <a href="#coverage">
-                        Coverage
-                    </a>
-
-                    <a href="#how-it-works">
-                        How It Works
-                    </a>
-
-                    <a href="#payments">
-                        Payments
-                    </a>
-
-                    <a href="register.html">
-                        Become a Member
-                    </a>
+                    <a href="#home">Home</a>
+                    <a href="#plans">Membership Plans</a>
+                    <a href="#benefits">Benefits</a>
+                    <a href="#coverage">Coverage</a>
+                    <a href="#how-it-works">How It Works</a>
+                    <a href="#payments">Payments</a>
+                    <a href="register.html">Become a Member</a>
+                    <a href="agent-apply.html">Become an Agent</a>
+                    <a href="privacy.html">Privacy Policy</a>
 
                 </div>
 
@@ -3260,6 +3348,35 @@
         const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
         // =========================================================
+        // DROPDOWN MENU
+        // =========================================================
+
+        function toggleDropdown() {
+            const menu = document.getElementById('dropdownMenu');
+            menu.classList.toggle('show');
+        }
+
+        // Close dropdown when clicking outside
+        document.addEventListener('click', function(event) {
+            const dropdown = document.querySelector('.dropdown');
+            const menu = document.getElementById('dropdownMenu');
+            
+            if (dropdown && !dropdown.contains(event.target)) {
+                menu.classList.remove('show');
+            }
+        });
+
+        // Close dropdown on mobile menu close
+        document.addEventListener('click', function(event) {
+            const menu = document.getElementById('dropdownMenu');
+            const navLinks = document.querySelector('.nav-links');
+            
+            if (window.innerWidth <= 768 && navLinks && !navLinks.contains(event.target)) {
+                menu.classList.remove('show');
+            }
+        });
+
+        // =========================================================
         // AUTH STATE MANAGEMENT
         // =========================================================
 
@@ -3318,15 +3435,14 @@
                 </div>
             `;
 
-            // Update hero buttons for logged in users - keep register.html
-            // (they can still register new members or go to dashboard)
+            // Update hero buttons for logged in users
             document.getElementById('heroRegisterBtn').href = 'register.html';
             document.getElementById('heroRegisterBtn').innerHTML = '<i class="fas fa-user-plus"></i> Register New Member';
             document.getElementById('ctaRegisterBtn').href = 'register.html';
             document.getElementById('ctaRegisterBtn').innerHTML = '<i class="fas fa-user-plus"></i> Register New Member';
             
-            // Update payment button - point to register.html
-            document.getElementById('paymentBtn').href = 'register.html';
+            // Update payment button
+            document.getElementById('paymentBtn').href = 'payment.html';
         }
 
         function updateNavForLoggedOut() {
@@ -3349,7 +3465,7 @@
             document.getElementById('ctaRegisterBtn').innerHTML = '<i class="fas fa-user-plus"></i> Become a Member Now';
             
             // Reset payment button
-            document.getElementById('paymentBtn').href = 'register.html';
+            document.getElementById('paymentBtn').href = 'payment.html';
         }
 
         // =========================================================
@@ -3428,7 +3544,7 @@
 
         window.addEventListener('scroll', function() {
             const sections = document.querySelectorAll('section[id]');
-            const navLinks = document.querySelectorAll('.nav-links a:not(.btn):not(.btn-nav):not(.btn-nav-outline)');
+            const navLinks = document.querySelectorAll('.nav-links a:not(.btn):not(.btn-nav):not(.btn-nav-outline):not(.dropdown-toggle)');
 
             let current = '';
 
@@ -3525,6 +3641,16 @@
 
         document.addEventListener('DOMContentLoaded', function() {
             checkAuthState();
+            
+            // Check for plan parameter in URL
+            const urlParams = new URLSearchParams(window.location.search);
+            const plan = urlParams.get('plan');
+            if (plan) {
+                // Scroll to plans section
+                setTimeout(() => {
+                    document.getElementById('plans').scrollIntoView({ behavior: 'smooth' });
+                }, 500);
+            }
         });
 
         // Also check on visibility change (in case user logs in/out in another tab)
@@ -3533,6 +3659,14 @@
                 checkAuthState();
             }
         });
+
+        // =========================================================
+        // EXPOSE FUNCTIONS
+        // =========================================================
+
+        window.toggleDropdown = toggleDropdown;
+        window.toggleMobileMenu = toggleMobileMenu;
+        window.handleLogout = handleLogout;
     </script>
 
 </body>
