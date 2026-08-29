@@ -1,162 +1,952 @@
-// ============================================================
-// ADMIN AGENTS
-// ============================================================
-
-let currentAgentId = null;
-
-document.addEventListener('DOMContentLoaded', async function() {
-    const authenticated = await checkAdminAuth();
-    if (authenticated) {
-        updateAdminUI();
-        loadApplications();
-        loadSalesCodes();
-        loadAllAgents();
-        loadAgentStats();
-        loadAgentSelect();
-        
-        // Tab switching
-        document.querySelectorAll('.tab-btn').forEach(btn => {
-            btn.addEventListener('click', function() {
-                document.querySelectorAll('.tab-btn').forEach(b => {
-                    b.style.background = 'transparent';
-                    b.style.color = '#6b7280';
-                    b.style.boxShadow = 'none';
-                });
-                this.style.background = 'white';
-                this.style.color = '#0b5d3b';
-                this.style.boxShadow = '0 2px 8px rgba(0,0,0,0.08)';
-                
-                const tab = this.dataset.tab;
-                document.querySelectorAll('.tab-content').forEach(c => {
-                    c.style.display = 'none';
-                });
-                document.getElementById('tab-' + tab).style.display = 'block';
-            });
-        });
-    }
-});
-
-// ============================================================
-// LOAD AGENT STATS
-// ============================================================
-
-async function loadAgentStats() {
-    try {
-        // Pending count
-        const { count: pending } = await window.supabaseClient
-            .from('agent_applications')
-            .select('*', { count: 'exact', head: true })
-            .eq('status', 'pending');
-        
-        // Active agents
-        const { count: active } = await window.supabaseClient
-            .from('agent_profiles')
-            .select('*', { count: 'exact', head: true })
-            .eq('status', 'approved');
-        
-        document.getElementById('pendingCount').textContent = pending || 0;
-        document.getElementById('activeCount').textContent = active || 0;
-        document.getElementById('pendingBadge').textContent = pending || 0;
-        
-    } catch (error) {
-        console.error('Stats error:', error);
-    }
-}
-
-// ============================================================
-// LOAD APPLICATIONS
-// ============================================================
-
-async function loadApplications() {
-    const container = document.getElementById('applicationsContainer');
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Become a Sales Agent | Masika Benevolent</title>
+    <meta name="description" content="Join Masika Benevolent as a sales agent and help families secure affordable last-expense coverage while earning commissions.">
     
-    try {
-        const { data, error } = await window.supabaseClient
-            .from('agent_applications')
-            .select('*')
-            .order('created_at', { ascending: false });
-        
-        if (error) throw error;
-        
-        document.getElementById('appCount').textContent = `${data?.length || 0} applications`;
-        
-        if (!data || data.length === 0) {
-            container.innerHTML = `<div style="text-align:center;padding:40px;color:#6b7280;">No applications found</div>`;
-            return;
+    <link rel="icon" type="image/png" href="assets/favicon-32x32.png">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
         }
-        
-        container.innerHTML = `
-            <div class="table-wrapper">
-                <table>
-                    <thead>
-                        <tr>
-                            <th>Name</th>
-                            <th>Email</th>
-                            <th>Phone</th>
-                            <th>Status</th>
-                            <th>Date</th>
-                            <th>Actions</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        ${data.map(app => `
-                            <tr>
-                                <td><strong>${app.full_name || 'N/A'}</strong></td>
-                                <td>${app.email || '-'}</td>
-                                <td>${app.phone || '-'}</td>
-                                <td><span class="status-badge ${app.status}">${app.status || 'pending'}</span></td>
-                                <td>${app.created_at ? new Date(app.created_at).toLocaleDateString('en-KE') : '-'}</td>
-                                <td>
-                                    ${app.status === 'pending' ? `
-                                        <button onclick="viewApplication('${app.id}')" class="btn-sm primary">Review</button>
-                                    ` : `
-                                        <span style="color:#6b7280;font-size:12px;">Reviewed</span>
-                                    `}
-                                </td>
-                            </tr>
-                        `).join('')}
-                    </tbody>
-                </table>
-            </div>
-        `;
-        
-    } catch (error) {
-        console.error('Applications error:', error);
-        container.innerHTML = `<div style="text-align:center;padding:20px;color:#dc3545;">Error loading applications</div>`;
-    }
-}
 
-// ============================================================
-// VIEW APPLICATION
-// ============================================================
+        :root {
+            --primary: #0b5d3b;
+            --primary-dark: #06452c;
+            --primary-light: #e8f5ee;
+            --gold: #d4a843;
+            --gold-light: #f5e6b8;
+            --danger: #dc3545;
+            --success: #198754;
+            --text: #1f2933;
+            --text-light: #6b7280;
+            --white: #ffffff;
+            --gray-100: #f3f4f6;
+            --gray-200: #e5e7eb;
+            --shadow: 0 4px 24px rgba(0,0,0,0.1);
+            --radius: 12px;
+        }
 
-async function viewApplication(appId) {
-    currentAgentId = appId;
-    
-    try {
-        const { data, error } = await window.supabaseClient
-            .from('agent_applications')
-            .select('*')
-            .eq('id', appId)
-            .single();
-        
-        if (error) throw error;
-        
-        const modal = document.getElementById('agentModal');
-        const body = document.getElementById('modalBody');
-        
-        document.getElementById('modalTitle').textContent = 'Review Agent Application';
-        
-        body.innerHTML = `
-            <div style="margin-bottom:16px;">
-                <p><strong>Full Name:</strong> ${data.full_name || 'N/A'}</p>
-                <p><strong>Email:</strong> ${data.email || 'N/A'}</p>
-                <p><strong>Phone:</strong> ${data.phone || 'N/A'}</p>
-                <p><strong>ID Number:</strong> ${data.id_number || 'N/A'}</p>
-                <p><strong>Location:</strong> ${data.location || 'N/A'}</p>
-                <p><strong>Experience:</strong> ${data.experience || 'N/A'}</p>
-                <p><strong>Status:</strong> <span class="status-badge ${data.status}">${data.status || 'pending'}</span></p>
-                <p><strong>Applied:</strong> ${data.created_at ? new Date(data.created_at).toLocaleString('en-KE') : '-'}</p>
+        body {
+            font-family: 'Segoe UI', Arial, sans-serif;
+            background: #f0f4f2;
+            color: var(--text);
+            min-height: 100vh;
+        }
+
+        /* Header */
+        .topbar {
+            background: var(--primary);
+            color: white;
+            padding: 16px 28px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 12px;
+            position: sticky;
+            top: 0;
+            z-index: 100;
+        }
+
+        .brand {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            text-decoration: none;
+            color: white;
+        }
+
+        .brand-logo {
+            width: 40px;
+            height: 40px;
+            background: white;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 900;
+            color: var(--primary);
+            font-size: 18px;
+        }
+
+        .brand-text {
+            font-weight: 700;
+            font-size: 18px;
+        }
+
+        .brand-sub {
+            font-size: 11px;
+            opacity: 0.7;
+            display: block;
+        }
+
+        .top-actions {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+
+        .btn {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 8px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+            text-decoration: none;
+            font-family: inherit;
+            font-size: 14px;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .btn-light {
+            background: white;
+            color: var(--primary);
+        }
+
+        .btn-light:hover {
+            background: #f0f0f0;
+            transform: translateY(-1px);
+        }
+
+        .btn-outline-light {
+            background: transparent;
+            color: white;
+            border: 2px solid rgba(255,255,255,0.3);
+        }
+
+        .btn-outline-light:hover {
+            background: rgba(255,255,255,0.1);
+            border-color: white;
+        }
+
+        .btn-primary {
+            background: var(--primary);
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background: var(--primary-dark);
+            transform: translateY(-1px);
+            box-shadow: 0 4px 12px rgba(11,93,59,0.3);
+        }
+
+        .btn-gold {
+            background: var(--gold);
+            color: white;
+        }
+
+        .btn-gold:hover {
+            background: #c4951a;
+            transform: translateY(-1px);
+        }
+
+        .btn-success {
+            background: var(--success);
+            color: white;
+        }
+
+        .btn-success:hover {
+            background: #157347;
+            transform: translateY(-1px);
+        }
+
+        .btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none !important;
+        }
+
+        /* Container */
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 40px 24px 60px;
+        }
+
+        /* Hero */
+        .hero {
+            text-align: center;
+            margin-bottom: 40px;
+        }
+
+        .hero .icon {
+            font-size: 56px;
+            margin-bottom: 12px;
+        }
+
+        .hero h1 {
+            font-size: 32px;
+            font-weight: 800;
+            color: var(--primary);
+        }
+
+        .hero p {
+            font-size: 18px;
+            color: var(--text-light);
+            max-width: 600px;
+            margin: 8px auto 0;
+        }
+
+        /* Card */
+        .card {
+            background: white;
+            border-radius: var(--radius);
+            padding: 32px;
+            box-shadow: var(--shadow);
+            margin-bottom: 24px;
+        }
+
+        .card-header {
+            border-bottom: 1px solid var(--gray-200);
+            padding-bottom: 16px;
+            margin-bottom: 24px;
+        }
+
+        .card-header h2 {
+            font-size: 20px;
+            font-weight: 700;
+        }
+
+        .card-header p {
+            color: var(--text-light);
+            font-size: 14px;
+            margin-top: 4px;
+        }
+
+        /* Form */
+        .form-group {
+            margin-bottom: 18px;
+        }
+
+        .form-group label {
+            display: block;
+            font-weight: 600;
+            font-size: 13px;
+            margin-bottom: 6px;
+            color: var(--text);
+        }
+
+        .form-group label .required {
+            color: var(--danger);
+        }
+
+        .form-group .help-text {
+            font-size: 12px;
+            color: var(--text-light);
+            margin-top: 4px;
+        }
+
+        .form-control {
+            width: 100%;
+            padding: 12px 16px;
+            border: 2px solid var(--gray-200);
+            border-radius: 8px;
+            font-size: 15px;
+            transition: all 0.2s;
+            font-family: inherit;
+            background: white;
+            color: var(--text);
+        }
+
+        .form-control:focus {
+            outline: none;
+            border-color: var(--primary);
+            box-shadow: 0 0 0 3px rgba(11,93,59,0.1);
+        }
+
+        .form-control.error {
+            border-color: var(--danger);
+        }
+
+        .form-control:disabled {
+            background: var(--gray-100);
+            cursor: not-allowed;
+        }
+
+        textarea.form-control {
+            min-height: 100px;
+            resize: vertical;
+        }
+
+        select.form-control {
+            appearance: none;
+            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%236b7280' d='M6 8L1 3h10z'/%3E%3C/svg%3E");
+            background-repeat: no-repeat;
+            background-position: right 12px center;
+            padding-right: 36px;
+        }
+
+        .form-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 16px;
+        }
+
+        .form-checkbox {
+            display: flex;
+            align-items: flex-start;
+            gap: 12px;
+            margin: 16px 0;
+        }
+
+        .form-checkbox input[type="checkbox"] {
+            width: 18px;
+            height: 18px;
+            min-width: 18px;
+            margin-top: 3px;
+            accent-color: var(--primary);
+            cursor: pointer;
+        }
+
+        .form-checkbox label {
+            font-size: 14px;
+            color: var(--text-light);
+            line-height: 1.5;
+            cursor: pointer;
+        }
+
+        .form-checkbox label a {
+            color: var(--primary);
+            text-decoration: none;
+        }
+
+        .form-checkbox label a:hover {
+            text-decoration: underline;
+        }
+
+        /* Alert */
+        .alert {
+            display: none;
+            padding: 14px 18px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            font-size: 14px;
+        }
+
+        .alert.show {
+            display: block;
+        }
+
+        .alert.success {
+            background: #ecfdf5;
+            border: 1px solid #a7f3d0;
+            color: #065f46;
+        }
+
+        .alert.error {
+            background: #fef2f2;
+            border: 1px solid #fecaca;
+            color: #991b1b;
+        }
+
+        .alert.info {
+            background: #eff6ff;
+            border: 1px solid #bfdbfe;
+            color: #1e40af;
+        }
+
+        .alert.warning {
+            background: #fffbeb;
+            border: 1px solid #fde68a;
+            color: #92400e;
+        }
+
+        /* Success State */
+        .success-state {
+            display: none;
+            text-align: center;
+            padding: 40px 20px;
+        }
+
+        .success-state.show {
+            display: block;
+        }
+
+        .success-state .icon {
+            font-size: 64px;
+            margin-bottom: 16px;
+        }
+
+        .success-state h2 {
+            font-size: 28px;
+            font-weight: 800;
+            color: var(--success);
+        }
+
+        .success-state p {
+            color: var(--text-light);
+            font-size: 16px;
+            max-width: 500px;
+            margin: 8px auto 0;
+        }
+
+        .success-state .steps {
+            text-align: left;
+            max-width: 400px;
+            margin: 20px auto;
+            padding: 0 20px;
+        }
+
+        .success-state .steps li {
+            padding: 8px 0;
+            border-bottom: 1px solid var(--gray-200);
+        }
+
+        .success-state .steps li:last-child {
+            border-bottom: none;
+        }
+
+        /* Loading */
+        .spinner {
+            display: none;
+            width: 20px;
+            height: 20px;
+            border: 3px solid rgba(255,255,255,0.3);
+            border-top-color: white;
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+        }
+
+        .btn.loading .spinner {
+            display: inline-block;
+        }
+
+        .btn.loading .btn-text {
+            display: none;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        /* Responsive */
+        @media (max-width: 768px) {
+            .topbar {
+                padding: 12px 16px;
+                flex-direction: column;
+                align-items: stretch;
+                text-align: center;
+            }
+
+            .brand {
+                justify-content: center;
+            }
+
+            .top-actions {
+                justify-content: center;
+            }
+
+            .container {
+                padding: 24px 16px 40px;
+            }
+
+            .hero h1 {
+                font-size: 26px;
+            }
+
+            .card {
+                padding: 20px;
+            }
+
+            .form-row {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        @media (max-width: 480px) {
+            .hero .icon {
+                font-size: 40px;
+            }
+
+            .hero h1 {
+                font-size: 22px;
+            }
+
+            .card {
+                padding: 16px;
+            }
+
+            .top-actions .btn {
+                font-size: 13px;
+                padding: 8px 14px;
+            }
+        }
+
+        /* Benefits Section */
+        .benefits-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 16px;
+            margin-top: 16px;
+        }
+
+        .benefit-item {
+            text-align: center;
+            padding: 16px;
+            background: var(--primary-light);
+            border-radius: 8px;
+        }
+
+        .benefit-item .icon {
+            font-size: 28px;
+            margin-bottom: 8px;
+            display: block;
+        }
+
+        .benefit-item h4 {
+            font-size: 14px;
+            font-weight: 700;
+            color: var(--primary);
+        }
+
+        .benefit-item p {
+            font-size: 13px;
+            color: var(--text-light);
+            margin-top: 4px;
+        }
+
+        @media (max-width: 600px) {
+            .benefits-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+
+<body>
+
+    <!-- ============================================================
+    HEADER
+    ============================================================ -->
+
+    <header class="topbar">
+        <a href="index.html" class="brand">
+            <div class="brand-logo">MB</div>
+            <div>
+                <span class="brand-text">Masika Benevolent</span>
+                <span class="brand-sub">Sales Agent Application</span>
             </div>
-            <div style="display:flex;gap:10px;flex-wrap:wrap;">
-                <button onclick="approveAgent('${appId}
+        </a>
+
+        <div class="top-actions">
+            <a href="index.html" class="btn btn-outline-light">← Home</a>
+            <a href="register.html" class="btn btn-light">Become a Member</a>
+        </div>
+    </header>
+
+    <!-- ============================================================
+    MAIN CONTENT
+    ============================================================ -->
+
+    <main class="container">
+
+        <!-- Hero -->
+        <div class="hero">
+            <div class="icon">🤝</div>
+            <h1>Become a Sales Agent</h1>
+            <p>Join Masika Benevolent as a sales agent and help families secure affordable last-expense coverage while earning commissions.</p>
+        </div>
+
+        <!-- Benefits -->
+        <div class="card" style="background:var(--primary);color:white;">
+            <div style="text-align:center;margin-bottom:12px;">
+                <h3 style="color:white;">🌟 Why Become a Masika Agent?</h3>
+            </div>
+            <div class="benefits-grid">
+                <div class="benefit-item" style="background:rgba(255,255,255,0.1);">
+                    <span class="icon">💰</span>
+                    <h4 style="color:white;">Earn Commissions</h4>
+                    <p style="color:rgba(255,255,255,0.7);">Competitive commission rates on every successful registration</p>
+                </div>
+                <div class="benefit-item" style="background:rgba(255,255,255,0.1);">
+                    <span class="icon">📈</span>
+                    <h4 style="color:white;">Growth Opportunities</h4>
+                    <p style="color:rgba(255,255,255,0.7);">Build your career with training and advancement opportunities</p>
+                </div>
+                <div class="benefit-item" style="background:rgba(255,255,255,0.1);">
+                    <span class="icon">🤝</span>
+                    <h4 style="color:white;">Make a Difference</h4>
+                    <p style="color:rgba(255,255,255,0.7);">Help families get the coverage they need when it matters most</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Alert -->
+        <div id="alertBox" class="alert"></div>
+
+        <!-- Application Form -->
+        <div id="formContainer">
+            <div class="card">
+                <div class="card-header">
+                    <h2>📝 Agent Application Form</h2>
+                    <p>Fill in your details to apply as a Masika Benevolent sales agent.</p>
+                </div>
+
+                <form id="agentForm" onsubmit="submitApplication(event)">
+                    <!-- Personal Details -->
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>Full Name <span class="required">*</span></label>
+                            <input type="text" id="fullName" class="form-control" placeholder="Enter your full name" required>
+                        </div>
+                        <div class="form-group">
+                            <label>Email Address <span class="required">*</span></label>
+                            <input type="email" id="email" class="form-control" placeholder="you@example.com" required>
+                        </div>
+                    </div>
+
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>Phone Number <span class="required">*</span></label>
+                            <input type="tel" id="phone" class="form-control" placeholder="0712345678" required>
+                            <span class="help-text">Active M-Pesa registered number</span>
+                        </div>
+                        <div class="form-group">
+                            <label>ID/Passport Number <span class="required">*</span></label>
+                            <input type="text" id="idNumber" class="form-control" placeholder="Enter ID number" required>
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label>County <span class="required">*</span></label>
+                        <select id="county" class="form-control" required>
+                            <option value="">Select your county</option>
+                            <option>Nairobi</option><option>Mombasa</option><option>Kisumu</option>
+                            <option>Nakuru</option><option>Kiambu</option><option>Machakos</option>
+                            <option>Kajiado</option><option>Uasin Gishu</option><option>Kericho</option>
+                            <option>Bomet</option><option>Nyeri</option><option>Murang'a</option>
+                            <option>Kirinyaga</option><option>Embu</option><option>Meru</option>
+                            <option>Tharaka-Nithi</option><option>Isiolo</option><option>Laikipia</option>
+                            <option>Samburu</option><option>Trans Nzoia</option><option>Nandi</option>
+                            <option>Baringo</option><option>Elgeyo-Marakwet</option><option>West Pokot</option>
+                            <option>Kakamega</option><option>Vihiga</option><option>Bungoma</option>
+                            <option>Busia</option><option>Siaya</option><option>Homa Bay</option>
+                            <option>Migori</option><option>Kisii</option><option>Nyamira</option>
+                            <option>Nyandarua</option><option>Kitui</option><option>Makueni</option>
+                            <option>Garissa</option><option>Wajir</option><option>Mandera</option>
+                            <option>Tana River</option><option>Lamu</option><option>Taita-Taveta</option>
+                            <option>Kwale</option><option>Turkana</option><option>Marsabit</option>
+                            <option>Voi</option><option>Other</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Location/Town</label>
+                        <input type="text" id="location" class="form-control" placeholder="Enter your town or location">
+                    </div>
+
+                    <!-- Experience -->
+                    <div class="form-group">
+                        <label>Relevant Experience</label>
+                        <textarea id="experience" class="form-control" placeholder="Tell us about your sales experience, if any..."></textarea>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Why do you want to become a Masika agent? <span class="required">*</span></label>
+                        <textarea id="reason" class="form-control" placeholder="Share your motivation..." required></textarea>
+                    </div>
+
+                    <!-- Referral Code -->
+                    <div class="form-group">
+                        <label>Referral Code (if any)</label>
+                        <input type="text" id="referralCode" class="form-control" placeholder="Enter referral code if you have one">
+                        <span class="help-text">If an existing agent referred you, enter their code here</span>
+                    </div>
+
+                    <!-- Terms -->
+                    <div class="form-checkbox">
+                        <input type="checkbox" id="terms" required>
+                        <label for="terms">
+                            I confirm that the information provided is accurate and I agree to the
+                            <a href="terms.html">Terms and Conditions</a> and
+                            <a href="privacy.html">Privacy Policy</a> of Masika Benevolent.
+                        </label>
+                    </div>
+
+                    <div class="form-checkbox">
+                        <input type="checkbox" id="marketingConsent">
+                        <label for="marketingConsent">
+                            I consent to receive updates and marketing communications from Masika Benevolent.
+                        </label>
+                    </div>
+
+                    <!-- Submit -->
+                    <button type="submit" class="btn btn-primary" style="width:100%;padding:14px;font-size:16px;" id="submitBtn">
+                        <span class="btn-text"><i class="fas fa-paper-plane"></i> Submit Application</span>
+                        <span class="spinner"></span>
+                    </button>
+                </form>
+            </div>
+        </div>
+
+        <!-- Success State -->
+        <div id="successState" class="success-state">
+            <div class="icon">🎉</div>
+            <h2>Application Submitted Successfully!</h2>
+            <p>Thank you for applying to become a Masika Benevolent sales agent.</p>
+            
+            <div style="background:#f0f7f4;border-radius:12px;padding:20px;margin:20px 0;text-align:left;">
+                <p><strong>📋 What happens next?</strong></p>
+                <ol class="steps">
+                    <li>✅ Your application is being reviewed by our team</li>
+                    <li>📧 You'll receive a confirmation email shortly</li>
+                    <li>📞 Our team will contact you within 2-3 business days</li>
+                    <li>🎯 Once approved, you'll get access to sales codes and training</li>
+                </ol>
+            </div>
+
+            <div style="display:flex;gap:12px;justify-content:center;flex-wrap:wrap;">
+                <a href="index.html" class="btn btn-primary">← Back to Home</a>
+                <a href="register.html" class="btn btn-gold">Become a Member</a>
+            </div>
+        </div>
+
+    </main>
+
+    <!-- ============================================================
+    JAVASCRIPT
+    ============================================================ -->
+
+    <script>
+        // ============================================================
+        // SUPABASE CONFIGURATION
+        // ============================================================
+
+        const SUPABASE_URL = 'https://wpxzlcdrirlcyvfiquld.supabase.co';
+        const SUPABASE_ANON_KEY = 'YOUR_SUPABASE_ANON_KEY'; // REPLACE WITH YOUR ACTUAL KEY
+
+        const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+        // ============================================================
+        // SUBMIT APPLICATION
+        // ============================================================
+
+        async function submitApplication(event) {
+            event.preventDefault();
+
+            const form = document.getElementById('agentForm');
+            const submitBtn = document.getElementById('submitBtn');
+            const alertBox = document.getElementById('alertBox');
+
+            // Clear previous alerts
+            alertBox.className = 'alert';
+
+            // Get form values
+            const fullName = document.getElementById('fullName').value.trim();
+            const email = document.getElementById('email').value.trim();
+            const phone = document.getElementById('phone').value.trim();
+            const idNumber = document.getElementById('idNumber').value.trim();
+            const county = document.getElementById('county').value;
+            const location = document.getElementById('location').value.trim();
+            const experience = document.getElementById('experience').value.trim();
+            const reason = document.getElementById('reason').value.trim();
+            const referralCode = document.getElementById('referralCode').value.trim();
+            const terms = document.getElementById('terms').checked;
+
+            // Validate
+            if (!fullName || fullName.length < 2) {
+                showAlert('Please enter your full name.', 'error');
+                document.getElementById('fullName').focus();
+                return;
+            }
+
+            if (!email || !isValidEmail(email)) {
+                showAlert('Please enter a valid email address.', 'error');
+                document.getElementById('email').focus();
+                return;
+            }
+
+            if (!phone || phone.length < 9) {
+                showAlert('Please enter a valid phone number.', 'error');
+                document.getElementById('phone').focus();
+                return;
+            }
+
+            if (!idNumber || idNumber.length < 5) {
+                showAlert('Please enter your ID/Passport number.', 'error');
+                document.getElementById('idNumber').focus();
+                return;
+            }
+
+            if (!county) {
+                showAlert('Please select your county.', 'error');
+                document.getElementById('county').focus();
+                return;
+            }
+
+            if (!reason || reason.length < 10) {
+                showAlert('Please tell us why you want to become an agent (minimum 10 characters).', 'error');
+                document.getElementById('reason').focus();
+                return;
+            }
+
+            if (!terms) {
+                showAlert('Please agree to the Terms and Conditions.', 'error');
+                document.getElementById('terms').focus();
+                return;
+            }
+
+            // Show loading
+            submitBtn.classList.add('loading');
+            submitBtn.disabled = true;
+
+            try {
+                // Check if email already exists
+                const { data: existing, error: checkError } = await supabaseClient
+                    .from('agent_applications')
+                    .select('id, email')
+                    .eq('email', email)
+                    .maybeSingle();
+
+                if (checkError) {
+                    console.error('Check error:', checkError);
+                }
+
+                if (existing) {
+                    showAlert('An application with this email already exists. Please contact support.', 'warning');
+                    submitBtn.classList.remove('loading');
+                    submitBtn.disabled = false;
+                    return;
+                }
+
+                // Check if phone already exists
+                const { data: existingPhone, error: phoneCheckError } = await supabaseClient
+                    .from('agent_applications')
+                    .select('id, phone')
+                    .eq('phone', phone)
+                    .maybeSingle();
+
+                if (phoneCheckError) {
+                    console.error('Phone check error:', phoneCheckError);
+                }
+
+                if (existingPhone) {
+                    showAlert('An application with this phone number already exists.', 'warning');
+                    submitBtn.classList.remove('loading');
+                    submitBtn.disabled = false;
+                    return;
+                }
+
+                // Submit application
+                const { data, error } = await supabaseClient
+                    .from('agent_applications')
+                    .insert({
+                        full_name: fullName,
+                        email: email,
+                        phone: phone,
+                        id_number: idNumber,
+                        county: county,
+                        location: location || null,
+                        experience: experience || null,
+                        reason: reason,
+                        referral_code: referralCode || null,
+                        status: 'pending'
+                    })
+                    .select()
+                    .single();
+
+                if (error) {
+                    console.error('Submit error:', error);
+                    showAlert('Failed to submit application. Please try again.', 'error');
+                    return;
+                }
+
+                console.log('Application submitted:', data);
+
+                // Show success
+                document.getElementById('formContainer').style.display = 'none';
+                document.getElementById('successState').classList.add('show');
+
+                // Scroll to top
+                window.scrollTo({ top: 0, behavior: 'smooth' });
+
+                // Optional: Send notification email via Supabase Edge Function
+                try {
+                    await supabaseClient.functions.invoke('send-agent-notification', {
+                        body: {
+                            application_id: data.id,
+                            full_name: fullName,
+                            email: email
+                        }
+                    });
+                } catch (notifyError) {
+                    console.warn('Notification error:', notifyError);
+                    // Don't fail the application if notification fails
+                }
+
+            } catch (error) {
+                console.error('Application error:', error);
+                showAlert('An unexpected error occurred. Please try again.', 'error');
+            } finally {
+                submitBtn.classList.remove('loading');
+                submitBtn.disabled = false;
+            }
+        }
+
+        // ============================================================
+        // HELPER FUNCTIONS
+        // ============================================================
+
+        function showAlert(message, type = 'error') {
+            const alertBox = document.getElementById('alertBox');
+            alertBox.textContent = message;
+            alertBox.className = `alert show ${type}`;
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        }
+
+        function isValidEmail(email) {
+            return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+        }
+
+        // ============================================================
+        // AUTO-FILL REFERRAL CODE FROM URL
+        // ============================================================
+
+        document.addEventListener('DOMContentLoaded', function() {
+            const params = new URLSearchParams(window.location.search);
+            const referralCode = params.get('ref');
+            if (referralCode) {
+                document.getElementById('referralCode').value = referralCode;
+            }
+
+            console.log('📝 Masika Benevolent - Agent Application');
+            console.log('🔗 URL:', window.location.href);
+            console.log('🆓 No login required - anyone can apply');
+        });
+
+        // ============================================================
+        // KEYBOARD SHORTCUTS
+        // ============================================================
+
+        document.addEventListener('keydown', function(e) {
+            // Ctrl+Enter to submit
+            if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
+                e.preventDefault();
+                const form = document.getElementById('agentForm');
+                if (form) {
+                    form.dispatchEvent(new Event('submit'));
+                }
+            }
+        });
+
+        // ============================================================
+        // EXPOSE FUNCTIONS
+        // ============================================================
+
+        window.submitApplication = submitApplication;
+    </script>
+
+</body>
+</html>
