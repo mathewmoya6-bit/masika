@@ -1,0 +1,2103 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Masika Benevolent - Affordable Last-Expense Coverage</title>
+    <link rel="icon" type="image/png" href="assets/masika-bird.png">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+    <style>
+        /* ===== COMPLETE STYLES ===== */
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        :root {
+            /* Primary Colors - Rich Green Palette */
+            --primary-900: #0a1e12;
+            --primary-800: #0d2818;
+            --primary-700: #1a472a;
+            --primary-600: #1e5631;
+            --primary-500: #2d6a4f;
+            --primary-400: #40916c;
+            --primary-300: #52b788;
+            --primary-200: #74c69d;
+            --primary-100: #95d5b2;
+            --primary-50: #d8f3dc;
+
+            /* Brand Blue (from logo) */
+            --blue-700: #12386f;
+            --blue-600: #1a4d94;
+            --blue-500: #2f6fc4;
+            --blue-400: #4f8fe0;
+
+            /* Gold Accent */
+            --gold-600: #b8860b;
+            --gold-500: #d4a843;
+            --gold-400: #e8c85a;
+            --gold-300: #f0d68a;
+            --gold-200: #f5e6b8;
+
+            /* Gradients */
+            --primary-gradient: linear-gradient(135deg, #0a1e12 0%, #1a472a 40%, #2d6a4f 70%, #40916c 100%);
+            --primary-gradient-light: linear-gradient(135deg, #1a472a 0%, #2d6a4f 50%, #52b788 100%);
+            --gold-gradient: linear-gradient(135deg, #b8860b 0%, #d4a843 50%, #e8c85a 100%);
+            --blue-gradient: linear-gradient(135deg, #12386f 0%, #2f6fc4 60%, #4f8fe0 100%);
+            --purple-gradient: linear-gradient(135deg, #2d1b4e 0%, #4a2f7a 60%, #6b46b3 100%);
+
+            /* UI Colors */
+            --white: #ffffff;
+            --black: #0a0a0a;
+            --text-dark: #0f172a;
+            --text-gray: #475569;
+            --text-light: #94a3b8;
+            --bg-light: #f0f4f2;
+            --danger: #b3261e;
+            --shadow: 0 4px 24px rgba(0, 0, 0, 0.08);
+            --shadow-hover: 0 12px 48px rgba(0, 0, 0, 0.15);
+            --shadow-gold: 0 8px 32px rgba(212, 168, 67, 0.3);
+            --radius: 16px;
+            --radius-lg: 24px;
+            --transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        html {
+            scroll-behavior: smooth;
+        }
+
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            color: var(--text-dark);
+            line-height: 1.6;
+            background: var(--bg-light);
+            overflow-x: hidden;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 0 24px;
+        }
+
+        /* ===== BUTTONS ===== */
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 10px;
+            padding: 14px 32px;
+            border: none;
+            border-radius: 12px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: var(--transition);
+            text-decoration: none;
+            justify-content: center;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .btn-primary {
+            background: var(--primary-gradient);
+            color: var(--white);
+            box-shadow: 0 4px 20px rgba(26, 71, 42, 0.35);
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 8px 40px rgba(26, 71, 42, 0.45);
+        }
+
+        .btn-primary::after {
+            content: '';
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            width: 0;
+            height: 0;
+            background: rgba(255, 255, 255, 0.15);
+            border-radius: 50%;
+            transform: translate(-50%, -50%);
+            transition: width 0.6s, height 0.6s;
+        }
+
+        .btn-primary:active::after {
+            width: 400px;
+            height: 400px;
+        }
+
+        .btn-gold {
+            background: var(--gold-gradient);
+            color: var(--white);
+            box-shadow: var(--shadow-gold);
+        }
+
+        .btn-gold:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 8px 40px rgba(212, 168, 67, 0.4);
+        }
+
+        .btn-blue {
+            background: var(--blue-gradient);
+            color: var(--white);
+            box-shadow: 0 8px 32px rgba(47, 111, 196, 0.35);
+        }
+
+        .btn-blue:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 8px 40px rgba(47, 111, 196, 0.45);
+        }
+
+        .btn-purple {
+            background: var(--purple-gradient);
+            color: var(--white);
+            box-shadow: 0 8px 32px rgba(107, 70, 179, 0.35);
+        }
+
+        .btn-purple:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 8px 40px rgba(107, 70, 179, 0.45);
+        }
+
+        .btn-outline {
+            background: transparent;
+            color: var(--white);
+            border: 2px solid rgba(255, 255, 255, 0.3);
+        }
+
+        .btn-outline:hover {
+            background: rgba(255, 255, 255, 0.1);
+            border-color: var(--white);
+            transform: translateY(-3px);
+        }
+
+        .btn-outline-gold {
+            background: transparent;
+            color: var(--gold-500);
+            border: 2px solid var(--gold-500);
+        }
+
+        .btn-outline-gold:hover {
+            background: var(--gold-500);
+            color: var(--white);
+            transform: translateY(-3px);
+            box-shadow: var(--shadow-gold);
+        }
+
+        .btn-white {
+            background: var(--white);
+            color: var(--primary-700);
+        }
+
+        .btn-white:hover {
+            transform: translateY(-3px);
+            box-shadow: var(--shadow);
+        }
+
+        .btn-large {
+            padding: 18px 44px;
+            font-size: 18px;
+            border-radius: 14px;
+        }
+
+        .btn-block {
+            width: 100%;
+            justify-content: center;
+        }
+
+        .btn-nav {
+            padding: 10px 24px;
+            font-size: 14px;
+            border-radius: 10px;
+            background: var(--primary-gradient);
+            color: var(--white);
+        }
+
+        .btn-nav:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 30px rgba(26, 71, 42, 0.4);
+        }
+
+        /* ===== NAVBAR ===== */
+        .navbar {
+            background: rgba(255, 255, 255, 0.97);
+            backdrop-filter: blur(12px);
+            box-shadow: 0 2px 24px rgba(0, 0, 0, 0.06);
+            padding: 10px 0;
+            position: sticky;
+            top: 0;
+            z-index: 1000;
+            border-bottom: 1px solid rgba(0, 0, 0, 0.04);
+        }
+
+        .navbar .container {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .nav-brand {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            text-decoration: none;
+        }
+
+        .nav-brand img.brand-logo {
+            height: 44px;
+            width: auto;
+            display: block;
+        }
+
+        .nav-links {
+            display: flex;
+            align-items: center;
+            gap: 28px;
+        }
+
+        .nav-links a {
+            color: var(--text-gray);
+            text-decoration: none;
+            font-weight: 500;
+            font-size: 15px;
+            transition: var(--transition);
+            position: relative;
+        }
+
+        .nav-links a::after {
+            content: '';
+            position: absolute;
+            bottom: -4px;
+            left: 0;
+            width: 0;
+            height: 2.5px;
+            background: var(--primary-gradient);
+            transition: var(--transition);
+            border-radius: 2px;
+        }
+
+        .nav-links a:hover {
+            color: var(--primary-700);
+        }
+
+        .nav-links a:hover::after,
+        .nav-links a.active::after {
+            width: 100%;
+        }
+
+        .nav-links a.active {
+            color: var(--primary-700);
+        }
+
+        .mobile-menu-btn {
+            display: none;
+            background: none;
+            border: none;
+            font-size: 24px;
+            color: var(--text-dark);
+            cursor: pointer;
+            padding: 8px 12px;
+            border-radius: 8px;
+            transition: var(--transition);
+        }
+
+        .mobile-menu-btn:hover {
+            background: var(--bg-light);
+        }
+
+        /* ===== TAGLINE STRIP ===== */
+        .tagline-strip {
+            background: var(--primary-800);
+            color: var(--gold-300);
+            text-align: center;
+            font-size: 13px;
+            font-weight: 600;
+            letter-spacing: 0.5px;
+            padding: 7px 0;
+        }
+
+        /* ===== HERO SECTION ===== */
+        .hero {
+            background: var(--primary-gradient);
+            color: var(--white);
+            padding: 80px 0 60px;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .hero::before {
+            content: '';
+            position: absolute;
+            top: -40%;
+            right: -15%;
+            width: 55%;
+            height: 180%;
+            background: radial-gradient(ellipse, rgba(255, 255, 255, 0.04) 0%, transparent 70%);
+            border-radius: 50%;
+            transform: rotate(15deg);
+        }
+
+        .hero::after {
+            content: '';
+            position: absolute;
+            bottom: -30%;
+            left: -10%;
+            width: 35%;
+            height: 140%;
+            background: radial-gradient(ellipse, rgba(255, 255, 255, 0.03) 0%, transparent 70%);
+            border-radius: 50%;
+            transform: rotate(-10deg);
+        }
+
+        .hero-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 60px;
+            align-items: center;
+            position: relative;
+            z-index: 1;
+        }
+
+        .hero-content h1 {
+            font-size: 48px;
+            font-weight: 900;
+            line-height: 1.1;
+            margin-bottom: 20px;
+            letter-spacing: -1px;
+        }
+
+        .hero-content .highlight {
+            background: var(--gold-gradient);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .hero-content p {
+            font-size: 18px;
+            opacity: 0.9;
+            margin-bottom: 28px;
+            max-width: 500px;
+            line-height: 1.7;
+        }
+
+        .hero-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            background: rgba(255, 215, 0, 0.15);
+            border: 1px solid rgba(255, 215, 0, 0.2);
+            padding: 6px 16px;
+            border-radius: 20px;
+            font-size: 13px;
+            font-weight: 600;
+            color: var(--gold-300);
+            margin-bottom: 16px;
+        }
+
+        .hero-badge i {
+            font-size: 14px;
+        }
+
+        .hero-actions {
+            display: flex;
+            gap: 16px;
+            flex-wrap: wrap;
+            margin-bottom: 40px;
+        }
+
+        .hero-stats {
+            display: flex;
+            gap: 48px;
+            padding-top: 32px;
+            border-top: 1px solid rgba(255, 255, 255, 0.12);
+        }
+
+        .hero-stats .stat {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .stat-number {
+            font-size: 28px;
+            font-weight: 800;
+        }
+
+        .stat-label {
+            font-size: 14px;
+            opacity: 0.7;
+        }
+
+        .hero-image {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .hero-card {
+            background: rgba(255, 255, 255, 0.08);
+            backdrop-filter: blur(20px);
+            border: 1px solid rgba(255, 255, 255, 0.12);
+            border-radius: var(--radius-lg);
+            padding: 40px;
+            text-align: center;
+            max-width: 380px;
+            width: 100%;
+            transition: var(--transition);
+        }
+
+        .hero-card:hover {
+            transform: translateY(-4px);
+            background: rgba(255, 255, 255, 0.12);
+            border-color: rgba(255, 255, 255, 0.2);
+        }
+
+        .hero-card .card-icon {
+            font-size: 56px;
+            margin-bottom: 16px;
+        }
+
+        .hero-card h3 {
+            font-size: 24px;
+            margin-bottom: 8px;
+            color: var(--white);
+        }
+
+        .hero-card p {
+            font-size: 16px;
+            opacity: 0.8;
+            margin-bottom: 16px;
+            color: rgba(255, 255, 255, 0.8);
+        }
+
+        .hero-card .card-pricing {
+            display: flex;
+            align-items: baseline;
+            justify-content: center;
+            gap: 8px;
+        }
+
+        .card-pricing .price {
+            font-size: 36px;
+            font-weight: 900;
+            color: var(--gold-300);
+        }
+
+        .card-pricing .period {
+            font-size: 16px;
+            opacity: 0.7;
+        }
+
+        .card-pricing .sub {
+            font-size: 14px;
+            opacity: 0.6;
+            display: block;
+            margin-top: 4px;
+        }
+
+        .hero-card .cash-benefit-note {
+            margin-top: 16px;
+            background: rgba(255, 255, 255, 0.08);
+            border: 1px solid rgba(255, 255, 255, 0.12);
+            border-radius: 10px;
+            padding: 10px 14px;
+            font-size: 13px;
+            color: rgba(255, 255, 255, 0.85);
+        }
+
+        .hero-card .cash-benefit-note strong {
+            color: var(--gold-300);
+        }
+
+        /* ===== SECTION HEADERS ===== */
+        .section-header {
+            text-align: center;
+            margin-bottom: 48px;
+        }
+
+        .section-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            background: rgba(45, 106, 79, 0.1);
+            color: var(--primary-500);
+            padding: 6px 18px;
+            border-radius: 20px;
+            font-size: 13px;
+            font-weight: 600;
+            margin-bottom: 12px;
+            letter-spacing: 0.5px;
+            text-transform: uppercase;
+        }
+
+        .section-badge i {
+            font-size: 14px;
+        }
+
+        .section-header h2 {
+            font-size: 40px;
+            font-weight: 800;
+            margin-bottom: 12px;
+            letter-spacing: -0.5px;
+        }
+
+        .section-header h2 .highlight {
+            color: var(--primary-500);
+        }
+
+        .section-subtitle {
+            font-size: 18px;
+            color: var(--text-gray);
+            max-width: 600px;
+            margin: 0 auto;
+        }
+
+        /* ===== PLANS SECTION ===== */
+        .plans-section {
+            padding: 80px 0;
+            background: var(--white);
+        }
+
+        .plans-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+            gap: 32px;
+        }
+
+        .plan-card {
+            background: var(--white);
+            border: 2px solid #e9ecef;
+            border-radius: var(--radius-lg);
+            padding: 36px 32px 32px;
+            transition: var(--transition);
+            position: relative;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .plan-card:hover {
+            transform: translateY(-8px);
+            box-shadow: var(--shadow-hover);
+            border-color: transparent;
+        }
+
+        .plan-card.featured {
+            border-color: var(--gold-500);
+            box-shadow: 0 4px 40px rgba(212, 168, 67, 0.15);
+        }
+
+        .plan-card.featured:hover {
+            box-shadow: 0 8px 60px rgba(212, 168, 67, 0.25);
+        }
+
+        .plan-card.plan-blue {
+            border-color: var(--blue-400);
+        }
+
+        .plan-card.plan-purple {
+            border-color: #9575cd;
+        }
+
+        .plan-badge {
+            position: absolute;
+            top: -14px;
+            right: 24px;
+            background: var(--gold-gradient);
+            color: var(--white);
+            padding: 6px 24px;
+            border-radius: 20px;
+            font-size: 13px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            box-shadow: var(--shadow-gold);
+        }
+
+        .plan-badge.badge-blue {
+            background: var(--blue-gradient);
+            box-shadow: 0 8px 24px rgba(47, 111, 196, 0.3);
+        }
+
+        .plan-badge.badge-purple {
+            background: var(--purple-gradient);
+            box-shadow: 0 8px 24px rgba(107, 70, 179, 0.3);
+        }
+
+        .plan-number {
+            position: absolute;
+            top: -16px;
+            left: 24px;
+            background: var(--primary-gradient);
+            color: var(--white);
+            width: 34px;
+            height: 34px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 800;
+            font-size: 15px;
+            box-shadow: 0 4px 16px rgba(26, 71, 42, 0.3);
+        }
+
+        .plan-card.plan-blue .plan-number {
+            background: var(--blue-gradient);
+        }
+
+        .plan-card.plan-purple .plan-number {
+            background: var(--purple-gradient);
+        }
+
+        .plan-header {
+            text-align: center;
+            padding-bottom: 20px;
+            border-bottom: 2px solid #f0f4f2;
+            margin-bottom: 20px;
+        }
+
+        .plan-icon {
+            font-size: 44px;
+            margin-bottom: 12px;
+        }
+
+        .plan-header h3 {
+            font-size: 22px;
+            font-weight: 800;
+            margin-bottom: 4px;
+            letter-spacing: 0.5px;
+            color: var(--text-dark);
+        }
+
+        .plan-subtitle {
+            font-size: 14px;
+            color: var(--text-gray);
+            margin-bottom: 12px;
+        }
+
+        .plan-price {
+            margin: 12px 0 4px;
+        }
+
+        .plan-price .amount {
+            font-size: 40px;
+            font-weight: 900;
+            color: var(--primary-700);
+        }
+
+        .plan-blue .plan-price .amount {
+            color: var(--blue-600);
+        }
+
+        .plan-purple .plan-price .amount {
+            color: #5b3a94;
+        }
+
+        .plan-price .period {
+            font-size: 16px;
+            color: var(--text-gray);
+        }
+
+        .plan-price .sub {
+            font-size: 14px;
+            color: var(--text-light);
+            display: block;
+            margin-top: 2px;
+        }
+
+        .plan-registration {
+            font-size: 14px;
+            color: var(--text-gray);
+            background: var(--bg-light);
+            padding: 4px 12px;
+            border-radius: 6px;
+            display: inline-block;
+        }
+
+        .plan-body {
+            flex: 1;
+            padding: 0 0 20px;
+        }
+
+        .plan-features {
+            list-style: none;
+            padding: 0;
+        }
+
+        .plan-features li {
+            display: flex;
+            align-items: flex-start;
+            gap: 12px;
+            padding: 8px 0;
+            color: var(--text-dark);
+            font-size: 15px;
+            line-height: 1.4;
+        }
+
+        .plan-features li i {
+            color: var(--primary-500);
+            font-size: 18px;
+            margin-top: 2px;
+            flex-shrink: 0;
+        }
+
+        .plan-blue .plan-features li i {
+            color: var(--blue-500);
+        }
+
+        .plan-purple .plan-features li i {
+            color: #7e57c2;
+        }
+
+        .plan-features li .feature-gold {
+            color: var(--gold-500);
+        }
+
+        .plan-eligibility {
+            margin-top: 14px;
+            background: #f4f0fb;
+            border: 1px solid #e3d9f7;
+            border-radius: 10px;
+            padding: 12px 14px;
+        }
+
+        .plan-eligibility .elig-title {
+            font-size: 12px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            color: #5b3a94;
+            margin-bottom: 6px;
+        }
+
+        .plan-eligibility p {
+            font-size: 13px;
+            color: var(--text-gray);
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            margin: 4px 0;
+        }
+
+        .plan-eligibility p i {
+            color: #7e57c2;
+            width: 14px;
+        }
+
+        .plan-footer {
+            text-align: center;
+            padding-top: 20px;
+            border-top: 2px solid #f0f4f2;
+        }
+
+        .plan-footer small {
+            display: block;
+            margin-top: 12px;
+            color: var(--text-gray);
+            font-size: 13px;
+        }
+
+        /* ===== BENEFIT OPTIONS ===== */
+        .benefits-section {
+            padding: 0 0 80px;
+            background: var(--white);
+        }
+
+        .benefits-wrap {
+            border: 2px solid #e9ecef;
+            border-radius: var(--radius-lg);
+            padding: 8px;
+            background: var(--bg-light);
+        }
+
+        .benefits-title {
+            text-align: center;
+            font-size: 13px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            color: var(--text-gray);
+            padding: 16px 0 8px;
+        }
+
+        .benefits-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 16px;
+            padding: 8px 16px 16px;
+        }
+
+        .benefit-option {
+            background: var(--white);
+            border-radius: 14px;
+            padding: 24px;
+            display: flex;
+            gap: 16px;
+            align-items: flex-start;
+            box-shadow: var(--shadow);
+        }
+
+        .benefit-option .benefit-num {
+            flex-shrink: 0;
+            width: 36px;
+            height: 36px;
+            border-radius: 50%;
+            background: var(--primary-gradient);
+            color: var(--white);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 800;
+        }
+
+        .benefit-option:nth-child(2) .benefit-num {
+            background: var(--gold-gradient);
+        }
+
+        .benefit-option h4 {
+            font-size: 16px;
+            font-weight: 700;
+            margin-bottom: 6px;
+        }
+
+        .benefit-option p {
+            font-size: 14px;
+            color: var(--text-gray);
+            margin: 2px 0;
+        }
+
+        .benefit-option .amount-line {
+            font-weight: 700;
+            color: var(--primary-700);
+        }
+
+        /* ===== COVERAGE DETAILS ===== */
+        .coverage-section {
+            padding: 80px 0;
+            background: var(--bg-light);
+        }
+
+        .coverage-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 60px;
+            align-items: center;
+        }
+
+        .coverage-content h2 {
+            font-size: 36px;
+            font-weight: 800;
+            margin-bottom: 16px;
+        }
+
+        .coverage-content p {
+            font-size: 18px;
+            color: var(--text-gray);
+            margin-bottom: 24px;
+        }
+
+        .coverage-list {
+            list-style: none;
+            padding: 0;
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 12px;
+        }
+
+        .coverage-list li {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 8px 12px;
+            background: var(--white);
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: 500;
+            color: var(--text-dark);
+            box-shadow: var(--shadow);
+            transition: var(--transition);
+        }
+
+        .coverage-list li:hover {
+            transform: translateX(4px);
+            box-shadow: var(--shadow-hover);
+        }
+
+        .coverage-list li i {
+            color: var(--primary-500);
+            font-size: 16px;
+        }
+
+        .coverage-image {
+            display: flex;
+            justify-content: center;
+        }
+
+        .coverage-card {
+            background: var(--primary-gradient);
+            color: var(--white);
+            padding: 40px;
+            border-radius: var(--radius-lg);
+            max-width: 400px;
+            width: 100%;
+            box-shadow: 0 8px 48px rgba(26, 71, 42, 0.3);
+        }
+
+        .coverage-card .card-header {
+            text-align: center;
+            margin-bottom: 24px;
+        }
+
+        .coverage-card .card-header i {
+            font-size: 48px;
+            color: var(--gold-300);
+            margin-bottom: 12px;
+        }
+
+        .coverage-card .card-header h4 {
+            font-size: 20px;
+            font-weight: 700;
+        }
+
+        .coverage-card .card-header p {
+            opacity: 0.8;
+            font-size: 14px;
+        }
+
+        .coverage-card .waiting-info {
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 12px;
+            padding: 16px;
+            text-align: center;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            margin-bottom: 12px;
+        }
+
+        .coverage-card .waiting-info .label {
+            font-size: 13px;
+            opacity: 0.7;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .coverage-card .waiting-info .value {
+            font-size: 24px;
+            font-weight: 800;
+            color: var(--gold-300);
+        }
+
+        .coverage-card .waiting-info .sub {
+            font-size: 13px;
+            opacity: 0.7;
+        }
+
+        /* ===== HOW IT WORKS ===== */
+        .how-section {
+            padding: 80px 0;
+            background: var(--white);
+        }
+
+        .steps-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+            gap: 32px;
+        }
+
+        .step-card {
+            text-align: center;
+            padding: 32px 24px;
+            background: var(--white);
+            border-radius: var(--radius-lg);
+            position: relative;
+            transition: var(--transition);
+            border: 2px solid #f0f4f2;
+        }
+
+        .step-card:hover {
+            transform: translateY(-4px);
+            border-color: var(--primary-300);
+            box-shadow: var(--shadow);
+        }
+
+        .step-number {
+            position: absolute;
+            top: -16px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: var(--primary-gradient);
+            color: var(--white);
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 800;
+            font-size: 16px;
+            box-shadow: 0 4px 16px rgba(26, 71, 42, 0.3);
+        }
+
+        .step-icon {
+            font-size: 44px;
+            margin: 12px 0 16px;
+            display: block;
+        }
+
+        .step-card h4 {
+            font-size: 18px;
+            font-weight: 700;
+            margin-bottom: 8px;
+            color: var(--text-dark);
+        }
+
+        .step-card p {
+            color: var(--text-gray);
+            font-size: 14px;
+            margin: 0;
+        }
+
+        /* ===== BRANCHES ===== */
+        .branches-section {
+            padding: 0 0 80px;
+            background: var(--white);
+        }
+
+        .branches-list {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: center;
+            gap: 12px;
+        }
+
+        .branch-chip {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            background: var(--bg-light);
+            border: 1px solid #e2e8e5;
+            padding: 10px 18px;
+            border-radius: 30px;
+            font-size: 14px;
+            font-weight: 600;
+            color: var(--text-dark);
+        }
+
+        .branch-chip i {
+            color: var(--gold-500);
+        }
+
+        /* ===== PAYMENTS SECTION ===== */
+        .payments-section {
+            padding: 80px 0;
+            background: var(--bg-light);
+        }
+
+        .payments-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 60px;
+            align-items: center;
+        }
+
+        .payments-content h2 {
+            font-size: 36px;
+            font-weight: 800;
+            margin-bottom: 12px;
+        }
+
+        .payments-content p {
+            font-size: 18px;
+            color: var(--text-gray);
+            margin-bottom: 24px;
+        }
+
+        .payment-methods {
+            list-style: none;
+            padding: 0;
+            margin-bottom: 32px;
+        }
+
+        .payment-methods li {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 10px 0;
+            font-size: 16px;
+            color: var(--text-dark);
+            font-weight: 500;
+        }
+
+        .payment-methods li i {
+            color: var(--primary-500);
+            font-size: 20px;
+            width: 28px;
+        }
+
+        .payments-image {
+            display: flex;
+            justify-content: center;
+        }
+
+        .payment-card {
+            background: var(--primary-gradient);
+            color: var(--white);
+            padding: 40px;
+            border-radius: var(--radius-lg);
+            text-align: center;
+            max-width: 340px;
+            width: 100%;
+            box-shadow: 0 8px 48px rgba(26, 71, 42, 0.3);
+        }
+
+        .payment-card i {
+            font-size: 52px;
+            color: var(--gold-300);
+            margin-bottom: 16px;
+        }
+
+        .payment-card h4 {
+            font-size: 22px;
+            margin-bottom: 8px;
+        }
+
+        .payment-card p {
+            opacity: 0.9;
+            margin-bottom: 4px;
+        }
+
+        .payment-card .small {
+            font-size: 14px;
+            opacity: 0.7;
+            margin-top: 12px;
+        }
+
+        .payment-card .paybill {
+            font-size: 32px;
+            font-weight: 900;
+            color: var(--gold-300);
+            display: block;
+            margin: 8px 0;
+        }
+
+        /* ===== IMPORTANT NOTES ===== */
+        .notes-section {
+            padding: 0 0 80px;
+            background: var(--bg-light);
+        }
+
+        .notes-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 24px;
+        }
+
+        .note-card {
+            background: var(--white);
+            border-radius: var(--radius-lg);
+            padding: 28px;
+            box-shadow: var(--shadow);
+            border-left: 4px solid var(--gold-500);
+        }
+
+        .note-card.note-danger {
+            border-left-color: var(--danger);
+        }
+
+        .note-card h4 {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-size: 17px;
+            margin-bottom: 10px;
+        }
+
+        .note-card h4 i {
+            color: var(--gold-500);
+        }
+
+        .note-card.note-danger h4 i {
+            color: var(--danger);
+        }
+
+        .note-card p {
+            font-size: 14px;
+            color: var(--text-gray);
+        }
+
+        /* ===== CTA SECTION ===== */
+        .cta-section {
+            padding: 80px 0;
+            background: var(--primary-gradient);
+            color: var(--white);
+            text-align: center;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .cta-section::before {
+            content: '';
+            position: absolute;
+            top: -30%;
+            left: -10%;
+            width: 50%;
+            height: 200%;
+            background: rgba(255, 255, 255, 0.03);
+            border-radius: 50%;
+            transform: rotate(-10deg);
+        }
+
+        .cta-section::after {
+            content: '';
+            position: absolute;
+            bottom: -20%;
+            right: -10%;
+            width: 40%;
+            height: 150%;
+            background: rgba(255, 255, 255, 0.02);
+            border-radius: 50%;
+        }
+
+        .cta-content {
+            position: relative;
+            z-index: 1;
+        }
+
+        .cta-content h2 {
+            font-size: 40px;
+            font-weight: 800;
+            margin-bottom: 16px;
+        }
+
+        .cta-content p {
+            font-size: 18px;
+            opacity: 0.9;
+            margin-bottom: 32px;
+            max-width: 600px;
+            margin-left: auto;
+            margin-right: auto;
+        }
+
+        .cta-actions {
+            display: flex;
+            gap: 16px;
+            justify-content: center;
+            flex-wrap: wrap;
+        }
+
+        /* ===== FOOTER ===== */
+        .footer {
+            background: var(--primary-900);
+            color: rgba(255, 255, 255, 0.8);
+            padding: 60px 0 32px;
+        }
+
+        .footer-grid {
+            display: grid;
+            grid-template-columns: 2fr 1fr 1fr;
+            gap: 40px;
+            padding-bottom: 40px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+            margin-bottom: 32px;
+        }
+
+        .footer-brand {
+            display: flex;
+            flex-direction: column;
+            align-items: flex-start;
+        }
+
+        .footer-brand img.brand-logo-icon {
+            height: 46px;
+            width: auto;
+            margin-bottom: 10px;
+        }
+
+        .footer-brand .brand-text {
+            font-size: 20px;
+            font-weight: 800;
+            color: var(--white);
+            letter-spacing: 0.5px;
+        }
+
+        .footer-brand p {
+            margin-top: 12px;
+            font-size: 15px;
+            opacity: 0.7;
+            max-width: 300px;
+        }
+
+        .footer-links h4,
+        .footer-contact h4 {
+            color: var(--white);
+            font-size: 16px;
+            font-weight: 600;
+            margin-bottom: 16px;
+        }
+
+        .footer-links a {
+            display: block;
+            color: rgba(255, 255, 255, 0.6);
+            text-decoration: none;
+            padding: 4px 0;
+            font-size: 15px;
+            transition: var(--transition);
+        }
+
+        .footer-links a:hover {
+            color: var(--white);
+            transform: translateX(4px);
+        }
+
+        .footer-contact p {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin: 8px 0;
+            font-size: 15px;
+            opacity: 0.7;
+        }
+
+        .footer-contact p i {
+            width: 20px;
+            color: var(--gold-400);
+        }
+
+        .footer-bottom {
+            text-align: center;
+            font-size: 14px;
+            opacity: 0.5;
+        }
+
+        /* ===== RESPONSIVE ===== */
+        @media (max-width: 1024px) {
+            .hero-grid {
+                grid-template-columns: 1fr;
+                gap: 40px;
+                text-align: center;
+            }
+
+            .hero-content p {
+                margin-left: auto;
+                margin-right: auto;
+            }
+
+            .hero-actions {
+                justify-content: center;
+            }
+
+            .hero-stats {
+                justify-content: center;
+            }
+
+            .hero-card {
+                margin: 0 auto;
+            }
+
+            .coverage-grid {
+                grid-template-columns: 1fr;
+                text-align: center;
+            }
+
+            .coverage-list {
+                grid-template-columns: 1fr;
+                max-width: 400px;
+                margin: 0 auto;
+            }
+
+            .payments-grid {
+                grid-template-columns: 1fr;
+                text-align: center;
+            }
+
+            .payments-content p {
+                margin-left: auto;
+                margin-right: auto;
+            }
+
+            .payment-methods {
+                display: inline-block;
+                text-align: left;
+            }
+
+            .payment-card {
+                margin: 0 auto;
+            }
+
+            .benefits-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .notes-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        @media (max-width: 768px) {
+            .navbar {
+                padding: 10px 0;
+            }
+
+            .nav-links {
+                display: none;
+                flex-direction: column;
+                align-items: flex-start;
+                position: absolute;
+                top: 100%;
+                left: 0;
+                right: 0;
+                background: var(--white);
+                padding: 20px 24px;
+                box-shadow: var(--shadow);
+                gap: 16px;
+                border-top: 1px solid #e9ecef;
+            }
+
+            .nav-links.active {
+                display: flex;
+            }
+
+            .mobile-menu-btn {
+                display: block;
+            }
+
+            .hero-content h1 {
+                font-size: 32px;
+            }
+
+            .hero-stats {
+                flex-direction: column;
+                gap: 16px;
+                align-items: center;
+            }
+
+            .plans-grid {
+                grid-template-columns: 1fr;
+                max-width: 420px;
+                margin: 0 auto;
+            }
+
+            .steps-grid {
+                grid-template-columns: 1fr 1fr;
+            }
+
+            .footer-grid {
+                grid-template-columns: 1fr;
+                text-align: center;
+            }
+
+            .footer-brand {
+                align-items: center;
+            }
+
+            .footer-brand p {
+                margin-left: auto;
+                margin-right: auto;
+            }
+
+            .footer-contact p {
+                justify-content: center;
+            }
+
+            .section-header h2 {
+                font-size: 30px;
+            }
+
+            .cta-content h2 {
+                font-size: 30px;
+            }
+
+            .hero-actions {
+                flex-direction: column;
+                align-items: center;
+            }
+
+            .btn-large {
+                width: 100%;
+                max-width: 300px;
+            }
+
+            .plan-card {
+                padding: 24px;
+            }
+
+            .coverage-list li {
+                font-size: 13px;
+            }
+
+            .coverage-card {
+                padding: 24px;
+            }
+
+            .branches-list {
+                justify-content: flex-start;
+            }
+        }
+
+        @media (max-width: 480px) {
+            .steps-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .hero-content h1 {
+                font-size: 26px;
+            }
+
+            .plan-price .amount {
+                font-size: 32px;
+            }
+
+            .payment-card {
+                padding: 24px;
+            }
+
+            .hero-card {
+                padding: 24px;
+            }
+
+            .hero-card .card-pricing .price {
+                font-size: 28px;
+            }
+
+            .nav-brand img.brand-logo {
+                height: 36px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="tagline-strip">A NOTE YOU CAN TRUST &nbsp;•&nbsp; DON'T WAIT FOR A CRISIS — PREPARE TODAY</div>
+
+    <!-- ===== NAVBAR ===== -->
+    <nav class="navbar">
+        <div class="container">
+            <a href="#home" class="nav-brand">
+                <img src="assets/masika-logo.png" alt="Masika Benevolent" class="brand-logo">
+            </a>
+            <div class="nav-links">
+                <a href="#home" class="active">Home</a>
+                <a href="#plans">Membership Plans</a>
+                <a href="#benefits">Benefits</a>
+                <a href="#coverage">Coverage</a>
+                <a href="#how-it-works">How It Works</a>
+                <a href="#payments">Payments</a>
+                <a href="login.html" class="btn btn-nav">Become a Member</a>
+            </div>
+            <button class="mobile-menu-btn" onclick="toggleMobileMenu()">
+                <i class="fas fa-bars"></i>
+            </button>
+        </div>
+    </nav>
+
+    <main>
+        <!-- ===== HERO SECTION ===== -->
+        <section id="home" class="hero">
+            <div class="container">
+                <div class="hero-grid">
+                    <div class="hero-content">
+                        <div class="hero-badge">
+                            <i class="fas fa-star"></i>
+                            Trusted by 10,000+ Members
+                        </div>
+                        <h1>Affordable Last-Expense Coverage for <span class="highlight">You and Your Loved Ones</span></h1>
+                        <p>Compassionate funeral, burial and benevolent services for every family in Kenya — dignified, affordable and reliable cover from just <strong>KES 10 per day</strong>.</p>
+                        <div class="hero-actions">
+                            <a href="login.html" class="btn btn-primary btn-large">
+                                <i class="fas fa-user-plus"></i> Become a Member
+                            </a>
+                            <a href="#plans" class="btn btn-outline btn-large">
+                                <i class="fas fa-info-circle"></i> View Plans
+                            </a>
+                        </div>
+                        <div class="hero-stats">
+                            <div class="stat">
+                                <span class="stat-number">10,000+</span>
+                                <span class="stat-label">Active Members</span>
+                            </div>
+                            <div class="stat">
+                                <span class="stat-number">8</span>
+                                <span class="stat-label">Branches Nationwide</span>
+                            </div>
+                            <div class="stat">
+                                <span class="stat-number">98%</span>
+                                <span class="stat-label">Satisfaction Rate</span>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="hero-image">
+                        <div class="hero-card">
+                            <div class="card-icon">👨‍👩‍👧‍👦</div>
+                            <h3>MASIKA COMFORT PLAN</h3>
+                            <p>Ages 1-69 years • Full family coverage</p>
+                            <div class="card-pricing">
+                                <span class="price">KES 300</span>
+                                <span class="period">/month</span>
+                                <span class="sub">Just KES 10 per day</span>
+                            </div>
+                            <div style="margin-top: 12px; font-size: 14px; opacity: 0.8;">
+                                Registration: KES 200 (One-time)
+                            </div>
+                            <div class="cash-benefit-note">
+                                Prefer cash? Choose the <strong>Cash Benefit option</strong> instead — up to <strong>KES 110,000</strong> per adult.
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- ===== PLANS SECTION ===== -->
+        <section id="plans" class="plans-section">
+            <div class="container">
+                <div class="section-header">
+                    <span class="section-badge"><i class="fas fa-crown"></i> Our Plans</span>
+                    <h2>Choose the Right Coverage for <span class="highlight">Your Family</span></h2>
+                    <p class="section-subtitle">Simple, caring and reliable cover — three plans designed to meet every family's unique needs and budget</p>
+                </div>
+
+                <div class="plans-grid">
+                    <!-- COMFORT Plan -->
+                    <div class="plan-card featured">
+                        <div class="plan-number">1</div>
+                        <div class="plan-badge">Most Popular</div>
+                        <div class="plan-header">
+                            <div class="plan-icon">🏠</div>
+                            <h3>MASIKA COMFORT PLAN</h3>
+                            <div class="plan-subtitle">Ages 1-69 Years</div>
+                            <div class="plan-price">
+                                <span class="amount">KES 300</span>
+                                <span class="period">/month</span>
+                                <span class="sub">Just KES 10 per day</span>
+                            </div>
+                            <div class="plan-registration">
+                                <i class="fas fa-file-invoice"></i> Registration: KES 200 (one-off)
+                            </div>
+                        </div>
+                        <div class="plan-body">
+                            <ul class="plan-features">
+                                <li><i class="fas fa-check-circle"></i> Covers: Main member, spouse + up to 4 children (under 18)</li>
+                                <li><i class="fas fa-check-circle feature-gold"></i> <strong>Hearse</strong> transportation within Kenya</li>
+                                <li><i class="fas fa-check-circle feature-gold"></i> <strong>Mortuary storage</strong> up to 14 days (max KES 15,000)</li>
+                                <li><i class="fas fa-check-circle feature-gold"></i> <strong>Tents & chairs</strong> for up to 200 people</li>
+                                <li><i class="fas fa-check-circle feature-gold"></i> <strong>Gazebo</strong> & lowering gear</li>
+                                <li><i class="fas fa-check-circle feature-gold"></i> <strong>Flowers</strong> (Heart, Round, Cross)</li>
+                                <li><i class="fas fa-check-circle feature-gold"></i> <strong>PA system</strong> (max KES 5,000)</li>
+                                <li><i class="fas fa-check-circle feature-gold"></i> <strong>Memorial portrait</strong></li>
+                                <li><i class="fas fa-check-circle feature-gold"></i> <strong>Coffin/casket</strong> (child max KES 10,000 / adult KES 25,000)</li>
+                            </ul>
+                        </div>
+                        <div class="plan-footer">
+                            <a href="login.html" class="btn btn-gold btn-block">
+                                <i class="fas fa-user-plus"></i> Get Started
+                            </a>
+                            <small><i class="fas fa-clock"></i> Waiting period: coverage begins after 4 months</small>
+                        </div>
+                    </div>
+
+                    <!-- DIGNITY Plan -->
+                    <div class="plan-card plan-blue">
+                        <div class="plan-number">2</div>
+                        <div class="plan-badge badge-blue">Seniors</div>
+                        <div class="plan-header">
+                            <div class="plan-icon">⭐</div>
+                            <h3>MASIKA DIGNITY PLAN</h3>
+                            <div class="plan-subtitle">Ages 70-80 Years</div>
+                            <div class="plan-price">
+                                <span class="amount">KES 1,000</span>
+                                <span class="period">/month</span>
+                                <span class="sub">Just KES 40 per day</span>
+                            </div>
+                            <div class="plan-registration">
+                                <i class="fas fa-file-invoice"></i> Registration: KES 500 (one-off)
+                            </div>
+                        </div>
+                        <div class="plan-body">
+                            <ul class="plan-features">
+                                <li><i class="fas fa-check-circle"></i> Covers: spouse + children under 18</li>
+                                <li><i class="fas fa-check-circle"></i> Gazebo</li>
+                                <li><i class="fas fa-check-circle"></i> Hearse transportation within Kenya</li>
+                                <li><i class="fas fa-check-circle"></i> Mortuary storage (up to 14 days, max KES 15,000)</li>
+                                <li><i class="fas fa-check-circle"></i> Tents & chairs (up to 200 people)</li>
+                                <li><i class="fas fa-check-circle"></i> Lowering gear</li>
+                                <li><i class="fas fa-check-circle"></i> Flowers (Heart, Round, Cross)</li>
+                                <li><i class="fas fa-check-circle"></i> PA system (max KES 5,000)</li>
+                                <li><i class="fas fa-check-circle"></i> Memorial portrait</li>
+                                <li><i class="fas fa-check-circle"></i> Coffin/casket (child max KES 10,000 / adult KES 25,000)</li>
+                            </ul>
+                        </div>
+                        <div class="plan-footer">
+                            <a href="login.html" class="btn btn-blue btn-block">
+                                <i class="fas fa-user-plus"></i> Get Started
+                            </a>
+                            <small><i class="fas fa-clock"></i> Waiting period: coverage begins after 6 months</small>
+                            <small style="font-style: italic;">Designed with extra care for seniors (70+)</small>
+                        </div>
+                    </div>
+
+                    <!-- WAZAZI Plan -->
+                    <div class="plan-card plan-purple">
+                        <div class="plan-number">3</div>
+                        <div class="plan-badge badge-purple">Add-on</div>
+                        <div class="plan-header">
+                            <div class="plan-icon">👴</div>
+                            <h3>MASIKA WAZAZI PLAN</h3>
+                            <div class="plan-subtitle">Parents Add-on</div>
+                            <div class="plan-price">
+                                <span class="amount">KES 350</span>
+                                <span class="period">/month</span>
+                                <span class="sub">Per parent</span>
+                            </div>
+                            <div class="plan-registration">
+                                <i class="fas fa-file-invoice"></i> Registration: KES 100 (one-off)
+                            </div>
+                        </div>
+                        <div class="plan-body">
+                            <ul class="plan-features">
+                                <li><i class="fas fa-check-circle"></i> Covers parents / in-laws (max 4 parents)</li>
+                                <li><i class="fas fa-check-circle"></i> Gazebo</li>
+                                <li><i class="fas fa-check-circle"></i> Hearse transport within Kenya</li>
+                                <li><i class="fas fa-check-circle"></i> Mortuary storage (up to 14 days, max KES 15,000)</li>
+                                <li><i class="fas fa-check-circle"></i> Tents & chairs (up to 200 people)</li>
+                                <li><i class="fas fa-check-circle"></i> Lowering gear</li>
+                                <li><i class="fas fa-check-circle"></i> Flowers (Heart, Round, Cross)</li>
+                                <li><i class="fas fa-check-circle"></i> PA system (max KES 5,000)</li>
+                                <li><i class="fas fa-check-circle"></i> Memorial portrait</li>
+                                <li><i class="fas fa-check-circle"></i> Coffin/casket (max child KES 10,000 / adult KES 25,000)</li>
+                            </ul>
+                            <div class="plan-eligibility">
+                                <div class="elig-title">Eligibility & Guidelines</div>
+                                <p><i class="fas fa-hourglass-half"></i> Age limits: entry 40-70 years | exit 80 years</p>
+                                <p><i class="fas fa-clock"></i> Waiting period: 6 months</p>
+                            </div>
+                        </div>
+                        <div class="plan-footer">
+                            <a href="login.html" class="btn btn-purple btn-block">
+                                <i class="fas fa-user-plus"></i> Get Started
+                            </a>
+                            <small>Add-on to an existing membership • Requires at least 1 parent</small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- ===== BENEFIT OPTIONS ===== -->
+        <section id="benefits" class="benefits-section">
+            <div class="container">
+                <div class="benefits-wrap">
+                    <div class="benefits-title">Benefits Options</div>
+                    <div class="benefits-grid">
+                        <div class="benefit-option">
+                            <div class="benefit-num">1</div>
+                            <div>
+                                <h4>Service Benefit</h4>
+                                <p>As per plan — hearse, mortuary, tents & chairs, gazebo, flowers, PA system, memorial portrait and coffin/casket, delivered directly when you need them.</p>
+                            </div>
+                        </div>
+                        <div class="benefit-option">
+                            <div class="benefit-num">2</div>
+                            <div>
+                                <h4>Cash Benefit</h4>
+                                <p class="amount-line">Adult: KES 110,000</p>
+                                <p class="amount-line">Child (5 years and below): KES 50,000</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- ===== COVERAGE DETAILS ===== -->
+        <section id="coverage" class="coverage-section">
+            <div class="container">
+                <div class="section-header">
+                    <span class="section-badge"><i class="fas fa-shield-alt"></i> Coverage</span>
+                    <h2>What's Included in Your <span class="highlight">Comfort Plan</span></h2>
+                    <p class="section-subtitle">Comprehensive last-expense coverage for you and your loved ones</p>
+                </div>
+                <div class="coverage-grid">
+                    <div class="coverage-content">
+                        <ul class="coverage-list">
+                            <li><i class="fas fa-check-circle"></i> Main member + spouse + 4 children</li>
+                            <li><i class="fas fa-check-circle"></i> Hearse transportation within Kenya</li>
+                            <li><i class="fas fa-check-circle"></i> Mortuary storage (14 days, max KES 15,000)</li>
+                            <li><i class="fas fa-check-circle"></i> Tents & chairs for 200 people</li>
+                            <li><i class="fas fa-check-circle"></i> Gazebo & lowering gear</li>
+                            <li><i class="fas fa-check-circle"></i> Flowers (Heart, Round, Cross)</li>
+                            <li><i class="fas fa-check-circle"></i> PA system (max KES 5,000)</li>
+                            <li><i class="fas fa-check-circle"></i> Memorial portrait</li>
+                            <li><i class="fas fa-check-circle"></i> Coffin (child KES 10,000 / adult KES 25,000)</li>
+                            <li><i class="fas fa-check-circle"></i> Or take the KES 110,000 cash benefit instead</li>
+                        </ul>
+                    </div>
+                    <div class="coverage-image">
+                        <div class="coverage-card">
+                            <div class="card-header">
+                                <i class="fas fa-clock"></i>
+                                <h4>Waiting Period</h4>
+                                <p>Coverage begins after the waiting period</p>
+                            </div>
+                            <div class="waiting-info">
+                                <div class="label">Comfort Plan</div>
+                                <div class="value">4 Months</div>
+                                <div class="sub">Coverage begins after 4 months from registration</div>
+                            </div>
+                            <div class="waiting-info" style="margin-bottom:0;">
+                                <div class="label">Dignity & Wazazi Plans</div>
+                                <div class="value">6 Months</div>
+                                <div class="sub">Delayed with extra care for seniors (70+)</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- ===== HOW IT WORKS ===== -->
+        <section id="how-it-works" class="how-section">
+            <div class="container">
+                <div class="section-header">
+                    <span class="section-badge"><i class="fas fa-rocket"></i> How It Works</span>
+                    <h2>Simple Steps to <span class="highlight">Get Covered</span></h2>
+                    <p class="section-subtitle">Getting started with Masika Benevolent is quick and easy</p>
+                </div>
+                <div class="steps-grid">
+                    <div class="step-card">
+                        <div class="step-number">1</div>
+                        <div class="step-icon">📝</div>
+                        <h4>Register</h4>
+                        <p>Create your account and choose your preferred membership plan</p>
+                    </div>
+                    <div class="step-card">
+                        <div class="step-number">2</div>
+                        <div class="step-icon">👨‍👩‍👧</div>
+                        <h4>Add Dependants</h4>
+                        <p>Include your family members and parents for comprehensive coverage</p>
+                    </div>
+                    <div class="step-card">
+                        <div class="step-number">3</div>
+                        <div class="step-icon">💳</div>
+                        <h4>Make Payment</h4>
+                        <p>Pay your registration and monthly fees securely via M-Pesa, bank or cash</p>
+                    </div>
+                    <div class="step-card">
+                        <div class="step-number">4</div>
+                        <div class="step-icon">✅</div>
+                        <h4>Get Covered</h4>
+                        <p>Once your waiting period ends, enjoy the full benefits of your plan</p>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- ===== BRANCHES ===== -->
+        <section class="branches-section">
+            <div class="container">
+                <div class="section-header" style="margin-bottom: 28px;">
+                    <span class="section-badge"><i class="fas fa-map-marker-alt"></i> Our Branches</span>
+                    <h2 style="font-size: 30px;">Find Us <span class="highlight">Near You</span></h2>
+                </div>
+                <div class="branches-list">
+                    <span class="branch-chip"><i class="fas fa-location-dot"></i> Nairobi HQ</span>
+                    <span class="branch-chip"><i class="fas fa-location-dot"></i> Siaya County</span>
+                    <span class="branch-chip"><i class="fas fa-location-dot"></i> Luanda</span>
+                    <span class="branch-chip"><i class="fas fa-location-dot"></i> Kakamega</span>
+                    <span class="branch-chip"><i class="fas fa-location-dot"></i> Kisumu</span>
+                    <span class="branch-chip"><i class="fas fa-location-dot"></i> Eldoret</span>
+                    <span class="branch-chip"><i class="fas fa-location-dot"></i> Port Victoria</span>
+                    <span class="branch-chip"><i class="fas fa-location-dot"></i> Samia Busia</span>
+                </div>
+            </div>
+        </section>
+
+        <!-- ===== PAYMENTS SECTION ===== -->
+        <section id="payments" class="payments-section">
+            <div class="container">
+                <div class="payments-grid">
+                    <div class="payments-content">
+                        <span class="section-badge"><i class="fas fa-credit-card"></i> Payments</span>
+                        <h2>Flexible <span class="highlight">Payment Options</span></h2>
+                        <p>We offer multiple convenient payment methods to make it easy for you to stay covered.</p>
+                        <ul class="payment-methods">
+                            <li><i class="fas fa-check-circle"></i> M-Pesa</li>
+                            <li><i class="fas fa-check-circle"></i> Bank Transfer</li>
+                            <li><i class="fas fa-check-circle"></i> Cash Payments</li>
+                            <li><i class="fas fa-check-circle"></i> Automated Recurring</li>
+                        </ul>
+                        <a href="login.html" class="btn btn-gold">
+                            <i class="fas fa-arrow-right"></i> Make a Payment
+                        </a>
+                    </div>
+                    <div class="payments-image">
+                        <div class="payment-card">
+                            <i class="fas fa-mobile-alt"></i>
+                            <h4>M-Pesa Paybill</h4>
+                            <p>Pay via M-Pesa Paybill number</p>
+                            <span class="paybill">123456</span>
+                            <p class="small">Account: Your Membership Number</p>
+                            <div style="margin-top: 16px; background: rgba(255,255,255,0.05); border-radius: 8px; padding: 8px; font-size: 12px; opacity: 0.7;">
+                                <i class="fas fa-lock"></i> Secure payments
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- ===== IMPORTANT NOTES ===== -->
+        <section class="notes-section">
+            <div class="container">
+                <div class="notes-grid">
+                    <div class="note-card">
+                        <h4><i class="fas fa-circle-info"></i> Please Note</h4>
+                        <p>Masika plans are designed to provide practical support when families need it most, while maintaining fair and sustainable cover for all members. Clear terms today help ensure reliable support tomorrow.</p>
+                    </div>
+                    <div class="note-card note-danger">
+                        <h4><i class="fas fa-triangle-exclamation"></i> Exclusions</h4>
+                        <p>Claims arising from suicide, terrorism, and any acts that go against Kenyan law will not be honoured.</p>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- ===== CTA SECTION ===== -->
+        <section id="register" class="cta-section">
+            <div class="container">
+                <div class="cta-content">
+                    <h2>Ready to Secure Your Family's Future?</h2>
+                    <p>Join Masika Benevolent today and give your loved ones the protection they deserve. Just KES 10 per day for peace of mind.</p>
+                    <div class="cta-actions">
+                        <a href="login.html" class="btn btn-gold btn-large">
+                            <i class="fas fa-user-plus"></i> Become a Member Now
+                        </a>
+                        <a href="#plans" class="btn btn-outline btn-large">
+                            <i class="fas fa-info-circle"></i> View Plans
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <!-- ===== FOOTER ===== -->
+    <footer class="footer">
+        <div class="container">
+            <div class="footer-grid">
+                <div class="footer-brand">
+                    <img src="assets/masika-bird.png" alt="Masika Benevolent" class="brand-logo-icon">
+                    <span class="brand-text">MASIKA BENEVOLENT</span>
+                    <p>Funeral, burial & benevolent services — a note you can trust. Empowering families with dignified, affordable last-expense coverage.</p>
+                </div>
+                <div class="footer-links">
+                    <h4>Quick Links</h4>
+                    <a href="#home">Home</a>
+                    <a href="#plans">Membership Plans</a>
+                    <a href="#benefits">Benefits</a>
+                    <a href="#coverage">Coverage</a>
+                    <a href="#how-it-works">How It Works</a>
+                    <a href="login.html">Staff Login</a>
+                </div>
+                <div class="footer-contact">
+                    <h4>Contact Us</h4>
+                    <p><i class="fas fa-phone"></i> +254 (0) 703 738 707</p>
+                    <p><i class="fas fa-phone"></i> +254 (0) 740 340 901</p>
+                    <p><i class="fas fa-envelope"></i> customers@masikabbs.com</p>
+                    <p><i class="fas fa-globe"></i> www.masikabbs.com</p>
+                    <p style="margin-top: 12px; font-size: 13px; opacity: 0.5;">
+                        <i class="fas fa-clock"></i> Mon-Fri: 8:00 AM - 5:00 PM
+                    </p>
+                </div>
+            </div>
+            <div class="footer-bottom">
+                <p>&copy; 2024 Masika Benevolent. All rights reserved.</p>
+            </div>
+        </div>
+    </footer>
+
+    <script>
+        // ===== MOBILE MENU TOGGLE =====
+        function toggleMobileMenu() {
+            const navLinks = document.querySelector('.nav-links');
+            navLinks.classList.toggle('active');
+        }
+
+        // Close mobile menu on link click
+        document.querySelectorAll('.nav-links a').forEach(link => {
+            link.addEventListener('click', () => {
+                document.querySelector('.nav-links').classList.remove('active');
+            });
+        });
+
+        // ===== ACTIVE NAV LINK ON SCROLL =====
+        window.addEventListener('scroll', function() {
+            const sections = document.querySelectorAll('section[id]');
+            const navLinks = document.querySelectorAll('.nav-links a');
+
+            let current = '';
+            sections.forEach(section => {
+                const sectionTop = section.offsetTop - 120;
+                if (window.scrollY >= sectionTop) {
+                    current = section.getAttribute('id');
+                }
+            });
+
+            navLinks.forEach(link => {
+                link.classList.remove('active');
+                if (link.getAttribute('href') === `#${current}`) {
+                    link.classList.add('active');
+                }
+            });
+        });
+
+        // ===== SMOOTH SCROLL FOR ANCHOR LINKS =====
+        document.querySelectorAll('a[href^="#"]').forEach(anchor => {
+            anchor.addEventListener('click', function(e) {
+                const href = this.getAttribute('href');
+                if (href === '#') return;
+                e.preventDefault();
+                const target = document.querySelector(href);
+                if (target) {
+                    target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                }
+            });
+        });
+
+        // ===== COUNTER ANIMATION =====
+        const observerOptions = {
+            threshold: 0.5,
+            rootMargin: '0px 0px -50px 0px'
+        };
+
+        const observer = new IntersectionObserver((entries) => {
+            entries.forEach(entry => {
+                if (entry.isIntersecting) {
+                    const stats = entry.target.querySelectorAll('.stat-number');
+                    stats.forEach(stat => {
+                        const text = stat.textContent;
+                        const number = parseInt(text.replace(/[^0-9]/g, ''));
+                        if (number) {
+                            let current = 0;
+                            const increment = Math.ceil(number / 40);
+                            const timer = setInterval(() => {
+                                current += increment;
+                                if (current >= number) {
+                                    current = number;
+                                    clearInterval(timer);
+                                }
+                                const suffix = text.replace(/[0-9,]/g, '');
+                                stat.textContent = current.toLocaleString() + suffix;
+                            }, 30);
+                        }
+                    });
+                }
+            });
+        }, observerOptions);
+
+        const heroStats = document.querySelector('.hero-stats');
+        if (heroStats) {
+            observer.observe(heroStats);
+        }
+    </script>
+</body>
+</html>
