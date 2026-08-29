@@ -76,4 +76,95 @@ async def mpesa_webhook(
         if not member:
             logger.warning(f"Member not found for phone: {data.phone}")
             return {
-                "success":
+                "success": False,
+                "message": "Member not found",
+                "phone": data.phone
+            }
+        
+        # Confirm payment
+        payment = await payment_service.confirm_payment(
+            member_id=member["id"],
+            amount=data.amount,
+            receipt=data.receipt,
+            payment_type="registration"
+        )
+        
+        logger.info(f"Payment confirmed via webhook: {payment}")
+        
+        return {
+            "success": True,
+            "message": "Payment processed",
+            "data": {
+                "member_id": member["id"],
+                "amount": data.amount,
+                "receipt": data.receipt,
+            }
+        }
+        
+    except Exception as e:
+        logger.error(f"M-Pesa webhook error: {e}")
+        return {
+            "success": False,
+            "message": "Webhook processing failed",
+            "error": str(e)
+        }
+
+
+# ============================================================
+# GENERAL WEBHOOK
+# ============================================================
+
+@router.post("/general")
+async def general_webhook(request: Request):
+    """
+    General webhook endpoint for external integrations.
+    """
+    try:
+        body = await request.json()
+        logger.info(f"General webhook received: {body}")
+        
+        # Process based on event type
+        event_type = body.get("event", "unknown")
+        
+        if event_type == "payment.confirmed":
+            # Process payment confirmation
+            payment_data = body.get("data", {})
+            member_id = payment_data.get("member_id")
+            amount = payment_data.get("amount")
+            receipt = payment_data.get("receipt")
+            
+            if member_id and amount and receipt:
+                await payment_service.confirm_payment(
+                    member_id=member_id,
+                    amount=amount,
+                    receipt=receipt
+                )
+        
+        return {
+            "success": True,
+            "message": "Webhook processed",
+            "event": event_type
+        }
+        
+    except Exception as e:
+        logger.error(f"General webhook error: {e}")
+        return {
+            "success": False,
+            "message": "Webhook processing failed",
+            "error": str(e)
+        }
+
+
+# ============================================================
+# HEALTH CHECK
+# ============================================================
+
+@router.get("/health")
+async def webhook_health():
+    """Webhook health check."""
+    return {
+        "success": True,
+        "status": "healthy",
+        "service": "webhook",
+        "timestamp": datetime.now().isoformat()
+    }
