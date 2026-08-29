@@ -6,9 +6,6 @@
     <title>Register Member | Masika Benevolent</title>
     <meta name="description" content="Register a new Masika Benevolent member and calculate membership registration payment.">
 
-    <!-- Supabase -->
-    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-
     <style>
         :root {
             --primary: #0b5d3b;
@@ -768,13 +765,10 @@
 
 <script>
 /* ============================================================
-   SUPABASE CONFIGURATION - UPDATED
+   API CONFIGURATION
    ============================================================ */
 
-const SUPABASE_URL = 'https://wpxzlcdrirlcyvfiquld.supabase.co';
-const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6IndweHpsY2RyaXJsY3l2ZmlxdWxkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODc5Mjc4MDcsImV4cCI6MjEwMzUwMzgwN30.OUP9pmPbrML_egpHflZtDfLv1_UDM37_BYjtb842xjg';
-
-const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+const API_BASE_URL = 'https://masika-c921.onrender.com';
 
 /* ============================================================
    STATE
@@ -948,7 +942,7 @@ function validateForm() {
 }
 
 /* ============================================================
-   MEMBER PAYLOAD
+   MEMBER PAYLOAD (matches FastAPI RegistrationRequest schema)
    ============================================================ */
 
 function getMemberPayload() {
@@ -956,21 +950,63 @@ function getMemberPayload() {
         first_name: firstName.value.trim(),
         last_name: lastName.value.trim(),
         other_name: otherName.value.trim() || null,
-        id_number: idNumber.value.trim(),
-        gender: gender.value,
-        date_of_birth: dateOfBirth.value,
         phone: phone.value.trim(),
         email: email.value.trim() || null,
+        id_number: idNumber.value.trim(),
+        date_of_birth: dateOfBirth.value,
+        gender: gender.value,
         county: county.value,
         location: locationField.value.trim() || null,
         address: address.value.trim() || null,
         plan: getSelectedPlan(),
-        dependants: getDependants()
+        benefit_option: 'service',
+        dependants: getDependants().map(dep => ({
+            first_name: dep.name.split(' ')[0] || dep.name,
+            last_name: dep.name.split(' ').slice(1).join(' ') || 'Unknown',
+            date_of_birth: dep.date_of_birth,
+            relationship: dep.relationship
+        }))
     };
 }
 
 /* ============================================================
-   CALCULATE REGISTRATION
+   API HELPER
+   ============================================================ */
+
+async function apiRequest(path, options = {}) {
+    let response;
+    try {
+        response = await fetch(`${API_BASE_URL}${path}`, {
+            headers: { 'Content-Type': 'application/json' },
+            ...options
+        });
+    } catch (networkError) {
+        console.error("Network error calling API:", networkError);
+        throw new Error("Unable to reach the server. Please check your connection and try again.");
+    }
+
+    let body = null;
+    try {
+        body = await response.json();
+    } catch (parseError) {
+        // Non-JSON response body; fall through with body = null
+    }
+
+    if (!response.ok) {
+        const detail = body && body.detail;
+        const message =
+            (typeof detail === "string" && detail) ||
+            (detail && detail.message) ||
+            (body && body.message) ||
+            `Request failed (HTTP ${response.status}).`;
+        throw new Error(message);
+    }
+
+    return body;
+}
+
+/* ============================================================
+   CALCULATE REGISTRATION (client-side estimate only)
    ============================================================ */
 
 calculateBtn.addEventListener("click", calculateRegistrationPayment);
@@ -984,7 +1020,12 @@ async function calculateRegistrationPayment() {
     try {
         const payload = getMemberPayload();
 
-        // Calculate registration fee based on plan
+        // NOTE: This is a client-side ESTIMATE shown for the user's convenience
+        // only. The authoritative fee is calculated by the backend inside
+        // POST /api/public/register (calculate_registration_fee) at the
+        // moment the member is actually created, so it can't be tampered
+        // with from the browser. Keep these tables in sync with
+        // PLAN_FEES / DEPENDANT_FEES in main.py if those ever change.
         const planFees = {
             'COMFORT': 200,
             'DIGNITY': 500,
@@ -1000,26 +1041,23 @@ async function calculateRegistrationPayment() {
         };
 
         let totalFee = planFees[payload.plan] || 0;
-        
-        // Add dependant fees
+
         for (const dep of payload.dependants) {
             totalFee += dependantFees[dep.relationship] || 50;
         }
 
-        const result = {
+        calculatedRegistration = {
             total_amount: totalFee,
             registration_fee: planFees[payload.plan] || 0,
             dependant_fees: totalFee - (planFees[payload.plan] || 0)
         };
-
-        calculatedRegistration = result;
 
         document.getElementById("summaryRegistration").textContent = formatCurrency(totalFee);
         document.getElementById("summaryTotal").textContent = formatCurrency(totalFee);
 
         registerBtn.disabled = false;
 
-        showAlert(`Registration payment calculated: ${formatCurrency(totalFee)}`, "success");
+        showAlert(`Estimated registration payment: ${formatCurrency(totalFee)}. The exact amount is confirmed when you register.`, "success");
 
     } catch (error) {
         console.error(error);
@@ -1063,7 +1101,11 @@ function formatCurrency(value) {
 }
 
 /* ============================================================
-   REGISTER MEMBER
+   REGISTER MEMBER — now goes through the FastAPI backend instead
+   of inserting into Supabase directly from the browser. The
+   backend re-validates everything, computes the authoritative
+   fee server-side, checks for duplicate phone/email, and
+   generates the real member_number.
    ============================================================ */
 
 registerBtn.addEventListener("click", registerMember);
@@ -1082,85 +1124,30 @@ async function registerMember() {
     try {
         const payload = getMemberPayload();
 
-        // 1. Insert Member - NO LOGIN REQUIRED
-        const { data: member, error: memberError } = await supabaseClient
-            .from("members")
-            .insert({
-                first_name: payload.first_name,
-                last_name: payload.last_name,
-                other_name: payload.other_name,
-                id_number: payload.id_number,
-                gender: payload.gender,
-                date_of_birth: payload.date_of_birth,
-                phone: payload.phone,
-                email: payload.email,
-                county: payload.county,
-                location: payload.location,
-                address: payload.address,
-                plan: payload.plan.toLowerCase(),
-                benefit_option: 'service',
-                registration_fee_paid: false,
-                is_active: true
-            })
-            .select()
-            .single();
+        const result = await apiRequest('/api/public/register', {
+            method: 'POST',
+            body: JSON.stringify(payload)
+        });
 
-        if (memberError) {
-            console.error("Member insert error:", memberError);
-            throw new Error(memberError.message || "Failed to create member");
+        if (!result || !result.success) {
+            throw new Error((result && result.message) || "Failed to register member.");
         }
 
-        // 2. Insert Dependants
-        const dependants = payload.dependants;
-        if (dependants.length && member) {
-            const dependantRows = dependants.map(dep => ({
-                member_id: member.id,
-                first_name: dep.name.split(' ')[0] || dep.name,
-                last_name: dep.name.split(' ').slice(1).join(' ') || 'Unknown',
-                date_of_birth: dep.date_of_birth || null,
-                relationship: dep.relationship.toLowerCase(),
-                is_active: true
-            }));
+        showAlert(
+            `✅ Member "${payload.first_name} ${payload.last_name}" registered successfully! Member number: ${result.member_number}`,
+            "success"
+        );
 
-            const { error: dependantError } = await supabaseClient
-                .from("dependants")
-                .insert(dependantRows);
+        // Store server-confirmed values for the payment page — never the
+        // client's own estimate, since the backend is authoritative.
+        sessionStorage.setItem('newMemberId', result.member_id);
+        sessionStorage.setItem('newMemberNumber', result.member_number);
+        sessionStorage.setItem('newMemberName', `${payload.first_name} ${payload.last_name}`);
+        sessionStorage.setItem('newMemberPhone', payload.phone);
+        sessionStorage.setItem('registrationAmount', result.registration_amount);
 
-            if (dependantError) {
-                console.error("Dependant insert error:", dependantError);
-                showAlert("Member created but dependants failed. Please add them manually.", "error");
-            }
-        }
-
-        // 3. Create payment record
-        const { error: paymentError } = await supabaseClient
-            .from("payments")
-            .insert({
-                member_id: member.id,
-                amount: calculatedRegistration.total_amount,
-                payment_type: 'registration',
-                status: 'pending',
-                paybill_number: '348127',
-                account_number: member.member_number || 'PENDING',
-                notes: 'Registration payment - pending confirmation'
-            });
-
-        if (paymentError) {
-            console.error("Payment record error:", paymentError);
-        }
-
-        // Success
-        showAlert(`✅ Member "${member.first_name} ${member.last_name}" registered successfully!`, "success");
-
-        // Store member data for payment page
-        sessionStorage.setItem('newMemberId', member.id);
-        sessionStorage.setItem('newMemberNumber', member.member_number || 'PENDING');
-        sessionStorage.setItem('newMemberName', `${member.first_name} ${member.last_name}`);
-        sessionStorage.setItem('registrationAmount', calculatedRegistration.total_amount);
-
-        // Redirect to payment after delay
         setTimeout(() => {
-            window.location.href = `payment.html?member_id=${encodeURIComponent(member.id)}`;
+            window.location.href = `payment.html?member_id=${encodeURIComponent(result.member_id)}`;
         }, 1500);
 
     } catch (error) {
@@ -1207,12 +1194,6 @@ resetBtn.addEventListener("click", () => {
 });
 
 /* ============================================================
-   PLAN PRICES - Already hardcoded in HTML
-   ============================================================ */
-
-// Prices are already displayed in the HTML
-
-/* ============================================================
    KEYBOARD SHORTCUTS
    ============================================================ */
 
@@ -1246,8 +1227,7 @@ init();
 
 console.log('🆓 Masika Benevolent - Public Registration');
 console.log('📋 Anyone can register without logging in');
-console.log('🔗 Supabase URL:', SUPABASE_URL);
-console.log('✅ Supabase initialized with anon key');
+console.log('🔗 API:', API_BASE_URL);
 </script>
 
 </body>
