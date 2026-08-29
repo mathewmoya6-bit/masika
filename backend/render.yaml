@@ -1,15 +1,130 @@
+# ============================================================
+# MASIKA BENEVOLENT - RENDER DEPLOYMENT CONFIGURATION
+# ============================================================
+
 services:
+  # ============================================================
+  # API SERVICE
+  # ============================================================
+  
   - type: web
     name: masika-benevolent-api
     env: python
-    buildCommand: pip install -r requirements.txt
-    startCommand: uvicorn main:app --host 0.0.0.0 --port $PORT
+    repo: https://github.com/yourusername/masika-benevolent
+    branch: main
+    
+    # Build and Start Commands
+    buildCommand: |
+      pip install --upgrade pip
+      pip install -r requirements.txt
+      python scripts/init_db.py
+    startCommand: gunicorn -c gunicorn.conf.py main:app
+    
+    # Instance Type
+    plan: starter
+    
+    # Health Check
+    healthCheckPath: /api/health
+    
+    # Auto Deploy
+    autoDeploy: true
+    
+    # Environment Variables
     envVars:
+      # Supabase
       - key: SUPABASE_URL
-        sync: false
+        value: https://wpxzlcdrirlcyvfiquld.supabase.co
+      
       - key: SUPABASE_SERVICE_ROLE_KEY
         sync: false
-      - key: FRONTEND_URL
+      
+      # M-Pesa
+      - key: MPESA_CONSUMER_KEY
         sync: false
-    autoDeploy: true
-    plan: starter
+      
+      - key: MPESA_CONSUMER_SECRET
+        sync: false
+      
+      - key: MPESA_PASSKEY
+        sync: false
+      
+      - key: MPESA_SHORTCODE
+        value: 348127
+      
+      - key: MPESA_ENVIRONMENT
+        value: production
+      
+      - key: MPESA_CALLBACK_URL
+        value: https://masika-c921.onrender.com/api/webhooks/mpesa
+      
+      # Application
+      - key: ENVIRONMENT
+        value: production
+      
+      - key: API_VERSION
+        value: 2.0.0
+      
+      - key: DEBUG
+        value: false
+      
+      - key: FRONTEND_URL
+        value: https://www.masikabbs.com
+      
+      - key: ALLOWED_ORIGINS
+        value: https://www.masikabbs.com,https://masikabbs.com
+      
+      # Logging
+      - key: LOG_LEVEL
+        value: INFO
+      
+      - key: LOG_FORMAT
+        value: json
+
+  # ============================================================
+  # BACKGROUND WORKER (Optional)
+  # ============================================================
+  
+  - type: worker
+    name: masika-payment-processor
+    env: python
+    repo: https://github.com/yourusername/masika-benevolent
+    branch: main
+    
+    buildCommand: pip install -r requirements.txt
+    startCommand: python scripts/process_payments.py
+    
+    envVars:
+      - key: SUPABASE_URL
+        value: https://wpxzlcdrirlcyvfiquld.supabase.co
+      - key: SUPABASE_SERVICE_ROLE_KEY
+        sync: false
+      - key: MPESA_CONSUMER_KEY
+        sync: false
+      - key: MPESA_CONSUMER_SECRET
+        sync: false
+      - key: MPESA_PASSKEY
+        sync: false
+      - key: MPESA_SHORTCODE
+        value: 348127
+      - key: MPESA_ENVIRONMENT
+        value: production
+
+  # ============================================================
+  # CRON JOB (Scheduled Tasks)
+  # ============================================================
+  
+  - type: cron
+    name: masika-payment-cleanup
+    env: python
+    schedule: "0 0 * * *"  # Daily at midnight
+    
+    buildCommand: pip install -r requirements.txt
+    startCommand: python scripts/cleanup_payments.py
+    
+    envVars:
+      - key: SUPABASE_URL
+        value: https://wpxzlcdrirlcyvfiquld.supabase.co
+      - key: SUPABASE_SERVICE_ROLE_KEY
+        sync: false
+      - key: MPESA_SHORTCODE
+        value: 348127
