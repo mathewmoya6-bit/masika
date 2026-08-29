@@ -1,16 +1,10 @@
-```html
 <!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-
     <title>Register Member | Masika Benevolent</title>
-
-    <meta name="description"
-          content="Register a new Masika Benevolent member and calculate membership registration payment.">
-
-    <link rel="stylesheet" href="css/app.css">
+    <meta name="description" content="Register a new Masika Benevolent member and calculate membership registration payment.">
 
     <!-- Supabase -->
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
@@ -45,7 +39,6 @@
         }
 
         /* HEADER */
-
         .topbar {
             background: var(--primary);
             color: white;
@@ -55,6 +48,8 @@
             justify-content: space-between;
             padding: 0 28px;
             box-shadow: 0 2px 8px rgba(0,0,0,.12);
+            flex-wrap: wrap;
+            gap: 10px;
         }
 
         .brand {
@@ -91,6 +86,7 @@
             display: flex;
             align-items: center;
             gap: 10px;
+            flex-wrap: wrap;
         }
 
         .btn {
@@ -104,6 +100,13 @@
             align-items: center;
             justify-content: center;
             gap: 7px;
+            font-size: 14px;
+            transition: all 0.2s;
+        }
+
+        .btn:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 2px 8px rgba(0,0,0,0.15);
         }
 
         .btn-light {
@@ -121,23 +124,29 @@
             color: #374151;
         }
 
-        .btn-danger {
-            background: var(--danger);
-            color: white;
-        }
-
         .btn-success {
             background: var(--success);
             color: white;
         }
 
+        .btn-outline-light {
+            background: transparent;
+            color: white;
+            border: 2px solid rgba(255,255,255,0.3);
+        }
+
+        .btn-outline-light:hover {
+            background: rgba(255,255,255,0.1);
+            border-color: white;
+        }
+
         .btn:disabled {
             opacity: .55;
             cursor: not-allowed;
+            transform: none !important;
         }
 
         /* CONTENT */
-
         .container {
             width: min(1180px, calc(100% - 32px));
             margin: 30px auto 60px;
@@ -158,7 +167,6 @@
         }
 
         /* PROGRESS */
-
         .progress {
             background: white;
             border: 1px solid var(--border);
@@ -204,7 +212,6 @@
         }
 
         /* CARD */
-
         .card {
             background: white;
             border: 1px solid var(--border);
@@ -232,7 +239,6 @@
         }
 
         /* FORM */
-
         .form-grid {
             display: grid;
             grid-template-columns: repeat(2, 1fr);
@@ -269,6 +275,7 @@
             outline: none;
             background: white;
             color: var(--text);
+            transition: border-color 0.2s;
         }
 
         textarea {
@@ -283,6 +290,11 @@
             box-shadow: 0 0 0 3px rgba(11,93,59,.08);
         }
 
+        input.error,
+        select.error {
+            border-color: var(--danger);
+        }
+
         .help-text {
             color: var(--muted);
             font-size: 12px;
@@ -290,7 +302,6 @@
         }
 
         /* PLAN CARDS */
-
         .plans {
             display: grid;
             grid-template-columns: repeat(3, 1fr);
@@ -338,15 +349,17 @@
             font-size: 21px;
             font-weight: 800;
             margin-top: 15px;
+            color: var(--primary);
         }
 
         /* DEPENDANTS */
-
         .dependants-header {
             display: flex;
             justify-content: space-between;
             align-items: center;
             margin-bottom: 15px;
+            flex-wrap: wrap;
+            gap: 10px;
         }
 
         .dependant-row {
@@ -357,6 +370,7 @@
             border: 1px solid var(--border);
             border-radius: 8px;
             margin-bottom: 10px;
+            align-items: center;
         }
 
         .dependant-row input,
@@ -369,13 +383,17 @@
             background: #fff0f0;
             color: var(--danger);
             border-radius: 7px;
-            padding: 0 12px;
+            padding: 10px 12px;
             cursor: pointer;
             font-weight: 700;
+            transition: 0.2s;
+        }
+
+        .remove-btn:hover {
+            background: #fdd;
         }
 
         /* SUMMARY */
-
         .summary {
             background: #f7faf8;
             border: 1px solid #dbe9e2;
@@ -401,7 +419,6 @@
         }
 
         /* ALERT */
-
         .alert {
             display: none;
             padding: 13px 15px;
@@ -432,21 +449,21 @@
         }
 
         /* FOOTER ACTIONS */
-
         .form-actions {
             display: flex;
             justify-content: space-between;
             gap: 12px;
             margin-top: 20px;
+            flex-wrap: wrap;
         }
 
         .right-actions {
             display: flex;
             gap: 10px;
+            flex-wrap: wrap;
         }
 
         /* RESPONSIVE */
-
         @media (max-width: 800px) {
             .form-grid {
                 grid-template-columns: 1fr;
@@ -465,7 +482,17 @@
             }
 
             .topbar {
-                padding: 0 15px;
+                padding: 12px 15px;
+                flex-direction: column;
+                align-items: stretch;
+            }
+
+            .brand {
+                justify-content: center;
+            }
+
+            .top-actions {
+                justify-content: center;
             }
 
             .brand-text span {
@@ -494,6 +521,19 @@
                 width: 100%;
             }
         }
+
+        @media (max-width: 480px) {
+            .progress {
+                flex-direction: column;
+                gap: 4px;
+            }
+
+            .step {
+                min-width: auto;
+                text-align: left;
+                padding: 8px 12px;
+            }
+        }
     </style>
 </head>
 
@@ -505,7 +545,6 @@
     <header class="topbar">
         <div class="brand">
             <div class="brand-logo">MB</div>
-
             <div class="brand-text">
                 <strong>Masika Benevolent</strong>
                 <span>Membership Management System</span>
@@ -513,16 +552,14 @@
         </div>
 
         <div class="top-actions">
-            <a href="dashboard.html" class="btn btn-light">
-                ← Dashboard
+            <a href="index.html" class="btn btn-outline-light">
+                ← Home
             </a>
-
-            <button id="logoutBtn" class="btn btn-danger">
-                Logout
-            </button>
+            <a href="login.html" class="btn btn-light">
+                Login
+            </a>
         </div>
     </header>
-
 
     <main class="container">
 
@@ -531,102 +568,54 @@
             <p>Create a new member record and calculate the required registration payment.</p>
         </div>
 
-
         <!-- PROGRESS -->
         <div class="progress">
             <div class="step active" id="step1">
-                <span class="step-number">1</span>
-                Member Details
+                <span class="step-number">1</span> Member Details
             </div>
-
             <div class="step" id="step2">
-                <span class="step-number">2</span>
-                Membership Plan
+                <span class="step-number">2</span> Membership Plan
             </div>
-
             <div class="step" id="step3">
-                <span class="step-number">3</span>
-                Dependants
+                <span class="step-number">3</span> Dependants
             </div>
-
             <div class="step" id="step4">
-                <span class="step-number">4</span>
-                Review & Payment
+                <span class="step-number">4</span> Review & Payment
             </div>
         </div>
 
-
         <div id="alertBox" class="alert"></div>
-
 
         <!-- MEMBER DETAILS -->
         <section class="card">
-
             <div class="card-header">
                 <h2>1. Member Information</h2>
                 <p>Enter the principal member's personal and contact details.</p>
             </div>
 
             <div class="form-grid">
-
                 <div class="form-group">
-                    <label>
-                        First Name <span class="required">*</span>
-                    </label>
-
-                    <input
-                        type="text"
-                        id="firstName"
-                        placeholder="Enter first name"
-                        autocomplete="given-name"
-                        required>
+                    <label>First Name <span class="required">*</span></label>
+                    <input type="text" id="firstName" placeholder="Enter first name" autocomplete="given-name" required>
                 </div>
 
-
                 <div class="form-group">
-                    <label>
-                        Last Name <span class="required">*</span>
-                    </label>
-
-                    <input
-                        type="text"
-                        id="lastName"
-                        placeholder="Enter last name"
-                        autocomplete="family-name"
-                        required>
+                    <label>Last Name <span class="required">*</span></label>
+                    <input type="text" id="lastName" placeholder="Enter last name" autocomplete="family-name" required>
                 </div>
 
-
                 <div class="form-group">
-                    <label>
-                        Other Name
-                    </label>
-
-                    <input
-                        type="text"
-                        id="otherName"
-                        placeholder="Middle/other name">
+                    <label>Other Name</label>
+                    <input type="text" id="otherName" placeholder="Middle/other name">
                 </div>
 
-
                 <div class="form-group">
-                    <label>
-                        National ID / Passport <span class="required">*</span>
-                    </label>
-
-                    <input
-                        type="text"
-                        id="idNumber"
-                        placeholder="ID or passport number"
-                        required>
+                    <label>National ID / Passport <span class="required">*</span></label>
+                    <input type="text" id="idNumber" placeholder="ID or passport number" required>
                 </div>
 
-
                 <div class="form-group">
-                    <label>
-                        Gender <span class="required">*</span>
-                    </label>
-
+                    <label>Gender <span class="required">*</span></label>
                     <select id="gender" required>
                         <option value="">Select gender</option>
                         <option value="MALE">Male</option>
@@ -635,355 +624,168 @@
                     </select>
                 </div>
 
-
                 <div class="form-group">
-                    <label>
-                        Date of Birth <span class="required">*</span>
-                    </label>
-
-                    <input
-                        type="date"
-                        id="dateOfBirth"
-                        required>
+                    <label>Date of Birth <span class="required">*</span></label>
+                    <input type="date" id="dateOfBirth" required>
                 </div>
 
-
                 <div class="form-group">
-                    <label>
-                        Phone Number <span class="required">*</span>
-                    </label>
-
-                    <input
-                        type="tel"
-                        id="phone"
-                        placeholder="e.g. 0712345678"
-                        autocomplete="tel"
-                        required>
-
-                    <span class="help-text">
-                        Use the member's active mobile number.
-                    </span>
+                    <label>Phone Number <span class="required">*</span></label>
+                    <input type="tel" id="phone" placeholder="e.g. 0712345678" autocomplete="tel" required>
+                    <span class="help-text">Use the member's active mobile number.</span>
                 </div>
 
-
                 <div class="form-group">
-                    <label>
-                        Email Address
-                    </label>
-
-                    <input
-                        type="email"
-                        id="email"
-                        placeholder="member@example.com"
-                        autocomplete="email">
+                    <label>Email Address</label>
+                    <input type="email" id="email" placeholder="member@example.com" autocomplete="email">
                 </div>
 
-
                 <div class="form-group">
-                    <label>
-                        County <span class="required">*</span>
-                    </label>
-
+                    <label>County <span class="required">*</span></label>
                     <select id="county" required>
                         <option value="">Select county</option>
-                        <option>Nairobi</option>
-                        <option>Mombasa</option>
-                        <option>Kisumu</option>
-                        <option>Nakuru</option>
-                        <option>Kiambu</option>
-                        <option>Machakos</option>
-                        <option>Kajiado</option>
-                        <option>Uasin Gishu</option>
-                        <option>Kericho</option>
-                        <option>Bomet</option>
-                        <option>Nyeri</option>
-                        <option>Murang'a</option>
-                        <option>Kirinyaga</option>
-                        <option>Embu</option>
-                        <option>Meru</option>
-                        <option>Tharaka-Nithi</option>
-                        <option>Isiolo</option>
-                        <option>Laikipia</option>
-                        <option>Samburu</option>
-                        <option>Trans Nzoia</option>
-                        <option>Nandi</option>
-                        <option>Baringo</option>
-                        <option>Elgeyo-Marakwet</option>
-                        <option>West Pokot</option>
-                        <option>Kakamega</option>
-                        <option>Vihiga</option>
-                        <option>Bungoma</option>
-                        <option>Busia</option>
-                        <option>Siaya</option>
-                        <option>Homa Bay</option>
-                        <option>Migori</option>
-                        <option>Kisii</option>
-                        <option>Nyamira</option>
-                        <option>Nyandarua</option>
-                        <option>Kitui</option>
-                        <option>Makueni</option>
-                        <option>Garissa</option>
-                        <option>Wajir</option>
-                        <option>Mandera</option>
-                        <option>Tana River</option>
-                        <option>Lamu</option>
-                        <option>Taita-Taveta</option>
-                        <option>Kwale</option>
-                        <option>Turkana</option>
-                        <option>Marsabit</option>
-                        <option>Voi</option>
-                        <option>Other</option>
+                        <option>Nairobi</option><option>Mombasa</option><option>Kisumu</option>
+                        <option>Nakuru</option><option>Kiambu</option><option>Machakos</option>
+                        <option>Kajiado</option><option>Uasin Gishu</option><option>Kericho</option>
+                        <option>Bomet</option><option>Nyeri</option><option>Murang'a</option>
+                        <option>Kirinyaga</option><option>Embu</option><option>Meru</option>
+                        <option>Tharaka-Nithi</option><option>Isiolo</option><option>Laikipia</option>
+                        <option>Samburu</option><option>Trans Nzoia</option><option>Nandi</option>
+                        <option>Baringo</option><option>Elgeyo-Marakwet</option><option>West Pokot</option>
+                        <option>Kakamega</option><option>Vihiga</option><option>Bungoma</option>
+                        <option>Busia</option><option>Siaya</option><option>Homa Bay</option>
+                        <option>Migori</option><option>Kisii</option><option>Nyamira</option>
+                        <option>Nyandarua</option><option>Kitui</option><option>Makueni</option>
+                        <option>Garissa</option><option>Wajir</option><option>Mandera</option>
+                        <option>Tana River</option><option>Lamu</option><option>Taita-Taveta</option>
+                        <option>Kwale</option><option>Turkana</option><option>Marsabit</option>
+                        <option>Voi</option><option>Other</option>
                     </select>
                 </div>
 
-
                 <div class="form-group">
-                    <label>
-                        Town / Location
-                    </label>
-
-                    <input
-                        type="text"
-                        id="location"
-                        placeholder="Town or location">
+                    <label>Town / Location</label>
+                    <input type="text" id="location" placeholder="Town or location">
                 </div>
-
 
                 <div class="form-group full">
-                    <label>
-                        Physical Address
-                    </label>
-
-                    <textarea
-                        id="address"
-                        placeholder="Enter physical address"></textarea>
+                    <label>Physical Address</label>
+                    <textarea id="address" placeholder="Enter physical address"></textarea>
                 </div>
-
             </div>
-
         </section>
-
 
         <!-- MEMBERSHIP PLAN -->
         <section class="card">
-
             <div class="card-header">
                 <h2>2. Select Membership Plan</h2>
                 <p>Choose the appropriate Masika Benevolent membership plan.</p>
             </div>
 
             <div class="plans">
-
                 <label class="plan" data-plan="COMFORT">
-
-                    <input
-                        type="radio"
-                        name="plan"
-                        value="COMFORT">
-
+                    <input type="radio" name="plan" value="COMFORT">
                     <div class="plan-name">COMFORT</div>
-
-                    <div class="plan-description">
-                        Basic membership protection for individuals and families.
-                    </div>
-
-                    <div class="plan-price">
-                        KES <span id="comfortPrice">—</span>
-                    </div>
-
+                    <div class="plan-description">Basic membership protection for individuals and families.</div>
+                    <div class="plan-price">KES <span id="comfortPrice">200</span></div>
                 </label>
-
 
                 <label class="plan" data-plan="DIGNITY">
-
-                    <input
-                        type="radio"
-                        name="plan"
-                        value="DIGNITY">
-
+                    <input type="radio" name="plan" value="DIGNITY">
                     <div class="plan-name">DIGNITY</div>
-
-                    <div class="plan-description">
-                        Enhanced family protection and benevolent support.
-                    </div>
-
-                    <div class="plan-price">
-                        KES <span id="dignityPrice">—</span>
-                    </div>
-
+                    <div class="plan-description">Enhanced family protection and benevolent support.</div>
+                    <div class="plan-price">KES <span id="dignityPrice">500</span></div>
                 </label>
-
 
                 <label class="plan" data-plan="WAZAZI">
-
-                    <input
-                        type="radio"
-                        name="plan"
-                        value="WAZAZI">
-
+                    <input type="radio" name="plan" value="WAZAZI">
                     <div class="plan-name">WAZAZI</div>
-
-                    <div class="plan-description">
-                        Comprehensive parent and family protection.
-                    </div>
-
-                    <div class="plan-price">
-                        KES <span id="wazaziPrice">—</span>
-                    </div>
-
+                    <div class="plan-description">Comprehensive parent and family protection.</div>
+                    <div class="plan-price">KES <span id="wazaziPrice">100</span></div>
                 </label>
-
             </div>
-
         </section>
-
 
         <!-- DEPENDANTS -->
         <section class="card">
-
             <div class="card-header">
                 <h2>3. Dependants</h2>
                 <p>Add family members who will be covered under this membership.</p>
             </div>
 
-
             <div class="dependants-header">
-
-                <strong id="dependantCount">
-                    0 Dependants
-                </strong>
-
-                <button
-                    type="button"
-                    id="addDependantBtn"
-                    class="btn btn-secondary">
-                    + Add Dependant
-                </button>
-
+                <strong id="dependantCount">0 Dependants</strong>
+                <button type="button" id="addDependantBtn" class="btn btn-secondary">+ Add Dependant</button>
             </div>
 
-
             <div id="dependantsContainer"></div>
-
         </section>
-
 
         <!-- REVIEW -->
         <section class="card">
-
             <div class="card-header">
                 <h2>4. Registration Summary</h2>
                 <p>Review the registration details before creating the member.</p>
             </div>
 
-
             <div class="summary">
-
                 <div class="summary-row">
                     <span>Member</span>
                     <strong id="summaryName">—</strong>
                 </div>
-
                 <div class="summary-row">
                     <span>Plan</span>
                     <strong id="summaryPlan">—</strong>
                 </div>
-
                 <div class="summary-row">
                     <span>Dependants</span>
                     <strong id="summaryDependants">0</strong>
                 </div>
-
                 <div class="summary-row">
                     <span>Registration Fee</span>
                     <strong id="summaryRegistration">KES 0</strong>
                 </div>
-
                 <div class="summary-row">
                     <span>Total Payable</span>
-                    <strong
-                        class="summary-total"
-                        id="summaryTotal">
-                        KES 0
-                    </strong>
+                    <strong class="summary-total" id="summaryTotal">KES 0</strong>
                 </div>
-
             </div>
 
-
             <div class="form-actions">
-
-                <button
-                    type="button"
-                    id="resetBtn"
-                    class="btn btn-secondary">
-                    Reset Form
-                </button>
-
+                <button type="button" id="resetBtn" class="btn btn-secondary">Reset Form</button>
                 <div class="right-actions">
-
-                    <button
-                        type="button"
-                        id="calculateBtn"
-                        class="btn btn-primary">
-                        Calculate Registration
-                    </button>
-
-                    <button
-                        type="button"
-                        id="registerBtn"
-                        class="btn btn-success"
-                        disabled>
+                    <button type="button" id="calculateBtn" class="btn btn-primary">Calculate Registration</button>
+                    <button type="button" id="registerBtn" class="btn btn-success" disabled>
                         Register Member
                         <span id="loading" class="loading">...</span>
                     </button>
-
                 </div>
-
             </div>
-
         </section>
 
     </main>
-
 </div>
 
-
 <script>
-/*
-|--------------------------------------------------------------------------
-| SUPABASE CONFIGURATION
-|--------------------------------------------------------------------------
-| Replace these values with the same Supabase project credentials used
-| by your other frontend JavaScript files.
-|--------------------------------------------------------------------------
-*/
+/* ============================================================
+   SUPABASE CONFIGURATION
+   ============================================================ */
 
-const SUPABASE_URL = "YOUR_SUPABASE_URL";
-const SUPABASE_ANON_KEY = "YOUR_SUPABASE_ANON_KEY";
+const SUPABASE_URL = 'https://wpxzlcdrirlcyvfiquld.supabase.co';
+const SUPABASE_ANON_KEY = 'YOUR_SUPABASE_ANON_KEY'; // REPLACE WITH YOUR ACTUAL KEY
 
-const supabaseClient = window.supabase.createClient(
-    SUPABASE_URL,
-    SUPABASE_ANON_KEY
-);
+const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
+/* ============================================================
+   STATE
+   ============================================================ */
 
-/*
-|--------------------------------------------------------------------------
-| STATE
-|--------------------------------------------------------------------------
-*/
-
-let currentUser = null;
 let calculatedRegistration = null;
 let dependantIndex = 0;
 
-
-/*
-|--------------------------------------------------------------------------
-| DOM
-|--------------------------------------------------------------------------
-*/
+/* ============================================================
+   DOM REFERENCES
+   ============================================================ */
 
 const alertBox = document.getElementById("alertBox");
 
@@ -999,1087 +801,453 @@ const county = document.getElementById("county");
 const locationField = document.getElementById("location");
 const address = document.getElementById("address");
 
-const dependantsContainer =
-    document.getElementById("dependantsContainer");
+const dependantsContainer = document.getElementById("dependantsContainer");
+const dependantCount = document.getElementById("dependantCount");
+const addDependantBtn = document.getElementById("addDependantBtn");
+const calculateBtn = document.getElementById("calculateBtn");
+const registerBtn = document.getElementById("registerBtn");
+const resetBtn = document.getElementById("resetBtn");
 
-const dependantCount =
-    document.getElementById("dependantCount");
-
-const addDependantBtn =
-    document.getElementById("addDependantBtn");
-
-const calculateBtn =
-    document.getElementById("calculateBtn");
-
-const registerBtn =
-    document.getElementById("registerBtn");
-
-const resetBtn =
-    document.getElementById("resetBtn");
-
-const logoutBtn =
-    document.getElementById("logoutBtn");
-
-
-/*
-|--------------------------------------------------------------------------
-| ALERT
-|--------------------------------------------------------------------------
-*/
+/* ============================================================
+   ALERT FUNCTIONS
+   ============================================================ */
 
 function showAlert(message, type = "error") {
-
     alertBox.textContent = message;
-
     alertBox.className = "alert show " + type;
-
-    window.scrollTo({
-        top: 0,
-        behavior: "smooth"
-    });
+    window.scrollTo({ top: 0, behavior: "smooth" });
 }
 
-
 function clearAlert() {
-
     alertBox.textContent = "";
-
     alertBox.className = "alert";
 }
 
-
-/*
-|--------------------------------------------------------------------------
-| AUTHENTICATION
-|--------------------------------------------------------------------------
-*/
-
-async function checkAuthentication() {
-
-    const {
-        data: {
-            user
-        },
-        error
-    } = await supabaseClient.auth.getUser();
-
-    if (error || !user) {
-
-        window.location.href = "login.html";
-
-        return;
-    }
-
-    currentUser = user;
-}
-
-
-/*
-|--------------------------------------------------------------------------
-| LOGOUT
-|--------------------------------------------------------------------------
-*/
-
-logoutBtn.addEventListener("click", async () => {
-
-    await supabaseClient.auth.signOut();
-
-    window.location.href = "login.html";
-});
-
-
-/*
-|--------------------------------------------------------------------------
-| PLAN SELECTION
-|--------------------------------------------------------------------------
-*/
+/* ============================================================
+   PLAN SELECTION
+   ============================================================ */
 
 document.querySelectorAll(".plan").forEach(plan => {
-
     plan.addEventListener("click", () => {
-
-        document.querySelectorAll(".plan")
-            .forEach(item => item.classList.remove("selected"));
-
+        document.querySelectorAll(".plan").forEach(item => item.classList.remove("selected"));
         plan.classList.add("selected");
-
         const radio = plan.querySelector("input");
-
         radio.checked = true;
-
         calculatedRegistration = null;
-
         registerBtn.disabled = true;
-
         updateSummary();
     });
-
 });
 
-
-/*
-|--------------------------------------------------------------------------
-| ADD DEPENDANT
-|--------------------------------------------------------------------------
-*/
+/* ============================================================
+   DEPENDANT MANAGEMENT
+   ============================================================ */
 
 addDependantBtn.addEventListener("click", addDependant);
 
-
 function addDependant() {
-
     dependantIndex++;
-
     const row = document.createElement("div");
-
     row.className = "dependant-row";
-
     row.dataset.index = dependantIndex;
-
     row.innerHTML = `
-
-        <input
-            type="text"
-            class="dependant-name"
-            placeholder="Full name"
-            required>
-
+        <input type="text" class="dependant-name" placeholder="Full name" required>
         <select class="dependant-relation" required>
-
             <option value="">Relationship</option>
-
             <option value="SPOUSE">Spouse</option>
             <option value="CHILD">Child</option>
             <option value="PARENT">Parent</option>
             <option value="SIBLING">Sibling</option>
             <option value="OTHER">Other</option>
-
         </select>
-
-        <input
-            type="date"
-            class="dependant-dob"
-            title="Date of birth">
-
-        <button
-            type="button"
-            class="remove-btn"
-            onclick="removeDependant(this)">
-            Remove
-        </button>
-
+        <input type="date" class="dependant-dob" title="Date of birth">
+        <button type="button" class="remove-btn" onclick="removeDependant(this)">✕ Remove</button>
     `;
-
     dependantsContainer.appendChild(row);
-
     updateDependantCount();
-
     calculatedRegistration = null;
-
     registerBtn.disabled = true;
-
     updateSummary();
 }
-
-
-/*
-|--------------------------------------------------------------------------
-| REMOVE DEPENDANT
-|--------------------------------------------------------------------------
-*/
 
 function removeDependant(button) {
-
     const row = button.closest(".dependant-row");
-
-    if (row) {
-        row.remove();
-    }
-
+    if (row) row.remove();
     updateDependantCount();
-
     calculatedRegistration = null;
-
     registerBtn.disabled = true;
-
     updateSummary();
 }
 
-
-/*
-|--------------------------------------------------------------------------
-| DEPENDANT COUNT
-|--------------------------------------------------------------------------
-*/
-
 function updateDependantCount() {
-
-    const count =
-        document.querySelectorAll(".dependant-row").length;
-
-    dependantCount.textContent =
-        count === 1
-            ? "1 Dependant"
-            : `${count} Dependants`;
-
-    document.getElementById("summaryDependants")
-        .textContent = count;
+    const count = document.querySelectorAll(".dependant-row").length;
+    dependantCount.textContent = count === 1 ? "1 Dependant" : `${count} Dependants`;
+    document.getElementById("summaryDependants").textContent = count;
 }
-
-
-/*
-|--------------------------------------------------------------------------
-| GET DEPENDANTS
-|--------------------------------------------------------------------------
-*/
 
 function getDependants() {
-
-    const rows =
-        document.querySelectorAll(".dependant-row");
-
-    return Array.from(rows).map(row => {
-
-        return {
-
-            name:
-                row.querySelector(".dependant-name").value.trim(),
-
-            relationship:
-                row.querySelector(".dependant-relation").value,
-
-            date_of_birth:
-                row.querySelector(".dependant-dob").value || null
-
-        };
-
-    });
-
+    const rows = document.querySelectorAll(".dependant-row");
+    return Array.from(rows).map(row => ({
+        name: row.querySelector(".dependant-name").value.trim(),
+        relationship: row.querySelector(".dependant-relation").value,
+        date_of_birth: row.querySelector(".dependant-dob").value || null
+    }));
 }
 
-
-/*
-|--------------------------------------------------------------------------
-| GET SELECTED PLAN
-|--------------------------------------------------------------------------
-*/
+/* ============================================================
+   GET SELECTED PLAN
+   ============================================================ */
 
 function getSelectedPlan() {
-
-    const selected =
-        document.querySelector(
-            'input[name="plan"]:checked'
-        );
-
-    return selected
-        ? selected.value
-        : null;
+    const selected = document.querySelector('input[name="plan"]:checked');
+    return selected ? selected.value : null;
 }
 
-
-/*
-|--------------------------------------------------------------------------
-| VALIDATION
-|--------------------------------------------------------------------------
-*/
+/* ============================================================
+   VALIDATION
+   ============================================================ */
 
 function validateForm() {
-
     clearAlert();
 
     const requiredFields = [
-
-        {
-            field: firstName,
-            name: "First name"
-        },
-
-        {
-            field: lastName,
-            name: "Last name"
-        },
-
-        {
-            field: idNumber,
-            name: "National ID / Passport"
-        },
-
-        {
-            field: gender,
-            name: "Gender"
-        },
-
-        {
-            field: dateOfBirth,
-            name: "Date of birth"
-        },
-
-        {
-            field: phone,
-            name: "Phone number"
-        },
-
-        {
-            field: county,
-            name: "County"
-        }
-
+        { field: firstName, name: "First name" },
+        { field: lastName, name: "Last name" },
+        { field: idNumber, name: "National ID / Passport" },
+        { field: gender, name: "Gender" },
+        { field: dateOfBirth, name: "Date of birth" },
+        { field: phone, name: "Phone number" },
+        { field: county, name: "County" }
     ];
 
-
     for (const item of requiredFields) {
-
         if (!item.field.value.trim()) {
-
-            showAlert(
-                `${item.name} is required.`
-            );
-
+            showAlert(`${item.name} is required.`);
             item.field.focus();
-
+            item.field.classList.add("error");
             return false;
         }
-
+        item.field.classList.remove("error");
     }
 
-
     const plan = getSelectedPlan();
-
     if (!plan) {
-
-        showAlert(
-            "Please select a membership plan."
-        );
-
+        showAlert("Please select a membership plan.");
         return false;
     }
 
-
     const dependants = getDependants();
-
     for (const dependant of dependants) {
-
-        if (
-            !dependant.name ||
-            !dependant.relationship
-        ) {
-
-            showAlert(
-                "Please complete all dependant details."
-            );
-
+        if (!dependant.name || !dependant.relationship) {
+            showAlert("Please complete all dependant details.");
             return false;
         }
-
     }
-
 
     return true;
 }
 
-
-/*
-|--------------------------------------------------------------------------
-| MEMBER PAYLOAD
-|--------------------------------------------------------------------------
-*/
+/* ============================================================
+   MEMBER PAYLOAD
+   ============================================================ */
 
 function getMemberPayload() {
-
     return {
-
-        first_name:
-            firstName.value.trim(),
-
-        last_name:
-            lastName.value.trim(),
-
-        other_name:
-            otherName.value.trim() || null,
-
-        id_number:
-            idNumber.value.trim(),
-
-        gender:
-            gender.value,
-
-        date_of_birth:
-            dateOfBirth.value,
-
-        phone:
-            phone.value.trim(),
-
-        email:
-            email.value.trim() || null,
-
-        county:
-            county.value,
-
-        location:
-            locationField.value.trim() || null,
-
-        address:
-            address.value.trim() || null,
-
-        plan:
-            getSelectedPlan(),
-
-        dependants:
-            getDependants()
-
+        first_name: firstName.value.trim(),
+        last_name: lastName.value.trim(),
+        other_name: otherName.value.trim() || null,
+        id_number: idNumber.value.trim(),
+        gender: gender.value,
+        date_of_birth: dateOfBirth.value,
+        phone: phone.value.trim(),
+        email: email.value.trim() || null,
+        county: county.value,
+        location: locationField.value.trim() || null,
+        address: address.value.trim() || null,
+        plan: getSelectedPlan(),
+        dependants: getDependants()
     };
-
 }
 
+/* ============================================================
+   CALCULATE REGISTRATION
+   ============================================================ */
 
-/*
-|--------------------------------------------------------------------------
-| CALCULATE REGISTRATION
-|--------------------------------------------------------------------------
-| This calls the Supabase function:
-|
-| calculate_registration_payment()
-|
-| The exact parameter shape may be adjusted to match your SQL function.
-|--------------------------------------------------------------------------
-*/
-
-calculateBtn.addEventListener(
-    "click",
-    calculateRegistrationPayment
-);
-
+calculateBtn.addEventListener("click", calculateRegistrationPayment);
 
 async function calculateRegistrationPayment() {
-
-    if (!validateForm()) {
-        return;
-    }
-
+    if (!validateForm()) return;
 
     calculateBtn.disabled = true;
-
-    calculateBtn.textContent =
-        "Calculating...";
-
+    calculateBtn.textContent = "Calculating...";
 
     try {
+        const payload = getMemberPayload();
 
-        const payload =
-            getMemberPayload();
+        // Calculate registration fee based on plan
+        const planFees = {
+            'COMFORT': 200,
+            'DIGNITY': 500,
+            'WAZAZI': 100
+        };
 
+        const dependantFees = {
+            'SPOUSE': 100,
+            'CHILD': 50,
+            'PARENT': 150,
+            'SIBLING': 100,
+            'OTHER': 100
+        };
 
-        const {
-            data,
-            error
-        } = await supabaseClient.rpc(
-            "calculate_registration_payment",
-            {
-                p_plan: payload.plan,
-                p_dependants: payload.dependants
-            }
-        );
-
-
-        if (error) {
-
-            console.error(
-                "Registration calculation error:",
-                error
-            );
-
-            throw error;
+        let totalFee = planFees[payload.plan] || 0;
+        
+        // Add dependant fees
+        for (const dep of payload.dependants) {
+            totalFee += dependantFees[dep.relationship] || 50;
         }
 
+        const result = {
+            total_amount: totalFee,
+            registration_fee: planFees[payload.plan] || 0,
+            dependant_fees: totalFee - (planFees[payload.plan] || 0)
+        };
 
-        calculatedRegistration = data;
+        calculatedRegistration = result;
 
-
-        /*
-        |--------------------------------------------------------------------------
-        | HANDLE COMMON SUPABASE RETURN SHAPES
-        |--------------------------------------------------------------------------
-        */
-
-        let amount = 0;
-
-
-        if (typeof data === "number") {
-
-            amount = data;
-
-        } else if (
-            data &&
-            typeof data === "object"
-        ) {
-
-            amount =
-                Number(
-                    data.total_amount ??
-                    data.registration_amount ??
-                    data.amount ??
-                    data.total ??
-                    0
-                );
-
-        }
-
-
-        document.getElementById(
-            "summaryRegistration"
-        ).textContent =
-            formatCurrency(amount);
-
-
-        document.getElementById(
-            "summaryTotal"
-        ).textContent =
-            formatCurrency(amount);
-
+        document.getElementById("summaryRegistration").textContent = formatCurrency(totalFee);
+        document.getElementById("summaryTotal").textContent = formatCurrency(totalFee);
 
         registerBtn.disabled = false;
 
-
-        showAlert(
-            "Registration payment calculated successfully.",
-            "success"
-        );
-
+        showAlert(`Registration payment calculated: ${formatCurrency(totalFee)}`, "success");
 
     } catch (error) {
-
         console.error(error);
-
-        showAlert(
-            error.message ||
-            "Unable to calculate registration payment."
-        );
-
+        showAlert(error.message || "Unable to calculate registration payment.");
         registerBtn.disabled = true;
-
     } finally {
-
         calculateBtn.disabled = false;
-
-        calculateBtn.textContent =
-            "Calculate Registration";
-
+        calculateBtn.textContent = "Calculate Registration";
     }
-
 }
 
-
-/*
-|--------------------------------------------------------------------------
-| SUMMARY
-|--------------------------------------------------------------------------
-*/
+/* ============================================================
+   SUMMARY UPDATE
+   ============================================================ */
 
 function updateSummary() {
+    const name = [firstName.value.trim(), lastName.value.trim()].filter(Boolean).join(" ");
+    document.getElementById("summaryName").textContent = name || "—";
 
-    const name =
-        [
-            firstName.value.trim(),
-            lastName.value.trim()
-        ]
-        .filter(Boolean)
-        .join(" ");
-
-
-    document.getElementById(
-        "summaryName"
-    ).textContent =
-        name || "—";
-
-
-    const plan =
-        getSelectedPlan();
-
-
-    document.getElementById(
-        "summaryPlan"
-    ).textContent =
-        plan || "—";
-
+    const plan = getSelectedPlan();
+    document.getElementById("summaryPlan").textContent = plan || "—";
 
     updateDependantCount();
 
-
     if (!calculatedRegistration) {
-
-        document.getElementById(
-            "summaryRegistration"
-        ).textContent =
-            "KES 0";
-
-        document.getElementById(
-            "summaryTotal"
-        ).textContent =
-            "KES 0";
-
+        document.getElementById("summaryRegistration").textContent = "KES 0";
+        document.getElementById("summaryTotal").textContent = "KES 0";
     }
-
 }
 
-
-/*
-|--------------------------------------------------------------------------
-| FORMAT CURRENCY
-|--------------------------------------------------------------------------
-*/
+/* ============================================================
+   FORMAT CURRENCY
+   ============================================================ */
 
 function formatCurrency(value) {
-
-    const amount =
-        Number(value) || 0;
-
-    return "KES " +
-        amount.toLocaleString(
-            "en-KE",
-            {
-                minimumFractionDigits: 2,
-                maximumFractionDigits: 2
-            }
-        );
-
+    const amount = Number(value) || 0;
+    return "KES " + amount.toLocaleString("en-KE", {
+        minimumFractionDigits: 0,
+        maximumFractionDigits: 0
+    });
 }
 
+/* ============================================================
+   REGISTER MEMBER
+   ============================================================ */
 
-/*
-|--------------------------------------------------------------------------
-| REGISTER MEMBER
-|--------------------------------------------------------------------------
-*/
-
-registerBtn.addEventListener(
-    "click",
-    registerMember
-);
-
+registerBtn.addEventListener("click", registerMember);
 
 async function registerMember() {
-
-    if (!validateForm()) {
-        return;
-    }
-
+    if (!validateForm()) return;
 
     if (!calculatedRegistration) {
-
-        showAlert(
-            "Please calculate the registration payment before registering the member."
-        );
-
+        showAlert("Please calculate the registration payment before registering the member.");
         return;
     }
 
-
     registerBtn.disabled = true;
-
-    document.getElementById(
-        "loading"
-    ).style.display = "inline";
-
+    document.getElementById("loading").style.display = "inline";
 
     try {
+        const payload = getMemberPayload();
 
-        const payload =
-            getMemberPayload();
-
-
-        /*
-        |--------------------------------------------------------------------------
-        | INSERT MEMBER
-        |--------------------------------------------------------------------------
-        */
-
-        const {
-            data: member,
-            error: memberError
-        } =
-            await supabaseClient
-                .from("members")
-                .insert({
-
-                    first_name:
-                        payload.first_name,
-
-                    last_name:
-                        payload.last_name,
-
-                    other_name:
-                        payload.other_name,
-
-                    id_number:
-                        payload.id_number,
-
-                    gender:
-                        payload.gender,
-
-                    date_of_birth:
-                        payload.date_of_birth,
-
-                    phone:
-                        payload.phone,
-
-                    email:
-                        payload.email,
-
-                    county:
-                        payload.county,
-
-                    location:
-                        payload.location,
-
-                    address:
-                        payload.address,
-
-                    plan:
-                        payload.plan,
-
-                    status:
-                        "PENDING_PAYMENT",
-
-                    created_by:
-                        currentUser
-                            ? currentUser.id
-                            : null
-
-                })
-                .select()
-                .single();
-
+        // 1. Insert Member - NO LOGIN REQUIRED
+        const { data: member, error: memberError } = await supabaseClient
+            .from("members")
+            .insert({
+                first_name: payload.first_name,
+                last_name: payload.last_name,
+                other_name: payload.other_name,
+                id_number: payload.id_number,
+                gender: payload.gender,
+                date_of_birth: payload.date_of_birth,
+                phone: payload.phone,
+                email: payload.email,
+                county: payload.county,
+                location: payload.location,
+                address: payload.address,
+                plan: payload.plan.toLowerCase(),
+                benefit_option: 'service',
+                registration_fee_paid: false,
+                is_active: true
+            })
+            .select()
+            .single();
 
         if (memberError) {
-
-            throw memberError;
+            console.error("Member insert error:", memberError);
+            throw new Error(memberError.message || "Failed to create member");
         }
 
+        // 2. Insert Dependants
+        const dependants = payload.dependants;
+        if (dependants.length && member) {
+            const dependantRows = dependants.map(dep => ({
+                member_id: member.id,
+                first_name: dep.name.split(' ')[0] || dep.name,
+                last_name: dep.name.split(' ').slice(1).join(' ') || 'Unknown',
+                date_of_birth: dep.date_of_birth || null,
+                relationship: dep.relationship.toLowerCase(),
+                is_active: true
+            }));
 
-        /*
-        |--------------------------------------------------------------------------
-        | INSERT DEPENDANTS
-        |--------------------------------------------------------------------------
-        */
-
-        const dependants =
-            payload.dependants;
-
-
-        if (
-            dependants.length &&
-            member
-        ) {
-
-            const dependantRows =
-                dependants.map(
-                    dependant => ({
-
-                        member_id:
-                            member.id,
-
-                        full_name:
-                            dependant.name,
-
-                        relationship:
-                            dependant.relationship,
-
-                        date_of_birth:
-                            dependant.date_of_birth,
-
-                        status:
-                            "ACTIVE"
-
-                    })
-                );
-
-
-            const {
-                error: dependantError
-            } =
-                await supabaseClient
-                    .from("dependants")
-                    .insert(
-                        dependantRows
-                    );
-
+            const { error: dependantError } = await supabaseClient
+                .from("dependants")
+                .insert(dependantRows);
 
             if (dependantError) {
-
-                throw dependantError;
+                console.error("Dependant insert error:", dependantError);
+                showAlert("Member created but dependants failed. Please add them manually.", "error");
             }
-
         }
 
+        // 3. Create payment record
+        const { error: paymentError } = await supabaseClient
+            .from("payments")
+            .insert({
+                member_id: member.id,
+                amount: calculatedRegistration.total_amount,
+                payment_type: 'registration',
+                status: 'pending',
+                paybill_number: '348127',
+                account_number: member.member_number || 'PENDING',
+                notes: 'Registration payment - pending confirmation'
+            });
 
-        /*
-        |--------------------------------------------------------------------------
-        | SUCCESS
-        |--------------------------------------------------------------------------
-        */
+        if (paymentError) {
+            console.error("Payment record error:", paymentError);
+        }
 
-        showAlert(
-            "Member registered successfully.",
-            "success"
-        );
+        // Success
+        showAlert(`✅ Member "${member.first_name} ${member.last_name}" registered successfully!`, "success");
 
+        // Store member data for payment page
+        sessionStorage.setItem('newMemberId', member.id);
+        sessionStorage.setItem('newMemberNumber', member.member_number || 'PENDING');
+        sessionStorage.setItem('newMemberName', `${member.first_name} ${member.last_name}`);
+        sessionStorage.setItem('registrationAmount', calculatedRegistration.total_amount);
 
-        /*
-        |--------------------------------------------------------------------------
-        | REDIRECT TO PAYMENT
-        |--------------------------------------------------------------------------
-        */
-
+        // Redirect to payment after delay
         setTimeout(() => {
-
-            window.location.href =
-                `payment.html?member_id=${encodeURIComponent(member.id)}`;
-
-        }, 1200);
-
+            window.location.href = `payment.html?member_id=${encodeURIComponent(member.id)}`;
+        }, 1500);
 
     } catch (error) {
-
-        console.error(
-            "Member registration error:",
-            error
-        );
-
-
-        showAlert(
-            error.message ||
-            "Unable to register member."
-        );
-
-
+        console.error("Member registration error:", error);
+        showAlert(error.message || "Unable to register member.");
         registerBtn.disabled = false;
-
     } finally {
-
-        document.getElementById(
-            "loading"
-        ).style.display = "none";
-
+        document.getElementById("loading").style.display = "none";
     }
-
 }
 
+/* ============================================================
+   RESET FORM
+   ============================================================ */
 
-/*
-|--------------------------------------------------------------------------
-| RESET FORM
-|--------------------------------------------------------------------------
-*/
+resetBtn.addEventListener("click", () => {
+    if (!confirm("Are you sure you want to clear this registration?")) return;
 
-resetBtn.addEventListener(
-    "click",
-    () => {
-
-        if (
-            !confirm(
-                "Are you sure you want to clear this registration?"
-            )
-        ) {
-            return;
+    document.querySelectorAll("input, select, textarea").forEach(element => {
+        if (element.type === "radio" || element.type === "checkbox") {
+            element.checked = false;
+        } else {
+            element.value = "";
         }
+        element.classList.remove("error");
+    });
 
-
-        document.querySelectorAll(
-            "input, select, textarea"
-        ).forEach(element => {
-
-            if (
-                element.type === "radio" ||
-                element.type === "checkbox"
-            ) {
-
-                element.checked = false;
-
-            } else {
-
-                element.value = "";
-
-            }
-
-        });
-
-
-        document.querySelectorAll(
-            ".plan"
-        ).forEach(
-            plan =>
-                plan.classList.remove(
-                    "selected"
-                )
-        );
-
-
-        dependantsContainer.innerHTML = "";
-
-        dependantIndex = 0;
-
-        calculatedRegistration = null;
-
-        registerBtn.disabled = true;
-
-        updateDependantCount();
-
-        updateSummary();
-
-        clearAlert();
-
-    }
-);
-
-
-/*
-|--------------------------------------------------------------------------
-| LIVE SUMMARY
-|--------------------------------------------------------------------------
-*/
-
-[
-    firstName,
-    lastName
-].forEach(field => {
-
-    field.addEventListener(
-        "input",
-        updateSummary
-    );
-
+    document.querySelectorAll(".plan").forEach(plan => plan.classList.remove("selected"));
+    dependantsContainer.innerHTML = "";
+    dependantIndex = 0;
+    calculatedRegistration = null;
+    registerBtn.disabled = true;
+    updateDependantCount();
+    updateSummary();
+    clearAlert();
 });
 
+/* ============================================================
+   LIVE SUMMARY
+   ============================================================ */
 
-/*
-|--------------------------------------------------------------------------
-| LOAD PLAN PRICES
-|--------------------------------------------------------------------------
-|
-| Optional helper. If your database has a membership_plans table,
-| this loads current prices instead of hardcoding them.
-|--------------------------------------------------------------------------
-*/
+[firstName, lastName].forEach(field => {
+    field.addEventListener("input", updateSummary);
+});
 
-async function loadPlanPrices() {
+/* ============================================================
+   PLAN PRICES - Already hardcoded in HTML
+   ============================================================ */
 
-    try {
+// Prices are already displayed in the HTML
 
-        const {
-            data,
-            error
-        } =
-            await supabaseClient
-                .from("membership_plans")
-                .select(
-                    "plan_name,registration_fee"
-                )
-                .in(
-                    "plan_name",
-                    [
-                        "COMFORT",
-                        "DIGNITY",
-                        "WAZAZI"
-                    ]
-                );
+/* ============================================================
+   KEYBOARD SHORTCUTS
+   ============================================================ */
 
-
-        if (error) {
-
-            console.warn(
-                "Could not load plan prices:",
-                error.message
-            );
-
-            return;
-        }
-
-
-        if (!data) {
-            return;
-        }
-
-
-        data.forEach(plan => {
-
-            const price =
-                formatCurrency(
-                    plan.registration_fee
-                )
-                .replace("KES ", "");
-
-
-            if (
-                plan.plan_name ===
-                "COMFORT"
-            ) {
-
-                document.getElementById(
-                    "comfortPrice"
-                ).textContent = price;
-
-            }
-
-
-            if (
-                plan.plan_name ===
-                "DIGNITY"
-            ) {
-
-                document.getElementById(
-                    "dignityPrice"
-                ).textContent = price;
-
-            }
-
-
-            if (
-                plan.plan_name ===
-                "WAZAZI"
-            ) {
-
-                document.getElementById(
-                    "wazaziPrice"
-                ).textContent = price;
-
-            }
-
-        });
-
-
-    } catch (error) {
-
-        console.warn(
-            "Plan price loading failed:",
-            error
-        );
-
+document.addEventListener('keydown', function(e) {
+    // Ctrl+Enter to calculate
+    if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
+        e.preventDefault();
+        calculateBtn.click();
     }
+    // Ctrl+Shift+Enter to register
+    if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key === 'Enter') {
+        e.preventDefault();
+        if (!registerBtn.disabled) registerBtn.click();
+    }
+});
 
-}
+/* ============================================================
+   INITIALIZE
+   ============================================================ */
 
-
-/*
-|--------------------------------------------------------------------------
-| INITIALIZE
-|--------------------------------------------------------------------------
-*/
-
-async function init() {
-
-    await checkAuthentication();
-
-    await loadPlanPrices();
-
+function init() {
     updateSummary();
 
+    // Set default date of birth to 18 years ago
+    const defaultDate = new Date();
+    defaultDate.setFullYear(defaultDate.getFullYear() - 18);
+    dateOfBirth.value = defaultDate.toISOString().split('T')[0];
 }
-
 
 init();
 
+console.log('🆓 Masika Benevolent - Public Registration');
+console.log('📋 Anyone can register without logging in');
+console.log('🔗 Supabase URL:', SUPABASE_URL);
 </script>
 
 </body>
 </html>
-```
