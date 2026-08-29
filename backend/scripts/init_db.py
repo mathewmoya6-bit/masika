@@ -145,4 +145,125 @@ CREATE TABLE IF NOT EXISTS public.claims (
     rejection_reason TEXT,
     resolved_at TIMESTAMPTZ,
     created_at TIMESTAMPTZ DEFAULT NOW(),
-    updated_at TIM
+    updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- 8. NOTIFICATIONS TABLE
+CREATE TABLE IF NOT EXISTS public.notifications (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    member_id UUID NOT NULL REFERENCES public.members(id) ON DELETE CASCADE,
+    title TEXT NOT NULL,
+    message TEXT NOT NULL,
+    type TEXT NOT NULL,
+    is_read BOOLEAN DEFAULT FALSE,
+    link TEXT,
+    created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- 9. ADMIN PROFILES TABLE
+CREATE TABLE IF NOT EXISTS public.admin_profiles (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id UUID REFERENCES auth.users(id) ON DELETE SET NULL,
+    full_name TEXT NOT NULL,
+    email TEXT NOT NULL UNIQUE,
+    role TEXT DEFAULT 'admin',
+    is_active BOOLEAN DEFAULT TRUE,
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- 10. INDEXES
+CREATE INDEX IF NOT EXISTS idx_members_phone ON public.members(phone);
+CREATE INDEX IF NOT EXISTS idx_members_email ON public.members(email);
+CREATE INDEX IF NOT EXISTS idx_members_member_number ON public.members(member_number);
+CREATE INDEX IF NOT EXISTS idx_members_plan ON public.members(plan);
+CREATE INDEX IF NOT EXISTS idx_dependants_member_id ON public.dependants(member_id);
+CREATE INDEX IF NOT EXISTS idx_payments_member_id ON public.payments(member_id);
+CREATE INDEX IF NOT EXISTS idx_payments_status ON public.payments(status);
+CREATE INDEX IF NOT EXISTS idx_agent_applications_email ON public.agent_applications(email);
+CREATE INDEX IF NOT EXISTS idx_agent_applications_status ON public.agent_applications(status);
+CREATE INDEX IF NOT EXISTS idx_agent_profiles_email ON public.agent_profiles(email);
+CREATE INDEX IF NOT EXISTS idx_sales_codes_code ON public.sales_codes(code);
+CREATE INDEX IF NOT EXISTS idx_claims_member_id ON public.claims(member_id);
+CREATE INDEX IF NOT EXISTS idx_notifications_member_id ON public.notifications(member_id);
+
+-- 11. RLS POLICIES
+ALTER TABLE public.members ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.dependants ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.payments ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.agent_applications ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.agent_profiles ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.sales_codes ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.claims ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.notifications ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.admin_profiles ENABLE ROW LEVEL SECURITY;
+
+-- 12. TRIGGERS
+CREATE OR REPLACE FUNCTION update_updated_at_column()
+RETURNS TRIGGER AS $$
+BEGIN
+    NEW.updated_at = NOW();
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER update_members_updated_at
+    BEFORE UPDATE ON public.members
+    FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+
+CREATE TRIGGER update_dependants_updated_at
+    BEFORE UPDATE ON public.dependants
+    FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+
+CREATE TRIGGER update_payments_updated_at
+    BEFORE UPDATE ON public.payments
+    FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+
+CREATE TRIGGER update_agent_applications_updated_at
+    BEFORE UPDATE ON public.agent_applications
+    FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+
+CREATE TRIGGER update_agent_profiles_updated_at
+    BEFORE UPDATE ON public.agent_profiles
+    FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+
+CREATE TRIGGER update_sales_codes_updated_at
+    BEFORE UPDATE ON public.sales_codes
+    FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+
+CREATE TRIGGER update_claims_updated_at
+    BEFORE UPDATE ON public.claims
+    FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+
+CREATE TRIGGER update_admin_profiles_updated_at
+    BEFORE UPDATE ON public.admin_profiles
+    FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+
+-- 13. GRANT PERMISSIONS
+GRANT ALL ON ALL TABLES IN SCHEMA public TO postgres;
+GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA public TO authenticated;
+GRANT USAGE ON ALL SEQUENCES IN SCHEMA public TO authenticated;
+GRANT SELECT ON ALL TABLES IN SCHEMA public TO anon;
+"""
+
+
+def run_migration():
+    """Run the database migration."""
+    logger.info("🚀 Starting database initialization...")
+    
+    try:
+        supabase = get_supabase()
+        
+        # Execute SQL
+        result = supabase.sql(SCHEMA_SQL).execute()
+        
+        logger.info("✅ Database schema created successfully!")
+        logger.info(f"📊 Tables created: members, dependants, payments, agent_applications, agent_profiles, sales_codes, claims, notifications, admin_profiles")
+        
+    except Exception as e:
+        logger.error(f"❌ Migration failed: {e}")
+        sys.exit(1)
+
+
+if __name__ == "__main__":
+    run_migration()
