@@ -138,4 +138,120 @@ class MemberService:
         if updates.address is not None:
             update_data["address"] = updates.address.strip()
         if updates.is_active is not None:
-            update_data["is_active"] = updates
+            update_data["is_active"] = updates.is_active
+        if updates.plan is not None:
+            update_data["plan"] = updates.plan.value
+        if updates.benefit_option is not None:
+            update_data["benefit_option"] = updates.benefit_option.value
+        
+        if not update_data:
+            raise ValidationError("No fields to update")
+        
+        result = self.supabase.table("members").update(update_data).eq("id", str(member_id)).execute()
+        
+        if not result.data:
+            raise ValidationError("Failed to update member")
+        
+        return result.data[0]
+    
+    async def get_members(
+        self,
+        search: Optional[str] = None,
+        plan: Optional[str] = None,
+        status: Optional[str] = None,
+        page: int = 1,
+        limit: int = 20
+    ) -> Dict[str, Any]:
+        """Get paginated list of members."""
+        query = self.supabase.table("members").select("*")
+        
+        if search:
+            query = query.or_(
+                f"first_name.ilike.%{search}%,last_name.ilike.%{search}%,phone.ilike.%{search}%,member_number.ilike.%{search}%"
+            )
+        if plan:
+            query = query.eq("plan", plan.lower())
+        if status == "active":
+            query = query.eq("is_active", True)
+        elif status == "inactive":
+            query = query.eq("is_active", False)
+        
+        # Get total count
+        count_result = self.supabase.table("members").select("id", count="exact").execute()
+        total = count_result.count or 0
+        
+        # Paginate
+        offset = (page - 1) * limit
+        result = query.order("created_at", desc=True).range(offset, offset + limit - 1).execute()
+        
+        return {
+            "members": result.data or [],
+            "total": total,
+            "page": page,
+            "limit": limit,
+            "pages": (total + limit - 1) // limit if total else 1
+        }
+    
+    # ============================================================
+    # DEPENDANTS
+    # ============================================================
+    
+    async def get_dependants(self, member_id: UUID) -> List[Dict[str, Any]]:
+        """Get all dependants for a member."""
+        result = self.supabase.table("dependants").select("*").eq("member_id", str(member_id)).order("created_at", desc=True).execute()
+        return result.data or []
+    
+    async def add_dependant(self, member_id: UUID, dependant: DependantCreate) -> Dict[str, Any]:
+        """Add a dependant to a member."""
+        # Check member exists
+        await self.get_member(member_id)
+        
+        dep_data = {
+            "member_id": str(member_id),
+            "first_name": dependant.first_name.strip(),
+            "last_name": dependant.last_name.strip(),
+            "date_of_birth": dependant.date_of_birth,
+            "relationship": dependant.relationship.value,
+            "is_active": True
+        }
+        
+        result = self.supabase.table("dependants").insert(dep_data).execute()
+        
+        if not result.data:
+            raise ValidationError("Failed to add dependant")
+        
+        return result.data[0]
+    
+    # ============================================================
+    # DASHBOARD
+    # ============================================================
+    
+    async def get_dashboard_stats(self) -> Dict[str, Any]:
+        """Get dashboard statistics."""
+        # Total members
+        total = self.supabase.table("members").select("id", count="exact").execute()
+        
+        # Active members
+        active = self.supabase.table("members").select("id", count="exact").eq("is_active", True).execute()
+        
+        # Pending registrations
+        pending = self.supabase.table("members").select("id", count="exact").eq("registration_fee_paid", False).execute()
+        
+        # Recent members
+        recent = self.supabase.table("members").select(
+            "id, first_name, last_name, phone, member_number, created_at"
+        ).order("created_at", desc=True).limit(10).execute()
+        
+        return {
+            "total_members": total.count or 0,
+            "active_members": active.count or 0,
+            "pending_registrations": pending.count or 0,
+            "recent_members": recent.data or []
+        }
+
+
+# ============================================================
+# SINGLETON
+# ============================================================
+
+member_service = MemberService()
