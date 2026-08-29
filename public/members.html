@@ -1,0 +1,566 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Members | Masika Benevolent</title>
+    <meta name="description" content="Manage Masika Benevolent members.">
+
+    <!-- Supabase -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
+    <link rel="stylesheet" href="css/app.css">
+    <link rel="icon" type="image/png" href="assets/favicon.png">
+
+    <style>
+        .member-actions {
+            display: flex;
+            gap: 6px;
+            flex-wrap: wrap;
+        }
+
+        .member-actions .btn {
+            padding: 4px 10px;
+            font-size: 12px;
+        }
+
+        .filter-group {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+            align-items: center;
+        }
+
+        .filter-group .form-control {
+            width: auto;
+            min-width: 150px;
+        }
+
+        @media (max-width: 768px) {
+            .filter-group {
+                flex-direction: column;
+                align-items: stretch;
+            }
+            .filter-group .form-control {
+                width: 100%;
+            }
+        }
+    </style>
+</head>
+<body>
+
+    <!-- HEADER -->
+    <header class="topbar">
+        <a href="dashboard.html" class="brand">
+            <div class="brand-logo">MB</div>
+            <div class="brand-text">
+                <strong>Masika Benevolent</strong>
+                <span>Staff Dashboard</span>
+            </div>
+        </a>
+
+        <div class="top-actions">
+            <a href="dashboard.html" class="btn btn-outline-light">← Dashboard</a>
+            <a href="members.html" class="btn btn-light">Members</a>
+            <a href="payments.html" class="btn btn-outline-light">Payments</a>
+            <a href="reports.html" class="btn btn-outline-light">Reports</a>
+            <button id="logoutBtn" class="btn btn-danger">Logout</button>
+        </div>
+    </header>
+
+    <!-- MAIN CONTENT -->
+    <main class="container">
+
+        <div class="page-header">
+            <div>
+                <h1>Members <small>Manage all registered members</small></h1>
+            </div>
+            <div class="actions">
+                <a href="register.html" class="btn btn-success">
+                    <i class="fas fa-user-plus"></i> Add Member
+                </a>
+                <button onclick="exportMembers()" class="btn btn-secondary">
+                    <i class="fas fa-download"></i> Export
+                </button>
+            </div>
+        </div>
+
+        <!-- Alert -->
+        <div id="alertBox" class="alert"></div>
+
+        <!-- Search & Filters -->
+        <div class="card">
+            <div class="search-bar">
+                <input type="text" id="searchInput" class="form-control" placeholder="Search by name, phone, ID, or member number..." oninput="loadMembers()">
+                <div class="filter-group">
+                    <select id="planFilter" class="form-control" onchange="loadMembers()">
+                        <option value="">All Plans</option>
+                        <option value="comfort">Comfort</option>
+                        <option value="dignity">Dignity</option>
+                        <option value="wazazi">Wazazi</option>
+                    </select>
+                    <select id="statusFilter" class="form-control" onchange="loadMembers()">
+                        <option value="">All Status</option>
+                        <option value="active">Active</option>
+                        <option value="inactive">Inactive</option>
+                    </select>
+                    <button onclick="resetFilters()" class="btn btn-secondary">Reset</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Stats -->
+        <div class="stats-grid" id="statsGrid">
+            <div class="stat-card">
+                <span class="stat-icon">👥</span>
+                <div class="stat-value" id="totalMembers">0</div>
+                <div class="stat-label">Total Members</div>
+            </div>
+            <div class="stat-card success">
+                <span class="stat-icon">✅</span>
+                <div class="stat-value" id="activeMembers">0</div>
+                <div class="stat-label">Active Members</div>
+            </div>
+            <div class="stat-card gold">
+                <span class="stat-icon">📋</span>
+                <div class="stat-value" id="comfortCount">0</div>
+                <div class="stat-label">Comfort Plan</div>
+            </div>
+            <div class="stat-card blue">
+                <span class="stat-icon">⭐</span>
+                <div class="stat-value" id="dignityCount">0</div>
+                <div class="stat-label">Dignity Plan</div>
+            </div>
+        </div>
+
+        <!-- Members Table -->
+        <div class="card">
+            <div class="card-header">
+                <h2><i class="fas fa-users"></i> Member List</h2>
+                <span id="resultCount" style="font-size:14px;color:var(--text-light);">0 members</span>
+            </div>
+
+            <div id="loadingSpinner" style="text-align:center;padding:40px;">
+                <div style="display:inline-block;width:40px;height:40px;border:4px solid var(--border);border-top-color:var(--primary);border-radius:50%;animation:spin 0.8s linear infinite;"></div>
+                <p style="margin-top:12px;color:var(--text-light);">Loading members...</p>
+            </div>
+
+            <style>
+                @keyframes spin {
+                    to { transform: rotate(360deg); }
+                }
+            </style>
+
+            <div id="membersContainer" style="display:none;">
+                <div class="table-wrapper">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Member #</th>
+                                <th>Name</th>
+                                <th>Phone</th>
+                                <th>Plan</th>
+                                <th>Status</th>
+                                <th>Joined</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="membersTableBody">
+                            <!-- Populated by JavaScript -->
+                        </tbody>
+                    </table>
+                </div>
+
+                <div class="pagination" id="pagination">
+                    <!-- Populated by JavaScript -->
+                </div>
+            </div>
+
+            <div id="emptyState" style="display:none;" class="empty-state">
+                <i class="fas fa-users"></i>
+                <h3>No Members Found</h3>
+                <p>Try adjusting your search or filters.</p>
+                <button onclick="resetFilters()" class="btn btn-primary">Clear Filters</button>
+            </div>
+        </div>
+
+    </main>
+
+    <!-- ============================================================
+    JAVASCRIPT
+    ============================================================ -->
+
+    <script src="js/supabase-config.js"></script>
+    <script src="js/auth.js"></script>
+
+    <script>
+        // ============================================================
+        // STATE
+        // ============================================================
+
+        let currentPage = 1;
+        const pageSize = 20;
+        let totalRecords = 0;
+
+        // ============================================================
+        // DOM REFS
+        // ============================================================
+
+        const alertBox = document.getElementById('alertBox');
+        const searchInput = document.getElementById('searchInput');
+        const planFilter = document.getElementById('planFilter');
+        const statusFilter = document.getElementById('statusFilter');
+        const membersTableBody = document.getElementById('membersTableBody');
+        const pagination = document.getElementById('pagination');
+        const loadingSpinner = document.getElementById('loadingSpinner');
+        const membersContainer = document.getElementById('membersContainer');
+        const emptyState = document.getElementById('emptyState');
+        const resultCount = document.getElementById('resultCount');
+
+        // ============================================================
+        // LOAD MEMBERS
+        // ============================================================
+
+        async function loadMembers(page = 1) {
+            currentPage = page;
+
+            const search = searchInput.value.trim();
+            const plan = planFilter.value;
+            const status = statusFilter.value;
+
+            // Show loading
+            loadingSpinner.style.display = 'block';
+            membersContainer.style.display = 'none';
+            emptyState.style.display = 'none';
+
+            try {
+                // Build query
+                let query = window.supabaseClient
+                    .from('members')
+                    .select('*', { count: 'exact' });
+
+                // Search
+                if (search) {
+                    query = query.or(
+                        `first_name.ilike.%${search}%,last_name.ilike.%${search}%,phone.ilike.%${search}%,id_number.ilike.%${search}%,member_number.ilike.%${search}%`
+                    );
+                }
+
+                // Plan filter
+                if (plan) {
+                    query = query.eq('plan', plan);
+                }
+
+                // Status filter
+                if (status === 'active') {
+                    query = query.eq('is_active', true);
+                } else if (status === 'inactive') {
+                    query = query.eq('is_active', false);
+                }
+
+                // Pagination
+                const from = (page - 1) * pageSize;
+                const to = from + pageSize - 1;
+
+                const { data, error, count } = await query
+                    .order('created_at', { ascending: false })
+                    .range(from, to);
+
+                if (error) {
+                    showAlert(error.message, 'error');
+                    return;
+                }
+
+                totalRecords = count || 0;
+                renderMembers(data || []);
+                renderPagination();
+                updateStats();
+                updateResultCount();
+
+            } catch (error) {
+                console.error('Load members error:', error);
+                showAlert('Failed to load members.', 'error');
+            } finally {
+                loadingSpinner.style.display = 'none';
+                membersContainer.style.display = 'block';
+            }
+        }
+
+        // ============================================================
+        // RENDER MEMBERS
+        // ============================================================
+
+        function renderMembers(members) {
+            if (!members.length) {
+                membersTableBody.innerHTML = '';
+                emptyState.style.display = 'block';
+                membersContainer.style.display = 'none';
+                return;
+            }
+
+            emptyState.style.display = 'none';
+            membersContainer.style.display = 'block';
+
+            membersTableBody.innerHTML = members.map(member => {
+                const name = `${member.first_name || ''} ${member.last_name || ''}`.trim() || 'Unknown';
+                const statusClass = member.is_active ? 'active' : 'inactive';
+                const statusText = member.is_active ? 'Active' : 'Inactive';
+                const planName = member.plan ? member.plan.charAt(0).toUpperCase() + member.plan.slice(1) : '-';
+                const joined = member.created_at ? new Date(member.created_at).toLocaleDateString('en-KE') : '-';
+
+                return `
+                    <tr>
+                        <td><strong>${member.member_number || '-'}</strong></td>
+                        <td>${escapeHTML(name)}</td>
+                        <td>${escapeHTML(member.phone || '-')}</td>
+                        <td><span class="status-badge ${member.plan}">${planName}</span></td>
+                        <td><span class="status-badge ${statusClass}">${statusText}</span></td>
+                        <td>${joined}</td>
+                        <td>
+                            <div class="member-actions">
+                                <a href="member-details.html?id=${member.id}" class="btn btn-primary btn-sm">View</a>
+                                <button onclick="toggleStatus('${member.id}', ${!member.is_active})" class="btn btn-sm ${member.is_active ? 'btn-secondary' : 'btn-success'}">
+                                    ${member.is_active ? 'Deactivate' : 'Activate'}
+                                </button>
+                            </div>
+                        </td>
+                    </tr>
+                `;
+            }).join('');
+        }
+
+        // ============================================================
+        // PAGINATION
+        // ============================================================
+
+        function renderPagination() {
+            const totalPages = Math.ceil(totalRecords / pageSize);
+            if (totalPages <= 1) {
+                pagination.innerHTML = '';
+                return;
+            }
+
+            let html = '';
+            const maxVisible = 5;
+            let startPage = Math.max(1, currentPage - Math.floor(maxVisible / 2));
+            let endPage = Math.min(totalPages, startPage + maxVisible - 1);
+
+            if (endPage - startPage < maxVisible - 1) {
+                startPage = Math.max(1, endPage - maxVisible + 1);
+            }
+
+            // Previous
+            html += `
+                <div class="page-item">
+                    <a href="#" class="page-link ${currentPage <= 1 ? 'disabled' : ''}" onclick="event.preventDefault(); if(${currentPage > 1}) loadMembers(${currentPage - 1})">‹</a>
+                </div>
+            `;
+
+            for (let i = startPage; i <= endPage; i++) {
+                html += `
+                    <div class="page-item">
+                        <a href="#" class="page-link ${i === currentPage ? 'active' : ''}" onclick="event.preventDefault(); loadMembers(${i})">${i}</a>
+                    </div>
+                `;
+            }
+
+            // Next
+            html += `
+                <div class="page-item">
+                    <a href="#" class="page-link ${currentPage >= totalPages ? 'disabled' : ''}" onclick="event.preventDefault(); if(${currentPage < totalPages}) loadMembers(${currentPage + 1})">›</a>
+                </div>
+            `;
+
+            pagination.innerHTML = html;
+        }
+
+        // ============================================================
+        // UPDATE STATS
+        // ============================================================
+
+        async function updateStats() {
+            try {
+                // Total members
+                const { count: total } = await window.supabaseClient
+                    .from('members')
+                    .select('*', { count: 'exact', head: true });
+
+                // Active members
+                const { count: active } = await window.supabaseClient
+                    .from('members')
+                    .select('*', { count: 'exact', head: true })
+                    .eq('is_active', true);
+
+                // Plan counts
+                const { count: comfort } = await window.supabaseClient
+                    .from('members')
+                    .select('*', { count: 'exact', head: true })
+                    .eq('plan', 'comfort');
+
+                const { count: dignity } = await window.supabaseClient
+                    .from('members')
+                    .select('*', { count: 'exact', head: true })
+                    .eq('plan', 'dignity');
+
+                document.getElementById('totalMembers').textContent = total || 0;
+                document.getElementById('activeMembers').textContent = active || 0;
+                document.getElementById('comfortCount').textContent = comfort || 0;
+                document.getElementById('dignityCount').textContent = dignity || 0;
+
+            } catch (error) {
+                console.error('Stats update error:', error);
+            }
+        }
+
+        // ============================================================
+        // UPDATE RESULT COUNT
+        // ============================================================
+
+        function updateResultCount() {
+            resultCount.textContent = `${totalRecords} member${totalRecords !== 1 ? 's' : ''}`;
+        }
+
+        // ============================================================
+        // TOGGLE STATUS
+        // ============================================================
+
+        async function toggleStatus(memberId, newStatus) {
+            if (!confirm(`Are you sure you want to ${newStatus ? 'activate' : 'deactivate'} this member?`)) {
+                return;
+            }
+
+            try {
+                const { error } = await window.supabaseClient
+                    .from('members')
+                    .update({ is_active: newStatus })
+                    .eq('id', memberId);
+
+                if (error) {
+                    showAlert(error.message, 'error');
+                    return;
+                }
+
+                showAlert(`Member ${newStatus ? 'activated' : 'deactivated'} successfully.`, 'success');
+                loadMembers(currentPage);
+
+            } catch (error) {
+                console.error('Toggle status error:', error);
+                showAlert('Failed to update member status.', 'error');
+            }
+        }
+
+        // ============================================================
+        // EXPORT MEMBERS
+        // ============================================================
+
+        async function exportMembers() {
+            try {
+                const { data, error } = await window.supabaseClient
+                    .from('members')
+                    .select('member_number, first_name, last_name, phone, email, plan, is_active, created_at')
+                    .order('created_at', { ascending: false });
+
+                if (error) {
+                    showAlert(error.message, 'error');
+                    return;
+                }
+
+                if (!data || !data.length) {
+                    showAlert('No members to export.', 'warning');
+                    return;
+                }
+
+                // Create CSV
+                const headers = ['Member Number', 'First Name', 'Last Name', 'Phone', 'Email', 'Plan', 'Status', 'Joined'];
+                const rows = data.map(m => [
+                    m.member_number || '',
+                    m.first_name || '',
+                    m.last_name || '',
+                    m.phone || '',
+                    m.email || '',
+                    m.plan || '',
+                    m.is_active ? 'Active' : 'Inactive',
+                    m.created_at ? new Date(m.created_at).toLocaleDateString('en-KE') : ''
+                ]);
+
+                let csv = headers.join(',') + '\n';
+                rows.forEach(row => {
+                    csv += row.map(cell => `"${String(cell).replace(/"/g, '""')}"`).join(',') + '\n';
+                });
+
+                // Download
+                const blob = new Blob([csv], { type: 'text/csv' });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `members_${new Date().toISOString().split('T')[0]}.csv`;
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                URL.revokeObjectURL(url);
+
+                showAlert('Members exported successfully.', 'success');
+
+            } catch (error) {
+                console.error('Export error:', error);
+                showAlert('Failed to export members.', 'error');
+            }
+        }
+
+        // ============================================================
+        // RESET FILTERS
+        // ============================================================
+
+        function resetFilters() {
+            searchInput.value = '';
+            planFilter.value = '';
+            statusFilter.value = '';
+            loadMembers(1);
+        }
+
+        // ============================================================
+        // ALERT
+        // ============================================================
+
+        function showAlert(message, type = 'error') {
+            alertBox.textContent = message;
+            alertBox.className = `alert show ${type}`;
+            setTimeout(() => {
+                alertBox.className = 'alert';
+            }, 5000);
+        }
+
+        // ============================================================
+        // ESCAPE HTML
+        // ============================================================
+
+        function escapeHTML(value) {
+            if (!value) return '-';
+            return String(value)
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;')
+                .replace(/'/g, '&#039;');
+        }
+
+        // ============================================================
+        // LOGOUT
+        // ============================================================
+
+        document.getElementById('logoutBtn').addEventListener('click', async function() {
+            await window.supabaseClient.auth.signOut();
+            window.location.href = 'login.html';
+        });
+
+        // ============================================================
+        // INIT
+        // ============================================================
+
+        document.addEventListener('DOMContentLoaded', function() {
+            loadMembers();
+        });
+    </script>
+
+</body>
+</html>
