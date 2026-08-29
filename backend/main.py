@@ -378,12 +378,77 @@ def calculate_registration_fee(plan: str, dependants: List[Dict]) -> float:
     
     return float(fee)
 
-def generate_member_number() -> str:
-    """Generate a unique member number."""
-    import random
-    year = datetime.now().year
-    seq = str(random.randint(1000, 9999))
-    return f"MAS-{year}-{seq}"
+# ============================================================
+# GENERATE MEMBER NUMBER - ATOMIC FROM SUPABASE
+# ============================================================
+
+def generate_member_number(database: Client) -> str:
+    """
+    Generate a unique MASIKA member number using Supabase.
+
+    Supabase is responsible for atomic sequence generation.
+
+    Expected format:
+        MSK00001
+        MSK00002
+        MSK00003
+        ...
+
+    IMPORTANT:
+    - No year is included.
+    - No random number is generated in Python.
+    - The database function is the single source of truth.
+    """
+    try:
+        result = database.rpc("generate_masika_member_number").execute()
+
+        if not result.data:
+            raise RuntimeError(
+                "Supabase did not return a member number"
+            )
+
+        # Supabase RPC returning a scalar normally gives a string.
+        member_number = result.data
+
+        # Handle possible list response defensively.
+        if isinstance(member_number, list):
+            if not member_number:
+                raise RuntimeError(
+                    "Supabase returned an empty member number list"
+                )
+            member_number = member_number[0]
+
+        # Handle possible dictionary response defensively.
+        if isinstance(member_number, dict):
+            member_number = (
+                member_number.get("generate_masika_member_number")
+                or member_number.get("member_number")
+            )
+
+        if not member_number:
+            raise RuntimeError(
+                "Invalid member number returned by Supabase"
+            )
+
+        member_number = str(member_number).strip()
+
+        # Enforce the required MASIKA format.
+        if not member_number.startswith("MSK"):
+            raise RuntimeError(
+                f"Invalid member number format returned by Supabase: {member_number}"
+            )
+
+        logger.info(
+            f"Generated MASIKA member number: {member_number}"
+        )
+
+        return member_number
+
+    except Exception as e:
+        logger.error(
+            f"Failed to generate MASIKA member number: {e}"
+        )
+        raise
 
 # ============================================================
 # PAYMENT HELPERS
@@ -790,35 +855,99 @@ async def get_plan_details(plan_code: str):
         "data": plans[plan_code]
     }
 
+# ============================================================
+# REGISTER - UPDATED WITH ATOMIC MEMBER NUMBER
+# ============================================================
+
 @app.post("/api/public/register")
 async def public_register(registration: RegistrationRequest):
     """
     PUBLIC MEMBER REGISTRATION - No Login Required.
-    
-    Flow: register.html → API → member created → payment.html
+
+    Flow:
+        register.html
+            ↓
+        API
+            ↓
+        Supabase generates MSK member number atomically
+            ↓
+        member created
+            ↓
+        payment record created
+            ↓
+        payment.html
     """
     database = get_supabase()
-    
+
+    # --------------------------------------------------------
+    # NORMALIZE PHONE
+    # --------------------------------------------------------
+
     try:
         phone = normalize_phone(registration.phone)
     except ValueError as exc:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc))
-    
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(exc)
+        )
+
+    # --------------------------------------------------------
+    # CHECK DUPLICATE PHONE
+    # --------------------------------------------------------
+
     try:
-        existing = database.table("members").select("id, phone").eq("phone", phone).execute()
+        existing = (
+            database
+            .table("members")
+            .select("id, phone, member_number")
+            .eq("phone", phone)
+            .execute()
+        )
+
         if existing.data:
             raise HTTPException(
                 status_code=status.HTTP_409_CONFLICT,
                 detail=f"A member with phone {phone} already exists"
             )
+
     except HTTPException:
         raise
+
     except Exception as e:
-        logger.warning(f"Duplicate check failed: {e}")
-    
-    fee = calculate_registration_fee(registration.plan.value, registration.dependants)
-    member_number = generate_member_number()
-    
+        logger.warning(
+            f"Duplicate phone check failed: {e}"
+        )
+
+    # --------------------------------------------------------
+    # CALCULATE REGISTRATION FEE
+    # --------------------------------------------------------
+
+    fee = calculate_registration_fee(
+        registration.plan.value,
+        registration.dependants
+    )
+
+    # --------------------------------------------------------
+    # GENERATE MEMBER NUMBER FROM SUPABASE
+    # --------------------------------------------------------
+
+    try:
+        member_number = generate_member_number(database)
+
+    except Exception as e:
+        logger.error(
+            f"Member number generation failed: {e}"
+        )
+
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Unable to generate member number. Please try again."
+        )
+
+    # --------------------------------------------------------
+    # MEMBER DATA
+    # --------------------------------------------------------
+
     member_data = {
         "first_name": registration.first_name.strip(),
         "last_name": registration.last_name.strip(),
@@ -829,48 +958,89 @@ async def public_register(registration: RegistrationRequest):
         "county": registration.county.strip(),
         "plan": registration.plan.value.lower(),
         "benefit_option": registration.benefit_option.value,
+
+        # Example:
+        # MSK00001
+        # MSK00002
+        # MSK00003
         "member_number": member_number,
+
         "registration_fee_paid": False,
         "is_active": True,
     }
-    
+
+    # --------------------------------------------------------
+    # CREATE MEMBER
+    # --------------------------------------------------------
+
     try:
-        result = database.table("members").insert(member_data).execute()
+        result = (
+            database
+            .table("members")
+            .insert(member_data)
+            .execute()
+        )
+
         member = result.data[0] if result.data else None
-        
+
         if not member:
             raise HTTPException(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
                 detail="Failed to create member"
             )
-        
+
         member_id = member.get("id")
-        
+
+        # ----------------------------------------------------
+        # CREATE REGISTRATION PAYMENT
+        # ----------------------------------------------------
+
         payment_data = {
             "member_id": member_id,
             "amount": fee,
             "payment_type": "registration",
             "status": "pending",
-            "paybill_number": "348127",
+            "paybill_number": MPESA_SHORTCODE,
             "account_number": member_number,
         }
-        database.table("payments").insert(payment_data).execute()
-        
+
+        database.table("payments").insert(
+            payment_data
+        ).execute()
+
+        # ----------------------------------------------------
+        # RESPONSE
+        # ----------------------------------------------------
+
         return {
             "success": True,
-            "message": "Registration submitted successfully. Please proceed to payment.",
+            "message": (
+                "Registration submitted successfully. "
+                "Please proceed to payment."
+            ),
             "member_id": str(member_id),
             "member_number": member_number,
             "registration_amount": fee,
             "payment_required": True,
         }
-        
+
+    except HTTPException:
+        raise
+
     except Exception as e:
-        logger.error(f"Registration error: {e}")
+        logger.error(
+            f"Registration error: {e}"
+        )
+
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to register member"
         )
+
+
+# ============================================================
+# PAYMENT ENDPOINTS
+# ============================================================
 
 @app.post("/api/public/payment/stk-push")
 async def public_stk_push(request: STKPushRequest):
@@ -1106,7 +1276,7 @@ async def check_member(phone: str):
     database = get_supabase()
     
     try:
-        result = database.table("members").select("id, first_name, last_name, is_active, registration_fee_paid").eq("phone", phone).execute()
+        result = database.table("members").select("id, first_name, last_name, is_active, registration_fee_paid, member_number").eq("phone", phone).execute()
         
         if result.data:
             return {
