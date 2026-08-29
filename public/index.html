@@ -2912,7 +2912,7 @@
                         </ul>
 
                         <a
-                            href="login.html"
+                            href="register.html"
                             class="btn btn-gold"
                             id="paymentBtn"
                         >
@@ -3185,8 +3185,8 @@
                         Payments
                     </a>
 
-                    <a href="login.html">
-                        Staff Login
+                    <a href="register.html">
+                        Become a Member
                     </a>
 
                 </div>
@@ -3318,14 +3318,15 @@
                 </div>
             `;
 
-            // Update hero buttons to point to dashboard
-            document.getElementById('heroRegisterBtn').href = 'dashboard.html';
-            document.getElementById('heroRegisterBtn').innerHTML = '<i class="fas fa-tachometer-alt"></i> Go to Dashboard';
-            document.getElementById('ctaRegisterBtn').href = 'dashboard.html';
-            document.getElementById('ctaRegisterBtn').innerHTML = '<i class="fas fa-tachometer-alt"></i> Go to Dashboard';
+            // Update hero buttons for logged in users - keep register.html
+            // (they can still register new members or go to dashboard)
+            document.getElementById('heroRegisterBtn').href = 'register.html';
+            document.getElementById('heroRegisterBtn').innerHTML = '<i class="fas fa-user-plus"></i> Register New Member';
+            document.getElementById('ctaRegisterBtn').href = 'register.html';
+            document.getElementById('ctaRegisterBtn').innerHTML = '<i class="fas fa-user-plus"></i> Register New Member';
             
-            // Update payment button
-            document.getElementById('paymentBtn').href = 'dashboard.html#payments';
+            // Update payment button - point to register.html
+            document.getElementById('paymentBtn').href = 'register.html';
         }
 
         function updateNavForLoggedOut() {
@@ -3348,7 +3349,7 @@
             document.getElementById('ctaRegisterBtn').innerHTML = '<i class="fas fa-user-plus"></i> Become a Member Now';
             
             // Reset payment button
-            document.getElementById('paymentBtn').href = 'login.html';
+            document.getElementById('paymentBtn').href = 'register.html';
         }
 
         // =========================================================
