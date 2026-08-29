@@ -92,8 +92,25 @@ MPESA_SHORTCODE = os.getenv("MPESA_SHORTCODE", "348127")
 MPESA_ENVIRONMENT = os.getenv("MPESA_ENVIRONMENT", "sandbox")
 MPESA_CALLBACK_URL = os.getenv("MPESA_CALLBACK_URL", "https://masika-c921.onrender.com/api/webhooks/mpesa")
 
-# Enable docs on Render (always enabled in production)
-ENABLE_DOCS = os.getenv("ENABLE_DOCS", "true").lower() == "true"
+# ------------------------------------------------------------
+# Docs configuration
+#
+# Previously: ENABLE_DOCS defaulted to "true" via an env var, which meant a
+# single accidental/unset env var on the host could silently disable
+# /api/docs, /api/redoc, and /api/openapi.json with no obvious signal in
+# the logs.
+#
+# New behavior:
+#   - Outside production, docs are ALWAYS on (dev/staging need them).
+#   - In production, docs are on by default too, but can be explicitly
+#     turned off with ENABLE_DOCS=false if you ever want that.
+# Either way we log the decision so it's visible on startup.
+# ------------------------------------------------------------
+_enable_docs_env = os.getenv("ENABLE_DOCS")
+if ENVIRONMENT != "production":
+    ENABLE_DOCS = True
+else:
+    ENABLE_DOCS = (_enable_docs_env or "true").lower() != "false"
 
 if not SUPABASE_URL:
     logger.warning("⚠️ SUPABASE_URL is not configured.")
@@ -105,7 +122,7 @@ if not MPESA_PASSKEY:
     logger.warning("⚠️ MPESA_PASSKEY is not configured.")
 
 logger.info(f"🌐 Environment: {ENVIRONMENT}")
-logger.info(f"📚 API Docs Enabled: {ENABLE_DOCS}")
+logger.info(f"📚 API Docs Enabled: {ENABLE_DOCS} (/api/docs, /api/redoc, /api/openapi.json)")
 logger.info(f"💰 M-Pesa Environment: {MPESA_ENVIRONMENT}")
 
 # ============================================================
@@ -172,40 +189,55 @@ async def verify_staff_token(credentials: Optional[HTTPAuthorizationCredentials]
             detail="Authentication required",
             headers={"WWW-Authenticate": "Bearer"},
         )
-    
+
     token = credentials.credentials
     database = get_supabase()
-    
+
+    # NOTE: previously the 403 "not staff" raise below lived inside this
+    # try/except, so the broad `except Exception` caught our own
+    # HTTPException and rewrote a legitimate 403 into a misleading 401.
+    # Auth-check calls now happen inside the try; the staff-membership
+    # decision and its HTTPException are outside it.
     try:
-        # Verify token with Supabase
         response = database.auth.get_user(token)
-        
-        if not response.user:
-            raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="Invalid or expired token"
-            )
-        
-        # Check if user is a staff member
-        staff_check = database.table("admin_profiles").select("id, role, is_active").eq("user_id", response.user.id).eq("is_active", True).execute()
-        
-        if not staff_check.data:
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail="Not authorized as staff"
-            )
-        
-        return {
-            "user": response.user,
-            "staff": staff_check.data[0]
-        }
-        
     except Exception as e:
         logger.error(f"Token verification failed: {e}")
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid authentication credentials"
         )
+
+    if not response.user:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid or expired token"
+        )
+
+    try:
+        staff_check = (
+            database.table("admin_profiles")
+            .select("id, role, is_active")
+            .eq("user_id", response.user.id)
+            .eq("is_active", True)
+            .execute()
+        )
+    except Exception as e:
+        logger.error(f"Staff lookup failed: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid authentication credentials"
+        )
+
+    if not staff_check.data:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Not authorized as staff"
+        )
+
+    return {
+        "user": response.user,
+        "staff": staff_check.data[0]
+    }
 
 # ============================================================
 # MODELS
@@ -239,7 +271,7 @@ class PaymentStatusEnum(str, Enum):
 
 class RegistrationRequest(BaseModel):
     model_config = ConfigDict(extra="ignore")
-    
+
     first_name: str = Field(..., min_length=2, max_length=100)
     last_name: str = Field(..., min_length=2, max_length=100)
     other_name: Optional[str] = Field(None, max_length=100)
@@ -254,18 +286,20 @@ class RegistrationRequest(BaseModel):
     plan: PlanEnum
     benefit_option: BenefitOptionEnum = BenefitOptionEnum.SERVICE
     dependants: List[Dict[str, Any]] = Field(default_factory=list)
-    
+
     @validator('date_of_birth')
     def validate_dob(cls, v):
         try:
-            datetime.strptime(v, "%Y-%m-%d")
-            return v
+            parsed = datetime.strptime(v, "%Y-%m-%d")
         except ValueError:
             raise ValueError("Date of birth must be in YYYY-MM-DD format")
+        if parsed > datetime.now():
+            raise ValueError("Date of birth cannot be in the future")
+        return v
 
 class AgentApplicationRequest(BaseModel):
     model_config = ConfigDict(extra="ignore")
-    
+
     full_name: str = Field(..., min_length=2, max_length=150)
     email: EmailStr
     phone: str = Field(..., min_length=9, max_length=20)
@@ -278,7 +312,7 @@ class AgentApplicationRequest(BaseModel):
 
 class PaymentConfirmRequest(BaseModel):
     model_config = ConfigDict(extra="ignore")
-    
+
     member_id: str
     amount: float = Field(..., gt=0)
     payment_type: PaymentTypeEnum
@@ -288,7 +322,7 @@ class PaymentConfirmRequest(BaseModel):
 
 class STKPushRequest(BaseModel):
     model_config = ConfigDict(extra="ignore")
-    
+
     member_id: str
     phone: str = Field(..., min_length=9, max_length=20)
     amount: float = Field(..., gt=0, le=1000000)
@@ -296,7 +330,7 @@ class STKPushRequest(BaseModel):
 
 class SalesCodeRequest(BaseModel):
     model_config = ConfigDict(extra="ignore")
-    
+
     agent_id: str
     code_prefix: Optional[str] = "MASIKA"
     count: int = Field(..., ge=1, le=100)
@@ -308,7 +342,7 @@ class StaffLoginRequest(BaseModel):
 
 class MemberUpdateRequest(BaseModel):
     model_config = ConfigDict(extra="ignore")
-    
+
     first_name: Optional[str] = Field(None, min_length=2, max_length=100)
     last_name: Optional[str] = Field(None, min_length=2, max_length=100)
     phone: Optional[str] = Field(None, min_length=9, max_length=20)
@@ -320,13 +354,13 @@ class MemberUpdateRequest(BaseModel):
 
 class PaymentUpdateRequest(BaseModel):
     model_config = ConfigDict(extra="ignore")
-    
+
     status: PaymentStatusEnum
     notes: Optional[str] = None
 
 class AgentUpdateRequest(BaseModel):
     model_config = ConfigDict(extra="ignore")
-    
+
     status: str = Field(..., pattern="^(approved|inactive|suspended)$")
     commission_rate: Optional[float] = Field(None, ge=0, le=100)
 
@@ -374,37 +408,63 @@ DEPENDANT_FEES = {
 }
 
 def normalize_phone(phone: str) -> str:
-    """Convert common Kenyan phone formats to 254XXXXXXXXX."""
+    """Convert common Kenyan phone formats to 254XXXXXXXXX.
+
+    Always returns a string of the form '254' + 9 digits, or raises
+    ValueError. Callers should never re-check for a leading '0' or '+'
+    afterwards — normalize_phone already guarantees the '254...' shape.
+    """
     phone = phone.strip().replace(" ", "").replace("-", "").replace("+", "")
-    
+
     if phone.startswith("07") or phone.startswith("01"):
         phone = "254" + phone[1:]
     elif phone.startswith("7") or phone.startswith("1"):
         phone = "254" + phone
     elif not phone.startswith("254"):
         raise ValueError("Invalid Kenyan phone number format")
-    
-    if len(phone) != 12:
+
+    if len(phone) != 12 or not phone.isdigit():
         raise ValueError("Phone number must be 12 digits (including 254)")
-    
+
     return phone
 
 def calculate_registration_fee(plan: str, dependants: List[Dict]) -> float:
     """Calculate registration fee based on plan and dependants."""
     fee = PLAN_FEES.get(plan.upper(), 0)
-    
+
     for dep in dependants:
         relationship = dep.get("relationship", "").upper()
         fee += DEPENDANT_FEES.get(relationship, 50)
-    
+
     return float(fee)
 
-def generate_member_number() -> str:
-    """Generate a unique member number."""
+def generate_member_number(database: Optional[Client] = None) -> str:
+    """Generate a unique member number.
+
+    Random 4-digit suffixes collide roughly 1-in-9000 times, which was
+    getting silently swallowed if the DB insert had a unique constraint.
+    If a db handle is supplied, retry until we find a number that doesn't
+    already exist.
+    """
     import random
     year = datetime.now().year
-    seq = str(random.randint(1000, 9999))
-    return f"MAS-{year}-{seq}"
+
+    if database is None:
+        return f"MAS-{year}-{random.randint(1000, 9999)}"
+
+    for _ in range(20):
+        candidate = f"MAS-{year}-{random.randint(1000, 9999)}"
+        existing = (
+            database.table("members")
+            .select("id")
+            .eq("member_number", candidate)
+            .execute()
+        )
+        if not existing.data:
+            return candidate
+
+    # Extremely unlikely fallback: widen the namespace.
+    return f"MAS-{year}-{random.randint(10000, 99999)}"
 
 def parse_date(date_str: str) -> Optional[datetime]:
     if not date_str:
@@ -424,119 +484,183 @@ _payment_token_expiry = None
 async def get_mpesa_access_token() -> str:
     """Get M-Pesa access token."""
     global _payment_access_token, _payment_token_expiry
-    
+
     if _payment_access_token and _payment_token_expiry and time.time() < _payment_token_expiry:
         return _payment_access_token
-    
+
     if not MPESA_CONSUMER_KEY or not MPESA_CONSUMER_SECRET:
         logger.warning("M-Pesa credentials not configured")
         return "mock_token"
-    
+
     try:
         credentials = base64.b64encode(
             f"{MPESA_CONSUMER_KEY}:{MPESA_CONSUMER_SECRET}".encode()
         ).decode("utf-8")
-        
+
         async with httpx.AsyncClient(timeout=30.0) as client:
             response = await client.get(
                 "https://api.safaricom.co.ke/oauth/v1/generate",
+                params={"grant_type": "client_credentials"},
                 headers={"Authorization": f"Basic {credentials}"}
             )
-            
+
             if response.status_code != 200:
                 logger.error(f"Failed to get access token: {response.text}")
                 return "mock_token"
-            
+
             data = response.json()
             _payment_access_token = data.get("access_token")
-            expires_in = data.get("expires_in", 3600)
+            expires_in = int(data.get("expires_in", 3600))
             _payment_token_expiry = time.time() + expires_in - 60
-            
+
             logger.info("M-Pesa access token obtained")
             return _payment_access_token
-            
+
     except Exception as e:
         logger.error(f"Access token error: {e}")
         return "mock_token"
 
-async def initiate_stk_push(phone: str, amount: float, account_reference: str, transaction_desc: str = "Membership Registration") -> Dict[str, Any]:
+async def initiate_stk_push(
+    phone: str,
+    amount: float,
+    account_reference: str,
+    transaction_desc: str = "Membership Registration",
+) -> Dict[str, Any]:
     """Initiate M-Pesa STK Push payment."""
     try:
         phone = normalize_phone(phone)
-        if phone.startswith("0"):
-            phone = "254" + phone[1:]
-        elif phone.startswith("+"):
-            phone = phone[1:]
-        
-        if len(phone) != 12 or not phone.startswith("254"):
-            return {
-                "success": False,
-                "message": "Invalid phone number format",
-                "status": "failed"
-            }
-        
-        # In sandbox/mock mode
-        if MPESA_ENVIRONMENT != "production" or not MPESA_CONSUMER_KEY:
-            logger.info(f"MOCK STK Push: {phone} - KES {amount} - {account_reference}")
-            checkout_id = f"ws_CO_{int(time.time())}_mock"
-            
-            # Save payment record
-            database = get_supabase()
-            payment_data = {
-                "member_id": None,
-                "amount": amount,
-                "payment_type": "registration",
-                "status": "pending",
-                "mpesa_receipt": checkout_id,
-                "paybill_number": MPESA_SHORTCODE,
-                "account_number": account_reference,
-                "checkout_request_id": checkout_id,
-                "notes": transaction_desc,
-                "phone": phone
-            }
-            result = database.table("payments").insert(payment_data).execute()
-            
-            return {
-                "success": True,
-                "checkout_request_id": checkout_id,
-                "message": "Payment initiated (Mock)",
-                "status": "pending",
-                "mock": True,
-                "payment_id": result.data[0]["id"] if result.data else None
-            }
-        
-        # Get access token
-        access_token = await get_mpesa_access_token()
-        if access_token == "mock_token":
-            return {
-                "success": False,
-                "message": "Payment service unavailable",
-                "status": "failed"
-            }
-        
-        # Generate timestamp and password
-        timestamp = datetime.now().strftime("%Y%m%d%H%M%S")
-        password_str = f"{MPESA_SHORTCODE}{MPESA_PASSKEY}{timestamp}"
-        password = base64.b64encode(password_str.encode()).decode("utf-8")
-        
-        # Prepare payload
-        payload = {
-            "BusinessShortCode": MPESA_SHORTCODE,
-            "Password": password,
-            "Timestamp": timestamp,
-            "TransactionType": "CustomerPayBillOnline",
-            "Amount": int(amount),
-            "PartyA": phone,
-            "PartyB": MPESA_SHORTCODE,
-            "PhoneNumber": phone,
-            "CallBackURL": MPESA_CALLBACK_URL,
-            "AccountReference": account_reference[:12],
-            "TransactionDesc": transaction_desc[:36],
+    except ValueError as e:
+        return {
+            "success": False,
+            "message": str(e),
+            "status": "failed"
         }
-        
+
+    # Mock mode (sandbox or missing credentials)
+    if MPESA_ENVIRONMENT != "production" or not MPESA_CONSUMER_KEY:
+        logger.info(f"MOCK STK Push: {phone} - KES {amount} - {account_reference}")
+        checkout_id = f"ws_CO_{int(time.time())}_mock"
+
+        database = get_supabase()
+        payment_data = {
+            "member_id": None,
+            "amount": amount,
+            "payment_type": "registration",
+            "status": "pending",
+            "mpesa_receipt": checkout_id,
+            "paybill_number": MPESA_SHORTCODE,
+            "account_number": account_reference,
+            "checkout_request_id": checkout_id,
+            "notes": transaction_desc,
+            "phone": phone
+        }
+        try:
+            result = database.table("payments").insert(payment_data).execute()
+        except Exception as e:
+            logger.error(f"Failed to record mock payment: {e}")
+            return {
+                "success": False,
+                "message": "Could not record payment",
+                "status": "failed"
+            }
+
+        return {
+            "success": True,
+            "checkout_request_id": checkout_id,
+            "message": "Payment initiated (Mock)",
+            "status": "pending",
+            "mock": True,
+            "payment_id": result.data[0]["id"] if result.data else None
+        }
+
+    # Live mode
+    access_token = await get_mpesa_access_token()
+    if access_token == "mock_token":
+        return {
+            "success": False,
+            "message": "Payment service unavailable",
+            "status": "failed"
+        }
+
+    timestamp = datetime.now().strftime("%Y%m%d%H%M%S")
+    password_str = f"{MPESA_SHORTCODE}{MPESA_PASSKEY}{timestamp}"
+    password = base64.b64encode(password_str.encode()).decode("utf-8")
+
+    payload = {
+        "BusinessShortCode": MPESA_SHORTCODE,
+        "Password": password,
+        "Timestamp": timestamp,
+        "TransactionType": "CustomerPayBillOnline",
+        "Amount": int(amount),
+        "PartyA": phone,
+        "PartyB": MPESA_SHORTCODE,
+        "PhoneNumber": phone,
+        "CallBackURL": MPESA_CALLBACK_URL,
+        "AccountReference": account_reference[:12],
+        "TransactionDesc": transaction_desc[:36],
+    }
+
+    try:
         async with httpx.AsyncClient(timeout=30.0) as client:
             response = await client.post(
                 "https://api.safaricom.co.ke/mpesa/stkpush/v1/processrequest",
                 json=payload,
                 headers={
                     "Authorization": f"Bearer {access_token}",
+                    "Content-Type": "application/json",
+                },
+            )
+
+        if response.status_code != 200:
+            logger.error(f"STK push failed: {response.status_code} {response.text}")
+            return {
+                "success": False,
+                "message": "Failed to initiate payment",
+                "status": "failed"
+            }
+
+        data = response.json()
+        checkout_id = data.get("CheckoutRequestID")
+
+        database = get_supabase()
+        payment_data = {
+            "member_id": None,
+            "amount": amount,
+            "payment_type": "registration",
+            "status": "pending",
+            "paybill_number": MPESA_SHORTCODE,
+            "account_number": account_reference,
+            "checkout_request_id": checkout_id,
+            "notes": transaction_desc,
+            "phone": phone
+        }
+        try:
+            result = database.table("payments").insert(payment_data).execute()
+        except Exception as e:
+            logger.error(f"Failed to record live payment: {e}")
+            result = None
+
+        return {
+            "success": True,
+            "checkout_request_id": checkout_id,
+            "message": data.get("CustomerMessage", "Payment initiated"),
+            "status": "pending",
+            "mock": False,
+            "payment_id": result.data[0]["id"] if result and result.data else None
+        }
+
+    except Exception as e:
+        logger.error(f"STK push error: {e}")
+        return {
+            "success": False,
+            "message": "Payment service error",
+            "status": "failed"
+        }
+
+# ------------------------------------------------------------
+# NOTE: file was truncated after this point in the original —
+# the remaining public/staff/webhook route handlers, the CORS
+# preflight, and the app entrypoint (uvicorn.run / __main__) were
+# not included, so they aren't reproduced here. Paste the rest
+# and I'll clean those up the same way.
+# ------------------------------------------------------------
