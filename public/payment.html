@@ -1,724 +1,1127 @@
-"""
-Payment Service - Production M-Pesa Integration
-"""
-
-import os
-import json
-import base64
-import logging
-import time
-from datetime import datetime
-from typing import Optional, List, Dict, Any
-from uuid import UUID
-
-import httpx
-from fastapi import HTTPException, status
-
-from app.database import get_supabase
-from app.models import PaymentCreate, PaymentUpdate, PaymentStatusEnum
-from app.exceptions import NotFoundError, ValidationError
-from app.config import settings
-from app.utils.helpers import normalize_phone
-
-logger = logging.getLogger(__name__)
-
-
-class PaymentService:
-    """Service for payment operations with M-Pesa integration."""
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Payment | Masika Benevolent</title>
+    <meta name="description" content="Complete your Masika Benevolent membership payment via M-Pesa.">
     
-    def __init__(self):
-        self.supabase = get_supabase()
-        self._access_token = None
-        self._token_expiry = None
-        
-        # M-Pesa API Configuration (Production)
-        self.CONSUMER_KEY = os.getenv("MPESA_CONSUMER_KEY")
-        self.CONSUMER_SECRET = os.getenv("MPESA_CONSUMER_SECRET")
-        self.PASSKEY = os.getenv("MPESA_PASSKEY")
-        self.SHORTCODE = os.getenv("MPESA_SHORTCODE", "348127")
-        self.CALLBACK_URL = os.getenv("MPESA_CALLBACK_URL", "https://masika-c921.onrender.com/api/webhooks/mpesa")
-        self.ENVIRONMENT = os.getenv("MPESA_ENVIRONMENT", "sandbox")
-        
-        # Production URLs
-        self.BASE_URL = "https://api.safaricom.co.ke"
-        self.OAUTH_URL = f"{self.BASE_URL}/oauth/v1/generate"
-        self.STK_PUSH_URL = f"{self.BASE_URL}/mpesa/stkpush/v1/processrequest"
-        self.STK_QUERY_URL = f"{self.BASE_URL}/mpesa/stkpushquery/v1/query"
-        
-        # Log configuration (mask sensitive data)
-        logger.info(f"M-Pesa Environment: {self.ENVIRONMENT}")
-        logger.info(f"M-Pesa Shortcode: {self.SHORTCODE}")
-        logger.info(f"M-Pesa Callback URL: {self.CALLBACK_URL}")
-        logger.info(f"Consumer Key configured: {'Yes' if self.CONSUMER_KEY else 'No'}")
+    <link rel="icon" type="image/png" href="assets/favicon-32x32.png">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     
-    # ============================================================
-    # AUTHENTICATION - M-PESA
-    # ============================================================
-    
-    async def _get_access_token(self) -> str:
-        """Get M-Pesa access token."""
-        # Return cached token if valid
-        if self._access_token and self._token_expiry and time.time() < self._token_expiry:
-            return self._access_token
-        
-        if not self.CONSUMER_KEY or not self.CONSUMER_SECRET:
-            logger.error("M-Pesa credentials not configured")
-            raise HTTPException(
-                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-                detail="Payment service not configured"
-            )
-        
-        try:
-            # Encode credentials
-            credentials = base64.b64encode(
-                f"{self.CONSUMER_KEY}:{self.CONSUMER_SECRET}".encode()
-            ).decode("utf-8")
-            
-            logger.info("Requesting M-Pesa access token...")
-            
-            async with httpx.AsyncClient(timeout=30.0) as client:
-                response = await client.get(
-                    self.OAUTH_URL,
-                    headers={"Authorization": f"Basic {credentials}"}
-                )
-                
-                if response.status_code != 200:
-                    logger.error(f"Failed to get access token: {response.text}")
-                    raise HTTPException(
-                        status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-                        detail="Payment service unavailable. Please try again later."
-                    )
-                
-                data = response.json()
-                self._access_token = data.get("access_token")
-                expires_in = data.get("expires_in", 3600)
-                self._token_expiry = time.time() + expires_in - 60  # Buffer 60 seconds
-                
-                logger.info("M-Pesa access token obtained successfully")
-                return self._access_token
-                
-        except httpx.TimeoutException:
-            logger.error("M-Pesa API timeout")
-            raise HTTPException(
-                status_code=status.HTTP_504_GATEWAY_TIMEOUT,
-                detail="Payment service timeout. Please try again."
-            )
-        except Exception as e:
-            logger.error(f"Access token error: {e}")
-            raise HTTPException(
-                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-                detail="Payment service unavailable. Please try again later."
-            )
-    
-    # ============================================================
-    # STK PUSH - LIPA NA M-PESA ONLINE
-    # ============================================================
-    
-    async def initiate_stk_push(
-        self,
-        phone: str,
-        amount: float,
-        account_reference: str,
-        transaction_desc: str = "Membership Registration"
-    ) -> Dict[str, Any]:
-        """
-        Initiate M-Pesa STK Push payment.
-        
-        Args:
-            phone: Phone number (format: 254XXXXXXXXX)
-            amount: Amount to charge
-            account_reference: Member number or invoice number
-            transaction_desc: Description of transaction
-        
-        Returns:
-            Checkout request ID and status
-        """
-        # Normalize phone
-        phone = normalize_phone(phone)
-        
-        # Ensure phone is in correct format (254XXXXXXXXX)
-        if phone.startswith("0"):
-            phone = "254" + phone[1:]
-        elif phone.startswith("+"):
-            phone = phone[1:]
-        
-        # Validate phone length
-        if len(phone) != 12 or not phone.startswith("254"):
-            raise ValidationError("Invalid phone number format. Please use a valid Safaricom number.")
-        
-        logger.info(f"STK Push Initiated: Phone={phone}, Amount={amount}, Ref={account_reference}")
-        
-        # Get access token
-        access_token = await self._get_access_token()
-        
-        # Generate timestamp
-        timestamp = datetime.now().strftime("%Y%m%d%H%M%S")
-        
-        # Generate password
-        password_str = f"{self.SHORTCODE}{self.PASSKEY}{timestamp}"
-        password = base64.b64encode(password_str.encode()).decode("utf-8")
-        
-        # Prepare request payload
-        payload = {
-            "BusinessShortCode": self.SHORTCODE,
-            "Password": password,
-            "Timestamp": timestamp,
-            "TransactionType": "CustomerPayBillOnline",
-            "Amount": int(amount),
-            "PartyA": phone,
-            "PartyB": self.SHORTCODE,
-            "PhoneNumber": phone,
-            "CallBackURL": self.CALLBACK_URL,
-            "AccountReference": account_reference[:12],
-            "TransactionDesc": transaction_desc[:36],
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
         }
-        
-        logger.info(f"STK Push Payload: {json.dumps({**payload, 'Password': '***'})}")
-        
-        try:
-            async with httpx.AsyncClient(timeout=30.0) as client:
-                response = await client.post(
-                    self.STK_PUSH_URL,
-                    json=payload,
-                    headers={
-                        "Authorization": f"Bearer {access_token}",
-                        "Content-Type": "application/json"
-                    }
-                )
+
+        :root {
+            --primary: #0b5d3b;
+            --primary-dark: #06452c;
+            --primary-light: #e8f5ee;
+            --gold: #d4a843;
+            --gold-light: #f5e6b8;
+            --danger: #dc3545;
+            --success: #198754;
+            --warning: #ffc107;
+            --info: #0dcaf0;
+            --text: #1f2933;
+            --text-light: #6b7280;
+            --white: #ffffff;
+            --gray-100: #f3f4f6;
+            --gray-200: #e5e7eb;
+            --shadow: 0 4px 24px rgba(0,0,0,0.1);
+            --radius: 12px;
+            --transition: all 0.3s ease;
+        }
+
+        body {
+            font-family: 'Segoe UI', Arial, sans-serif;
+            background: #f0f4f2;
+            color: var(--text);
+            min-height: 100vh;
+        }
+
+        /* Header */
+        .topbar {
+            background: var(--primary);
+            color: white;
+            padding: 16px 28px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 12px;
+            position: sticky;
+            top: 0;
+            z-index: 100;
+        }
+
+        .brand {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            text-decoration: none;
+            color: white;
+        }
+
+        .brand-logo {
+            width: 40px;
+            height: 40px;
+            background: white;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 900;
+            color: var(--primary);
+            font-size: 18px;
+        }
+
+        .brand-text {
+            font-weight: 700;
+            font-size: 18px;
+        }
+
+        .brand-sub {
+            font-size: 11px;
+            opacity: 0.7;
+            display: block;
+        }
+
+        .top-actions {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+
+        .btn {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 8px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: var(--transition);
+            text-decoration: none;
+            font-family: inherit;
+            font-size: 14px;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .btn:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+        }
+
+        .btn-light {
+            background: white;
+            color: var(--primary);
+        }
+
+        .btn-light:hover {
+            background: #f0f0f0;
+        }
+
+        .btn-outline-light {
+            background: transparent;
+            color: white;
+            border: 2px solid rgba(255,255,255,0.3);
+        }
+
+        .btn-outline-light:hover {
+            background: rgba(255,255,255,0.1);
+            border-color: white;
+        }
+
+        .btn-primary {
+            background: var(--primary);
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background: var(--primary-dark);
+        }
+
+        .btn-gold {
+            background: var(--gold);
+            color: white;
+        }
+
+        .btn-gold:hover {
+            background: #c4951a;
+        }
+
+        .btn-success {
+            background: var(--success);
+            color: white;
+        }
+
+        .btn-success:hover {
+            background: #157347;
+        }
+
+        .btn-danger {
+            background: var(--danger);
+            color: white;
+        }
+
+        .btn-danger:hover {
+            background: #c82333;
+        }
+
+        .btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none !important;
+        }
+
+        /* Container */
+        .container {
+            max-width: 700px;
+            margin: 0 auto;
+            padding: 40px 24px 60px;
+        }
+
+        /* Card */
+        .card {
+            background: white;
+            border-radius: var(--radius);
+            padding: 32px;
+            box-shadow: var(--shadow);
+            margin-bottom: 24px;
+        }
+
+        .card-header {
+            border-bottom: 1px solid var(--gray-200);
+            padding-bottom: 16px;
+            margin-bottom: 24px;
+        }
+
+        .card-header h2 {
+            font-size: 20px;
+            font-weight: 700;
+        }
+
+        .card-header p {
+            color: var(--text-light);
+            font-size: 14px;
+            margin-top: 4px;
+        }
+
+        /* Payment Summary */
+        .payment-summary {
+            background: var(--primary-light);
+            border-radius: var(--radius);
+            padding: 24px;
+            text-align: center;
+            margin-bottom: 24px;
+            border: 2px solid #c3e6cb;
+        }
+
+        .payment-summary .label {
+            font-size: 14px;
+            color: var(--text-light);
+        }
+
+        .payment-summary .amount {
+            font-size: 36px;
+            font-weight: 800;
+            color: var(--primary);
+            margin: 4px 0;
+        }
+
+        .payment-summary .member-info {
+            font-size: 14px;
+            color: var(--text);
+            margin-top: 4px;
+        }
+
+        .payment-summary .member-info strong {
+            color: var(--primary);
+        }
+
+        /* Paybill Info */
+        .paybill-info {
+            background: #f8faf9;
+            border-radius: 8px;
+            padding: 20px;
+            text-align: center;
+            border: 2px dashed var(--gold);
+            margin-bottom: 24px;
+        }
+
+        .paybill-info .label {
+            font-size: 13px;
+            color: var(--text-light);
+        }
+
+        .paybill-info .number {
+            font-size: 32px;
+            font-weight: 900;
+            color: var(--gold);
+            letter-spacing: 2px;
+        }
+
+        .paybill-info .account {
+            font-size: 14px;
+            color: var(--text);
+            margin-top: 4px;
+        }
+
+        .paybill-info .account strong {
+            color: var(--primary);
+        }
+
+        /* Form */
+        .form-group {
+            margin-bottom: 18px;
+        }
+
+        .form-group label {
+            display: block;
+            font-weight: 600;
+            font-size: 13px;
+            margin-bottom: 6px;
+            color: var(--text);
+        }
+
+        .form-group label .required {
+            color: var(--danger);
+        }
+
+        .form-group .help-text {
+            font-size: 12px;
+            color: var(--text-light);
+            margin-top: 4px;
+        }
+
+        .form-control {
+            width: 100%;
+            padding: 12px 16px;
+            border: 2px solid var(--gray-200);
+            border-radius: 8px;
+            font-size: 15px;
+            transition: var(--transition);
+            font-family: inherit;
+            background: white;
+            color: var(--text);
+        }
+
+        .form-control:focus {
+            outline: none;
+            border-color: var(--primary);
+            box-shadow: 0 0 0 3px rgba(11,93,59,0.1);
+        }
+
+        .form-control.error {
+            border-color: var(--danger);
+        }
+
+        .form-control:disabled {
+            background: var(--gray-100);
+            cursor: not-allowed;
+        }
+
+        /* Alert */
+        .alert {
+            display: none;
+            padding: 14px 18px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            font-size: 14px;
+        }
+
+        .alert.show {
+            display: block;
+        }
+
+        .alert.success {
+            background: #ecfdf5;
+            border: 1px solid #a7f3d0;
+            color: #065f46;
+        }
+
+        .alert.error {
+            background: #fef2f2;
+            border: 1px solid #fecaca;
+            color: #991b1b;
+        }
+
+        .alert.info {
+            background: #eff6ff;
+            border: 1px solid #bfdbfe;
+            color: #1e40af;
+        }
+
+        .alert.warning {
+            background: #fffbeb;
+            border: 1px solid #fde68a;
+            color: #92400e;
+        }
+
+        /* Payment Status */
+        #paymentStatus {
+            display: none;
+            text-align: center;
+            padding: 20px;
+        }
+
+        #paymentStatus .status-icon {
+            font-size: 56px;
+            margin-bottom: 12px;
+        }
+
+        #paymentStatus .status-icon.success {
+            color: var(--success);
+        }
+
+        #paymentStatus .status-icon.failed {
+            color: var(--danger);
+        }
+
+        #paymentStatus .status-icon.pending {
+            color: var(--warning);
+        }
+
+        #paymentStatus h3 {
+            font-size: 22px;
+            font-weight: 700;
+            margin-bottom: 4px;
+        }
+
+        #paymentStatus p {
+            color: var(--text-light);
+            font-size: 15px;
+        }
+
+        .status-badge {
+            display: inline-block;
+            padding: 4px 16px;
+            border-radius: 20px;
+            font-size: 13px;
+            font-weight: 600;
+            margin-top: 12px;
+        }
+
+        .status-badge.pending {
+            background: #fff3cd;
+            color: #856404;
+        }
+
+        .status-badge.confirmed {
+            background: #d4edda;
+            color: #155724;
+        }
+
+        .status-badge.failed {
+            background: #f8d7da;
+            color: #721c24;
+        }
+
+        /* Steps */
+        .steps {
+            display: flex;
+            gap: 8px;
+            margin: 16px 0;
+            justify-content: center;
+        }
+
+        .step-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 13px;
+            color: var(--text-light);
+        }
+
+        .step-item .num {
+            width: 28px;
+            height: 28px;
+            border-radius: 50%;
+            background: var(--gray-200);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 700;
+            font-size: 12px;
+            color: var(--text-light);
+        }
+
+        .step-item.active .num {
+            background: var(--gold);
+            color: white;
+        }
+
+        .step-item.active {
+            color: var(--text);
+            font-weight: 600;
+        }
+
+        .step-item.done .num {
+            background: var(--success);
+            color: white;
+        }
+
+        /* Spinner */
+        .spinner {
+            display: none;
+            width: 20px;
+            height: 20px;
+            border: 3px solid rgba(255,255,255,0.3);
+            border-top-color: white;
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+        }
+
+        .btn.loading .spinner {
+            display: inline-block;
+        }
+
+        .btn.loading .btn-text {
+            display: none;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        /* Confetti (for success) */
+        .confetti-container {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: 999;
+            overflow: hidden;
+        }
+
+        .confetti {
+            position: absolute;
+            width: 10px;
+            height: 10px;
+            top: -10px;
+            animation: confettiFall linear forwards;
+        }
+
+        @keyframes confettiFall {
+            0% { transform: translateY(0) rotate(0deg); opacity: 1; }
+            100% { transform: translateY(110vh) rotate(720deg); opacity: 0; }
+        }
+
+        /* Responsive */
+        @media (max-width: 768px) {
+            .topbar {
+                padding: 12px 16px;
+                flex-direction: column;
+                align-items: stretch;
+                text-align: center;
+            }
+
+            .brand {
+                justify-content: center;
+            }
+
+            .top-actions {
+                justify-content: center;
+            }
+
+            .container {
+                padding: 24px 16px 40px;
+            }
+
+            .card {
+                padding: 20px;
+            }
+
+            .payment-summary .amount {
+                font-size: 28px;
+            }
+
+            .paybill-info .number {
+                font-size: 24px;
+            }
+
+            .steps {
+                flex-direction: column;
+                align-items: center;
+            }
+        }
+
+        @media (max-width: 480px) {
+            .payment-summary .amount {
+                font-size: 24px;
+            }
+
+            .paybill-info .number {
+                font-size: 20px;
+            }
+
+            .card {
+                padding: 16px;
+            }
+
+            .top-actions .btn {
+                font-size: 13px;
+                padding: 8px 14px;
+            }
+        }
+    </style>
+</head>
+
+<body>
+
+    <!-- ============================================================
+    HEADER
+    ============================================================ -->
+
+    <header class="topbar">
+        <a href="index.html" class="brand">
+            <div class="brand-logo">MB</div>
+            <div>
+                <span class="brand-text">Masika Benevolent</span>
+                <span class="brand-sub">Payment</span>
+            </div>
+        </a>
+
+        <div class="top-actions">
+            <a href="index.html" class="btn btn-outline-light">← Home</a>
+            <a href="register.html" class="btn btn-light">Register</a>
+        </div>
+    </header>
+
+    <!-- ============================================================
+    MAIN CONTENT
+    ============================================================ -->
+
+    <main class="container">
+
+        <!-- Alert -->
+        <div id="alertBox" class="alert"></div>
+
+        <!-- Payment Card -->
+        <div class="card" id="paymentCard">
+            <div class="card-header">
+                <h2>💳 Complete Your Payment</h2>
+                <p>Pay your registration fee using M-Pesa STK Push</p>
+            </div>
+
+            <!-- Payment Summary -->
+            <div class="payment-summary" id="paymentSummary">
+                <div class="label">Registration Amount</div>
+                <div class="amount" id="amountDisplay">KES 0</div>
+                <div class="member-info" id="memberInfo">
+                    Member: <strong id="memberNameDisplay">—</strong>
+                    <span style="margin-left:12px;">#<span id="memberNumberDisplay">—</span></span>
+                </div>
+            </div>
+
+            <!-- Paybill Info -->
+            <div class="paybill-info">
+                <div class="label">Paybill Number</div>
+                <div class="number">348127</div>
+                <div class="account">
+                    Account: <strong id="accountDisplay">Your Member Number</strong>
+                </div>
+            </div>
+
+            <!-- Steps -->
+            <div style="margin-bottom:20px;">
+                <div class="steps">
+                    <div class="step-item active" id="step1">
+                        <span class="num">1</span> Enter Phone
+                    </div>
+                    <div class="step-item" id="step2">
+                        <span class="num">2</span> Pay
+                    </div>
+                    <div class="step-item" id="step3">
+                        <span class="num">3</span> Confirm
+                    </div>
+                </div>
+            </div>
+
+            <!-- Payment Form -->
+            <form id="paymentForm" onsubmit="initiatePayment(event)">
+                <div class="form-group">
+                    <label>M-Pesa Phone Number <span class="required">*</span></label>
+                    <input type="tel" id="phoneNumber" class="form-control" placeholder="0712345678" required>
+                    <span class="help-text">The Safaricom number registered with M-Pesa</span>
+                </div>
+
+                <div style="display:flex;gap:12px;flex-wrap:wrap;">
+                    <button type="submit" class="btn btn-gold" style="flex:1;padding:14px;font-size:16px;" id="payBtn">
+                        <span class="btn-text"><i class="fas fa-mobile-screen-button"></i> Pay with M-Pesa</span>
+                        <span class="spinner"></span>
+                    </button>
+                    <button type="button" class="btn btn-secondary" onclick="resetPayment()" style="padding:14px 20px;background:#eef1f2;color:#374151;">
+                        <i class="fas fa-undo"></i>
+                    </button>
+                </div>
+            </form>
+
+            <!-- Payment Status -->
+            <div id="paymentStatus">
+                <div class="status-icon" id="statusIcon">⏳</div>
+                <h3 id="statusTitle">Processing Payment</h3>
+                <p id="statusMessage">Please check your phone and enter your M-Pesa PIN.</p>
+                <div>
+                    <span class="status-badge pending" id="statusBadge">Pending</span>
+                </div>
+                <div style="margin-top:16px;display:flex;gap:10px;justify-content:center;flex-wrap:wrap;">
+                    <button onclick="checkPaymentStatus()" class="btn btn-primary" id="checkStatusBtn">
+                        <i class="fas fa-sync"></i> Check Status
+                    </button>
+                    <button onclick="resetPayment()" class="btn btn-secondary" id="retryBtn" style="display:none;">
+                        <i class="fas fa-redo"></i> Try Again
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Success Card (shown after confirmation) -->
+        <div class="card" id="successCard" style="display:none;border:2px solid var(--success);">
+            <div style="text-align:center;padding:20px;">
+                <div style="font-size:64px;margin-bottom:12px;">🎉</div>
+                <h2 style="color:var(--success);font-size:28px;font-weight:800;">Payment Successful!</h2>
+                <p style="color:var(--text-light);font-size:16px;margin:8px 0;">
+                    Your Masika Benevolent membership is now active.
+                </p>
+                <div style="background:var(--primary-light);border-radius:8px;padding:16px;margin:16px 0;text-align:left;">
+                    <p><strong>📋 What's Next?</strong></p>
+                    <ul style="padding-left:20px;color:var(--text-light);">
+                        <li>✅ You will receive a confirmation SMS</li>
+                        <li>📧 A confirmation email has been sent</li>
+                        <li>🎯 Your coverage starts after the waiting period</li>
+                    </ul>
+                </div>
+                <div style="display:flex;gap:12px;justify-content:center;flex-wrap:wrap;">
+                    <a href="index.html" class="btn btn-primary">← Home</a>
+                    <a href="register.html" class="btn btn-gold">Register Another Member</a>
+                </div>
+            </div>
+        </div>
+
+    </main>
+
+    <!-- ============================================================
+    JAVASCRIPT
+    ============================================================ -->
+
+    <script>
+        // ============================================================
+        // CONFIGURATION
+        // ============================================================
+
+        const SUPABASE_URL = 'https://wpxzlcdrirlcyvfiquld.supabase.co';
+        const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6IndweHpsY2RyaXJsY3l2ZmlxdWxkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODc5Mjc4MDcsImV4cCI6MjEwMzUwMzgwN30.OUP9pmPbrML_egpHflZtDfLv1_UDM37_BYjtb842xjg';
+
+        const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+        // ============================================================
+        // STATE
+        // ============================================================
+
+        let registrationData = null;
+        let checkoutRequestId = null;
+        let pollingInterval = null;
+        let pollAttempts = 0;
+        const maxPollAttempts = 30;
+        let isProcessing = false;
+
+        // ============================================================
+        // DOM REFERENCES
+        // ============================================================
+
+        const alertBox = document.getElementById('alertBox');
+        const paymentCard = document.getElementById('paymentCard');
+        const successCard = document.getElementById('successCard');
+        const paymentForm = document.getElementById('paymentForm');
+        const paymentStatus = document.getElementById('paymentStatus');
+        const payBtn = document.getElementById('payBtn');
+        const checkStatusBtn = document.getElementById('checkStatusBtn');
+        const retryBtn = document.getElementById('retryBtn');
+        const phoneNumber = document.getElementById('phoneNumber');
+        const amountDisplay = document.getElementById('amountDisplay');
+        const memberNameDisplay = document.getElementById('memberNameDisplay');
+        const memberNumberDisplay = document.getElementById('memberNumberDisplay');
+        const accountDisplay = document.getElementById('accountDisplay');
+        const statusIcon = document.getElementById('statusIcon');
+        const statusTitle = document.getElementById('statusTitle');
+        const statusMessage = document.getElementById('statusMessage');
+        const statusBadge = document.getElementById('statusBadge');
+
+        // ============================================================
+        // LOAD PAYMENT DATA
+        // ============================================================
+
+        function loadPaymentData() {
+            const stored = sessionStorage.getItem('registrationResult');
+            
+            if (!stored) {
+                const params = new URLSearchParams(window.location.search);
+                const memberId = params.get('member_id');
+                const amount = params.get('amount');
                 
-                logger.info(f"STK Push Response Status: {response.status_code}")
-                
-                if response.status_code != 200:
-                    logger.error(f"STK Push Failed: {response.text}")
-                    return {
-                        "checkout_request_id": None,
-                        "merchant_request_id": None,
-                        "response_code": str(response.status_code),
-                        "response_description": "Payment initiation failed. Please try again.",
-                        "status": "failed",
-                        "error": response.text
-                    }
-                
-                data = response.json()
-                logger.info(f"STK Push Response: {json.dumps(data)}")
-                
-                response_code = data.get("ResponseCode")
-                response_desc = data.get("ResponseDescription", "Payment initiation failed")
-                
-                if response_code != "0":
-                    # Payment initiation failed
-                    return {
-                        "checkout_request_id": data.get("CheckoutRequestID"),
-                        "merchant_request_id": data.get("MerchantRequestID"),
-                        "response_code": response_code,
-                        "response_description": response_desc,
-                        "status": "failed"
-                    }
-                
-                checkout_request_id = data.get("CheckoutRequestID")
-                merchant_request_id = data.get("MerchantRequestID")
-                
-                # Create payment record
-                payment_data = {
-                    "member_id": None,  # Will be updated when member confirms
-                    "amount": amount,
-                    "payment_type": "registration",
-                    "status": "pending",
-                    "mpesa_receipt": checkout_request_id,  # Store checkout ID as receipt
-                    "paybill_number": self.SHORTCODE,
-                    "account_number": account_reference,
-                    "checkout_request_id": checkout_request_id,
-                    "merchant_request_id": merchant_request_id,
-                    "notes": transaction_desc,
-                    "phone": phone
+                if (memberId && amount) {
+                    loadMemberFromId(memberId, amount);
+                    return;
                 }
                 
-                result = self.supabase.table("payments").insert(payment_data).execute()
-                payment_id = result.data[0]["id"] if result.data else None
-                
-                logger.info(f"STK Push Successful: CheckoutID={checkout_request_id}")
-                
-                return {
-                    "checkout_request_id": checkout_request_id,
-                    "merchant_request_id": merchant_request_id,
-                    "response_code": response_code,
-                    "response_description": response_desc,
-                    "status": "pending",
-                    "payment_id": payment_id
-                }
-                
-        except httpx.TimeoutException:
-            logger.error("M-Pesa STK Push Timeout")
-            return {
-                "checkout_request_id": None,
-                "merchant_request_id": None,
-                "response_code": "TIMEOUT",
-                "response_description": "Payment request timed out. Please try again.",
-                "status": "failed"
+                showAlert('No payment data found. Please register first.', 'error');
+                payBtn.disabled = true;
+                return;
             }
-        except Exception as e:
-            logger.error(f"STK Push Error: {e}")
-            return {
-                "checkout_request_id": None,
-                "merchant_request_id": None,
-                "response_code": "ERROR",
-                "response_description": f"Payment initiation failed: {str(e)}",
-                "status": "failed"
+
+            try {
+                registrationData = JSON.parse(stored);
+                displayPaymentData(registrationData);
+            } catch (error) {
+                console.error('Error loading payment data:', error);
+                showAlert('Invalid payment data. Please register again.', 'error');
             }
-    
-    # ============================================================
-    # STK PUSH QUERY
-    # ============================================================
-    
-    async def query_stk_status(self, checkout_request_id: str) -> Dict[str, Any]:
-        """
-        Query the status of an STK Push transaction.
-        
-        Args:
-            checkout_request_id: The checkout request ID from STK Push
-            
-        Returns:
-            Transaction status
-        """
-        # Check if already confirmed in database
-        existing = self.supabase.table("payments").select("*").eq("checkout_request_id", checkout_request_id).execute()
-        
-        if existing.data and existing.data[0].get("status") == "confirmed":
-            return {
-                "result_code": "0",
-                "result_desc": "Success",
-                "status": "confirmed",
-                "payment": existing.data[0]
-            }
-        
-        # Get access token
-        access_token = await self._get_access_token()
-        
-        # Generate timestamp
-        timestamp = datetime.now().strftime("%Y%m%d%H%M%S")
-        
-        # Generate password
-        password_str = f"{self.SHORTCODE}{self.PASSKEY}{timestamp}"
-        password = base64.b64encode(password_str.encode()).decode("utf-8")
-        
-        payload = {
-            "BusinessShortCode": self.SHORTCODE,
-            "Password": password,
-            "Timestamp": timestamp,
-            "CheckoutRequestID": checkout_request_id
-        }
-        
-        logger.info(f"STK Query: {checkout_request_id}")
-        
-        try:
-            async with httpx.AsyncClient(timeout=30.0) as client:
-                response = await client.post(
-                    self.STK_QUERY_URL,
-                    json=payload,
-                    headers={
-                        "Authorization": f"Bearer {access_token}",
-                        "Content-Type": "application/json"
-                    }
-                )
-                
-                if response.status_code != 200:
-                    logger.error(f"STK Query Failed: {response.text}")
-                    return {
-                        "result_code": "FAILED",
-                        "result_desc": "Query failed",
-                        "status": "failed"
-                    }
-                
-                data = response.json()
-                logger.info(f"STK Query Response: {json.dumps(data)}")
-                
-                result_code = data.get("ResultCode")
-                result_desc = data.get("ResultDesc", "Unknown")
-                
-                if result_code == "0":
-                    # Payment successful - extract details
-                    metadata = data.get("CallbackMetadata", {})
-                    items = metadata.get("Item", [])
-                    
-                    amount = None
-                    receipt = None
-                    
-                    for item in items:
-                        if item.get("Name") == "Amount":
-                            amount = item.get("Value")
-                        elif item.get("Name") == "MpesaReceiptNumber":
-                            receipt = item.get("Value")
-                    
-                    # Update payment record
-                    update_data = {
-                        "status": "confirmed",
-                        "confirmed_at": datetime.now().isoformat(),
-                        "mpesa_receipt": receipt or checkout_request_id,
-                        "amount": amount or None
-                    }
-                    
-                    self.supabase.table("payments").update(update_data).eq("checkout_request_id", checkout_request_id).execute()
-                    
-                    # Update member registration status
-                    payment = self.supabase.table("payments").select("*").eq("checkout_request_id", checkout_request_id).execute()
-                    if payment.data and payment.data[0].get("member_id"):
-                        self.supabase.table("members").update({
-                            "registration_fee_paid": True,
-                            "coverage_start_date": datetime.now().isoformat()
-                        }).eq("id", payment.data[0]["member_id"]).execute()
-                    
-                    return {
-                        "result_code": result_code,
-                        "result_desc": result_desc,
-                        "status": "confirmed",
-                        "amount": amount,
-                        "receipt": receipt
-                    }
-                    
-                elif result_code in ["1037", "1032"]:
-                    # Pending
-                    return {
-                        "result_code": result_code,
-                        "result_desc": result_desc,
-                        "status": "pending"
-                    }
-                else:
-                    # Failed
-                    return {
-                        "result_code": result_code,
-                        "result_desc": result_desc,
-                        "status": "failed"
-                    }
-                    
-        except Exception as e:
-            logger.error(f"STK Query Error: {e}")
-            return {
-                "result_code": "ERROR",
-                "result_desc": f"Query failed: {str(e)}",
-                "status": "failed"
-            }
-    
-    # ============================================================
-    # WEBHOOK HANDLING
-    # ============================================================
-    
-    async def handle_mpesa_webhook(self, payload: Dict[str, Any]) -> Dict[str, Any]:
-        """
-        Handle M-Pesa webhook callback.
-        
-        This is called by Safaricom when payment is completed.
-        """
-        logger.info(f"M-Pesa Webhook Received: {json.dumps(payload)}")
-        
-        try:
-            # Extract body
-            body = payload.get("Body", {})
-            stk_callback = body.get("stkCallback", {})
-            
-            checkout_request_id = stk_callback.get("CheckoutRequestID")
-            result_code = stk_callback.get("ResultCode")
-            result_desc = stk_callback.get("ResultDesc")
-            metadata = stk_callback.get("CallbackMetadata", {})
-            
-            if not checkout_request_id:
-                logger.warning("No CheckoutRequestID in webhook")
-                return {"ResultCode": 1, "ResultDesc": "No CheckoutRequestID"}
-            
-            logger.info(f"Processing webhook: CheckoutID={checkout_request_id}, ResultCode={result_code}")
-            
-            # Find payment record
-            payment = self.supabase.table("payments").select("*").eq("checkout_request_id", checkout_request_id).execute()
-            
-            if not payment.data:
-                logger.warning(f"Payment not found: {checkout_request_id}")
-                return {"ResultCode": 1, "ResultDesc": "Payment not found"}
-            
-            payment_data = payment.data[0]
-            
-            if result_code == "0":
-                # Payment successful
-                items = metadata.get("Item", [])
-                amount = None
-                receipt = None
-                phone = None
-                
-                for item in items:
-                    if item.get("Name") == "Amount":
-                        amount = item.get("Value")
-                    elif item.get("Name") == "MpesaReceiptNumber":
-                        receipt = item.get("Value")
-                    elif item.get("Name") == "PhoneNumber":
-                        phone = item.get("Value")
-                
-                # Update payment
-                update_data = {
-                    "status": "confirmed",
-                    "confirmed_at": datetime.now().isoformat(),
-                    "mpesa_receipt": receipt or payment_data.get("mpesa_receipt"),
-                    "amount": amount or payment_data.get("amount"),
-                    "webhook_response": json.dumps(payload)
-                }
-                
-                result = self.supabase.table("payments").update(update_data).eq("id", payment_data["id"]).execute()
-                
-                # Update member registration status
-                if payment_data.get("member_id"):
-                    self.supabase.table("members").update({
-                        "registration_fee_paid": True,
-                        "coverage_start_date": datetime.now().isoformat()
-                    }).eq("id", payment_data["member_id"]).execute()
-                    
-                    logger.info(f"Payment confirmed for member: {payment_data['member_id']}")
-                
-                logger.info(f"Payment confirmed: {checkout_request_id}, Receipt: {receipt}")
-                
-                return {"ResultCode": 0, "ResultDesc": "Success"}
-            else:
-                # Payment failed
-                update_data = {
-                    "status": "failed",
-                    "notes": f"Webhook: {result_desc}",
-                    "webhook_response": json.dumps(payload)
-                }
-                
-                self.supabase.table("payments").update(update_data).eq("id", payment_data["id"]).execute()
-                
-                logger.warning(f"Payment failed: {checkout_request_id} - {result_desc}")
-                
-                return {"ResultCode": 0, "ResultDesc": "Payment failed recorded"}
-                
-        except Exception as e:
-            logger.error(f"Webhook processing error: {e}")
-            return {"ResultCode": 1, "ResultDesc": f"Processing failed: {str(e)}"}
-    
-    # ============================================================
-    # PROCESS MEMBER PAYMENT
-    # ============================================================
-    
-    async def process_member_payment(
-        self,
-        member_id: UUID,
-        phone: str,
-        amount: float,
-        transaction_desc: str = "Membership Registration"
-    ) -> Dict[str, Any]:
-        """
-        Process a member payment with STK Push.
-        
-        Args:
-            member_id: Member ID
-            phone: Phone number
-            amount: Amount to charge
-            transaction_desc: Description
-            
-        Returns:
-            STK Push result
-        """
-        # Get member
-        member = self.supabase.table("members").select("*").eq("id", str(member_id)).execute()
-        
-        if not member.data:
-            raise NotFoundError("Member", str(member_id))
-        
-        member_data = member.data[0]
-        
-        # Check if already paid
-        if member_data.get("registration_fee_paid"):
-            raise ValidationError("Member has already paid registration fee")
-        
-        # Normalize phone
-        phone = normalize_phone(phone)
-        
-        # Account reference
-        account_reference = member_data.get("member_number", f"MEM-{str(member_id)[:8]}")
-        
-        # Initiate STK Push
-        result = await self.initiate_stk_push(
-            phone=phone,
-            amount=amount,
-            account_reference=account_reference,
-            transaction_desc=transaction_desc
-        )
-        
-        # Update payment record with member_id
-        if result.get("payment_id") and result.get("status") != "failed":
-            self.supabase.table("payments").update({
-                "member_id": str(member_id),
-                "phone": phone
-            }).eq("id", result["payment_id"]).execute()
-        
-        return {
-            "success": result.get("response_code") == "0",
-            "checkout_request_id": result.get("checkout_request_id"),
-            "merchant_request_id": result.get("merchant_request_id"),
-            "message": result.get("response_description", "Payment initiated"),
-            "status": result.get("status", "pending"),
-            "payment_id": result.get("payment_id")
-        }
-    
-    # ============================================================
-    # EXISTING PAYMENT METHODS
-    # ============================================================
-    
-    async def create_payment(self, data: PaymentCreate) -> Dict[str, Any]:
-        """Create a new payment record."""
-        payment_data = {
-            "member_id": str(data.member_id),
-            "amount": data.amount,
-            "payment_type": data.payment_type.value,
-            "mpesa_receipt": data.mpesa_receipt,
-            "paybill_number": data.paybill_number,
-            "account_number": data.account_number,
-            "status": data.status.value,
-            "notes": data.notes,
-        }
-        
-        if data.status == PaymentStatusEnum.CONFIRMED:
-            payment_data["confirmed_at"] = datetime.now().isoformat()
-        
-        result = self.supabase.table("payments").insert(payment_data).execute()
-        
-        if not result.data:
-            raise ValidationError("Failed to create payment")
-        
-        return result.data[0]
-    
-    async def confirm_payment(
-        self, 
-        member_id: UUID, 
-        amount: float, 
-        receipt: str,
-        payment_type: str = "registration"
-    ) -> Dict[str, Any]:
-        """Confirm a payment."""
-        existing = self.supabase.table("payments").select("*").eq("member_id", str(member_id)).eq("payment_type", payment_type).eq("status", "confirmed").execute()
-        
-        if existing.data:
-            return {
-                "already_confirmed": True,
-                "payment": existing.data[0]
-            }
-        
-        payment_data = {
-            "member_id": str(member_id),
-            "amount": amount,
-            "payment_type": payment_type,
-            "mpesa_receipt": receipt,
-            "paybill_number": "348127",
-            "status": "confirmed",
-            "confirmed_at": datetime.now().isoformat()
-        }
-        
-        result = self.supabase.table("payments").insert(payment_data).execute()
-        
-        if not result.data:
-            raise ValidationError("Failed to confirm payment")
-        
-        self.supabase.table("members").update({
-            "registration_fee_paid": True,
-            "coverage_start_date": datetime.now().isoformat()
-        }).eq("id", str(member_id)).execute()
-        
-        return result.data[0]
-    
-    async def get_payments(
-        self,
-        member_id: Optional[UUID] = None,
-        status: Optional[str] = None,
-        page: int = 1,
-        limit: int = 20
-    ) -> Dict[str, Any]:
-        """Get paginated list of payments."""
-        query = self.supabase.table("payments").select("*")
-        
-        if member_id:
-            query = query.eq("member_id", str(member_id))
-        if status:
-            query = query.eq("status", status)
-        
-        count_result = self.supabase.table("payments").select("id", count="exact").execute()
-        total = count_result.count or 0
-        
-        offset = (page - 1) * limit
-        result = query.order("payment_date", desc=True).range(offset, offset + limit - 1).execute()
-        
-        return {
-            "payments": result.data or [],
-            "total": total,
-            "page": page,
-            "limit": limit,
-            "pages": (total + limit - 1) // limit if total else 1
-        }
-    
-    async def update_payment(self, payment_id: UUID, update: PaymentUpdate) -> Dict[str, Any]:
-        """Update payment status."""
-        payment = self.supabase.table("payments").select("*").eq("id", str(payment_id)).execute()
-        
-        if not payment.data:
-            raise NotFoundError("Payment", str(payment_id))
-        
-        update_data = {"status": update.status.value}
-        
-        if update.mpesa_receipt:
-            update_data["mpesa_receipt"] = update.mpesa_receipt
-        if update.notes:
-            update_data["notes"] = update.notes
-        
-        if update.status == PaymentStatusEnum.CONFIRMED:
-            update_data["confirmed_at"] = datetime.now().isoformat()
-        
-        result = self.supabase.table("payments").update(update_data).eq("id", str(payment_id)).execute()
-        
-        return result.data[0] if result.data else None
-    
-    async def get_revenue_summary(self, start_date: Optional[str] = None, end_date: Optional[str] = None) -> Dict[str, Any]:
-        """Get revenue summary."""
-        query = self.supabase.table("payments").select("amount, status, payment_type, payment_date")
-        
-        if start_date:
-            query = query.gte("payment_date", start_date)
-        if end_date:
-            query = query.lte("payment_date", end_date)
-        
-        result = query.execute()
-        payments = result.data or []
-        
-        total = 0
-        confirmed = 0
-        pending = 0
-        failed = 0
-        by_type = {}
-        
-        for p in payments:
-            amount = float(p.get("amount", 0))
-            status = p.get("status", "")
-            
-            total += amount
-            
-            if status == "confirmed":
-                confirmed += amount
-            elif status == "pending":
-                pending += amount
-            elif status == "failed":
-                failed += amount
-            
-            ptype = p.get("payment_type", "unknown")
-            if ptype not in by_type:
-                by_type[ptype] = 0
-            by_type[ptype] += amount
-        
-        return {
-            "total": total,
-            "confirmed": confirmed,
-            "pending": pending,
-            "failed": failed,
-            "by_type": by_type,
-            "count": len(payments)
         }
 
+        async function loadMemberFromId(memberId, amount) {
+            try {
+                const { data, error } = await supabaseClient
+                    .from('members')
+                    .select('*')
+                    .eq('id', memberId)
+                    .single();
 
-# ============================================================
-# SINGLETON
-# ============================================================
+                if (error) {
+                    showAlert('Member not found.', 'error');
+                    return;
+                }
 
-payment_service = PaymentService()
+                registrationData = {
+                    id: data.id,
+                    member_number: data.member_number,
+                    first_name: data.first_name,
+                    last_name: data.last_name,
+                    total_amount: Number(amount)
+                };
+
+                displayPaymentData(registrationData);
+
+            } catch (error) {
+                console.error('Error loading member:', error);
+                showAlert('Failed to load member data.', 'error');
+            }
+        }
+
+        function displayPaymentData(data) {
+            const amount = data.total_amount || data.registration_amount || data.amount || 0;
+            const name = data.first_name ? `${data.first_name} ${data.last_name || ''}`.trim() : data.full_name || 'Member';
+            const memberNumber = data.member_number || data.id || 'PENDING';
+
+            amountDisplay.textContent = formatKES(amount);
+            memberNameDisplay.textContent = name || '—';
+            memberNumberDisplay.textContent = memberNumber;
+            accountDisplay.textContent = memberNumber;
+
+            window.registrationPaymentAmount = amount;
+            window.registrationData = data;
+        }
+
+        // ============================================================
+        // INITIATE PAYMENT
+        // ============================================================
+
+        async function initiatePayment(event) {
+            event.preventDefault();
+
+            if (isProcessing) return;
+
+            const phone = phoneNumber.value.trim();
+            
+            if (!phone || phone.length < 9) {
+                showAlert('Please enter a valid M-Pesa phone number.', 'error');
+                phoneNumber.focus();
+                return;
+            }
+
+            if (!registrationData || !registrationData.id) {
+                showAlert('Member data not found. Please register again.', 'error');
+                return;
+            }
+
+            const amount = window.registrationPaymentAmount || 0;
+            if (amount <= 0) {
+                showAlert('Invalid payment amount.', 'error');
+                return;
+            }
+
+            isProcessing = true;
+            payBtn.classList.add('loading');
+            payBtn.disabled = true;
+
+            try {
+                // Call the API
+                const response = await fetch('/api/public/payment/stk-push', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        member_id: registrationData.id,
+                        phone: phone,
+                        amount: amount,
+                        transaction_desc: 'Membership Registration'
+                    })
+                });
+
+                const result = await response.json();
+
+                if (!result.success) {
+                    throw new Error(result.message || 'Payment initiation failed');
+                }
+
+                const data = result.data;
+                checkoutRequestId = data.checkout_request_id;
+
+                // Update UI
+                document.getElementById('step1').classList.remove('active');
+                document.getElementById('step1').classList.add('done');
+                document.getElementById('step2').classList.add('active');
+
+                // Show payment status
+                paymentForm.style.display = 'none';
+                paymentStatus.style.display = 'block';
+                statusIcon.textContent = '⏳';
+                statusIcon.className = 'status-icon pending';
+                statusTitle.textContent = 'Payment Sent to Phone';
+                statusMessage.textContent = 'Please check your phone and enter your M-Pesa PIN to complete payment.';
+                statusBadge.textContent = 'Pending';
+                statusBadge.className = 'status-badge pending';
+                checkStatusBtn.style.display = 'inline-flex';
+                retryBtn.style.display = 'none';
+
+                showAlert('Payment request sent to your phone. Please enter your PIN.', 'info');
+
+                // Start polling
+                startPolling();
+
+            } catch (error) {
+                console.error('Payment error:', error);
+                showAlert(error.message || 'Payment initiation failed. Please try again.', 'error');
+                payBtn.classList.remove('loading');
+                payBtn.disabled = false;
+                isProcessing = false;
+            }
+        }
+
+        // ============================================================
+        // POLL PAYMENT STATUS
+        // ============================================================
+
+        function startPolling() {
+            pollAttempts = 0;
+            if (pollingInterval) {
+                clearInterval(pollingInterval);
+            }
+            pollingInterval = setInterval(checkPaymentStatus, 3000);
+        }
+
+        async function checkPaymentStatus() {
+            if (!checkoutRequestId) {
+                showAlert('No payment request found.', 'error');
+                return;
+            }
+
+            pollAttempts++;
+            checkStatusBtn.disabled = true;
+            checkStatusBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Checking...';
+
+            try {
+                const response = await fetch(`/api/public/payment/status/${checkoutRequestId}`);
+                const result = await response.json();
+
+                if (result.success) {
+                    const data = result.data;
+                    const status = data.status;
+
+                    if (status === 'confirmed') {
+                        // Payment successful
+                        clearInterval(pollingInterval);
+                        paymentSuccess(data);
+                        return;
+                    } else if (status === 'failed') {
+                        // Payment failed
+                        clearInterval(pollingInterval);
+                        paymentFailed(data);
+                        return;
+                    } else if (pollAttempts >= maxPollAttempts) {
+                        // Timeout
+                        clearInterval(pollingInterval);
+                        statusIcon.textContent = '⏰';
+                        statusIcon.className = 'status-icon warning';
+                        statusTitle.textContent = 'Payment Taking Too Long';
+                        statusMessage.textContent = 'Please check your M-Pesa app for the payment status.';
+                        statusBadge.textContent = 'Pending';
+                        statusBadge.className = 'status-badge pending';
+                        checkStatusBtn.style.display = 'none';
+                        retryBtn.style.display = 'inline-flex';
+                        showAlert('Payment confirmation taking longer than expected. Please check your M-Pesa app.', 'warning');
+                    }
+                }
+
+            } catch (error) {
+                console.error('Status check error:', error);
+                if (pollAttempts >= maxPollAttempts) {
+                    clearInterval(pollingInterval);
+                }
+            } finally {
+                checkStatusBtn.disabled = false;
+                checkStatusBtn.innerHTML = '<i class="fas fa-sync"></i> Check Status';
+            }
+        }
+
+        // ============================================================
+        // PAYMENT SUCCESS / FAILED
+        // ============================================================
+
+        function paymentSuccess(data) {
+            document.getElementById('step2').classList.remove('active');
+            document.getElementById('step2').classList.add('done');
+            document.getElementById('step3').classList.add('active');
+
+            statusIcon.textContent = '✅';
+            statusIcon.className = 'status-icon success';
+            statusTitle.textContent = 'Payment Successful!';
+            statusMessage.textContent = 'Your registration is now complete.';
+            statusBadge.textContent = 'Confirmed';
+            statusBadge.className = 'status-badge confirmed';
+            checkStatusBtn.style.display = 'none';
+            retryBtn.style.display = 'none';
+
+            showAlert('🎉 Payment confirmed successfully!', 'success');
+
+            // Show success card after delay
+            setTimeout(() => {
+                paymentCard.style.display = 'none';
+                successCard.style.display = 'block';
+                launchConfetti();
+            }, 2000);
+        }
+
+        function paymentFailed(data) {
+            document.getElementById('step2').classList.remove('active');
+
+            statusIcon.textContent = '❌';
+            statusIcon.className = 'status-icon failed';
+            statusTitle.textContent = 'Payment Failed';
+            statusMessage.textContent = data.result_desc || 'Payment was not completed. Please try again.';
+            statusBadge.textContent = 'Failed';
+            statusBadge.className = 'status-badge failed';
+            checkStatusBtn.style.display = 'none';
+            retryBtn.style.display = 'inline-flex';
+
+            showAlert('Payment failed. Please try again.', 'error');
+            isProcessing = false;
+        }
+
+        // ============================================================
+        // RESET PAYMENT
+        // ============================================================
+
+        function resetPayment() {
+            if (pollingInterval) {
+                clearInterval(pollingInterval);
+            }
+            
+            checkoutRequestId = null;
+            pollAttempts = 0;
+            isProcessing = false;
+
+            paymentForm.style.display = 'block';
+            paymentStatus.style.display = 'none';
+            payBtn.classList.remove('loading');
+            payBtn.disabled = false;
+            phoneNumber.value = '';
+
+            document.getElementById('step1').classList.add('active');
+            document.getElementById('step1').classList.remove('done');
+            document.getElementById('step2').classList.remove('active', 'done');
+            document.getElementById('step3').classList.remove('active');
+
+            clearAlert();
+        }
+
+        // ============================================================
+        // CONFETTI
+        // ============================================================
+
+        function launchConfetti() {
+            const container = document.createElement('div');
+            container.className = 'confetti-container';
+            document.body.appendChild(container);
+
+            const colors = ['#0b5d3b', '#d4a843', '#198754', '#ffc107', '#dc3545', '#0dcaf0', '#6f42c1'];
+            
+            for (let i = 0; i < 100; i++) {
+                const confetti = document.createElement('div');
+                confetti.className = 'confetti';
+                confetti.style.left = Math.random() * 100 + '%';
+                confetti.style.background = colors[Math.floor(Math.random() * colors.length)];
+                confetti.style.width = Math.random() * 8 + 4 + 'px';
+                confetti.style.height = Math.random() * 8 + 4 + 'px';
+                confetti.style.borderRadius = Math.random() > 0.5 ? '50%' : '2px';
+                confetti.style.animationDuration = Math.random() * 2 + 2 + 's';
+                confetti.style.animationDelay = Math.random() * 1 + 's';
+                container.appendChild(confetti);
+            }
+
+            setTimeout(() => {
+                container.remove();
+            }, 4000);
+        }
+
+        // ============================================================
+        // UTILITY FUNCTIONS
+        // ============================================================
+
+        function showAlert(message, type = 'error') {
+            alertBox.textContent = message;
+            alertBox.className = `alert show ${type}`;
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        }
+
+        function clearAlert() {
+            alertBox.className = 'alert';
+        }
+
+        function formatKES(amount) {
+            return new Intl.NumberFormat('en-KE', {
+                style: 'currency',
+                currency: 'KES',
+                minimumFractionDigits: 0
+            }).format(Number(amount) || 0);
+        }
+
+        // ============================================================
+        // INIT
+        // ============================================================
+
+        document.addEventListener('DOMContentLoaded', function() {
+            loadPaymentData();
+            phoneNumber.focus();
+
+            // Enter key to submit
+            phoneNumber.addEventListener('keydown', function(e) {
+                if (e.key === 'Enter') {
+                    e.preventDefault();
+                    document.getElementById('payBtn').click();
+                }
+            });
+        });
+    </script>
+
+</body>
+</html>
