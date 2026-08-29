@@ -1,0 +1,516 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Member Details | Masika Benevolent</title>
+    <meta name="description" content="View and manage member details.">
+
+    <!-- Supabase -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
+    <link rel="stylesheet" href="css/app.css">
+    <link rel="icon" type="image/png" href="assets/favicon.png">
+
+    <style>
+        .detail-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 16px;
+        }
+
+        .detail-item {
+            padding: 12px 0;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .detail-item .label {
+            font-size: 12px;
+            font-weight: 600;
+            color: var(--text-light);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            display: block;
+        }
+
+        .detail-item .value {
+            font-size: 16px;
+            font-weight: 600;
+            margin-top: 2px;
+        }
+
+        .detail-item .value .badge {
+            font-size: 13px;
+            font-weight: 600;
+        }
+
+        .dependant-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 10px 0;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .dependant-item:last-child {
+            border-bottom: none;
+        }
+
+        .payment-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 10px 0;
+            border-bottom: 1px solid var(--border);
+            flex-wrap: wrap;
+            gap: 8px;
+        }
+
+        .payment-item:last-child {
+            border-bottom: none;
+        }
+
+        .payment-item .payment-info {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .payment-item .payment-info .amount {
+            font-weight: 700;
+            font-size: 16px;
+        }
+
+        .payment-item .payment-info .date {
+            font-size: 13px;
+            color: var(--text-light);
+        }
+
+        @media (max-width: 768px) {
+            .detail-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+
+    <!-- HEADER -->
+    <header class="topbar">
+        <a href="dashboard.html" class="brand">
+            <div class="brand-logo">MB</div>
+            <div class="brand-text">
+                <strong>Masika Benevolent</strong>
+                <span>Staff Dashboard</span>
+            </div>
+        </a>
+
+        <div class="top-actions">
+            <a href="members.html" class="btn btn-outline-light">← Members</a>
+            <a href="dashboard.html" class="btn btn-outline-light">Dashboard</a>
+            <button id="logoutBtn" class="btn btn-danger">Logout</button>
+        </div>
+    </header>
+
+    <!-- MAIN CONTENT -->
+    <main class="container">
+
+        <div class="page-header">
+            <div>
+                <h1 id="memberName">Member Details <small id="memberNumberDisplay"></small></h1>
+            </div>
+            <div class="actions">
+                <a href="members.html" class="btn btn-secondary">
+                    <i class="fas fa-arrow-left"></i> Back to Members
+                </a>
+                <button onclick="toggleMemberStatus()" id="statusToggleBtn" class="btn btn-secondary">
+                    <i class="fas fa-toggle-on"></i> Toggle Status
+                </button>
+            </div>
+        </div>
+
+        <!-- Alert -->
+        <div id="alertBox" class="alert"></div>
+
+        <!-- Loading -->
+        <div id="loadingSpinner" style="text-align:center;padding:60px;">
+            <div style="display:inline-block;width:40px;height:40px;border:4px solid var(--border);border-top-color:var(--primary);border-radius:50%;animation:spin 0.8s linear infinite;"></div>
+            <p style="margin-top:12px;color:var(--text-light);">Loading member details...</p>
+        </div>
+
+        <!-- Member Details -->
+        <div id="memberContent" style="display:none;">
+
+            <!-- Personal Info -->
+            <div class="card">
+                <div class="card-header">
+                    <h2><i class="fas fa-user"></i> Personal Information</h2>
+                    <div>
+                        <span class="status-badge" id="statusBadge">Active</span>
+                    </div>
+                </div>
+                <div class="detail-grid" id="personalInfo">
+                    <!-- Populated by JavaScript -->
+                </div>
+            </div>
+
+            <!-- Dependants -->
+            <div class="card">
+                <div class="card-header">
+                    <h2><i class="fas fa-users"></i> Dependants</h2>
+                    <span id="dependantCount" style="font-size:14px;color:var(--text-light);">0</span>
+                </div>
+                <div id="dependantsContainer">
+                    <!-- Populated by JavaScript -->
+                </div>
+            </div>
+
+            <!-- Payment History -->
+            <div class="card">
+                <div class="card-header">
+                    <h2><i class="fas fa-credit-card"></i> Payment History</h2>
+                    <span id="paymentCount" style="font-size:14px;color:var(--text-light);">0</span>
+                </div>
+                <div id="paymentsContainer">
+                    <!-- Populated by JavaScript -->
+                </div>
+            </div>
+
+            <!-- Quick Actions -->
+            <div class="card">
+                <div class="card-header">
+                    <h2><i class="fas fa-bolt"></i> Quick Actions</h2>
+                </div>
+                <div style="display:flex;gap:12px;flex-wrap:wrap;">
+                    <a href="#" onclick="recordPayment()" class="btn btn-gold">
+                        <i class="fas fa-money-bill"></i> Record Payment
+                    </a>
+                    <a href="#" onclick="addDependant()" class="btn btn-primary">
+                        <i class="fas fa-user-plus"></i> Add Dependant
+                    </a>
+                    <a href="#" onclick="showAlert('Feature coming soon!', 'info')" class="btn btn-secondary">
+                        <i class="fas fa-print"></i> Print Details
+                    </a>
+                </div>
+            </div>
+
+        </div>
+
+    </main>
+
+    <!-- ============================================================
+    JAVASCRIPT
+    ============================================================ -->
+
+    <script src="js/supabase-config.js"></script>
+    <script src="js/auth.js"></script>
+
+    <script>
+        // ============================================================
+        // STATE
+        // ============================================================
+
+        let memberId = null;
+        let memberData = null;
+        let dependants = [];
+        let payments = [];
+
+        // ============================================================
+        // DOM REFS
+        // ============================================================
+
+        const alertBox = document.getElementById('alertBox');
+        const loadingSpinner = document.getElementById('loadingSpinner');
+        const memberContent = document.getElementById('memberContent');
+        const memberName = document.getElementById('memberName');
+        const memberNumberDisplay = document.getElementById('memberNumberDisplay');
+        const statusBadge = document.getElementById('statusBadge');
+        const statusToggleBtn = document.getElementById('statusToggleBtn');
+        const personalInfo = document.getElementById('personalInfo');
+        const dependantsContainer = document.getElementById('dependantsContainer');
+        const paymentsContainer = document.getElementById('paymentsContainer');
+        const dependantCount = document.getElementById('dependantCount');
+        const paymentCount = document.getElementById('paymentCount');
+
+        // ============================================================
+        // LOAD MEMBER DETAILS
+        // ============================================================
+
+        async function loadMemberDetails() {
+            const params = new URLSearchParams(window.location.search);
+            memberId = params.get('id');
+
+            if (!memberId) {
+                showAlert('No member ID provided.', 'error');
+                loadingSpinner.style.display = 'none';
+                return;
+            }
+
+            try {
+                // Load member
+                const { data: member, error: memberError } = await window.supabaseClient
+                    .from('members')
+                    .select('*')
+                    .eq('id', memberId)
+                    .single();
+
+                if (memberError) {
+                    showAlert(memberError.message, 'error');
+                    loadingSpinner.style.display = 'none';
+                    return;
+                }
+
+                memberData = member;
+
+                // Load dependants
+                const { data: deps, error: depsError } = await window.supabaseClient
+                    .from('dependants')
+                    .select('*')
+                    .eq('member_id', memberId)
+                    .order('created_at', { ascending: false });
+
+                if (!depsError) {
+                    dependants = deps || [];
+                }
+
+                // Load payments
+                const { data: pays, error: paysError } = await window.supabaseClient
+                    .from('payments')
+                    .select('*')
+                    .eq('member_id', memberId)
+                    .order('payment_date', { ascending: false })
+                    .limit(20);
+
+                if (!paysError) {
+                    payments = pays || [];
+                }
+
+                renderMemberDetails();
+                renderDependants();
+                renderPayments();
+
+                loadingSpinner.style.display = 'none';
+                memberContent.style.display = 'block';
+
+            } catch (error) {
+                console.error('Load member error:', error);
+                showAlert('Failed to load member details.', 'error');
+                loadingSpinner.style.display = 'none';
+            }
+        }
+
+        // ============================================================
+        // RENDER MEMBER DETAILS
+        // ============================================================
+
+        function renderMemberDetails() {
+            const m = memberData;
+            const name = `${m.first_name || ''} ${m.last_name || ''}`.trim() || 'Unknown';
+            memberName.textContent = name;
+            memberNumberDisplay.textContent = `#${m.member_number || 'N/A'}`;
+
+            // Status
+            const isActive = m.is_active !== false;
+            statusBadge.textContent = isActive ? 'Active' : 'Inactive';
+            statusBadge.className = `status-badge ${isActive ? 'active' : 'inactive'}`;
+            statusToggleBtn.innerHTML = `<i class="fas fa-${isActive ? 'toggle-on' : 'toggle-off'}"></i> ${isActive ? 'Deactivate' : 'Activate'}`;
+
+            // Personal Info
+            const fields = [
+                { label: 'First Name', value: m.first_name || '-' },
+                { label: 'Last Name', value: m.last_name || '-' },
+                { label: 'Other Name', value: m.other_name || '-' },
+                { label: 'ID/Passport', value: m.id_number || '-' },
+                { label: 'Gender', value: m.gender || '-' },
+                { label: 'Date of Birth', value: m.date_of_birth ? new Date(m.date_of_birth).toLocaleDateString('en-KE') : '-' },
+                { label: 'Phone', value: m.phone || '-' },
+                { label: 'Email', value: m.email || '-' },
+                { label: 'County', value: m.county || '-' },
+                { label: 'Location', value: m.location || '-' },
+                { label: 'Plan', value: m.plan ? m.plan.charAt(0).toUpperCase() + m.plan.slice(1) : '-' },
+                { label: 'Benefit Option', value: m.benefit_option || '-' },
+                { label: 'Member Since', value: m.created_at ? new Date(m.created_at).toLocaleDateString('en-KE') : '-' },
+                { label: 'Coverage Start', value: m.coverage_start_date ? new Date(m.coverage_start_date).toLocaleDateString('en-KE') : 'Pending' },
+                { label: 'Registration Fee Paid', value: m.registration_fee_paid ? '✅ Yes' : '❌ No' }
+            ];
+
+            personalInfo.innerHTML = fields.map(f => `
+                <div class="detail-item">
+                    <span class="label">${f.label}</span>
+                    <span class="value">${escapeHTML(f.value)}</span>
+                </div>
+            `).join('');
+        }
+
+        // ============================================================
+        // RENDER DEPENDANTS
+        // ============================================================
+
+        function renderDependants() {
+            dependantCount.textContent = `${dependants.length} dependant${dependants.length !== 1 ? 's' : ''}`;
+
+            if (!dependants.length) {
+                dependantsContainer.innerHTML = `
+                    <div class="empty-state" style="padding:20px;">
+                        <p>No dependants added yet.</p>
+                    </div>
+                `;
+                return;
+            }
+
+            dependantsContainer.innerHTML = dependants.map(d => {
+                const name = `${d.first_name || ''} ${d.last_name || ''}`.trim() || 'Unknown';
+                const status = d.is_active !== false ? 'Active' : 'Inactive';
+                const dob = d.date_of_birth ? new Date(d.date_of_birth).toLocaleDateString('en-KE') : '-';
+                const relation = d.relationship ? d.relationship.charAt(0).toUpperCase() + d.relationship.slice(1) : '-';
+
+                return `
+                    <div class="dependant-item">
+                        <div>
+                            <strong>${escapeHTML(name)}</strong>
+                            <span style="color:var(--text-light);font-size:13px;margin-left:8px;">${escapeHTML(relation)}</span>
+                            <span style="color:var(--text-light);font-size:13px;margin-left:8px;">DOB: ${dob}</span>
+                        </div>
+                        <span class="status-badge ${status === 'Active' ? 'active' : 'inactive'}">${status}</span>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        // ============================================================
+        // RENDER PAYMENTS
+        // ============================================================
+
+        function renderPayments() {
+            paymentCount.textContent = `${payments.length} payment${payments.length !== 1 ? 's' : ''}`;
+
+            if (!payments.length) {
+                paymentsContainer.innerHTML = `
+                    <div class="empty-state" style="padding:20px;">
+                        <p>No payments recorded yet.</p>
+                    </div>
+                `;
+                return;
+            }
+
+            paymentsContainer.innerHTML = payments.map(p => {
+                const statusClass = p.status === 'confirmed' || p.status === 'paid' ? 'paid' :
+                                   p.status === 'pending' ? 'pending' :
+                                   p.status === 'failed' ? 'failed' : 'pending';
+                const statusText = p.status === 'confirmed' || p.status === 'paid' ? 'Paid' :
+                                   p.status === 'pending' ? 'Pending' :
+                                   p.status === 'failed' ? 'Failed' : p.status || 'Pending';
+                const type = p.payment_type === 'registration' ? 'Registration' :
+                             p.payment_type === 'monthly' ? 'Monthly Premium' :
+                             p.payment_type === 'annual' ? 'Annual Premium' : 'Top-up';
+                const date = p.payment_date ? new Date(p.payment_date).toLocaleDateString('en-KE') : '-';
+                const amount = Number(p.amount || 0).toLocaleString();
+
+                return `
+                    <div class="payment-item">
+                        <div class="payment-info">
+                            <span class="amount">KES ${amount}</span>
+                            <span class="date">${date} • ${type} ${p.mpesa_receipt ? '• Receipt: ' + p.mpesa_receipt : ''}</span>
+                        </div>
+                        <span class="status-badge ${statusClass}">${statusText}</span>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        // ============================================================
+        // TOGGLE MEMBER STATUS
+        // ============================================================
+
+        async function toggleMemberStatus() {
+            if (!memberData) return;
+
+            const newStatus = !memberData.is_active;
+            const action = newStatus ? 'activate' : 'deactivate';
+
+            if (!confirm(`Are you sure you want to ${action} this member?`)) {
+                return;
+            }
+
+            try {
+                const { error } = await window.supabaseClient
+                    .from('members')
+                    .update({ is_active: newStatus })
+                    .eq('id', memberId);
+
+                if (error) {
+                    showAlert(error.message, 'error');
+                    return;
+                }
+
+                memberData.is_active = newStatus;
+                renderMemberDetails();
+                showAlert(`Member ${action}d successfully.`, 'success');
+
+            } catch (error) {
+                console.error('Toggle status error:', error);
+                showAlert('Failed to update member status.', 'error');
+            }
+        }
+
+        // ============================================================
+        // RECORD PAYMENT (Placeholder)
+        // ============================================================
+
+        function recordPayment() {
+            showAlert('Payment recording feature coming soon!', 'info');
+        }
+
+        // ============================================================
+        // ADD DEPENDANT (Placeholder)
+        // ============================================================
+
+        function addDependant() {
+            showAlert('Add dependant feature coming soon!', 'info');
+        }
+
+        // ============================================================
+        // ALERT
+        // ============================================================
+
+        function showAlert(message, type = 'error') {
+            alertBox.textContent = message;
+            alertBox.className = `alert show ${type}`;
+            setTimeout(() => {
+                alertBox.className = 'alert';
+            }, 5000);
+        }
+
+        // ============================================================
+        // ESCAPE HTML
+        // ============================================================
+
+        function escapeHTML(value) {
+            if (!value) return '-';
+            return String(value)
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;')
+                .replace(/'/g, '&#039;');
+        }
+
+        // ============================================================
+        // LOGOUT
+        // ============================================================
+
+        document.getElementById('logoutBtn').addEventListener('click', async function() {
+            await window.supabaseClient.auth.signOut();
+            window.location.href = 'login.html';
+        });
+
+        // ============================================================
+        // INIT
+        // ============================================================
+
+        document.addEventListener('DOMContentLoaded', function() {
+            loadMemberDetails();
+        });
+    </script>
+
+</body>
+</html>
