@@ -8,7 +8,6 @@
     
     <link rel="icon" type="image/png" href="assets/favicon-32x32.png">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     
     <style>
         * {
@@ -718,10 +717,11 @@
         // CONFIGURATION
         // ============================================================
 
-        const SUPABASE_URL = 'https://wpxzlcdrirlcyvfiquld.supabase.co';
-        const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6IndweHpsY2RyaXJsY3l2ZmlxdWxkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODc5Mjc4MDcsImV4cCI6MjEwMzUwMzgwN30.OUP9pmPbrML_egpHflZtDfLv1_UDM37_BYjtb842xjg';
-
-        const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+        // Every request in this file goes to the FastAPI backend, never
+        // directly to Supabase. The service-role key that can actually
+        // write to the database lives only on Render; this page never
+        // needs any Supabase key at all.
+        const API_BASE_URL = 'https://masika-c921.onrender.com';
 
         // ============================================================
         // STATE
@@ -761,59 +761,59 @@
         // ============================================================
 
         function loadPaymentData() {
-            const stored = sessionStorage.getItem('registrationResult');
-            
-            if (!stored) {
-                const params = new URLSearchParams(window.location.search);
-                const memberId = params.get('member_id');
-                const amount = params.get('amount');
-                
-                if (memberId && amount) {
-                    loadMemberFromId(memberId, amount);
-                    return;
+            // register.html stores these individual keys after a successful
+            // POST /api/public/register call (see registerMember() there) —
+            // NOT a single 'registrationResult' JSON blob, and the values
+            // come from the server's response, not client-side guesses.
+            const memberId = sessionStorage.getItem('newMemberId');
+            const memberNumber = sessionStorage.getItem('newMemberNumber');
+            const memberName = sessionStorage.getItem('newMemberName');
+            const memberPhone = sessionStorage.getItem('newMemberPhone');
+            const amount = sessionStorage.getItem('registrationAmount');
+
+            if (memberId && amount) {
+                registrationData = {
+                    id: memberId,
+                    member_number: memberNumber || memberId,
+                    full_name: memberName || 'Member',
+                    total_amount: Number(amount)
+                };
+                displayPaymentData(registrationData);
+
+                // Pre-fill the M-Pesa number with the phone they registered
+                // with, since that's almost always the number they'll pay
+                // from. They can still edit it.
+                if (memberPhone) {
+                    phoneNumber.value = memberPhone;
                 }
-                
-                showAlert('No payment data found. Please register first.', 'error');
-                payBtn.disabled = true;
                 return;
             }
 
-            try {
-                registrationData = JSON.parse(stored);
-                displayPaymentData(registrationData);
-            } catch (error) {
-                console.error('Error loading payment data:', error);
-                showAlert('Invalid payment data. Please register again.', 'error');
-            }
-        }
+            // Fallback: someone navigated here directly with a link like
+            // payment.html?member_id=...&amount=...&member_number=...&name=...
+            // (e.g. a bookmarked/shared link, or sessionStorage was cleared).
+            // We deliberately do NOT query the database directly from the
+            // browser here — there's no public "look up a member by id"
+            // endpoint, and there shouldn't be one, since that would let
+            // anyone enumerate member records. We only trust what's in the
+            // URL itself.
+            const params = new URLSearchParams(window.location.search);
+            const urlMemberId = params.get('member_id');
+            const urlAmount = params.get('amount');
 
-        async function loadMemberFromId(memberId, amount) {
-            try {
-                const { data, error } = await supabaseClient
-                    .from('members')
-                    .select('*')
-                    .eq('id', memberId)
-                    .single();
-
-                if (error) {
-                    showAlert('Member not found.', 'error');
-                    return;
-                }
-
+            if (urlMemberId && urlAmount) {
                 registrationData = {
-                    id: data.id,
-                    member_number: data.member_number,
-                    first_name: data.first_name,
-                    last_name: data.last_name,
-                    total_amount: Number(amount)
+                    id: urlMemberId,
+                    member_number: params.get('member_number') || urlMemberId,
+                    full_name: params.get('name') || 'Member',
+                    total_amount: Number(urlAmount)
                 };
-
                 displayPaymentData(registrationData);
-
-            } catch (error) {
-                console.error('Error loading member:', error);
-                showAlert('Failed to load member data.', 'error');
+                return;
             }
+
+            showAlert('No payment data found. Please register first.', 'error');
+            payBtn.disabled = true;
         }
 
         function displayPaymentData(data) {
@@ -863,8 +863,11 @@
             payBtn.disabled = true;
 
             try {
-                // Call the API
-                const response = await fetch('/api/public/payment/stk-push', {
+                // Call the API — must be the absolute Render URL, since this
+                // page is served from a different origin (masikabbs.com) than
+                // the API (masika-c921.onrender.com). A relative path here
+                // would silently hit masikabbs.com/api/... and 404.
+                const response = await fetch(`${API_BASE_URL}/api/public/payment/stk-push`, {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
@@ -940,7 +943,7 @@
             checkStatusBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Checking...';
 
             try {
-                const response = await fetch(`/api/public/payment/status/${checkoutRequestId}`);
+                const response = await fetch(`${API_BASE_URL}/api/public/payment/status/${checkoutRequestId}`);
                 const result = await response.json();
 
                 if (result.success) {
@@ -1017,7 +1020,12 @@
             statusIcon.textContent = '❌';
             statusIcon.className = 'status-icon failed';
             statusTitle.textContent = 'Payment Failed';
-            statusMessage.textContent = data.result_desc || 'Payment was not completed. Please try again.';
+            // Backend's query_stk_status() returns the failure reason under
+            // "message" (e.g. {"status": "failed", "message": "..."}), not
+            // "result_desc" — using the wrong key here silently showed the
+            // generic fallback text for every failure instead of the real
+            // M-Pesa reason (insufficient funds, cancelled, timeout, etc.).
+            statusMessage.textContent = data.message || 'Payment was not completed. Please try again.';
             statusBadge.textContent = 'Failed';
             statusBadge.className = 'status-badge failed';
             checkStatusBtn.style.display = 'none';
