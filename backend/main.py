@@ -129,6 +129,7 @@ app.add_middleware(
     CORSMiddleware,
     allow_origins=[
         FRONTEND_URL,
+        "https://masika-murex.vercel.app",
         "https://masikabbs.com",
         "https://www.masikabbs.com",
         "http://localhost:5173",
