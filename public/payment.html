@@ -1,0 +1,531 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Payment | Masika Benevolent</title>
+    <meta name="description" content="Complete your Masika Benevolent membership payment.">
+
+    <!-- Supabase -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
+    <link rel="stylesheet" href="css/app.css">
+    <link rel="icon" type="image/png" href="assets/favicon.png">
+
+    <style>
+        .payment-summary {
+            background: var(--primary-light);
+            border-radius: var(--radius-lg);
+            padding: 24px;
+            text-align: center;
+            margin-bottom: 24px;
+        }
+
+        .payment-summary .amount {
+            font-size: 36px;
+            font-weight: 800;
+            color: var(--primary);
+        }
+
+        .payment-summary .label {
+            font-size: 14px;
+            color: var(--text-light);
+        }
+
+        .payment-summary .member-info {
+            margin-top: 8px;
+            font-size: 14px;
+            color: var(--text);
+        }
+
+        .mpesa-instructions {
+            background: #f0f7f4;
+            border-radius: var(--radius);
+            padding: 20px;
+            margin: 20px 0;
+        }
+
+        .mpesa-instructions .step {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 8px 0;
+        }
+
+        .mpesa-instructions .step .num {
+            width: 28px;
+            height: 28px;
+            background: var(--primary);
+            color: white;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 700;
+            font-size: 13px;
+            flex-shrink: 0;
+        }
+
+        .mpesa-instructions .step .text {
+            font-size: 14px;
+        }
+
+        .mpesa-instructions .step .text strong {
+            color: var(--primary);
+        }
+
+        .paybill-number {
+            font-size: 32px;
+            font-weight: 900;
+            color: var(--gold);
+            text-align: center;
+            padding: 16px;
+            background: white;
+            border-radius: var(--radius);
+            border: 2px dashed var(--gold);
+            margin: 16px 0;
+            letter-spacing: 2px;
+        }
+
+        .payment-status {
+            text-align: center;
+            padding: 20px;
+        }
+
+        .payment-status .icon {
+            font-size: 48px;
+            margin-bottom: 12px;
+        }
+
+        .payment-status .icon.success {
+            color: var(--success);
+        }
+
+        .payment-status .icon.error {
+            color: var(--danger);
+        }
+
+        .payment-status .icon.pending {
+            color: var(--warning);
+        }
+
+        @media (max-width: 768px) {
+            .payment-summary .amount {
+                font-size: 28px;
+            }
+            .paybill-number {
+                font-size: 24px;
+            }
+        }
+    </style>
+</head>
+<body>
+
+    <!-- HEADER -->
+    <header class="topbar">
+        <a href="index.html" class="brand">
+            <div class="brand-logo">MB</div>
+            <div class="brand-text">
+                <strong>Masika Benevolent</strong>
+                <span>Payment Processing</span>
+            </div>
+        </a>
+
+        <div class="top-actions">
+            <a href="index.html" class="btn btn-outline-light">← Home</a>
+            <a href="register.html" class="btn btn-light">Register</a>
+        </div>
+    </header>
+
+    <!-- MAIN CONTENT -->
+    <main class="container">
+
+        <div class="page-header">
+            <div>
+                <h1>Complete Your Payment</h1>
+                <p>Pay your registration fee to activate your Masika Benevolent membership.</p>
+            </div>
+        </div>
+
+        <!-- Alert -->
+        <div id="alertBox" class="alert"></div>
+
+        <!-- Loading -->
+        <div id="loadingSpinner" style="text-align:center;padding:40px;display:none;">
+            <div style="display:inline-block;width:40px;height:40px;border:4px solid var(--border);border-top-color:var(--primary);border-radius:50%;animation:spin 0.8s linear infinite;"></div>
+            <p style="margin-top:12px;color:var(--text-light);">Processing payment...</p>
+        </div>
+
+        <!-- Payment Content -->
+        <div id="paymentContent">
+
+            <!-- Summary -->
+            <div class="payment-summary">
+                <div class="label">Registration Amount</div>
+                <div class="amount" id="amountDisplay">KES 0</div>
+                <div class="member-info" id="memberInfo">
+                    Member: <strong id="memberNameDisplay">—</strong>
+                    <span style="margin-left:12px;">#<span id="memberNumberDisplay">—</span></span>
+                </div>
+            </div>
+
+            <!-- M-Pesa Instructions -->
+            <div class="card">
+                <h3 style="margin-bottom:12px;">📱 Pay via M-Pesa</h3>
+                <p style="color:var(--text-light);margin-bottom:16px;">Follow these simple steps to complete your payment:</p>
+
+                <div class="paybill-number">
+                    Paybill: 348127
+                </div>
+
+                <div class="mpesa-instructions">
+                    <div class="step">
+                        <span class="num">1</span>
+                        <span class="text">Go to <strong>M-Pesa</strong> on your phone</span>
+                    </div>
+                    <div class="step">
+                        <span class="num">2</span>
+                        <span class="text">Select <strong>Lipa na M-Pesa</strong></span>
+                    </div>
+                    <div class="step">
+                        <span class="num">3</span>
+                        <span class="text">Select <strong>Paybill</strong></span>
+                    </div>
+                    <div class="step">
+                        <span class="num">4</span>
+                        <span class="text">Enter Paybill: <strong>348127</strong></span>
+                    </div>
+                    <div class="step">
+                        <span class="num">5</span>
+                        <span class="text">Enter Account: <strong id="accountDisplay">Your Member Number</strong></span>
+                    </div>
+                    <div class="step">
+                        <span class="num">6</span>
+                        <span class="text">Enter Amount: <strong id="amountDisplayStep">KES 0</strong></span>
+                    </div>
+                    <div class="step">
+                        <span class="num">7</span>
+                        <span class="text">Enter your M-Pesa PIN and <strong>Confirm</strong></span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Payment Form -->
+            <div class="card">
+                <div class="card-header">
+                    <h2><i class="fas fa-check-circle"></i> Confirm Payment</h2>
+                    <span style="font-size:14px;color:var(--text-light);">After completing M-Pesa payment</span>
+                </div>
+
+                <form id="paymentForm" onsubmit="handlePaymentSubmit(event)">
+                    <div class="form-group">
+                        <label>M-Pesa Confirmation Code <span class="required">*</span></label>
+                        <input type="text" id="mpesaReceipt" class="form-control" placeholder="e.g. QWERTY123" required>
+                        <span class="help-text">Enter the confirmation code you received via SMS</span>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Phone Number Used <span class="required">*</span></label>
+                        <input type="tel" id="phoneNumber" class="form-control" placeholder="e.g. 0712345678" required>
+                        <span class="help-text">The M-Pesa number used for payment</span>
+                    </div>
+
+                    <button type="submit" class="btn btn-success btn-block btn-lg" id="confirmBtn">
+                        <i class="fas fa-check"></i> Confirm Payment
+                    </button>
+                </form>
+            </div>
+
+            <!-- Payment Status -->
+            <div id="paymentStatus" style="display:none;" class="card">
+                <div class="payment-status">
+                    <div class="icon" id="statusIcon">✅</div>
+                    <h3 id="statusTitle">Payment Confirmed!</h3>
+                    <p id="statusMessage" style="color:var(--text-light);">Your membership is now active.</p>
+                    <div style="margin-top:16px;display:flex;gap:12px;justify-content:center;flex-wrap:wrap;">
+                        <a href="index.html" class="btn btn-primary">← Home</a>
+                        <a href="login.html" class="btn btn-gold">Staff Login</a>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+
+    </main>
+
+    <!-- ============================================================
+    JAVASCRIPT
+    ============================================================ -->
+
+    <script src="js/supabase-config.js"></script>
+    <script src="js/payments.js"></script>
+
+    <script>
+        // ============================================================
+        // DOM REFS
+        // ============================================================
+
+        const alertBox = document.getElementById('alertBox');
+        const loadingSpinner = document.getElementById('loadingSpinner');
+        const paymentContent = document.getElementById('paymentContent');
+        const paymentStatus = document.getElementById('paymentStatus');
+        const amountDisplay = document.getElementById('amountDisplay');
+        const amountDisplayStep = document.getElementById('amountDisplayStep');
+        const memberNameDisplay = document.getElementById('memberNameDisplay');
+        const memberNumberDisplay = document.getElementById('memberNumberDisplay');
+        const accountDisplay = document.getElementById('accountDisplay');
+        const mpesaReceipt = document.getElementById('mpesaReceipt');
+        const phoneNumber = document.getElementById('phoneNumber');
+        const confirmBtn = document.getElementById('confirmBtn');
+        const paymentForm = document.getElementById('paymentForm');
+
+        let registrationData = null;
+
+        // ============================================================
+        // LOAD PAYMENT DATA
+        // ============================================================
+
+        function loadPaymentData() {
+            const stored = sessionStorage.getItem('registrationResult');
+
+            if (!stored) {
+                // Check if we have payment data from URL params
+                const params = new URLSearchParams(window.location.search);
+                const memberId = params.get('member_id');
+                const amount = params.get('amount');
+
+                if (memberId && amount) {
+                    // Load member details
+                    loadMemberFromId(memberId, amount);
+                    return;
+                }
+
+                showAlert('No payment data found. Please register first.', 'error');
+                paymentContent.style.display = 'none';
+                return;
+            }
+
+            try {
+                registrationData = JSON.parse(stored);
+                displayPaymentData(registrationData);
+            } catch (error) {
+                console.error('Error loading payment data:', error);
+                showAlert('Invalid payment data. Please register again.', 'error');
+                paymentContent.style.display = 'none';
+            }
+        }
+
+        // ============================================================
+        // LOAD MEMBER FROM ID
+        // ============================================================
+
+        async function loadMemberFromId(memberId, amount) {
+            try {
+                const { data, error } = await window.supabaseClient
+                    .from('members')
+                    .select('*')
+                    .eq('id', memberId)
+                    .single();
+
+                if (error) {
+                    showAlert('Member not found.', 'error');
+                    paymentContent.style.display = 'none';
+                    return;
+                }
+
+                registrationData = {
+                    id: data.id,
+                    member_number: data.member_number,
+                    first_name: data.first_name,
+                    last_name: data.last_name,
+                    total_amount: Number(amount)
+                };
+
+                displayPaymentData(registrationData);
+
+            } catch (error) {
+                console.error('Error loading member:', error);
+                showAlert('Failed to load member data.', 'error');
+                paymentContent.style.display = 'none';
+            }
+        }
+
+        // ============================================================
+        // DISPLAY PAYMENT DATA
+        // ============================================================
+
+        function displayPaymentData(data) {
+            const amount = data.total_amount || data.registration_amount || data.amount || 0;
+            const name = data.first_name ? `${data.first_name} ${data.last_name || ''}`.trim() : data.full_name || 'Member';
+            const memberNumber = data.member_number || data.id || 'PENDING';
+
+            amountDisplay.textContent = formatKES(amount);
+            amountDisplayStep.textContent = formatKES(amount);
+            memberNameDisplay.textContent = name || '—';
+            memberNumberDisplay.textContent = memberNumber;
+            accountDisplay.textContent = memberNumber;
+
+            // Store for payment processing
+            window.registrationPaymentAmount = amount;
+            window.registrationData = data;
+
+            paymentContent.style.display = 'block';
+        }
+
+        // ============================================================
+        // HANDLE PAYMENT SUBMIT
+        // ============================================================
+
+        async function handlePaymentSubmit(event) {
+            event.preventDefault();
+
+            const receipt = mpesaReceipt.value.trim();
+            const phone = phoneNumber.value.trim();
+
+            if (!receipt) {
+                showAlert('Please enter the M-Pesa confirmation code.', 'error');
+                mpesaReceipt.focus();
+                return;
+            }
+
+            if (!phone || phone.length < 9) {
+                showAlert('Please enter a valid phone number.', 'error');
+                phoneNumber.focus();
+                return;
+            }
+
+            // Show loading
+            confirmBtn.disabled = true;
+            confirmBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Verifying...';
+            loadingSpinner.style.display = 'block';
+
+            try {
+                const memberId = registrationData?.id || registrationData?.member_id;
+
+                // Record payment in database
+                const { data, error } = await window.supabaseClient
+                    .from('payments')
+                    .insert({
+                        member_id: memberId,
+                        amount: window.registrationPaymentAmount || 0,
+                        payment_type: 'registration',
+                        mpesa_receipt: receipt,
+                        paybill_number: '348127',
+                        account_number: registrationData?.member_number || 'PENDING',
+                        status: 'confirmed',
+                        confirmed_at: new Date().toISOString(),
+                        notes: `Registration payment - Phone: ${phone}`
+                    })
+                    .select()
+                    .single();
+
+                if (error) {
+                    console.error('Payment record error:', error);
+                    showAlert('Failed to record payment: ' + error.message, 'error');
+                    return;
+                }
+
+                // Update member registration_fee_paid
+                if (memberId) {
+                    await window.supabaseClient
+                        .from('members')
+                        .update({ registration_fee_paid: true })
+                        .eq('id', memberId);
+                }
+
+                // Show success
+                showPaymentSuccess();
+
+                // Clear session storage
+                sessionStorage.removeItem('registrationResult');
+
+            } catch (error) {
+                console.error('Payment error:', error);
+                showAlert('Failed to confirm payment. Please try again.', 'error');
+            } finally {
+                confirmBtn.disabled = false;
+                confirmBtn.innerHTML = '<i class="fas fa-check"></i> Confirm Payment';
+                loadingSpinner.style.display = 'none';
+            }
+        }
+
+        // ============================================================
+        // SHOW PAYMENT SUCCESS
+        // ============================================================
+
+        function showPaymentSuccess() {
+            paymentForm.style.display = 'none';
+            paymentStatus.style.display = 'block';
+
+            document.getElementById('statusIcon').className = 'icon success';
+            document.getElementById('statusIcon').textContent = '✅';
+            document.getElementById('statusTitle').textContent = '🎉 Payment Confirmed!';
+            document.getElementById('statusMessage').textContent = 'Your Masika Benevolent membership is now active. Welcome!';
+
+            // Add confetti effect (simple)
+            const colors = ['#0b5d3b', '#d4a843', '#198754', '#ffc107'];
+            for (let i = 0; i < 30; i++) {
+                const confetti = document.createElement('div');
+                confetti.style.cssText = `
+                    position: fixed;
+                    width: ${Math.random() * 8 + 4}px;
+                    height: ${Math.random() * 8 + 4}px;
+                    background: ${colors[Math.floor(Math.random() * colors.length)]};
+                    left: ${Math.random() * 100}vw;
+                    top: -10px;
+                    border-radius: ${Math.random() > 0.5 ? '50%' : '2px'};
+                    animation: confettiFall ${Math.random() * 2 + 2}s linear forwards;
+                    animation-delay: ${Math.random() * 1}s;
+                    pointer-events: none;
+                    z-index: 999;
+                `;
+                document.body.appendChild(confetti);
+                setTimeout(() => confetti.remove(), 4000);
+            }
+
+            // Add confetti animation
+            const style = document.createElement('style');
+            style.textContent = `
+                @keyframes confettiFall {
+                    0% { transform: translateY(0) rotate(0deg); opacity: 1; }
+                    100% { transform: translateY(${window.innerHeight + 50}px) rotate(720deg); opacity: 0; }
+                }
+            `;
+            document.head.appendChild(style);
+        }
+
+        // ============================================================
+        // FORMAT CURRENCY
+        // ============================================================
+
+        function formatKES(amount) {
+            return new Intl.NumberFormat('en-KE', {
+                style: 'currency',
+                currency: 'KES',
+                minimumFractionDigits: 0
+            }).format(Number(amount) || 0);
+        }
+
+        // ============================================================
+        // ALERT
+        // ============================================================
+
+        function showAlert(message, type = 'error') {
+            alertBox.textContent = message;
+            alertBox.className = `alert show ${type}`;
+            setTimeout(() => {
+                alertBox.className = 'alert';
+            }, 5000);
+        }
+
+        // ============================================================
+        // INIT
+        // ============================================================
+
+        document.addEventListener('DOMContentLoaded', function() {
+            loadPaymentData();
+        });
+    </script>
+
+</body>
+</html>
