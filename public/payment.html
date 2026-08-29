@@ -173,6 +173,15 @@
             background: #c82333;
         }
 
+        .btn-secondary {
+            background: #eef1f2;
+            color: #374151;
+        }
+
+        .btn-secondary:hover {
+            background: #e2e6e8;
+        }
+
         .btn:disabled {
             opacity: 0.6;
             cursor: not-allowed;
@@ -514,6 +523,40 @@
             100% { transform: translateY(110vh) rotate(720deg); opacity: 0; }
         }
 
+        /* Success Card */
+        #successCard .member-details {
+            background: var(--gray-50);
+            border-radius: 8px;
+            padding: 12px;
+            margin: 12px 0;
+            text-align: left;
+        }
+
+        #successCard .member-details .row {
+            display: flex;
+            justify-content: space-between;
+            padding: 6px 0;
+            border-bottom: 1px solid var(--gray-200);
+        }
+
+        #successCard .member-details .row:last-child {
+            border-bottom: none;
+        }
+
+        #successCard .member-details .label {
+            color: var(--text-light);
+            font-size: 13px;
+        }
+
+        #successCard .member-details .value {
+            font-weight: 600;
+            color: var(--text);
+        }
+
+        #successCard .member-details .value.highlight {
+            color: var(--primary);
+        }
+
         /* Responsive */
         @media (max-width: 768px) {
             .topbar {
@@ -654,7 +697,7 @@
                 </div>
 
                 <div style="display:flex;gap:12px;flex-wrap:wrap;">
-                    <button type="submit" class="btn btn-gold" style="flex:1;padding:14px;font-size:16px;" id="payBtn">
+                    <button type="submit" class="btn btn-gold" style="flex:1;padding:14px;font-size:16px;" id="payBtn" disabled>
                         <span class="btn-text"><i class="fas fa-mobile-screen-button"></i> Pay with M-Pesa</span>
                         <span class="spinner"></span>
                     </button>
@@ -691,6 +734,20 @@
                 <p style="color:var(--text-light);font-size:16px;margin:8px 0;">
                     Your Masika Benevolent membership is now active.
                 </p>
+                <div class="member-details" id="successDetails">
+                    <div class="row">
+                        <span class="label">Member Name</span>
+                        <span class="value highlight" id="successName">—</span>
+                    </div>
+                    <div class="row">
+                        <span class="label">Member Number</span>
+                        <span class="value highlight" id="successNumber">—</span>
+                    </div>
+                    <div class="row">
+                        <span class="label">Amount Paid</span>
+                        <span class="value highlight" id="successAmount">KES 0</span>
+                    </div>
+                </div>
                 <div style="background:var(--primary-light);border-radius:8px;padding:16px;margin:16px 0;text-align:left;">
                     <p><strong>📋 What's Next?</strong></p>
                     <ul style="padding-left:20px;color:var(--text-light);">
@@ -731,7 +788,7 @@
         let checkoutRequestId = null;
         let pollingInterval = null;
         let pollAttempts = 0;
-        const maxPollAttempts = 30;
+        const maxPollAttempts = 60; // 60 * 3 seconds = 3 minutes
         let isProcessing = false;
 
         // ============================================================
@@ -755,6 +812,45 @@
         const statusTitle = document.getElementById('statusTitle');
         const statusMessage = document.getElementById('statusMessage');
         const statusBadge = document.getElementById('statusBadge');
+        const successName = document.getElementById('successName');
+        const successNumber = document.getElementById('successNumber');
+        const successAmount = document.getElementById('successAmount');
+
+        // ============================================================
+        // API HELPER
+        // ============================================================
+
+        async function apiRequest(path, options = {}) {
+            let response;
+            try {
+                response = await fetch(`${API_BASE_URL}${path}`, {
+                    headers: { 'Content-Type': 'application/json' },
+                    ...options
+                });
+            } catch (networkError) {
+                console.error("Network error calling API:", networkError);
+                throw new Error("Unable to reach the server. Please check your connection and try again.");
+            }
+
+            let body = null;
+            try {
+                body = await response.json();
+            } catch (parseError) {
+                // Non-JSON response body; fall through with body = null
+            }
+
+            if (!response.ok) {
+                const detail = body && body.detail;
+                const message =
+                    (typeof detail === "string" && detail) ||
+                    (detail && detail.message) ||
+                    (body && body.message) ||
+                    `Request failed (HTTP ${response.status}).`;
+                throw new Error(message);
+            }
+
+            return body;
+        }
 
         // ============================================================
         // LOAD PAYMENT DATA
@@ -786,6 +882,7 @@
                 if (memberPhone) {
                     phoneNumber.value = memberPhone;
                 }
+                payBtn.disabled = false;
                 return;
             }
 
@@ -809,7 +906,27 @@
                     total_amount: Number(urlAmount)
                 };
                 displayPaymentData(registrationData);
+                payBtn.disabled = false;
                 return;
+            }
+
+            // Try to load from registrationResult (legacy)
+            const stored = sessionStorage.getItem('registrationResult');
+            if (stored) {
+                try {
+                    const data = JSON.parse(stored);
+                    registrationData = {
+                        id: data.id || data.member_id,
+                        member_number: data.member_number || data.id,
+                        full_name: data.first_name ? `${data.first_name} ${data.last_name || ''}`.trim() : data.full_name || 'Member',
+                        total_amount: data.total_amount || data.registration_amount || data.amount || 0
+                    };
+                    displayPaymentData(registrationData);
+                    payBtn.disabled = false;
+                    return;
+                } catch (e) {
+                    console.log('Invalid session data');
+                }
             }
 
             showAlert('No payment data found. Please register first.', 'error');
@@ -825,6 +942,11 @@
             memberNameDisplay.textContent = name || '—';
             memberNumberDisplay.textContent = memberNumber;
             accountDisplay.textContent = memberNumber;
+
+            // Store for success card
+            successName.textContent = name || '—';
+            successNumber.textContent = memberNumber;
+            successAmount.textContent = formatKES(amount);
 
             window.registrationPaymentAmount = amount;
             window.registrationData = data;
@@ -867,11 +989,8 @@
                 // page is served from a different origin (masikabbs.com) than
                 // the API (masika-c921.onrender.com). A relative path here
                 // would silently hit masikabbs.com/api/... and 404.
-                const response = await fetch(`${API_BASE_URL}/api/public/payment/stk-push`, {
+                const result = await apiRequest('/api/public/payment/stk-push', {
                     method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                    },
                     body: JSON.stringify({
                         member_id: registrationData.id,
                         phone: phone,
@@ -879,8 +998,6 @@
                         transaction_desc: 'Membership Registration'
                     })
                 });
-
-                const result = await response.json();
 
                 if (!result.success) {
                     throw new Error(result.message || 'Payment initiation failed');
@@ -906,7 +1023,7 @@
                 checkStatusBtn.style.display = 'inline-flex';
                 retryBtn.style.display = 'none';
 
-                showAlert('Payment request sent to your phone. Please enter your PIN.', 'info');
+                showAlert('📱 Payment request sent to your phone. Please enter your PIN.', 'info');
 
                 // Start polling
                 startPolling();
@@ -943,8 +1060,7 @@
             checkStatusBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Checking...';
 
             try {
-                const response = await fetch(`${API_BASE_URL}/api/public/payment/status/${checkoutRequestId}`);
-                const result = await response.json();
+                const result = await apiRequest(`/api/public/payment/status/${checkoutRequestId}`);
 
                 if (result.success) {
                     const data = result.data;
@@ -1004,6 +1120,19 @@
             checkStatusBtn.style.display = 'none';
             retryBtn.style.display = 'none';
 
+            // Update success details with actual payment data
+            if (data.receipt) {
+                // Add receipt to success card
+                const details = document.getElementById('successDetails');
+                const receiptRow = document.createElement('div');
+                receiptRow.className = 'row';
+                receiptRow.innerHTML = `
+                    <span class="label">M-Pesa Receipt</span>
+                    <span class="value highlight">${data.receipt}</span>
+                `;
+                details.appendChild(receiptRow);
+            }
+
             showAlert('🎉 Payment confirmed successfully!', 'success');
 
             // Show success card after delay
@@ -1011,7 +1140,7 @@
                 paymentCard.style.display = 'none';
                 successCard.style.display = 'block';
                 launchConfetti();
-            }, 2000);
+            }, 1500);
         }
 
         function paymentFailed(data) {
@@ -1033,6 +1162,19 @@
 
             showAlert('Payment failed. Please try again.', 'error');
             isProcessing = false;
+            
+            // Re-enable payment form
+            setTimeout(() => {
+                paymentForm.style.display = 'block';
+                paymentStatus.style.display = 'none';
+                payBtn.classList.remove('loading');
+                payBtn.disabled = false;
+                document.getElementById('step1').classList.add('active');
+                document.getElementById('step1').classList.remove('done');
+                document.getElementById('step2').classList.remove('active', 'done');
+                document.getElementById('step3').classList.remove('active');
+                clearAlert();
+            }, 3000);
         }
 
         // ============================================================
@@ -1073,22 +1215,22 @@
 
             const colors = ['#0b5d3b', '#d4a843', '#198754', '#ffc107', '#dc3545', '#0dcaf0', '#6f42c1'];
             
-            for (let i = 0; i < 100; i++) {
+            for (let i = 0; i < 120; i++) {
                 const confetti = document.createElement('div');
                 confetti.className = 'confetti';
                 confetti.style.left = Math.random() * 100 + '%';
                 confetti.style.background = colors[Math.floor(Math.random() * colors.length)];
-                confetti.style.width = Math.random() * 8 + 4 + 'px';
-                confetti.style.height = Math.random() * 8 + 4 + 'px';
+                confetti.style.width = Math.random() * 10 + 4 + 'px';
+                confetti.style.height = Math.random() * 10 + 4 + 'px';
                 confetti.style.borderRadius = Math.random() > 0.5 ? '50%' : '2px';
-                confetti.style.animationDuration = Math.random() * 2 + 2 + 's';
-                confetti.style.animationDelay = Math.random() * 1 + 's';
+                confetti.style.animationDuration = Math.random() * 2.5 + 1.5 + 's';
+                confetti.style.animationDelay = Math.random() * 1.5 + 's';
                 container.appendChild(confetti);
             }
 
             setTimeout(() => {
                 container.remove();
-            }, 4000);
+            }, 5000);
         }
 
         // ============================================================
@@ -1114,18 +1256,44 @@
         }
 
         // ============================================================
+        // KEYBOARD SHORTCUTS
+        // ============================================================
+
+        document.addEventListener('keydown', function(e) {
+            // Ctrl+Enter to submit payment
+            if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
+                e.preventDefault();
+                if (!payBtn.disabled) {
+                    document.getElementById('payBtn').click();
+                }
+            }
+            // Escape to reset
+            if (e.key === 'Escape') {
+                resetPayment();
+            }
+        });
+
+        // ============================================================
         // INIT
         // ============================================================
 
         document.addEventListener('DOMContentLoaded', function() {
             loadPaymentData();
-            phoneNumber.focus();
+            
+            // Focus on phone number if available, otherwise on the field
+            if (phoneNumber.value) {
+                phoneNumber.select();
+            } else {
+                phoneNumber.focus();
+            }
 
             // Enter key to submit
             phoneNumber.addEventListener('keydown', function(e) {
                 if (e.key === 'Enter') {
                     e.preventDefault();
-                    document.getElementById('payBtn').click();
+                    if (!payBtn.disabled) {
+                        document.getElementById('payBtn').click();
+                    }
                 }
             });
         });
