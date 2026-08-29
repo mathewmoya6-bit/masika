@@ -246,6 +246,7 @@ class RegistrationRequest(BaseModel):
     plan: PlanEnum
     benefit_option: BenefitOptionEnum = BenefitOptionEnum.SERVICE
     dependants: List[Dict[str, Any]] = Field(default_factory=list)
+    sales_code: Optional[str] = Field(None, max_length=30, description="Agent sales/referral code, if the member was signed up by an agent")
 
     @field_validator('date_of_birth')
     @classmethod
@@ -500,6 +501,101 @@ def generate_member_number(database: Client) -> str:
             raise RuntimeError(
                 f"RPC error: {rpc_error}; Fallback error: {fallback_error}"
             ) from fallback_error
+
+# ============================================================
+# AGENT SALES CODE RESOLUTION
+# ============================================================
+#
+# ASSUMPTION — adjust to match your actual Supabase schema:
+#   Table: sales_codes
+#     code        text (unique, e.g. "MASIKA-AB12")
+#     agent_id    uuid, references agents/admin_profiles
+#     is_active   boolean
+#     expires_at  timestamptz, nullable
+#     used_count  integer, default 0
+#
+# A code is treated as reusable (many members can register under the
+# same agent code) rather than single-use, since that's the common
+# case for agent referral codes. If your codes are meant to be
+# single-use, add a `.eq("used_count", 0)` filter below and increment
+# accordingly.
+#
+# An invalid/expired/unknown code is intentionally NON-BLOCKING: the
+# member still gets registered, just without agent attribution, and
+# the response tells the frontend so it can inform the user. Flip
+# `sales_code_required` to True if you'd rather hard-fail registration
+# on a bad code.
+
+sales_code_required = False
+
+def resolve_sales_code(database: Client, code: str) -> Dict[str, Any]:
+    """
+    Look up an agent sales code.
+
+    Returns a dict:
+      {"valid": True,  "agent_id": <uuid>, "code_id": <uuid>}
+      {"valid": False, "reason": "<human readable reason>"}
+    Never raises — a lookup failure is treated as an invalid code so a
+    Supabase hiccup here can't take down registration entirely.
+    """
+    normalized = code.strip().upper()
+
+    try:
+        result = (
+            database.table("sales_codes")
+            .select("id, agent_id, is_active, expires_at")
+            .eq("code", normalized)
+            .execute()
+        )
+
+        if not result.data:
+            return {"valid": False, "reason": "Sales code not found"}
+
+        record = result.data[0]
+
+        if not record.get("is_active", True):
+            return {"valid": False, "reason": "Sales code is inactive"}
+
+        expires_at = record.get("expires_at")
+        if expires_at:
+            try:
+                expiry = datetime.fromisoformat(expires_at.replace("Z", "+00:00"))
+                if expiry < datetime.now(timezone.utc):
+                    return {"valid": False, "reason": "Sales code has expired"}
+            except ValueError:
+                logger.warning(f"Could not parse sales_codes.expires_at value: {expires_at!r}")
+
+        return {
+            "valid": True,
+            "agent_id": record.get("agent_id"),
+            "code_id": record.get("id"),
+        }
+
+    except Exception as e:
+        logger.warning(f"Sales code lookup failed for '{normalized}': {e}")
+        return {"valid": False, "reason": "Unable to verify sales code"}
+
+
+def record_sales_code_usage(database: Client, code_id: str, member_id: str) -> None:
+    """
+    Best-effort bump of usage stats on a sales code after a successful
+    registration. Failure here must never block registration — it's
+    logged and swallowed.
+    """
+    try:
+        current = database.table("sales_codes").select("used_count").eq("id", code_id).execute()
+        used_count = 0
+        if current.data:
+            used_count = current.data[0].get("used_count") or 0
+
+        database.table("sales_codes").update({
+            "used_count": used_count + 1,
+            "last_used_at": datetime.now(timezone.utc).isoformat(),
+        }).eq("id", code_id).execute()
+
+    except Exception as e:
+        logger.warning(f"Failed to record sales code usage for code_id={code_id}: {e}")
+
 
 # ============================================================
 # PAYMENT HELPERS
@@ -979,6 +1075,20 @@ async def public_register(registration: RegistrationRequest):
     )
 
     # --------------------------------------------------------
+    # RESOLVE AGENT SALES CODE (optional, non-blocking by default)
+    # --------------------------------------------------------
+
+    sales_code_result = None
+    if registration.sales_code:
+        sales_code_result = resolve_sales_code(database, registration.sales_code)
+
+        if not sales_code_result["valid"] and sales_code_required:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=sales_code_result.get("reason", "Invalid sales code")
+            )
+
+    # --------------------------------------------------------
     # GENERATE MEMBER NUMBER (RPC, with fallback)
     # --------------------------------------------------------
 
@@ -1022,6 +1132,12 @@ async def public_register(registration: RegistrationRequest):
         "is_active": True,
     }
 
+    # ASSUMPTION: members table has an `agent_id` (nullable uuid) column
+    # to attribute a signup to the referring agent. Adjust the key name
+    # here if your schema calls it something else (e.g. referred_by).
+    if sales_code_result and sales_code_result["valid"]:
+        member_data["agent_id"] = sales_code_result["agent_id"]
+
     # --------------------------------------------------------
     # CREATE MEMBER
     # --------------------------------------------------------
@@ -1062,19 +1178,35 @@ async def public_register(registration: RegistrationRequest):
         ).execute()
 
         # ----------------------------------------------------
+        # RECORD SALES CODE USAGE (best-effort, non-blocking)
+        # ----------------------------------------------------
+
+        if sales_code_result and sales_code_result["valid"]:
+            record_sales_code_usage(
+                database,
+                sales_code_result["code_id"],
+                str(member_id)
+            )
+
+        # ----------------------------------------------------
         # RESPONSE
         # ----------------------------------------------------
 
+        response_message = (
+            "Registration submitted successfully. "
+            "Please proceed to payment."
+        )
+        if registration.sales_code and sales_code_result and not sales_code_result["valid"]:
+            response_message += f" Note: {sales_code_result.get('reason', 'the sales code could not be applied')}."
+
         return {
             "success": True,
-            "message": (
-                "Registration submitted successfully. "
-                "Please proceed to payment."
-            ),
+            "message": response_message,
             "member_id": str(member_id),
             "member_number": member_number,
             "registration_amount": fee,
             "payment_required": True,
+            "sales_code_applied": bool(sales_code_result and sales_code_result["valid"]),
         }
 
     except HTTPException:
