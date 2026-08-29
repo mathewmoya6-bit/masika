@@ -1,56 +1,22 @@
+```python
 """
-Member Service
-Business Logic for Members
+Member Service - Business Logic for Members
+
+Compatible with the current Masika Benevolent Supabase schema.
 
 IMPORTANT:
-This service is designed specifically for the current Masika Benevolent
-Supabase schema.
+The frontend can submit:
+    first_name
+    other_name
+    last_name
 
-members columns:
-    id
-    membership_number
-    full_name
-    national_id
-    passport_number
-    date_of_birth
-    gender
-    phone
-    alternative_phone
-    email
-    address
-    county
-    sub_county
-    town
-    next_of_kin_name
-    next_of_kin_phone
-    next_of_kin_relationship
-    branch_id
-    agent_name
-    member_status
-    registration_date
-    created_at
-    updated_at
-    created_by_staff_id
-    assigned_agent_id
-    dormant_at
-    dormant_reason
-    member_number
-    benefit_option
+The database stores these as:
+    members.full_name
 
-dependants columns:
-    id
+The dependants table uses:
     principal_member_id
     dependant_number
     full_name
-    national_id
-    birth_certificate_number
-    date_of_birth
-    gender
-    relationship
-    phone
-    status
-    created_at
-    updated_at
 """
 
 import logging
@@ -59,23 +25,16 @@ from typing import Optional, List, Dict, Any
 from uuid import UUID
 
 from app.database import get_supabase
-
 from app.models import (
-    MemberCreate,
     MemberUpdate,
-    MemberResponse,
     DependantCreate,
     RegistrationRequest,
-    PlanEnum,
-    BenefitOptionEnum,
 )
-
 from app.exceptions import (
     NotFoundError,
     DuplicateError,
     ValidationError,
 )
-
 from app.utils.helpers import (
     normalize_phone,
     generate_member_number,
@@ -85,62 +44,13 @@ logger = logging.getLogger(__name__)
 
 
 class MemberService:
-    """Business logic for members using the CURRENT Supabase schema."""
+    """Member business logic using the current database schema."""
 
     def __init__(self):
         self.supabase = get_supabase()
 
     # ============================================================
-    # HELPERS
-    # ============================================================
-
-    @staticmethod
-    def _build_full_name(
-        first_name: Optional[str] = None,
-        last_name: Optional[str] = None,
-        other_name: Optional[str] = None,
-        full_name: Optional[str] = None,
-    ) -> str:
-        """
-        Convert frontend/model first/last/other names into the single
-        members.full_name column.
-        """
-
-        if full_name:
-            value = str(full_name).strip()
-            if value:
-                return value
-
-        parts = []
-
-        for value in [first_name, other_name, last_name]:
-            if value:
-                value = str(value).strip()
-                if value:
-                    parts.append(value)
-
-        return " ".join(parts).strip()
-
-    @staticmethod
-    def _enum_value(value):
-        """Safely extract enum value."""
-        if value is None:
-            return None
-
-        return getattr(value, "value", value)
-
-    @staticmethod
-    def _calculate_waiting_months(plan):
-        """Return waiting period in months."""
-        plan_value = getattr(plan, "value", plan)
-
-        if str(plan_value).upper() == "COMFORT":
-            return 4
-
-        return 6
-
-    # ============================================================
-    # MEMBER CREATE
+    # CREATE MEMBER
     # ============================================================
 
     async def create_member(
@@ -148,38 +58,83 @@ class MemberService:
         data: RegistrationRequest
     ) -> Dict[str, Any]:
         """
-        Create a member using the EXACT current members schema.
+        Create principal member, membership and dependants.
 
-        DO NOT insert:
+        Frontend:
             first_name
-            last_name
             other_name
-            id_number
-            location
-            plan
-            registration_fee_paid
-            is_active
-            waiting_period_months
+            last_name
 
-        Those columns DO NOT exist in the current members table.
+        Database:
+            members.full_name
         """
 
         try:
             # ----------------------------------------------------
-            # PHONE
+            # 1. READ NAME FIELDS FROM REGISTRATION REQUEST
             # ----------------------------------------------------
 
-            phone = normalize_phone(data.phone)
+            first_name = (
+                getattr(data, "first_name", None) or ""
+            ).strip()
+
+            other_name = (
+                getattr(data, "other_name", None) or ""
+            ).strip()
+
+            last_name = (
+                getattr(data, "last_name", None) or ""
+            ).strip()
 
             # ----------------------------------------------------
-            # DUPLICATE PHONE
+            # 2. BUILD REQUIRED full_name
+            # ----------------------------------------------------
+
+            full_name = " ".join(
+                part
+                for part in [
+                    first_name,
+                    other_name,
+                    last_name,
+                ]
+                if part
+            ).strip()
+
+            if not full_name:
+                raise ValidationError(
+                    "First name and/or last name is required"
+                )
+
+            logger.info(
+                "Registration name: %s",
+                full_name
+            )
+
+            # ----------------------------------------------------
+            # 3. NORMALIZE PHONE
+            # ----------------------------------------------------
+
+            raw_phone = getattr(data, "phone", None)
+
+            if not raw_phone:
+                raise ValidationError(
+                    "Phone number is required"
+                )
+
+            phone = normalize_phone(raw_phone)
+
+            # ----------------------------------------------------
+            # 4. CHECK DUPLICATE PHONE
             # ----------------------------------------------------
 
             existing = (
                 self.supabase
                 .table("members")
-                .select("id, phone, membership_number, member_number")
+                .select(
+                    "id, phone, membership_number"
+                )
                 .eq("phone", phone)
+                .limit(1)
                 .execute()
             )
 
@@ -191,19 +146,33 @@ class MemberService:
                 )
 
             # ----------------------------------------------------
-            # DUPLICATE EMAIL
+            # 5. CHECK DUPLICATE EMAIL
             # ----------------------------------------------------
 
             email = None
 
-            if getattr(data, "email", None):
-                email = str(data.email).strip()
+            raw_email = getattr(
+                data,
+                "email",
+                None
+            )
+
+            if raw_email:
+                email = str(
+                    raw_email
+                ).strip().lower()
 
                 existing_email = (
                     self.supabase
                     .table("members")
-                    .select("id, email")
-                    .eq("email", email)
+                    .select(
+                        "id, email, membership_number"
+                    )
+                    .eq(
+                        "email",
+                        email
+                    )
+                    .limit(1)
                     .execute()
                 )
 
@@ -215,51 +184,13 @@ class MemberService:
                     )
 
             # ----------------------------------------------------
-            # FULL NAME
+            # 6. GENERATE MEMBERSHIP NUMBER
             # ----------------------------------------------------
 
-            full_name = self._build_full_name(
-                first_name=getattr(data, "first_name", None),
-                last_name=getattr(data, "last_name", None),
-                other_name=getattr(data, "other_name", None),
-                full_name=getattr(data, "full_name", None),
-            )
-
-            if not full_name:
-                raise ValidationError(
-                    "Full name is required"
-                )
+            membership_number = generate_member_number()
 
             # ----------------------------------------------------
-            # MEMBER NUMBER
-            # ----------------------------------------------------
-
-            generated_number = generate_member_number()
-
-            # Your database has both membership_number and
-            # member_number. membership_number is NOT NULL.
-            membership_number = generated_number
-
-            # ----------------------------------------------------
-            # PLAN / BENEFIT
-            # ----------------------------------------------------
-
-            benefit_option = getattr(
-                data,
-                "benefit_option",
-                None
-            )
-
-            benefit_value = self._enum_value(
-                benefit_option
-            )
-
-            # Database default is "service".
-            if not benefit_value:
-                benefit_value = "service"
-
-            # ----------------------------------------------------
-            # OPTIONAL FIELDS
+            # 7. OTHER MEMBER DETAILS
             # ----------------------------------------------------
 
             national_id = getattr(
@@ -273,40 +204,27 @@ class MemberService:
                     national_id
                 ).strip()
 
-            date_of_birth = getattr(
+            passport_number = getattr(
                 data,
-                "date_of_birth",
+                "passport_number",
                 None
             )
 
-            gender = getattr(
+            if passport_number:
+                passport_number = str(
+                    passport_number
+                ).strip()
+
+            alternative_phone = getattr(
                 data,
-                "gender",
+                "alternative_phone",
                 None
             )
 
-            if gender:
-                gender = self._enum_value(gender)
-
-            county = getattr(
-                data,
-                "county",
-                None
-            )
-
-            if county:
-                county = str(county).strip()
-
-            # Some older frontend models use "location".
-            # Current DB uses town/sub_county instead.
-            location = getattr(
-                data,
-                "location",
-                None
-            )
-
-            if location:
-                location = str(location).strip()
+            if alternative_phone:
+                alternative_phone = normalize_phone(
+                    alternative_phone
+                )
 
             address = getattr(
                 data,
@@ -314,45 +232,196 @@ class MemberService:
                 None
             )
 
-            if address:
-                address = str(address).strip()
+            county = getattr(
+                data,
+                "county",
+                None
+            )
+
+            sub_county = getattr(
+                data,
+                "sub_county",
+                None
+            )
+
+            town = getattr(
+                data,
+                "town",
+                None
+            )
+
+            # Your existing registration form may call this
+            # field "location", so use it as a fallback for town.
+            if not town:
+                location = getattr(
+                    data,
+                    "location",
+                    None
+                )
+
+                if location:
+                    town = location
 
             # ----------------------------------------------------
-            # MEMBER DATA
-            #
-            # THIS IS THE CRITICAL FIX.
-            #
-            # Every column below exists in your posted schema.
+            # 8. NEXT OF KIN
             # ----------------------------------------------------
 
-            member_data = {
-                "membership_number": membership_number,
-                "full_name": full_name,
-                "national_id": national_id,
-                "date_of_birth": date_of_birth,
-                "gender": gender,
-                "phone": phone,
-                "email": email,
-                "address": address,
-                "county": county,
-                "town": location,
-                "benefit_option": benefit_value,
-            }
+            next_of_kin_name = getattr(
+                data,
+                "next_of_kin_name",
+                None
+            )
+
+            next_of_kin_phone = getattr(
+                data,
+                "next_of_kin_phone",
+                None
+            )
+
+            next_of_kin_relationship = getattr(
+                data,
+                "next_of_kin_relationship",
+                None
+            )
+
+            if next_of_kin_phone:
+                next_of_kin_phone = normalize_phone(
+                    next_of_kin_phone
+                )
 
             # ----------------------------------------------------
-            # MEMBER STATUS
-            #
-            # Do not send it unless your model specifically needs it.
-            # Database default is PENDING.
+            # 9. AGENT
             # ----------------------------------------------------
 
-            logger.info(
-                "Creating member with schema-compatible fields: %s",
-                list(member_data.keys())
+            agent_name = getattr(
+                data,
+                "agent_name",
+                None
             )
 
             # ----------------------------------------------------
-            # INSERT MEMBER
+            # 10. BENEFIT OPTION
+            # ----------------------------------------------------
+
+            benefit_option = getattr(
+                data,
+                "benefit_option",
+                None
+            )
+
+            if benefit_option is not None:
+                try:
+                    benefit_option = (
+                        benefit_option.value
+                    )
+                except AttributeError:
+                    benefit_option = str(
+                        benefit_option
+                    )
+
+            else:
+                benefit_option = "service"
+
+            # ----------------------------------------------------
+            # 11. INSERT INTO MEMBERS
+            #
+            # IMPORTANT:
+            # Only columns that actually exist in your posted
+            # members table are used here.
+            # ----------------------------------------------------
+
+            member_data = {
+                "membership_number":
+                    membership_number,
+
+                "member_number":
+                    membership_number,
+
+                "full_name":
+                    full_name,
+
+                "national_id":
+                    national_id,
+
+                "passport_number":
+                    passport_number,
+
+                "date_of_birth":
+                    getattr(
+                        data,
+                        "date_of_birth",
+                        None
+                    ),
+
+                "gender":
+                    getattr(
+                        data,
+                        "gender",
+                        None
+                    ),
+
+                "phone":
+                    phone,
+
+                "alternative_phone":
+                    alternative_phone,
+
+                "email":
+                    email,
+
+                "address":
+                    address.strip()
+                    if isinstance(address, str)
+                    else address,
+
+                "county":
+                    county.strip()
+                    if isinstance(county, str)
+                    else county,
+
+                "sub_county":
+                    sub_county.strip()
+                    if isinstance(sub_county, str)
+                    else sub_county,
+
+                "town":
+                    town.strip()
+                    if isinstance(town, str)
+                    else town,
+
+                "next_of_kin_name":
+                    next_of_kin_name,
+
+                "next_of_kin_phone":
+                    next_of_kin_phone,
+
+                "next_of_kin_relationship":
+                    next_of_kin_relationship,
+
+                "agent_name":
+                    agent_name,
+
+                "benefit_option":
+                    benefit_option,
+            }
+
+            # ----------------------------------------------------
+            # 12. SAFETY CHECK
+            # ----------------------------------------------------
+
+            if not member_data["full_name"]:
+                raise ValidationError(
+                    "full_name cannot be empty"
+                )
+
+            logger.info(
+                "Inserting member: %s | %s",
+                membership_number,
+                full_name
+            )
+
+            # ----------------------------------------------------
+            # 13. INSERT MEMBER
             # ----------------------------------------------------
 
             result = (
@@ -369,20 +438,182 @@ class MemberService:
 
             member = result.data[0]
 
+            member_id = member["id"]
+
             logger.info(
                 "Member created successfully: %s",
-                member.get("membership_number")
+                member_id
             )
 
             # ----------------------------------------------------
-            # DEPENDANTS
+            # 14. FIND SELECTED PLAN
             # ----------------------------------------------------
 
-            dependants = getattr(
+            plan_code = getattr(
                 data,
-                "dependants",
-                []
-            ) or []
+                "plan",
+                None
+            )
+
+            plan = None
+            membership = None
+
+            if plan_code is not None:
+
+                try:
+                    plan_code = plan_code.value
+                except AttributeError:
+                    plan_code = str(
+                        plan_code
+                    )
+
+                plan_code = plan_code.upper()
+
+                plan_result = (
+                    self.supabase
+                    .table("plans")
+                    .select(
+                        """
+                        id,
+                        plan_code,
+                        plan_name,
+                        monthly_premium,
+                        registration_fee,
+                        principal_registration_fee,
+                        dependant_registration_fee,
+                        waiting_period_months,
+                        waiting_period_days,
+                        renewal_period_months,
+                        grace_period_days,
+                        max_dependants
+                        """
+                    )
+                    .eq(
+                        "plan_code",
+                        plan_code
+                    )
+                    .eq(
+                        "is_active",
+                        True
+                    )
+                    .limit(1)
+                    .execute()
+                )
+
+                if not plan_result.data:
+                    raise ValidationError(
+                        f"Membership plan "
+                        f"'{plan_code}' was not found"
+                    )
+
+                plan = plan_result.data[0]
+
+                # ------------------------------------------------
+                # PLAN FEES
+                # ------------------------------------------------
+
+                monthly_premium = (
+                    plan.get(
+                        "monthly_premium"
+                    ) or 0
+                )
+
+                registration_fee = (
+                    plan.get(
+                        "principal_registration_fee"
+                    )
+                )
+
+                if registration_fee is None:
+                    registration_fee = (
+                        plan.get(
+                            "registration_fee"
+                        ) or 0
+                    )
+
+                waiting_period_months = (
+                    plan.get(
+                        "waiting_period_months"
+                    ) or 0
+                )
+
+                # ------------------------------------------------
+                # 15. CREATE MEMBERSHIP
+                # ------------------------------------------------
+
+                membership_data = {
+                    "member_id":
+                        str(member_id),
+
+                    "plan_id":
+                        plan["id"],
+
+                    "membership_start_date":
+                        date.today().isoformat(),
+
+                    "registration_fee_due":
+                        registration_fee,
+
+                    "registration_fee_paid":
+                        0,
+
+                    "monthly_premium":
+                        monthly_premium,
+
+                    "monthly_equivalent_units":
+                        0,
+
+                    "required_monthly_equivalent_units":
+                        0,
+
+                    "waiting_period_months":
+                        waiting_period_months,
+
+                    "monthly_payment_deadline":
+                        None,
+
+                    "activation_date":
+                        None,
+                }
+
+                membership_result = (
+                    self.supabase
+                    .table("memberships")
+                    .insert(
+                        membership_data
+                    )
+                    .execute()
+                )
+
+                if not membership_result.data:
+                    raise ValidationError(
+                        "Member created but "
+                        "membership could not be created"
+                    )
+
+                membership = (
+                    membership_result.data[0]
+                )
+
+                logger.info(
+                    "Membership created: %s",
+                    membership["id"]
+                )
+
+            # ----------------------------------------------------
+            # 16. CREATE DEPENDANTS
+            # ----------------------------------------------------
+
+            dependants_created = []
+
+            dependants = (
+                getattr(
+                    data,
+                    "dependants",
+                    None
+                )
+                or []
+            )
 
             for index, dep in enumerate(
                 dependants,
@@ -390,137 +621,171 @@ class MemberService:
             ):
 
                 try:
-                    dep_first_name = getattr(
-                        dep,
-                        "first_name",
-                        None
-                    )
 
-                    dep_last_name = getattr(
-                        dep,
-                        "last_name",
-                        None
-                    )
-
-                    dep_other_name = getattr(
-                        dep,
-                        "other_name",
-                        None
-                    )
-
-                    dep_full_name = self._build_full_name(
-                        first_name=dep_first_name,
-                        last_name=dep_last_name,
-                        other_name=dep_other_name,
-                        full_name=getattr(
+                    dep_first_name = (
+                        getattr(
                             dep,
-                            "full_name",
+                            "first_name",
                             None
-                        ),
-                    )
+                        ) or ""
+                    ).strip()
+
+                    dep_other_name = (
+                        getattr(
+                            dep,
+                            "other_name",
+                            None
+                        ) or ""
+                    ).strip()
+
+                    dep_last_name = (
+                        getattr(
+                            dep,
+                            "last_name",
+                            None
+                        ) or ""
+                    ).strip()
+
+                    dep_full_name = " ".join(
+                        part
+                        for part in [
+                            dep_first_name,
+                            dep_other_name,
+                            dep_last_name,
+                        ]
+                        if part
+                    ).strip()
 
                     if not dep_full_name:
                         logger.warning(
-                            "Skipping dependant %s: missing name",
+                            "Skipping dependant %s: "
+                            "no name",
                             index
                         )
                         continue
 
-                    relationship = getattr(
+                    dependant_number = (
+                        f"{membership_number}"
+                        f"-D{index:02d}"
+                    )
+
+                    dep_relationship = getattr(
                         dep,
                         "relationship",
                         None
                     )
 
-                    relationship = self._enum_value(
-                        relationship
+                    if dep_relationship is not None:
+                        try:
+                            dep_relationship = (
+                                dep_relationship.value
+                            )
+                        except AttributeError:
+                            dep_relationship = str(
+                                dep_relationship
+                            )
+
+                    dep_phone = getattr(
+                        dep,
+                        "phone",
+                        None
                     )
 
-                    if not relationship:
-                        relationship = "OTHER"
+                    if dep_phone:
+                        dep_phone = normalize_phone(
+                            dep_phone
+                        )
 
-                    dependant_number = (
-                        f"{membership_number}-D{index:02d}"
-                    )
+                    dependant_data = {
+                        "principal_member_id":
+                            str(member_id),
 
-                    dep_data = {
-                        "principal_member_id": member["id"],
-                        "dependant_number": dependant_number,
-                        "full_name": dep_full_name,
-                        "date_of_birth": getattr(
-                            dep,
-                            "date_of_birth",
-                            None
-                        ),
-                        "gender": self._enum_value(
+                        "dependant_number":
+                            dependant_number,
+
+                        "full_name":
+                            dep_full_name,
+
+                        "national_id":
+                            getattr(
+                                dep,
+                                "national_id",
+                                None
+                            ),
+
+                        "birth_certificate_number":
+                            getattr(
+                                dep,
+                                "birth_certificate_number",
+                                None
+                            ),
+
+                        "date_of_birth":
+                            getattr(
+                                dep,
+                                "date_of_birth",
+                                None
+                            ),
+
+                        "gender":
                             getattr(
                                 dep,
                                 "gender",
                                 None
-                            )
-                        ),
-                        "relationship": relationship,
-                        "phone": getattr(
-                            dep,
-                            "phone",
-                            None
-                        ),
-                        "status": "ACTIVE",
+                            ),
+
+                        "relationship":
+                            dep_relationship,
+
+                        "phone":
+                            dep_phone,
+
+                        "status":
+                            "ACTIVE",
                     }
-
-                    # Optional national ID
-                    dep_national_id = getattr(
-                        dep,
-                        "national_id",
-                        None
-                    )
-
-                    if dep_national_id:
-                        dep_data["national_id"] = str(
-                            dep_national_id
-                        ).strip()
-
-                    # Optional birth certificate
-                    birth_certificate = getattr(
-                        dep,
-                        "birth_certificate_number",
-                        None
-                    )
-
-                    if birth_certificate:
-                        dep_data[
-                            "birth_certificate_number"
-                        ] = str(
-                            birth_certificate
-                        ).strip()
-
-                    logger.info(
-                        "Creating dependant %s for member %s",
-                        dependant_number,
-                        member["id"]
-                    )
 
                     dep_result = (
                         self.supabase
                         .table("dependants")
-                        .insert(dep_data)
+                        .insert(
+                            dependant_data
+                        )
                         .execute()
                     )
 
-                    if not dep_result.data:
-                        logger.warning(
-                            "Dependant %s was not created",
-                            dependant_number
+                    if dep_result.data:
+                        dependants_created.append(
+                            dep_result.data[0]
                         )
 
                 except Exception as dep_error:
-                    # Do not destroy successful member registration
-                    # because one dependant failed.
-                    logger.exception(
-                        "Failed to insert dependant %s: %s",
+
+                    logger.error(
+                        "Failed to create dependant "
+                        "%s: %s",
                         index,
                         dep_error
                     )
+
+            # ----------------------------------------------------
+            # 17. RETURN COMPLETE REGISTRATION
+            # ----------------------------------------------------
+
+            member["membership_id"] = (
+                membership["id"]
+                if membership
+                else None
+            )
+
+            member["plan"] = (
+                plan.get("plan_code")
+                if plan
+                else None
+            )
+
+            member["dependants"] = (
+                dependants_created
+            )
 
             return member
 
@@ -531,11 +796,14 @@ class MemberService:
             raise
 
         except Exception as e:
+
             logger.exception(
-                "create_member failed: %s",
-                e
+                "Unexpected member registration error"
             )
-            raise
+
+            raise ValidationError(
+                f"Failed to create member: {str(e)}"
+            )
 
     # ============================================================
     # GET MEMBER
@@ -550,7 +818,11 @@ class MemberService:
             self.supabase
             .table("members")
             .select("*")
-            .eq("id", str(member_id))
+            .eq(
+                "id",
+                str(member_id)
+            )
+            .limit(1)
             .execute()
         )
 
@@ -577,7 +849,11 @@ class MemberService:
             self.supabase
             .table("members")
             .select("*")
-            .eq("phone", phone)
+            .eq(
+                "phone",
+                phone
+            )
+            .limit(1)
             .execute()
         )
 
@@ -596,22 +872,6 @@ class MemberService:
         member_number: str
     ) -> Optional[Dict[str, Any]]:
 
-        # Search member_number first
-        result = (
-            self.supabase
-            .table("members")
-            .select("*")
-            .eq(
-                "member_number",
-                member_number
-            )
-            .execute()
-        )
-
-        if result.data:
-            return result.data[0]
-
-        # Also support membership_number
         result = (
             self.supabase
             .table("members")
@@ -620,6 +880,22 @@ class MemberService:
                 "membership_number",
                 member_number
             )
+            .limit(1)
+            .execute()
+        )
+
+        if result.data:
+            return result.data[0]
+
+        result = (
+            self.supabase
+            .table("members")
+            .select("*")
+            .eq(
+                "member_number",
+                member_number
+            )
+            .limit(1)
             .execute()
         )
 
@@ -639,23 +915,19 @@ class MemberService:
         updates: MemberUpdate
     ) -> Dict[str, Any]:
 
-        await self.get_member(member_id)
+        current = await self.get_member(
+            member_id
+        )
 
         update_data = {}
 
         # --------------------------------------------------------
-        # Build full_name from old-style model fields
+        # NAME
         # --------------------------------------------------------
 
         first_name = getattr(
             updates,
             "first_name",
-            None
-        )
-
-        last_name = getattr(
-            updates,
-            "last_name",
             None
         )
 
@@ -665,44 +937,67 @@ class MemberService:
             None
         )
 
-        supplied_full_name = getattr(
+        last_name = getattr(
             updates,
-            "full_name",
+            "last_name",
             None
         )
 
-        if any(
-            value is not None
-            for value in [
-                first_name,
-                last_name,
-                other_name,
-                supplied_full_name,
-            ]
+        if (
+            first_name is not None
+            or other_name is not None
+            or last_name is not None
         ):
 
-            current = await self.get_member(
-                member_id
+            current_full_name = (
+                current.get("full_name")
+                or ""
             )
 
-            full_name = self._build_full_name(
-                first_name=first_name,
-                last_name=last_name,
-                other_name=other_name,
-                full_name=supplied_full_name,
+            existing_parts = (
+                current_full_name.split()
             )
 
-            # If only one component was supplied, preserve
-            # existing full name rather than accidentally erasing it.
-            if not full_name:
-                full_name = current.get(
-                    "full_name"
+            new_first = (
+                first_name.strip()
+                if first_name is not None
+                else (
+                    existing_parts[0]
+                    if existing_parts
+                    else ""
                 )
+            )
 
-            update_data["full_name"] = full_name
+            new_last = (
+                last_name.strip()
+                if last_name is not None
+                else (
+                    existing_parts[-1]
+                    if len(existing_parts) > 1
+                    else ""
+                )
+            )
+
+            new_other = (
+                other_name.strip()
+                if other_name is not None
+                else ""
+            )
+
+            update_data[
+                "full_name"
+            ] = " ".join(
+                part
+                for part in [
+                    new_first,
+                    new_other,
+                    new_last,
+                ]
+                if part
+            ).strip()
 
         # --------------------------------------------------------
-        # Phone
+        # PHONE
         # --------------------------------------------------------
 
         phone = getattr(
@@ -712,12 +1007,12 @@ class MemberService:
         )
 
         if phone is not None:
-            update_data["phone"] = normalize_phone(
-                phone
-            )
+            update_data[
+                "phone"
+            ] = normalize_phone(phone)
 
         # --------------------------------------------------------
-        # Email
+        # EMAIL
         # --------------------------------------------------------
 
         email = getattr(
@@ -727,12 +1022,12 @@ class MemberService:
         )
 
         if email is not None:
-            update_data["email"] = str(
-                email
-            )
+            update_data[
+                "email"
+            ] = str(email).strip().lower()
 
         # --------------------------------------------------------
-        # Address
+        # ADDRESS
         # --------------------------------------------------------
 
         address = getattr(
@@ -742,12 +1037,12 @@ class MemberService:
         )
 
         if address is not None:
-            update_data["address"] = str(
-                address
-            ).strip()
+            update_data[
+                "address"
+            ] = address.strip()
 
         # --------------------------------------------------------
-        # Benefit option
+        # BENEFIT OPTION
         # --------------------------------------------------------
 
         benefit_option = getattr(
@@ -757,60 +1052,19 @@ class MemberService:
         )
 
         if benefit_option is not None:
+
+            try:
+                benefit_option = (
+                    benefit_option.value
+                )
+            except AttributeError:
+                benefit_option = str(
+                    benefit_option
+                )
+
             update_data[
                 "benefit_option"
-            ] = self._enum_value(
-                benefit_option
-            )
-
-        # --------------------------------------------------------
-        # National ID
-        # --------------------------------------------------------
-
-        id_number = getattr(
-            updates,
-            "id_number",
-            None
-        )
-
-        if id_number is not None:
-            update_data[
-                "national_id"
-            ] = str(
-                id_number
-            ).strip()
-
-        # --------------------------------------------------------
-        # DOB
-        # --------------------------------------------------------
-
-        dob = getattr(
-            updates,
-            "date_of_birth",
-            None
-        )
-
-        if dob is not None:
-            update_data[
-                "date_of_birth"
-            ] = dob
-
-        # --------------------------------------------------------
-        # Gender
-        # --------------------------------------------------------
-
-        gender = getattr(
-            updates,
-            "gender",
-            None
-        )
-
-        if gender is not None:
-            update_data[
-                "gender"
-            ] = self._enum_value(
-                gender
-            )
+            ] = benefit_option
 
         if not update_data:
             raise ValidationError(
@@ -821,7 +1075,10 @@ class MemberService:
             self.supabase
             .table("members")
             .update(update_data)
-            .eq("id", str(member_id))
+            .eq(
+                "id",
+                str(member_id)
+            )
             .execute()
         )
 
@@ -842,15 +1099,18 @@ class MemberService:
         plan: Optional[str] = None,
         status: Optional[str] = None,
         page: int = 1,
-        limit: int = 20,
+        limit: int = 20
     ) -> Dict[str, Any]:
 
-        # Current schema does NOT have first_name, last_name,
-        # plan or is_active.
+        offset = (page - 1) * limit
+
         query = (
             self.supabase
             .table("members")
-            .select("*")
+            .select(
+                "*",
+                count="exact"
+            )
         )
 
         # --------------------------------------------------------
@@ -858,63 +1118,53 @@ class MemberService:
         # --------------------------------------------------------
 
         if search:
-            search = str(search).strip()
 
-            query = query.or_(
-                "full_name.ilike.%{0}%,"
-                "phone.ilike.%{0}%,"
-                "membership_number.ilike.%{0}%,"
-                "member_number.ilike.%{0}%".format(
-                    search
-                )
+            safe_search = (
+                search
+                .replace(",", "")
+                .strip()
             )
+
+            if safe_search:
+
+                query = query.or_(
+                    "full_name.ilike.%"
+                    + safe_search
+                    + "%,"
+                    "phone.ilike.%"
+                    + safe_search
+                    + "%,"
+                    "membership_number.ilike.%"
+                    + safe_search
+                    + "%,"
+                    "member_number.ilike.%"
+                    + safe_search
+                    + "%"
+                )
 
         # --------------------------------------------------------
         # STATUS
         # --------------------------------------------------------
 
         if status:
-            status_upper = str(
-                status
-            ).upper()
 
-            if status_upper in [
+            status_upper = status.upper()
+
+            if status_upper in {
                 "PENDING",
                 "ACTIVE",
                 "DORMANT",
                 "CANCELLED",
-            ]:
+            }:
+
                 query = query.eq(
                     "member_status",
                     status_upper
                 )
 
         # --------------------------------------------------------
-        # COUNT
+        # QUERY
         # --------------------------------------------------------
-
-        count_result = (
-            self.supabase
-            .table("members")
-            .select(
-                "id",
-                count="exact"
-            )
-            .execute()
-        )
-
-        total = count_result.count or 0
-
-        # --------------------------------------------------------
-        # PAGINATION
-        # --------------------------------------------------------
-
-        page = max(1, page)
-        limit = max(1, min(limit, 100))
-
-        offset = (
-            page - 1
-        ) * limit
 
         result = (
             query
@@ -929,16 +1179,28 @@ class MemberService:
             .execute()
         )
 
+        total = result.count or 0
+
         return {
-            "members": result.data or [],
-            "total": total,
-            "page": page,
-            "limit": limit,
-            "pages": (
-                (total + limit - 1) // limit
-                if total
-                else 1
-            ),
+            "members":
+                result.data or [],
+
+            "total":
+                total,
+
+            "page":
+                page,
+
+            "limit":
+                limit,
+
+            "pages":
+                (
+                    (total + limit - 1)
+                    // limit
+                    if total
+                    else 1
+                ),
         }
 
     # ============================================================
@@ -981,108 +1243,157 @@ class MemberService:
             member_id
         )
 
-        # Existing dependants
-        existing = await self.get_dependants(
-            member_id
-        )
-
-        dependant_number = (
-            f"DEP-{len(existing) + 1:03d}"
-        )
-
-        full_name = self._build_full_name(
-            first_name=getattr(
+        first_name = (
+            getattr(
                 dependant,
                 "first_name",
                 None
-            ),
-            last_name=getattr(
-                dependant,
-                "last_name",
-                None
-            ),
-            other_name=getattr(
+            ) or ""
+        ).strip()
+
+        other_name = (
+            getattr(
                 dependant,
                 "other_name",
                 None
-            ),
-            full_name=getattr(
+            ) or ""
+        ).strip()
+
+        last_name = (
+            getattr(
                 dependant,
-                "full_name",
+                "last_name",
                 None
-            ),
-        )
+            ) or ""
+        ).strip()
+
+        full_name = " ".join(
+            part
+            for part in [
+                first_name,
+                other_name,
+                last_name,
+            ]
+            if part
+        ).strip()
 
         if not full_name:
             raise ValidationError(
                 "Dependant full name is required"
             )
 
-        relationship = self._enum_value(
-            getattr(
-                dependant,
-                "relationship",
-                None
+        # Count existing dependants
+        existing = (
+            self.supabase
+            .table("dependants")
+            .select(
+                "id",
+                count="exact"
+            )
+            .eq(
+                "principal_member_id",
+                str(member_id)
+            )
+            .execute()
+        )
+
+        dependant_count = (
+            existing.count or 0
+        )
+
+        member = await self.get_member(
+            member_id
+        )
+
+        membership_number = (
+            member.get(
+                "membership_number"
+            )
+            or member.get(
+                "member_number"
             )
         )
 
-        if not relationship:
-            raise ValidationError(
-                "Dependant relationship is required"
+        dependant_number = (
+            f"{membership_number}"
+            f"-D{dependant_count + 1:02d}"
+        )
+
+        relationship = getattr(
+            dependant,
+            "relationship",
+            None
+        )
+
+        if relationship is not None:
+
+            try:
+                relationship = (
+                    relationship.value
+                )
+            except AttributeError:
+                relationship = str(
+                    relationship
+                )
+
+        phone = getattr(
+            dependant,
+            "phone",
+            None
+        )
+
+        if phone:
+            phone = normalize_phone(
+                phone
             )
 
         dep_data = {
-            "principal_member_id": str(
-                member_id
-            ),
-            "dependant_number": dependant_number,
-            "full_name": full_name,
-            "date_of_birth": getattr(
-                dependant,
-                "date_of_birth",
-                None
-            ),
-            "gender": self._enum_value(
+            "principal_member_id":
+                str(member_id),
+
+            "dependant_number":
+                dependant_number,
+
+            "full_name":
+                full_name,
+
+            "national_id":
+                getattr(
+                    dependant,
+                    "national_id",
+                    None
+                ),
+
+            "birth_certificate_number":
+                getattr(
+                    dependant,
+                    "birth_certificate_number",
+                    None
+                ),
+
+            "date_of_birth":
+                getattr(
+                    dependant,
+                    "date_of_birth",
+                    None
+                ),
+
+            "gender":
                 getattr(
                     dependant,
                     "gender",
                     None
-                )
-            ),
-            "relationship": relationship,
-            "phone": getattr(
-                dependant,
-                "phone",
-                None
-            ),
-            "status": "ACTIVE",
+                ),
+
+            "relationship":
+                relationship,
+
+            "phone":
+                phone,
+
+            "status":
+                "ACTIVE",
         }
-
-        national_id = getattr(
-            dependant,
-            "national_id",
-            None
-        )
-
-        if national_id:
-            dep_data[
-                "national_id"
-            ] = str(
-                national_id
-            ).strip()
-
-        birth_certificate = getattr(
-            dependant,
-            "birth_certificate_number",
-            None
-        )
-
-        if birth_certificate:
-            dep_data[
-                "birth_certificate_number"
-            ] = str(
-                birth_certificate
-            ).strip()
 
         result = (
             self.supabase
@@ -1106,7 +1417,6 @@ class MemberService:
         self
     ) -> Dict[str, Any]:
 
-        # Total
         total = (
             self.supabase
             .table("members")
@@ -1117,7 +1427,6 @@ class MemberService:
             .execute()
         )
 
-        # Active
         active = (
             self.supabase
             .table("members")
@@ -1132,7 +1441,6 @@ class MemberService:
             .execute()
         )
 
-        # Pending
         pending = (
             self.supabase
             .table("members")
@@ -1147,18 +1455,18 @@ class MemberService:
             .execute()
         )
 
-        # Recent members
         recent = (
             self.supabase
             .table("members")
             .select(
                 """
                 id,
-                full_name,
-                phone,
                 membership_number,
                 member_number,
+                full_name,
+                phone,
                 member_status,
+                registration_date,
                 created_at
                 """
             )
@@ -1171,10 +1479,17 @@ class MemberService:
         )
 
         return {
-            "total_members": total.count or 0,
-            "active_members": active.count or 0,
-            "pending_registrations": pending.count or 0,
-            "recent_members": recent.data or [],
+            "total_members":
+                total.count or 0,
+
+            "active_members":
+                active.count or 0,
+
+            "pending_registrations":
+                pending.count or 0,
+
+            "recent_members":
+                recent.data or [],
         }
 
 
@@ -1183,3 +1498,4 @@ class MemberService:
 # ============================================================
 
 member_service = MemberService()
+```
