@@ -638,7 +638,16 @@ async def get_mpesa_access_token() -> str:
 
             data = response.json()
             _payment_access_token = data.get("access_token")
-            expires_in = data.get("expires_in", 3600)
+            # FIX: Daraja returns expires_in as a STRING (e.g. "3599"), not
+            # an int. `time.time() + expires_in` was raising
+            # "unsupported operand type(s) for +: 'float' and 'str'" here,
+            # which was caught by the except block below and silently
+            # downgraded EVERY production token fetch to the "mock_token"
+            # sentinel — even though the OAuth call itself succeeded and a
+            # real access_token was already sitting in `data`. This is what
+            # caused every STK push to fail with "Payment service
+            # unavailable" despite valid, correctly configured credentials.
+            expires_in = int(data.get("expires_in", 3600))
             _payment_token_expiry = time.time() + expires_in - 60
 
             logger.info("M-Pesa access token obtained")
