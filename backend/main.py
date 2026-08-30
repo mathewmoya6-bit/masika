@@ -644,9 +644,7 @@ async def get_mpesa_access_token() -> str:
             # which was caught by the except block below and silently
             # downgraded EVERY production token fetch to the "mock_token"
             # sentinel — even though the OAuth call itself succeeded and a
-            # real access_token was already sitting in `data`. This is what
-            # caused every STK push to fail with "Payment service
-            # unavailable" despite valid, correctly configured credentials.
+            # real access_token was already sitting in `data`.
             expires_in = int(data.get("expires_in", 3600))
             _payment_token_expiry = time.time() + expires_in - 60
 
@@ -657,7 +655,7 @@ async def get_mpesa_access_token() -> str:
         logger.error(f"Access token error: {e}")
         return "mock_token"
 
-async def initiate_stk_push(phone: str, amount: float, account_reference: str, transaction_desc: str = "Membership Registration") -> Dict[str, Any]:
+async def initiate_stk_push(phone: str, amount: float, account_reference: str, member_id: str, transaction_desc: str = "Membership Registration") -> Dict[str, Any]:
     """Initiate M-Pesa STK Push payment."""
     try:
         phone = normalize_phone(phone)
@@ -680,7 +678,15 @@ async def initiate_stk_push(phone: str, amount: float, account_reference: str, t
 
             database = get_supabase()
             payment_data = {
-                "member_id": None,
+                # FIX: payments.member_id is NOT NULL in the DB schema, but
+                # this used to insert `None` here and rely on a follow-up
+                # UPDATE in public_stk_push() to backfill it — which never
+                # ran because the insert itself was rejected first with
+                # "null value in column 'member_id' violates not-null
+                # constraint". member_id is now known at call time (it's
+                # passed in from public_stk_push), so it's set correctly on
+                # the initial insert instead.
+                "member_id": member_id,
                 "amount": amount,
                 "payment_type": "registration",
                 "status": "pending",
@@ -761,7 +767,10 @@ async def initiate_stk_push(phone: str, amount: float, account_reference: str, t
 
             database = get_supabase()
             payment_data = {
-                "member_id": None,
+                # FIX: see comment on the mock-mode branch above — same
+                # NOT NULL constraint issue, same fix (member_id is now
+                # passed into this function rather than backfilled later).
+                "member_id": member_id,
                 "amount": amount,
                 "payment_type": "registration",
                 "status": "pending",
@@ -1349,18 +1358,21 @@ async def public_stk_push(request: STKPushRequest):
 
     account_reference = member_data.get("member_number", f"MEM-{request.member_id[:8]}")
 
+    # FIX: member_id is now passed straight into initiate_stk_push() and
+    # used on the initial insert, instead of being inserted as NULL and
+    # backfilled with a follow-up UPDATE afterward. That two-step pattern
+    # never actually worked: payments.member_id is NOT NULL in the DB, so
+    # the initial insert was rejected before the code ever reached the
+    # update below — the row was never created and the update had nothing
+    # to patch. There is nothing left for a post-insert update to do
+    # (phone is also set correctly on the same insert), so it's removed.
     result = await initiate_stk_push(
         phone=phone,
         amount=request.amount,
         account_reference=account_reference,
+        member_id=request.member_id,
         transaction_desc=request.transaction_desc
     )
-
-    if result.get("success") and result.get("payment_id"):
-        database.table("payments").update({
-            "member_id": request.member_id,
-            "phone": phone
-        }).eq("id", result["payment_id"]).execute()
 
     return {
         "success": result.get("success", False),
