@@ -622,7 +622,13 @@ async def get_mpesa_access_token() -> str:
 
         async with httpx.AsyncClient(timeout=30.0) as client:
             response = await client.get(
-                "https://api.safaricom.co.ke/oauth/v1/generate",
+                # FIX: Daraja's OAuth endpoint requires grant_type=client_credentials
+                # as a query param. Without it, Safaricom returns 400.008.02
+                # "Invalid grant type passed" regardless of whether the
+                # consumer key/secret are valid — which was silently
+                # collapsing into the "mock_token" sentinel below and then
+                # surfacing to users as "Payment service unavailable".
+                "https://api.safaricom.co.ke/oauth/v1/generate?grant_type=client_credentials",
                 headers={"Authorization": f"Basic {credentials}"}
             )
 
