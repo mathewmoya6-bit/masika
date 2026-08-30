@@ -41,7 +41,12 @@ class PaymentService:
         
         # Production URLs
         self.BASE_URL = "https://api.safaricom.co.ke"
-        self.OAUTH_URL = f"{self.BASE_URL}/oauth/v1/generate"
+        # FIX: Daraja's OAuth endpoint requires grant_type=client_credentials
+        # as a query param. Without it, Safaricom returns 400.008.02
+        # "Invalid grant type passed" before even checking the credentials —
+        # which was surfacing to users as the generic 503
+        # "Payment service unavailable" below.
+        self.OAUTH_URL = f"{self.BASE_URL}/oauth/v1/generate?grant_type=client_credentials"
         self.STK_PUSH_URL = f"{self.BASE_URL}/mpesa/stkpush/v1/processrequest"
         self.STK_QUERY_URL = f"{self.BASE_URL}/mpesa/stkpushquery/v1/query"
         
