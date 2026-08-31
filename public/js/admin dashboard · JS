@@ -169,6 +169,9 @@ async function loadStats() {
 
     const badge = document.getElementById("pendingAgentsBadge");
     if (badge) badge.textContent = data.total_agents ?? 0;
+
+    const memberBadge = document.getElementById("memberCountBadge");
+    if (memberBadge) memberBadge.textContent = data.total_members ?? 0;
   } catch (err) {
     console.error("Failed to load stats:", err);
     ["totalMembers", "totalAgents", "pendingApprovals", "totalRevenue"].forEach((id) => {
