@@ -1,22 +1,34 @@
 <!DOCTYPE html>
 
 <html lang="en">
+
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
 ```
+<meta charset="UTF-8">
+
+<meta
+    name="viewport"
+    content="width=device-width, initial-scale=1.0"
+>
+
 <title>Sales Agents | Masika Benevolent</title>
 
-<link rel="icon" type="image/png" href="../assets/favicon-32x32.png">
+<link
+    rel="icon"
+    type="image/png"
+    href="../assets/favicon-32x32.png"
+>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
 <link
     rel="stylesheet"
     href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"
 >
 
 <style>
+
     * {
         margin: 0;
         padding: 0;
@@ -54,7 +66,7 @@
 
     /* =========================
        LAYOUT
-    ========================= */
+    ========================== */
 
     .admin-layout {
         display: flex;
@@ -210,13 +222,25 @@
 
     /* =========================
        MAIN
-    ========================= */
+    ========================== */
 
     .main-content {
         margin-left: 260px;
         padding: 24px 32px;
         flex: 1;
         width: calc(100% - 260px);
+    }
+
+    .mobile-menu-btn {
+        display: none;
+        border: none;
+        background: var(--primary);
+        color: white;
+        width: 42px;
+        height: 42px;
+        border-radius: 8px;
+        cursor: pointer;
+        font-size: 18px;
     }
 
     .topbar {
@@ -243,7 +267,7 @@
 
     /* =========================
        BUTTONS
-    ========================= */
+    ========================== */
 
     .btn {
         padding: 10px 18px;
@@ -258,6 +282,12 @@
 
     .btn:hover {
         transform: translateY(-1px);
+    }
+
+    .btn:disabled {
+        opacity: 0.6;
+        cursor: not-allowed;
+        transform: none;
     }
 
     .btn-primary {
@@ -284,9 +314,19 @@
         color: white;
     }
 
+    .btn-warning {
+        background: var(--warning);
+        color: white;
+    }
+
+    .btn-sm {
+        padding: 7px 11px;
+        font-size: 12px;
+    }
+
     /* =========================
-       CARD
-    ========================= */
+       CARDS
+    ========================== */
 
     .card {
         background: white;
@@ -314,7 +354,7 @@
 
     /* =========================
        SALES CODE
-    ========================= */
+    ========================== */
 
     .sales-code {
         display: inline-flex;
@@ -348,8 +388,38 @@
     }
 
     /* =========================
+       SEARCH
+    ========================== */
+
+    .search-box {
+        position: relative;
+        width: 280px;
+    }
+
+    .search-box i {
+        position: absolute;
+        left: 12px;
+        top: 50%;
+        transform: translateY(-50%);
+        color: var(--text-light);
+    }
+
+    .search-box input {
+        width: 100%;
+        padding: 10px 12px 10px 36px;
+        border: 1px solid var(--gray-200);
+        border-radius: 8px;
+        font-family: inherit;
+        outline: none;
+    }
+
+    .search-box input:focus {
+        border-color: var(--primary);
+    }
+
+    /* =========================
        TABLE
-    ========================= */
+    ========================== */
 
     .table-wrapper {
         overflow-x: auto;
@@ -382,9 +452,19 @@
         background: var(--gray-50);
     }
 
+    .agent-name {
+        font-weight: 700;
+    }
+
+    .agent-email {
+        font-size: 12px;
+        color: var(--text-light);
+        margin-top: 3px;
+    }
+
     /* =========================
        STATUS
-    ========================= */
+    ========================== */
 
     .status-badge {
         display: inline-block;
@@ -411,7 +491,7 @@
 
     /* =========================
        FORM
-    ========================= */
+    ========================== */
 
     .form-group {
         margin-bottom: 16px;
@@ -443,6 +523,11 @@
         box-shadow: 0 0 0 3px rgba(11,93,59,0.08);
     }
 
+    .form-group select:disabled {
+        background: var(--gray-100);
+        cursor: not-allowed;
+    }
+
     .form-row {
         display: grid;
         grid-template-columns: 1fr 1fr;
@@ -451,7 +536,7 @@
 
     /* =========================
        MODAL
-    ========================= */
+    ========================== */
 
     .modal-overlay {
         display: none;
@@ -510,8 +595,8 @@
     }
 
     /* =========================
-       EMPTY / LOADING
-    ========================= */
+       LOADING
+    ========================== */
 
     .loading-spinner {
         text-align: center;
@@ -557,8 +642,52 @@
     }
 
     /* =========================
+       TOAST
+    ========================== */
+
+    .toast {
+        position: fixed;
+        right: 25px;
+        bottom: 25px;
+        min-width: 280px;
+        max-width: 420px;
+        background: var(--primary);
+        color: white;
+        padding: 14px 18px;
+        border-radius: 9px;
+        box-shadow: 0 5px 25px rgba(0,0,0,0.2);
+        display: none;
+        z-index: 500;
+    }
+
+    .toast.show {
+        display: block;
+        animation: toastIn 0.3s ease;
+    }
+
+    .toast.error {
+        background: var(--danger);
+    }
+
+    .toast.success {
+        background: var(--success);
+    }
+
+    @keyframes toastIn {
+        from {
+            opacity: 0;
+            transform: translateY(15px);
+        }
+
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
+
+    /* =========================
        MOBILE
-    ========================= */
+    ========================== */
 
     @media (max-width: 768px) {
 
@@ -574,6 +703,10 @@
             margin-left: 0;
             width: 100%;
             padding: 16px;
+        }
+
+        .mobile-menu-btn {
+            display: block;
         }
 
         .form-row {
@@ -595,7 +728,23 @@
         .modal {
             padding: 20px;
         }
+
+        .search-box {
+            width: 100%;
+        }
+
+        .card-header {
+            align-items: stretch;
+        }
+
+        .toast {
+            left: 16px;
+            right: 16px;
+            bottom: 16px;
+            min-width: auto;
+        }
     }
+
 </style>
 ```
 
@@ -613,97 +762,165 @@
 <aside class="sidebar" id="sidebar">
 
     <div class="sidebar-brand">
-        <a href="admin-dashboard.html" class="logo">
+
+        <a
+            href="admin-dashboard.html"
+            class="logo"
+        >
 
             <div class="logo-icon">
                 MB
             </div>
 
             <div>
-                <span class="logo-text">Masika</span>
-                <span class="logo-sub">Admin Panel</span>
+
+                <span class="logo-text">
+                    Masika
+                </span>
+
+                <span class="logo-sub">
+                    Admin Panel
+                </span>
+
             </div>
 
         </a>
+
     </div>
+
 
     <ul class="sidebar-nav">
 
         <li>
             <a href="admin-dashboard.html">
+
                 <i class="fas fa-chart-pie"></i>
+
                 Dashboard
+
             </a>
         </li>
 
+
         <li>
-            <a href="admin-agents.html" class="active">
+            <a
+                href="admin-agents.html"
+                class="active"
+            >
+
                 <i class="fas fa-user-tie"></i>
+
                 Sales Agents
-                <span class="badge" id="agentCountBadge">0</span>
+
+                <span
+                    class="badge"
+                    id="agentCountBadge"
+                >
+                    0
+                </span>
+
             </a>
         </li>
+
 
         <li>
             <a href="admin-members.html">
+
                 <i class="fas fa-users"></i>
+
                 Members
+
             </a>
         </li>
+
 
         <li>
             <a href="admin-payments.html">
+
                 <i class="fas fa-credit-card"></i>
+
                 Payments
+
             </a>
         </li>
+
 
         <li>
             <a href="admin-pricing.html">
+
                 <i class="fas fa-tags"></i>
+
                 Pricing
+
             </a>
         </li>
+
 
         <li>
             <a href="admin-reports.html">
+
                 <i class="fas fa-file-alt"></i>
+
                 Reports
+
             </a>
         </li>
 
+
         <li>
             <a href="admin-settings.html">
+
                 <i class="fas fa-cog"></i>
+
                 Settings
+
             </a>
         </li>
 
     </ul>
 
+
     <div class="sidebar-footer">
 
         <div class="user-info">
 
-            <div class="user-avatar" id="adminAvatar">
+            <div
+                class="user-avatar"
+                id="adminAvatar"
+            >
                 A
             </div>
 
             <div>
-                <div class="user-name" id="adminName">
+
+                <div
+                    class="user-name"
+                    id="adminName"
+                >
                     Admin
                 </div>
 
-                <div class="user-role" id="adminRole">
+                <div
+                    class="user-role"
+                    id="adminRole"
+                >
                     Administrator
                 </div>
+
             </div>
 
         </div>
 
-        <button class="logout-btn" onclick="handleLogout()">
+
+        <button
+            class="logout-btn"
+            onclick="handleLogout()"
+        >
+
             <i class="fas fa-sign-out-alt"></i>
+
             Logout
+
         </button>
 
     </div>
@@ -712,30 +929,58 @@
 
 
 <!-- =========================
-     MAIN CONTENT
+     MAIN
 ========================== -->
 
 <main class="main-content">
 
+
     <div class="topbar">
 
-        <div>
-            <h1>
-                Sales Agents
 
-                <small>
-                    Manage Masika Benevolent sales agents and their unique sales codes
-                </small>
-            </h1>
+        <div
+            style="
+                display:flex;
+                align-items:flex-start;
+                gap:12px;
+            "
+        >
+
+            <button
+                class="mobile-menu-btn"
+                onclick="toggleSidebar()"
+            >
+                <i class="fas fa-bars"></i>
+            </button>
+
+
+            <div>
+
+                <h1>
+                    Sales Agents
+
+                    <small>
+                        Manage Masika Benevolent sales agents and their unique sales codes
+                    </small>
+
+                </h1>
+
+            </div>
+
         </div>
+
 
         <button
             class="btn btn-primary"
             onclick="openCreateAgentModal()"
         >
+
             <i class="fas fa-user-plus"></i>
+
             Add New Agent
+
         </button>
+
 
     </div>
 
@@ -746,18 +991,38 @@
 
     <div class="card">
 
+
         <div class="card-header">
 
+
             <h3>
+
                 <i
                     class="fas fa-user-tie"
                     style="color:var(--gold);"
                 ></i>
 
                 All Sales Agents
+
             </h3>
 
+
+            <div class="search-box">
+
+                <i class="fas fa-search"></i>
+
+                <input
+                    type="search"
+                    id="agentSearch"
+                    placeholder="Search agents..."
+                    oninput="filterAgents()"
+                >
+
+            </div>
+
+
         </div>
+
 
         <div id="agentsList">
 
@@ -773,7 +1038,9 @@
 
         </div>
 
+
     </div>
+
 
 </main>
 ```
@@ -792,25 +1059,30 @@
 ```
 <div class="modal">
 
+
     <h3>
+
         <i
             class="fas fa-user-plus"
             style="color:var(--primary);"
         ></i>
 
         Add New Sales Agent
+
     </h3>
 
 
     <form id="createAgentForm">
 
+
         <!-- SALES CODE -->
 
         <div class="form-group">
 
-            <label>
+            <label for="agentSalesCode">
                 Sales Code
             </label>
+
 
             <input
                 type="text"
@@ -821,6 +1093,7 @@
                 tabindex="-1"
             >
 
+
             <small
                 style="
                     display:block;
@@ -829,9 +1102,13 @@
                     font-size:12px;
                 "
             >
+
                 <i class="fas fa-lock"></i>
+
                 Automatically generated by the system.
+
                 Format: MAG00001
+
             </small>
 
         </div>
@@ -841,7 +1118,7 @@
 
         <div class="form-group">
 
-            <label>
+            <label for="agentFullName">
                 Full Name *
             </label>
 
@@ -859,7 +1136,7 @@
 
         <div class="form-group">
 
-            <label>
+            <label for="agentEmail">
                 Email *
             </label>
 
@@ -877,9 +1154,10 @@
 
         <div class="form-row">
 
+
             <div class="form-group">
 
-                <label>
+                <label for="agentPhone">
                     Phone
                 </label>
 
@@ -894,7 +1172,7 @@
 
             <div class="form-group">
 
-                <label>
+                <label for="agentNationalId">
                     National ID
                 </label>
 
@@ -906,46 +1184,50 @@
 
             </div>
 
-        </div>
-
-
-        <!-- EMPLOYEE NUMBER + BRANCH -->
-
-        <div class="form-row">
-
-            <div class="form-group">
-
-                <label>
-                    Employee Number
-                </label>
-
-                <input
-                    type="text"
-                    id="agentEmployeeNumber"
-                    autocomplete="off"
-                >
-
-            </div>
-
-
-            <div class="form-group">
-
-                <label>
-                    Branch
-                </label>
-
-                <select id="agentBranch">
-
-                    <option value="">
-                        — Select branch —
-                    </option>
-
-                </select>
-
-            </div>
 
         </div>
 
+
+        <!-- BRANCH -->
+
+        <div class="form-group">
+
+            <label for="agentBranch">
+                Branch *
+            </label>
+
+
+            <select
+                id="agentBranch"
+                required
+            >
+
+                <option value="">
+                    — Loading branches... —
+                </option>
+
+            </select>
+
+
+            <small
+                style="
+                    display:block;
+                    margin-top:6px;
+                    color:var(--text-light);
+                    font-size:12px;
+                "
+            >
+
+                <i class="fas fa-building"></i>
+
+                Select a branch already registered in the system.
+
+            </small>
+
+        </div>
+
+
+        <!-- INFORMATION -->
 
         <p
             style="
@@ -957,11 +1239,13 @@
                 line-height:1.5;
             "
         >
+
             <i class="fas fa-info-circle"></i>
 
             A unique Sales Code will be assigned automatically when
             the agent is created. The agent will receive an email
             invitation to set their own password.
+
         </p>
 
 
@@ -979,26 +1263,36 @@
 
         <div class="modal-actions">
 
+
             <button
                 type="button"
                 class="btn btn-gray"
                 onclick="closeCreateAgentModal()"
             >
+
                 Cancel
+
             </button>
+
 
             <button
                 type="submit"
                 class="btn btn-primary"
                 id="createAgentSubmitBtn"
             >
+
                 <i class="fas fa-paper-plane"></i>
+
                 Send Invite
+
             </button>
+
 
         </div>
 
+
     </form>
+
 
 </div>
 ```
@@ -1006,14 +1300,1752 @@
 </div>
 
 <!-- =========================
-     SCRIPTS
+     TOAST
 ========================== -->
 
-<script src="../js/supabase-config.js"></script>
+<div
+    class="toast"
+    id="toast"
+></div>
 
-<script src="../js/admin-auth.js"></script>
+<script>
 
-<script src="../js/admin-agents.js"></script>
+/* =========================================================
+   SUPABASE CONFIGURATION
+========================================================= */
+
+/*
+    IMPORTANT:
+
+    If your index.html already defines these globally, this page
+    will use them automatically.
+
+    Otherwise replace the two values below with the same values
+    used by your Masika Benevolent index.html.
+*/
+
+const SUPABASE_URL =
+    window.SUPABASE_URL ||
+    "YOUR_SUPABASE_URL";
+
+const SUPABASE_ANON_KEY =
+    window.SUPABASE_ANON_KEY ||
+    "YOUR_SUPABASE_ANON_KEY";
+
+
+const supabaseClient =
+    window.supabase.createClient(
+        SUPABASE_URL,
+        SUPABASE_ANON_KEY
+    );
+
+
+
+/* =========================================================
+   GLOBAL DATA
+========================================================= */
+
+let allAgents = [];
+let allBranches = [];
+
+
+
+/* =========================================================
+   INITIALIZATION
+========================================================= */
+
+document.addEventListener(
+    "DOMContentLoaded",
+    async function () {
+
+        try {
+
+            await checkAuthentication();
+
+            await loadAdminProfile();
+
+            await loadBranches();
+
+            await loadAgents();
+
+        } catch (error) {
+
+            console.error(
+                "Initialization error:",
+                error
+            );
+
+        }
+
+    }
+);
+
+
+
+/* =========================================================
+   AUTHENTICATION
+========================================================= */
+
+async function checkAuthentication() {
+
+    const {
+        data,
+        error
+    } = await supabaseClient.auth.getSession();
+
+
+    if (error) {
+
+        console.error(
+            "Session error:",
+            error
+        );
+
+        return;
+
+    }
+
+
+    const session = data?.session;
+
+
+    if (!session) {
+
+        window.location.href =
+            "login.html";
+
+        return;
+
+    }
+
+}
+
+
+
+/* =========================================================
+   ADMIN PROFILE
+========================================================= */
+
+async function loadAdminProfile() {
+
+    try {
+
+        const {
+            data: {
+                user
+            }
+        } = await supabaseClient.auth.getUser();
+
+
+        if (!user) {
+            return;
+        }
+
+
+        const metadata =
+            user.user_metadata || {};
+
+
+        const name =
+            metadata.full_name ||
+            metadata.name ||
+            user.email?.split("@")[0] ||
+            "Admin";
+
+
+        const nameElement =
+            document.getElementById(
+                "adminName"
+            );
+
+
+        const avatarElement =
+            document.getElementById(
+                "adminAvatar"
+            );
+
+
+        if (nameElement) {
+
+            nameElement.textContent =
+                name;
+
+        }
+
+
+        if (avatarElement) {
+
+            avatarElement.textContent =
+                name
+                    .charAt(0)
+                    .toUpperCase();
+
+        }
+
+
+    } catch (error) {
+
+        console.error(
+            "Failed to load admin profile:",
+            error
+        );
+
+    }
+
+}
+
+
+
+/* =========================================================
+   LOAD BRANCHES
+========================================================= */
+
+async function loadBranches() {
+
+    const branchSelect =
+        document.getElementById(
+            "agentBranch"
+        );
+
+
+    if (!branchSelect) {
+        return;
+    }
+
+
+    branchSelect.disabled = true;
+
+
+    branchSelect.innerHTML = `
+        <option value="">
+            — Loading branches... —
+        </option>
+    `;
+
+
+    try {
+
+        /*
+            Load branches already existing in the system.
+
+            No branch names are hard-coded.
+        */
+
+        let query =
+            supabaseClient
+                .from("branches")
+                .select("*")
+                .order("name", {
+                    ascending: true
+                });
+
+
+        const {
+            data,
+            error
+        } = await query;
+
+
+        if (error) {
+
+            throw error;
+
+        }
+
+
+        allBranches =
+            data || [];
+
+
+        branchSelect.innerHTML = `
+            <option value="">
+                — Select branch —
+            </option>
+        `;
+
+
+        if (allBranches.length === 0) {
+
+            branchSelect.innerHTML = `
+                <option value="">
+                    — No branches available —
+                </option>
+            `;
+
+            branchSelect.disabled = true;
+
+            return;
+
+        }
+
+
+        allBranches.forEach(
+            function (branch) {
+
+                const option =
+                    document.createElement(
+                        "option"
+                    );
+
+
+                /*
+                    Support common branch ID naming.
+                */
+
+                option.value =
+                    branch.id ||
+                    branch.branch_id;
+
+
+                /*
+                    Support common branch name naming.
+                */
+
+                option.textContent =
+                    branch.name ||
+                    branch.branch_name ||
+                    branch.branch ||
+                    "Unnamed Branch";
+
+
+                branchSelect.appendChild(
+                    option
+                );
+
+            }
+        );
+
+
+        branchSelect.disabled = false;
+
+
+    } catch (error) {
+
+        console.error(
+            "Failed to load branches:",
+            error
+        );
+
+
+        branchSelect.innerHTML = `
+            <option value="">
+                — Unable to load branches —
+            </option>
+        `;
+
+
+        branchSelect.disabled = true;
+
+
+        showToast(
+            "Unable to load branches: " +
+            error.message,
+            "error"
+        );
+
+    }
+
+}
+
+
+
+/* =========================================================
+   LOAD SALES AGENTS
+========================================================= */
+
+async function loadAgents() {
+
+    const container =
+        document.getElementById(
+            "agentsList"
+        );
+
+
+    container.innerHTML = `
+        <div class="loading-spinner">
+
+            <div class="spinner"></div>
+
+            <p>
+                Loading sales agents...
+            </p>
+
+        </div>
+    `;
+
+
+    try {
+
+        /*
+            Load agents.
+
+            Employee Number is intentionally NOT selected.
+        */
+
+        const {
+            data,
+            error
+        } = await supabaseClient
+            .from("sales_agents")
+            .select(`
+                id,
+                auth_user_id,
+                sales_code,
+                full_name,
+                email,
+                phone,
+                national_id,
+                branch_id,
+                status,
+                created_at
+            `)
+            .order(
+                "created_at",
+                {
+                    ascending: false
+                }
+            );
+
+
+        if (error) {
+
+            throw error;
+
+        }
+
+
+        allAgents =
+            data || [];
+
+
+        updateAgentCount();
+
+        renderAgents(
+            allAgents
+        );
+
+
+    } catch (error) {
+
+        console.error(
+            "Failed to load sales agents:",
+            error
+        );
+
+
+        container.innerHTML = `
+
+            <div class="empty-state">
+
+                <i class="fas fa-exclamation-triangle"></i>
+
+                <h4>
+                    Unable to load sales agents
+                </h4>
+
+                <p>
+                    ${escapeHtml(error.message)}
+                </p>
+
+                <br>
+
+                <button
+                    class="btn btn-primary"
+                    onclick="loadAgents()"
+                >
+                    <i class="fas fa-sync"></i>
+                    Try Again
+                </button>
+
+            </div>
+
+        `;
+
+    }
+
+}
+
+
+
+/* =========================================================
+   GET BRANCH NAME
+========================================================= */
+
+function getBranchName(
+    branchId
+) {
+
+    if (!branchId) {
+
+        return "—";
+
+    }
+
+
+    const branch =
+        allBranches.find(
+            function (item) {
+
+                return String(
+                    item.id ||
+                    item.branch_id
+                ) === String(
+                    branchId
+                );
+
+            }
+        );
+
+
+    if (!branch) {
+
+        return "—";
+
+    }
+
+
+    return (
+        branch.name ||
+        branch.branch_name ||
+        branch.branch ||
+        "Unnamed Branch"
+    );
+
+}
+
+
+
+/* =========================================================
+   RENDER AGENTS
+========================================================= */
+
+function renderAgents(
+    agents
+) {
+
+    const container =
+        document.getElementById(
+            "agentsList"
+        );
+
+
+    if (!agents.length) {
+
+        container.innerHTML = `
+
+            <div class="empty-state">
+
+                <i class="fas fa-user-tie"></i>
+
+                <h4>
+                    No sales agents found
+                </h4>
+
+                <p>
+                    Add your first Masika Benevolent sales agent.
+                </p>
+
+                <br>
+
+                <button
+                    class="btn btn-primary"
+                    onclick="openCreateAgentModal()"
+                >
+                    <i class="fas fa-user-plus"></i>
+                    Add New Agent
+                </button>
+
+            </div>
+
+        `;
+
+        return;
+
+    }
+
+
+    let html = `
+
+        <div class="table-wrapper">
+
+            <table>
+
+                <thead>
+
+                    <tr>
+
+                        <th>
+                            Sales Code
+                        </th>
+
+                        <th>
+                            Agent
+                        </th>
+
+                        <th>
+                            Phone
+                        </th>
+
+                        <th>
+                            Branch
+                        </th>
+
+                        <th>
+                            Status
+                        </th>
+
+                        <th>
+                            Joined
+                        </th>
+
+                        <th>
+                            Actions
+                        </th>
+
+                    </tr>
+
+                </thead>
+
+                <tbody>
+
+    `;
+
+
+    agents.forEach(
+        function (agent) {
+
+            const status =
+                agent.status ||
+                "active";
+
+
+            const statusClass =
+                String(status)
+                    .toLowerCase();
+
+
+            html += `
+
+                <tr>
+
+                    <td>
+
+                        <span class="sales-code">
+
+                            <i class="fas fa-id-badge"></i>
+
+                            ${escapeHtml(
+                                agent.sales_code ||
+                                "—"
+                            )}
+
+                        </span>
+
+                    </td>
+
+
+                    <td>
+
+                        <div class="agent-name">
+
+                            ${escapeHtml(
+                                agent.full_name ||
+                                "—"
+                            )}
+
+                        </div>
+
+                        <div class="agent-email">
+
+                            ${escapeHtml(
+                                agent.email ||
+                                "—"
+                            )}
+
+                        </div>
+
+                    </td>
+
+
+                    <td>
+
+                        ${escapeHtml(
+                            agent.phone ||
+                            "—"
+                        )}
+
+                    </td>
+
+
+                    <td>
+
+                        <i
+                            class="fas fa-building"
+                            style="color:var(--gold);"
+                        ></i>
+
+                        ${escapeHtml(
+                            getBranchName(
+                                agent.branch_id
+                            )
+                        )}
+
+                    </td>
+
+
+                    <td>
+
+                        <span
+                            class="status-badge ${escapeHtml(
+                                statusClass
+                            )}"
+                        >
+
+                            ${escapeHtml(
+                                capitalize(
+                                    status
+                                )
+                            )}
+
+                        </span>
+
+                    </td>
+
+
+                    <td>
+
+                        ${formatDate(
+                            agent.created_at
+                        )}
+
+                    </td>
+
+
+                    <td>
+
+                        <div
+                            style="
+                                display:flex;
+                                gap:6px;
+                                flex-wrap:wrap;
+                            "
+                        >
+
+                            ${
+                                String(status)
+                                    .toLowerCase() === "active"
+
+                                ?
+
+                                `
+                                <button
+                                    class="btn btn-warning btn-sm"
+                                    onclick="changeAgentStatus(
+                                        '${escapeJs(agent.id)}',
+                                        'suspended'
+                                    )"
+                                    title="Suspend agent"
+                                >
+                                    <i class="fas fa-pause"></i>
+                                </button>
+                                `
+
+                                :
+
+                                `
+                                <button
+                                    class="btn btn-success btn-sm"
+                                    onclick="changeAgentStatus(
+                                        '${escapeJs(agent.id)}',
+                                        'active'
+                                    )"
+                                    title="Activate agent"
+                                >
+                                    <i class="fas fa-play"></i>
+                                </button>
+                                `
+                            }
+
+
+                            <button
+                                class="btn btn-danger btn-sm"
+                                onclick="changeAgentStatus(
+                                    '${escapeJs(agent.id)}',
+                                    'inactive'
+                                )"
+                                title="Deactivate agent"
+                            >
+                                <i class="fas fa-user-slash"></i>
+                            </button>
+
+                        </div>
+
+                    </td>
+
+                </tr>
+
+            `;
+
+        }
+    );
+
+
+    html += `
+
+                </tbody>
+
+            </table>
+
+        </div>
+
+    `;
+
+
+    container.innerHTML =
+        html;
+
+}
+
+
+
+/* =========================================================
+   FILTER AGENTS
+========================================================= */
+
+function filterAgents() {
+
+    const search =
+        document
+            .getElementById(
+                "agentSearch"
+            )
+            .value
+            .trim()
+            .toLowerCase();
+
+
+    if (!search) {
+
+        renderAgents(
+            allAgents
+        );
+
+        return;
+
+    }
+
+
+    const filtered =
+        allAgents.filter(
+            function (agent) {
+
+                const branchName =
+                    getBranchName(
+                        agent.branch_id
+                    );
+
+
+                const searchable = [
+
+                    agent.full_name,
+
+                    agent.email,
+
+                    agent.phone,
+
+                    agent.sales_code,
+
+                    branchName,
+
+                    agent.status
+
+                ]
+                .filter(Boolean)
+                .join(" ")
+                .toLowerCase();
+
+
+                return searchable.includes(
+                    search
+                );
+
+            }
+        );
+
+
+    renderAgents(
+        filtered
+    );
+
+}
+
+
+
+/* =========================================================
+   AGENT COUNT
+========================================================= */
+
+function updateAgentCount() {
+
+    const badge =
+        document.getElementById(
+            "agentCountBadge"
+        );
+
+
+    if (badge) {
+
+        badge.textContent =
+            allAgents.length;
+
+    }
+
+}
+
+
+
+/* =========================================================
+   OPEN CREATE MODAL
+========================================================= */
+
+async function openCreateAgentModal() {
+
+    const modal =
+        document.getElementById(
+            "createAgentModal"
+        );
+
+
+    const form =
+        document.getElementById(
+            "createAgentForm"
+        );
+
+
+    form.reset();
+
+
+    hideFormMessages();
+
+
+    document.getElementById(
+        "agentSalesCode"
+    ).value =
+        "Will be generated automatically";
+
+
+    modal.classList.add(
+        "open"
+    );
+
+
+    /*
+        Refresh branches so the user always sees
+        the latest branches in the system.
+    */
+
+    await loadBranches();
+
+}
+
+
+
+/* =========================================================
+   CLOSE CREATE MODAL
+========================================================= */
+
+function closeCreateAgentModal() {
+
+    const modal =
+        document.getElementById(
+            "createAgentModal"
+        );
+
+
+    modal.classList.remove(
+        "open"
+    );
+
+
+    hideFormMessages();
+
+}
+
+
+
+/* =========================================================
+   CREATE AGENT
+========================================================= */
+
+document
+    .getElementById(
+        "createAgentForm"
+    )
+    .addEventListener(
+        "submit",
+        async function (event) {
+
+            event.preventDefault();
+
+
+            const submitButton =
+                document.getElementById(
+                    "createAgentSubmitBtn"
+                );
+
+
+            hideFormMessages();
+
+
+            const fullName =
+                document
+                    .getElementById(
+                        "agentFullName"
+                    )
+                    .value
+                    .trim();
+
+
+            const email =
+                document
+                    .getElementById(
+                        "agentEmail"
+                    )
+                    .value
+                    .trim();
+
+
+            const phone =
+                document
+                    .getElementById(
+                        "agentPhone"
+                    )
+                    .value
+                    .trim();
+
+
+            const nationalId =
+                document
+                    .getElementById(
+                        "agentNationalId"
+                    )
+                    .value
+                    .trim();
+
+
+            const branchId =
+                document
+                    .getElementById(
+                        "agentBranch"
+                    )
+                    .value;
+
+
+            if (!fullName) {
+
+                showFormError(
+                    "Please enter the agent's full name."
+                );
+
+                return;
+
+            }
+
+
+            if (!email) {
+
+                showFormError(
+                    "Please enter the agent's email address."
+                );
+
+                return;
+
+            }
+
+
+            if (!branchId) {
+
+                showFormError(
+                    "Please select a branch."
+                );
+
+                return;
+
+            }
+
+
+            submitButton.disabled =
+                true;
+
+
+            submitButton.innerHTML = `
+
+                <i class="fas fa-spinner fa-spin"></i>
+
+                Creating Agent...
+
+            `;
+
+
+            try {
+
+                /*
+                    IMPORTANT:
+
+                    Employee Number is deliberately NOT included.
+                */
+
+
+                const agentData = {
+
+                    full_name:
+                        fullName,
+
+                    email:
+                        email,
+
+                    phone:
+                        phone || null,
+
+                    national_id:
+                        nationalId || null,
+
+                    branch_id:
+                        branchId
+
+                };
+
+
+                /*
+                    Try the backend/API RPC first.
+
+                    Your existing system can replace this
+                    function with the backend endpoint if required.
+                */
+
+                const {
+                    data,
+                    error
+                } = await supabaseClient
+                    .from("sales_agents")
+                    .insert(
+                        agentData
+                    )
+                    .select()
+                    .single();
+
+
+                if (error) {
+
+                    throw error;
+
+                }
+
+
+                /*
+                    The database should generate the Sales Code.
+
+                    Example:
+
+                    MAG00001
+                    MAG00002
+                    MAG00003
+                */
+
+
+                const generatedCode =
+                    data?.sales_code ||
+                    "Generated automatically";
+
+
+                document.getElementById(
+                    "agentSalesCode"
+                ).value =
+                    generatedCode;
+
+
+                showFormSuccess(
+                    "Sales agent created successfully. Sales Code: " +
+                    generatedCode
+                );
+
+
+                showToast(
+                    "Sales agent created successfully.",
+                    "success"
+                );
+
+
+                /*
+                    Refresh agents.
+                */
+
+                await loadAgents();
+
+
+                /*
+                    Reset personal form fields after
+                    successful creation but keep the modal
+                    visible briefly so the generated code
+                    can be seen.
+                */
+
+                document.getElementById(
+                    "agentFullName"
+                ).value = "";
+
+
+                document.getElementById(
+                    "agentEmail"
+                ).value = "";
+
+
+                document.getElementById(
+                    "agentPhone"
+                ).value = "";
+
+
+                document.getElementById(
+                    "agentNationalId"
+                ).value = "";
+
+
+                document.getElementById(
+                    "agentBranch"
+                ).value = "";
+
+
+                setTimeout(
+                    function () {
+
+                        closeCreateAgentModal();
+
+                    },
+                    2200
+                );
+
+
+            } catch (error) {
+
+                console.error(
+                    "Failed to create sales agent:",
+                    error
+                );
+
+
+                showFormError(
+                    getFriendlyError(
+                        error
+                    )
+                );
+
+
+                showToast(
+                    getFriendlyError(
+                        error
+                    ),
+                    "error"
+                );
+
+            } finally {
+
+                submitButton.disabled =
+                    false;
+
+
+                submitButton.innerHTML = `
+
+                    <i class="fas fa-paper-plane"></i>
+
+                    Send Invite
+
+                `;
+
+            }
+
+        }
+    );
+
+
+
+/* =========================================================
+   CHANGE AGENT STATUS
+========================================================= */
+
+async function changeAgentStatus(
+    agentId,
+    newStatus
+) {
+
+    const confirmation =
+        confirm(
+            "Are you sure you want to change this agent's status to " +
+            newStatus +
+            "?"
+        );
+
+
+    if (!confirmation) {
+        return;
+    }
+
+
+    try {
+
+        const {
+            error
+        } = await supabaseClient
+            .from("sales_agents")
+            .update({
+                status: newStatus
+            })
+            .eq(
+                "id",
+                agentId
+            );
+
+
+        if (error) {
+
+            throw error;
+
+        }
+
+
+        showToast(
+            "Agent status updated successfully.",
+            "success"
+        );
+
+
+        await loadAgents();
+
+
+    } catch (error) {
+
+        console.error(
+            "Failed to update status:",
+            error
+        );
+
+
+        showToast(
+            getFriendlyError(
+                error
+            ),
+            "error"
+        );
+
+    }
+
+}
+
+
+
+/* =========================================================
+   LOGOUT
+========================================================= */
+
+async function handleLogout() {
+
+    try {
+
+        await supabaseClient.auth.signOut();
+
+        window.location.href =
+            "login.html";
+
+    } catch (error) {
+
+        console.error(
+            "Logout error:",
+            error
+        );
+
+        window.location.href =
+            "login.html";
+
+    }
+
+}
+
+
+
+/* =========================================================
+   SIDEBAR
+========================================================= */
+
+function toggleSidebar() {
+
+    const sidebar =
+        document.getElementById(
+            "sidebar"
+        );
+
+
+    sidebar.classList.toggle(
+        "open"
+    );
+
+}
+
+
+
+/* =========================================================
+   FORM MESSAGES
+========================================================= */
+
+function hideFormMessages() {
+
+    const error =
+        document.getElementById(
+            "createAgentError"
+        );
+
+
+    const success =
+        document.getElementById(
+            "createAgentSuccess"
+        );
+
+
+    error.style.display =
+        "none";
+
+
+    success.style.display =
+        "none";
+
+
+    error.textContent =
+        "";
+
+
+    success.textContent =
+        "";
+
+}
+
+
+
+function showFormError(
+    message
+) {
+
+    const element =
+        document.getElementById(
+            "createAgentError"
+        );
+
+
+    element.textContent =
+        message;
+
+
+    element.style.display =
+        "block";
+
+}
+
+
+
+function showFormSuccess(
+    message
+) {
+
+    const element =
+        document.getElementById(
+            "createAgentSuccess"
+        );
+
+
+    element.textContent =
+        message;
+
+
+    element.style.display =
+        "block";
+
+}
+
+
+
+/* =========================================================
+   TOAST
+========================================================= */
+
+function showToast(
+    message,
+    type = "success"
+) {
+
+    const toast =
+        document.getElementById(
+            "toast"
+        );
+
+
+    toast.textContent =
+        message;
+
+
+    toast.className =
+        "toast show " +
+        type;
+
+
+    setTimeout(
+        function () {
+
+            toast.className =
+                "toast";
+
+        },
+        4000
+    );
+
+}
+
+
+
+/* =========================================================
+   DATE FORMAT
+========================================================= */
+
+function formatDate(
+    value
+) {
+
+    if (!value) {
+        return "—";
+    }
+
+
+    try {
+
+        return new Intl.DateTimeFormat(
+            "en-KE",
+            {
+                day: "2-digit",
+                month: "short",
+                year: "numeric"
+            }
+        ).format(
+            new Date(value)
+        );
+
+    } catch {
+
+        return "—";
+
+    }
+
+}
+
+
+
+/* =========================================================
+   CAPITALIZE
+========================================================= */
+
+function capitalize(
+    value
+) {
+
+    if (!value) {
+        return "";
+    }
+
+
+    return String(value)
+        .charAt(0)
+        .toUpperCase() +
+        String(value)
+            .slice(1)
+            .toLowerCase();
+
+}
+
+
+
+/* =========================================================
+   HTML ESCAPE
+========================================================= */
+
+function escapeHtml(
+    value
+) {
+
+    if (value === null ||
+        value === undefined) {
+
+        return "";
+
+    }
+
+
+    return String(value)
+        .replace(
+            /&/g,
+            "&amp;"
+        )
+        .replace(
+            /</g,
+            "&lt;"
+        )
+        .replace(
+            />/g,
+            "&gt;"
+        )
+        .replace(
+            /"/g,
+            "&quot;"
+        )
+        .replace(
+            /'/g,
+            "&#039;"
+        );
+
+}
+
+
+
+/* =========================================================
+   JAVASCRIPT ESCAPE
+========================================================= */
+
+function escapeJs(
+    value
+) {
+
+    return String(
+        value || ""
+    )
+    .replace(
+        /\\/g,
+        "\\\\"
+    )
+    .replace(
+        /'/g,
+        "\\'"
+    )
+    .replace(
+        /\n/g,
+        "\\n"
+    )
+    .replace(
+        /\r/g,
+        "\\r"
+    );
+
+}
+
+
+
+/* =========================================================
+   FRIENDLY ERROR
+========================================================= */
+
+function getFriendlyError(
+    error
+) {
+
+    const message =
+        error?.message ||
+        String(error);
+
+
+    if (
+        message.includes(
+            "duplicate"
+        ) ||
+        message.includes(
+            "unique"
+        )
+    ) {
+
+        return "An agent with these details already exists.";
+
+    }
+
+
+    if (
+        message.includes(
+            "row-level security"
+        ) ||
+        message.includes(
+            "RLS"
+        )
+    ) {
+
+        return "You do not have permission to create or update sales agents. Please check the Supabase security policies.";
+
+    }
+
+
+    if (
+        message.includes(
+            "foreign key"
+        )
+    ) {
+
+        return "The selected branch is not valid. Please refresh the branch list and select an existing branch.";
+
+    }
+
+
+    return message;
+
+}
+
+
+
+/* =========================================================
+   CLOSE MODAL WHEN CLICKING OUTSIDE
+========================================================= */
+
+document
+    .getElementById(
+        "createAgentModal"
+    )
+    .addEventListener(
+        "click",
+        function (event) {
+
+            if (
+                event.target === this
+            ) {
+
+                closeCreateAgentModal();
+
+            }
+
+        }
+    );
+
+
+
+/* =========================================================
+   ESC KEY
+========================================================= */
+
+document.addEventListener(
+    "keydown",
+    function (event) {
+
+        if (
+            event.key === "Escape"
+        ) {
+
+            closeCreateAgentModal();
+
+        }
+
+    }
+);
+
+</script>
 
 </body>
+
 </html>
