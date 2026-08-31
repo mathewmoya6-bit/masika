@@ -1,0 +1,215 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Members | Masika Benevolent</title>
+    <link rel="icon" type="image/png" href="../assets/favicon-32x32.png">
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        * { margin:0; padding:0; box-sizing:border-box; }
+        :root {
+            --primary:#0b5d3b; --primary-dark:#06452c; --gold:#d4a843;
+            --danger:#dc3545; --success:#198754; --info:#0dcaf0;
+            --text:#1f2933; --text-light:#6b7280;
+            --gray-100:#f3f4f6; --gray-200:#e5e7eb;
+            --shadow:0 2px 12px rgba(0,0,0,0.08);
+            --radius:12px; --transition:all 0.3s ease;
+        }
+        body { font-family:'Segoe UI',Arial,sans-serif; background:#f0f4f2; color:var(--text); min-height:100vh; }
+        .admin-layout { display:flex; min-height:100vh; }
+        .sidebar { width:260px; background:var(--primary); color:white; padding:24px 0; position:fixed; height:100vh; overflow-y:auto; z-index:100; }
+        .sidebar-brand { padding:0 24px 24px; border-bottom:1px solid rgba(255,255,255,0.1); margin-bottom:20px; }
+        .sidebar-brand .logo { display:flex; align-items:center; gap:12px; text-decoration:none; color:white; }
+        .sidebar-brand .logo-icon { width:40px; height:40px; background:white; border-radius:50%; display:flex; align-items:center; justify-content:center; font-weight:900; color:var(--primary); font-size:18px; }
+        .sidebar-brand .logo-text { font-weight:700; font-size:18px; }
+        .sidebar-brand .logo-sub { font-size:11px; opacity:0.7; display:block; }
+        .sidebar-nav { list-style:none; padding:0 12px; }
+        .sidebar-nav li { margin-bottom:2px; }
+        .sidebar-nav a { display:flex; align-items:center; gap:12px; padding:12px 16px; border-radius:8px; color:rgba(255,255,255,0.7); text-decoration:none; font-size:14px; font-weight:500; }
+        .sidebar-nav a:hover { background:rgba(255,255,255,0.1); color:white; }
+        .sidebar-nav a.active { background:rgba(255,255,255,0.15); color:white; }
+        .sidebar-nav a i { width:20px; text-align:center; }
+        .sidebar-nav .badge { margin-left:auto; background:var(--gold); color:white; padding:2px 10px; border-radius:12px; font-size:11px; font-weight:600; }
+        .sidebar-footer { padding:20px 24px; border-top:1px solid rgba(255,255,255,0.1); margin-top:20px; }
+        .sidebar-footer .user-info { display:flex; align-items:center; gap:12px; }
+        .sidebar-footer .user-avatar { width:36px; height:36px; border-radius:50%; background:var(--gold); display:flex; align-items:center; justify-content:center; font-weight:700; font-size:14px; }
+        .sidebar-footer .user-name { font-weight:600; font-size:14px; }
+        .sidebar-footer .user-role { font-size:12px; opacity:0.6; }
+        .sidebar-footer .logout-btn { display:block; width:100%; margin-top:12px; padding:10px; border:1px solid rgba(255,255,255,0.2); border-radius:8px; background:transparent; color:rgba(255,255,255,0.7); cursor:pointer; font-family:inherit; font-size:14px; font-weight:500; }
+        .sidebar-footer .logout-btn:hover { background:rgba(255,255,255,0.1); color:white; }
+        .main-content { margin-left:260px; padding:24px 32px; flex:1; width:calc(100% - 260px); }
+        .topbar { display:flex; justify-content:space-between; align-items:center; margin-bottom:24px; flex-wrap:wrap; gap:12px; }
+        .topbar h1 { font-size:26px; font-weight:800; }
+        .topbar h1 small { font-size:14px; font-weight:400; color:var(--text-light); display:block; }
+        .card { background:white; border-radius:var(--radius); padding:24px; box-shadow:var(--shadow); margin-bottom:24px; }
+        .card-header { display:flex; justify-content:space-between; align-items:center; margin-bottom:16px; padding-bottom:12px; border-bottom:1px solid var(--gray-200); flex-wrap:wrap; gap:10px; }
+        .card-header h3 { font-size:18px; font-weight:700; }
+        .filters { display:flex; gap:10px; flex-wrap:wrap; margin-bottom:16px; }
+        .filters input, .filters select {
+            padding:9px 12px; border:1px solid var(--gray-200); border-radius:8px; font-family:inherit; font-size:14px;
+        }
+        .filters input[type="text"] { flex:1; min-width:200px; }
+        .table-wrapper { overflow-x:auto; }
+        table { width:100%; border-collapse:collapse; font-size:14px; }
+        table thead { background:var(--gray-100); }
+        table thead th { padding:10px 14px; text-align:left; font-weight:600; white-space:nowrap; }
+        table tbody td { padding:10px 14px; border-bottom:1px solid var(--gray-200); white-space:nowrap; }
+        table tbody tr:hover { background:var(--gray-100); cursor:pointer; }
+        .status-badge { display:inline-block; padding:2px 12px; border-radius:20px; font-size:12px; font-weight:600; }
+        .status-badge.active { background:#d4edda; color:#155724; }
+        .status-badge.inactive { background:#f8d7da; color:#721c24; }
+        .status-badge.pending { background:#fff3cd; color:#856404; }
+        .status-badge.rejected { background:#f8d7da; color:#721c24; }
+        .btn-sm { padding:6px 14px; font-size:13px; border:none; border-radius:6px; cursor:pointer; font-family:inherit; font-weight:600; transition:var(--transition); }
+        .btn-sm:hover { transform:translateY(-1px); }
+        .btn-sm.primary { background:var(--primary); color:white; }
+        .btn-sm.primary:hover { background:var(--primary-dark); }
+        .btn-sm.gray { background:var(--gray-200); color:var(--text); }
+        .loading-spinner { text-align:center; padding:40px; }
+        .loading-spinner .spinner { display:inline-block; width:40px; height:40px; border:4px solid var(--gray-200); border-top-color:var(--primary); border-radius:50%; animation:spin 0.8s linear infinite; }
+        @keyframes spin { to { transform:rotate(360deg); } }
+        .loading-spinner p { color:var(--text-light); margin-top:12px; }
+        .pagination { display:flex; justify-content:space-between; align-items:center; margin-top:16px; font-size:14px; color:var(--text-light); }
+        .pagination .btn-sm { margin-left:8px; }
+
+        /* Modal (read-only member detail) */
+        .modal-overlay { display:none; position:fixed; inset:0; background:rgba(0,0,0,0.5); z-index:200; align-items:center; justify-content:center; padding:20px; }
+        .modal-overlay.open { display:flex; }
+        .modal { background:white; border-radius:var(--radius); padding:28px; width:100%; max-width:640px; max-height:90vh; overflow-y:auto; }
+        .modal h3 { margin-bottom:16px; font-size:20px; display:flex; align-items:center; gap:10px; justify-content:space-between; }
+        .modal fieldset { border:1px solid var(--gray-200); border-radius:8px; padding:14px 16px; margin-bottom:16px; }
+        .modal legend { font-size:12px; font-weight:700; color:var(--primary); padding:0 6px; text-transform:uppercase; letter-spacing:0.03em; }
+        .detail-grid { display:grid; grid-template-columns:1fr 1fr; gap:10px 20px; font-size:14px; }
+        .detail-grid .label { color:var(--text-light); font-size:12px; }
+        .detail-grid .value { font-weight:600; }
+        .status-row { display:flex; align-items:center; gap:10px; margin-bottom:16px; }
+        .status-row select { padding:8px 12px; border:1px solid var(--gray-200); border-radius:8px; font-family:inherit; }
+        .modal-actions { display:flex; gap:10px; justify-content:flex-end; margin-top:16px; }
+        .form-error { color:var(--danger); font-size:13px; margin-top:10px; display:none; }
+        .form-success { color:var(--success); font-size:13px; margin-top:10px; display:none; }
+
+        @media (max-width:768px) {
+            .sidebar { transform:translateX(-100%); }
+            .sidebar.open { transform:translateX(0); }
+            .main-content { margin-left:0; width:100%; padding:16px; }
+            .detail-grid { grid-template-columns:1fr; }
+        }
+    </style>
+</head>
+<body>
+    <div class="admin-layout">
+        <aside class="sidebar" id="sidebar">
+            <div class="sidebar-brand">
+                <a href="admin-dashboard.html" class="logo">
+                    <div class="logo-icon">MB</div>
+                    <div><span class="logo-text">Masika</span><span class="logo-sub">Admin Panel</span></div>
+                </a>
+            </div>
+            <ul class="sidebar-nav">
+                <li><a href="admin-dashboard.html"><i class="fas fa-chart-pie"></i> Dashboard</a></li>
+                <li><a href="admin-agents.html"><i class="fas fa-user-tie"></i> Agents <span class="badge" id="agentCountBadge">0</span></a></li>
+                <li><a href="admin-members.html" class="active"><i class="fas fa-users"></i> Members <span class="badge" id="memberCountBadge">0</span></a></li>
+                <li><a href="admin-payments.html"><i class="fas fa-credit-card"></i> Payments</a></li>
+                <li><a href="admin-pricing.html"><i class="fas fa-tags"></i> Pricing</a></li>
+                <li><a href="admin-reports.html"><i class="fas fa-file-alt"></i> Reports</a></li>
+                <li><a href="admin-settings.html"><i class="fas fa-cog"></i> Settings</a></li>
+            </ul>
+            <div class="sidebar-footer">
+                <div class="user-info">
+                    <div class="user-avatar" id="adminAvatar">A</div>
+                    <div><div class="user-name" id="adminName">Admin</div><div class="user-role" id="adminRole">Administrator</div></div>
+                </div>
+                <button class="logout-btn" onclick="handleLogout()"><i class="fas fa-sign-out-alt"></i> Logout</button>
+            </div>
+        </aside>
+
+        <main class="main-content">
+            <div class="topbar">
+                <div><h1>Members <small>Search and manage member records</small></h1></div>
+            </div>
+
+            <div class="card">
+                <div class="card-header">
+                    <h3><i class="fas fa-users" style="color:var(--gold);"></i> All Members</h3>
+                </div>
+
+                <div class="filters">
+                    <input type="text" id="memberSearch" placeholder="Search by name, membership #, phone, or ID number...">
+                    <select id="statusFilter">
+                        <option value="">All statuses</option>
+                        <option value="ACTIVE">Active</option>
+                        <option value="DORMANT">Dormant</option>
+                        <option value="SUSPENDED">Suspended</option>
+                        <option value="CANCELLED">Cancelled</option>
+                        <option value="PENDING">Pending</option>
+                    </select>
+                    <button class="btn-sm primary" onclick="applyFilters()"><i class="fas fa-search"></i> Search</button>
+                </div>
+
+                <div id="membersList">
+                    <div class="loading-spinner"><div class="spinner"></div><p>Loading...</p></div>
+                </div>
+
+                <div class="pagination" id="membersPagination" style="display:none;">
+                    <span id="paginationInfo"></span>
+                    <div>
+                        <button class="btn-sm gray" id="prevPageBtn" onclick="changePage(-1)"><i class="fas fa-chevron-left"></i> Prev</button>
+                        <button class="btn-sm gray" id="nextPageBtn" onclick="changePage(1)">Next <i class="fas fa-chevron-right"></i></button>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- Member Detail Modal -->
+    <div class="modal-overlay" id="memberModal">
+        <div class="modal">
+            <h3>
+                <span><i class="fas fa-id-card" style="color:var(--primary);"></i> <span id="memberModalName">Member</span></span>
+                <button class="btn-sm gray" onclick="closeMemberModal()"><i class="fas fa-times"></i></button>
+            </h3>
+
+            <div class="status-row">
+                <label style="font-size:13px;font-weight:600;color:var(--text-light);">Status:</label>
+                <select id="memberStatusSelect">
+                    <option value="ACTIVE">Active</option>
+                    <option value="DORMANT">Dormant</option>
+                    <option value="SUSPENDED">Suspended</option>
+                    <option value="CANCELLED">Cancelled</option>
+                    <option value="PENDING">Pending</option>
+                </select>
+                <button class="btn-sm primary" onclick="saveMemberStatus()"><i class="fas fa-check"></i> Update</button>
+            </div>
+
+            <fieldset>
+                <legend>Personal Info</legend>
+                <div class="detail-grid" id="memberPersonalInfo"></div>
+            </fieldset>
+
+            <fieldset>
+                <legend>Contact &amp; Location</legend>
+                <div class="detail-grid" id="memberContactInfo"></div>
+            </fieldset>
+
+            <fieldset>
+                <legend>Membership</legend>
+                <div class="detail-grid" id="memberMembershipInfo"></div>
+            </fieldset>
+
+            <fieldset>
+                <legend>Next of Kin</legend>
+                <div class="detail-grid" id="memberKinInfo"></div>
+            </fieldset>
+
+            <div class="form-error" id="memberModalError"></div>
+            <div class="form-success" id="memberModalSuccess"></div>
+        </div>
+    </div>
+
+    <script src="../js/supabase-config.js"></script>
+    <script src="../js/admin-auth.js"></script>
+    <script src="../js/admin-members.js"></script>
+</body>
+</html>
