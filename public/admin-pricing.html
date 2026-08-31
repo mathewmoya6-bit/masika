@@ -1,223 +1,272 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Pricing | Masika Benevolent</title>
-    <link rel="icon" type="image/png" href="../assets/favicon-32x32.png">
-    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <style>
-        * { margin:0; padding:0; box-sizing:border-box; }
-        :root {
-            --primary:#0b5d3b; --primary-dark:#06452c; --gold:#d4a843;
-            --danger:#dc3545; --success:#198754; --info:#0dcaf0;
-            --text:#1f2933; --text-light:#6b7280;
-            --gray-100:#f3f4f6; --gray-200:#e5e7eb;
-            --shadow:0 2px 12px rgba(0,0,0,0.08);
-            --radius:12px; --transition:all 0.3s ease;
-        }
-        body { font-family:'Segoe UI',Arial,sans-serif; background:#f0f4f2; color:var(--text); min-height:100vh; }
-        .admin-layout { display:flex; min-height:100vh; }
-        .sidebar { width:260px; background:var(--primary); color:white; padding:24px 0; position:fixed; height:100vh; overflow-y:auto; z-index:100; }
-        .sidebar-brand { padding:0 24px 24px; border-bottom:1px solid rgba(255,255,255,0.1); margin-bottom:20px; }
-        .sidebar-brand .logo { display:flex; align-items:center; gap:12px; text-decoration:none; color:white; }
-        .sidebar-brand .logo-icon { width:40px; height:40px; background:white; border-radius:50%; display:flex; align-items:center; justify-content:center; font-weight:900; color:var(--primary); font-size:18px; }
-        .sidebar-brand .logo-text { font-weight:700; font-size:18px; }
-        .sidebar-brand .logo-sub { font-size:11px; opacity:0.7; display:block; }
-        .sidebar-nav { list-style:none; padding:0 12px; }
-        .sidebar-nav li { margin-bottom:2px; }
-        .sidebar-nav a { display:flex; align-items:center; gap:12px; padding:12px 16px; border-radius:8px; color:rgba(255,255,255,0.7); text-decoration:none; font-size:14px; font-weight:500; }
-        .sidebar-nav a:hover { background:rgba(255,255,255,0.1); color:white; }
-        .sidebar-nav a.active { background:rgba(255,255,255,0.15); color:white; }
-        .sidebar-nav a i { width:20px; text-align:center; }
-        .sidebar-nav .badge { margin-left:auto; background:var(--gold); color:white; padding:2px 10px; border-radius:12px; font-size:11px; font-weight:600; }
-        .sidebar-footer { padding:20px 24px; border-top:1px solid rgba(255,255,255,0.1); margin-top:20px; }
-        .sidebar-footer .user-info { display:flex; align-items:center; gap:12px; }
-        .sidebar-footer .user-avatar { width:36px; height:36px; border-radius:50%; background:var(--gold); display:flex; align-items:center; justify-content:center; font-weight:700; font-size:14px; }
-        .sidebar-footer .user-name { font-weight:600; font-size:14px; }
-        .sidebar-footer .user-role { font-size:12px; opacity:0.6; }
-        .sidebar-footer .logout-btn { display:block; width:100%; margin-top:12px; padding:10px; border:1px solid rgba(255,255,255,0.2); border-radius:8px; background:transparent; color:rgba(255,255,255,0.7); cursor:pointer; font-family:inherit; font-size:14px; font-weight:500; }
-        .sidebar-footer .logout-btn:hover { background:rgba(255,255,255,0.1); color:white; }
-        .main-content { margin-left:260px; padding:24px 32px; flex:1; width:calc(100% - 260px); }
-        .topbar { display:flex; justify-content:space-between; align-items:center; margin-bottom:24px; flex-wrap:wrap; gap:12px; }
-        .topbar h1 { font-size:26px; font-weight:800; }
-        .topbar h1 small { font-size:14px; font-weight:400; color:var(--text-light); display:block; }
-        .card { background:white; border-radius:var(--radius); padding:24px; box-shadow:var(--shadow); margin-bottom:24px; }
-        .card-header { display:flex; justify-content:space-between; align-items:center; margin-bottom:16px; padding-bottom:12px; border-bottom:1px solid var(--gray-200); flex-wrap:wrap; gap:10px; }
-        .card-header h3 { font-size:18px; font-weight:700; }
-        .table-wrapper { overflow-x:auto; }
-        table { width:100%; border-collapse:collapse; font-size:14px; }
-        table thead { background:var(--gray-100); }
-        table thead th { padding:10px 14px; text-align:left; font-weight:600; white-space:nowrap; }
-        table tbody td { padding:10px 14px; border-bottom:1px solid var(--gray-200); white-space:nowrap; }
-        table tbody tr:hover { background:var(--gray-100); }
-        .status-badge { display:inline-block; padding:2px 12px; border-radius:20px; font-size:12px; font-weight:600; }
-        .status-badge.active { background:#d4edda; color:#155724; }
-        .status-badge.inactive { background:#f8d7da; color:#721c24; }
-        .btn-sm { padding:6px 14px; font-size:13px; border:none; border-radius:6px; cursor:pointer; font-family:inherit; font-weight:600; transition:var(--transition); }
-        .btn-sm:hover { transform:translateY(-1px); }
-        .btn-sm.primary { background:var(--primary); color:white; }
-        .btn-sm.primary:hover { background:var(--primary-dark); }
-        .btn-sm.gray { background:var(--gray-200); color:var(--text); }
-        .btn-sm.danger { background:var(--danger); color:white; }
-        .loading-spinner { text-align:center; padding:40px; }
-        .loading-spinner .spinner { display:inline-block; width:40px; height:40px; border:4px solid var(--gray-200); border-top-color:var(--primary); border-radius:50%; animation:spin 0.8s linear infinite; }
-        @keyframes spin { to { transform:rotate(360deg); } }
-        .loading-spinner p { color:var(--text-light); margin-top:12px; }
+// Masika Benevolent — admin-pricing.html logic
+//
+// Expected Supabase surface (adjust names to match your schema if they differ):
+//   table  membership_plans
+//     id, plan_code, name, description,
+//     principal_monthly_premium, parent_monthly_premium,
+//     principal_registration_fee, dependant_registration_fee,
+//     principal_benefit, dependant_benefit,
+//     max_dependants, minimum_parents, maximum_parents,
+//     principal_entry_max_age, principal_exit_age, exit_age,
+//     waiting_period_months, grace_period_days, renewal_period_months,
+//     monthly_payment_deadline_days, activation_required_months,
+//     is_active, created_at
 
-        /* Modal */
-        .modal-overlay { display:none; position:fixed; inset:0; background:rgba(0,0,0,0.5); z-index:200; align-items:center; justify-content:center; padding:20px; }
-        .modal-overlay.open { display:flex; }
-        .modal { background:white; border-radius:var(--radius); padding:28px; width:100%; max-width:680px; max-height:90vh; overflow-y:auto; }
-        .modal h3 { margin-bottom:20px; font-size:20px; }
-        .modal fieldset { border:1px solid var(--gray-200); border-radius:8px; padding:14px 16px 4px; margin-bottom:16px; }
-        .modal legend { font-size:12px; font-weight:700; color:var(--primary); padding:0 6px; text-transform:uppercase; letter-spacing:0.03em; }
-        .form-group { margin-bottom:14px; }
-        .form-group label { display:block; font-size:13px; font-weight:600; margin-bottom:6px; color:var(--text-light); }
-        .form-group input, .form-group select {
-            width:100%; padding:9px 12px; border:1px solid var(--gray-200); border-radius:8px; font-family:inherit; font-size:14px;
-        }
-        .form-row { display:grid; grid-template-columns:1fr 1fr; gap:12px; }
-        .form-row-3 { display:grid; grid-template-columns:1fr 1fr 1fr; gap:12px; }
-        .modal-actions { display:flex; gap:10px; justify-content:flex-end; margin-top:20px; }
-        .form-error { color:var(--danger); font-size:13px; margin-top:10px; display:none; }
-        .form-success { color:var(--success); font-size:13px; margin-top:10px; display:none; }
-        .checkbox-row { display:flex; align-items:center; gap:8px; margin-bottom:16px; }
-        .checkbox-row input { width:auto; }
+let allPlans = [];
 
-        @media (max-width:768px) {
-            .sidebar { transform:translateX(-100%); }
-            .sidebar.open { transform:translateX(0); }
-            .main-content { margin-left:0; width:100%; padding:16px; }
-            .form-row, .form-row-3 { grid-template-columns:1fr; }
-        }
-    </style>
-</head>
-<body>
-    <div class="admin-layout">
-        <aside class="sidebar" id="sidebar">
-            <div class="sidebar-brand">
-                <a href="admin-dashboard.html" class="logo">
-                    <div class="logo-icon">MB</div>
-                    <div><span class="logo-text">Masika</span><span class="logo-sub">Admin Panel</span></div>
-                </a>
-            </div>
-            <ul class="sidebar-nav">
-                <li><a href="admin-dashboard.html"><i class="fas fa-chart-pie"></i> Dashboard</a></li>
-                <li><a href="admin-agents.html"><i class="fas fa-user-tie"></i> Agents <span class="badge" id="agentCountBadge">0</span></a></li>
-                <li><a href="admin-members.html"><i class="fas fa-users"></i> Members</a></li>
-                <li><a href="admin-payments.html"><i class="fas fa-credit-card"></i> Payments</a></li>
-                <li><a href="admin-pricing.html" class="active"><i class="fas fa-tags"></i> Pricing</a></li>
-                <li><a href="admin-reports.html"><i class="fas fa-file-alt"></i> Reports</a></li>
-                <li><a href="admin-settings.html"><i class="fas fa-cog"></i> Settings</a></li>
-            </ul>
-            <div class="sidebar-footer">
-                <div class="user-info">
-                    <div class="user-avatar" id="adminAvatar">A</div>
-                    <div><div class="user-name" id="adminName">Admin</div><div class="user-role" id="adminRole">Administrator</div></div>
-                </div>
-                <button class="logout-btn" onclick="handleLogout()"><i class="fas fa-sign-out-alt"></i> Logout</button>
-            </div>
-        </aside>
+document.addEventListener("DOMContentLoaded", async () => {
+  const session = await AdminAuth.requireSession();
+  if (!session) return;
 
-        <main class="main-content">
-            <div class="topbar">
-                <div><h1>Pricing <small>Manage membership plans &amp; premiums</small></h1></div>
-                <button class="btn-sm primary" onclick="openPlanModal()" style="padding:10px 20px;font-size:14px;">
-                    <i class="fas fa-plus"></i> New Plan
-                </button>
-            </div>
+  document.getElementById("planForm").addEventListener("submit", handlePlanFormSubmit);
+  loadPlans();
+});
 
-            <div class="card">
-                <div class="card-header">
-                    <h3><i class="fas fa-tags" style="color:var(--gold);"></i> All Plans</h3>
-                </div>
-                <div id="plansList">
-                    <div class="loading-spinner"><div class="spinner"></div><p>Loading...</p></div>
-                </div>
-            </div>
-        </main>
+// ---------- Load & render ----------
+
+async function loadPlans() {
+  const container = document.getElementById("plansList");
+  container.innerHTML = `<div class="loading-spinner"><div class="spinner"></div><p>Loading...</p></div>`;
+
+  const { data, error } = await supabaseClient
+    .from("membership_plans")
+    .select("*")
+    .order("principal_monthly_premium", { ascending: true });
+
+  if (error) {
+    container.innerHTML = `<p class="form-error" style="display:block;">Could not load plans: ${error.message}</p>`;
+    return;
+  }
+
+  allPlans = data || [];
+
+  if (!allPlans.length) {
+    container.innerHTML = `<p style="color:var(--text-light);">No plans yet. Use "New Plan" to add one.</p>`;
+    return;
+  }
+
+  container.innerHTML = `
+    <div class="table-wrapper">
+      <table>
+        <thead>
+          <tr>
+            <th>Plan</th>
+            <th>Monthly Premium</th>
+            <th>Registration Fee</th>
+            <th>Benefit</th>
+            <th>Status</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody id="plansTableBody"></tbody>
+      </table>
     </div>
+  `;
 
-    <!-- Plan Modal (create + edit) -->
-    <div class="modal-overlay" id="planModal">
-        <div class="modal">
-            <h3 id="planModalTitle"><i class="fas fa-tags" style="color:var(--primary);"></i> New Plan</h3>
-            <form id="planForm">
-                <input type="hidden" id="planId">
+  const tbody = document.getElementById("plansTableBody");
+  allPlans.forEach((plan) => tbody.appendChild(renderPlanRow(plan)));
+}
 
-                <fieldset>
-                    <legend>Basic Info</legend>
-                    <div class="form-row">
-                        <div class="form-group"><label>Plan Code *</label><input type="text" id="planCode" required></div>
-                        <div class="form-group"><label>Plan Name *</label><input type="text" id="planName" required></div>
-                    </div>
-                    <div class="form-group"><label>Description</label><input type="text" id="planDescription"></div>
-                </fieldset>
+function fmtKES(value) {
+  if (value === null || value === undefined || value === "") return "—";
+  return `KES ${Number(value).toLocaleString()}`;
+}
 
-                <fieldset>
-                    <legend>Pricing (KES)</legend>
-                    <div class="form-row">
-                        <div class="form-group"><label>Principal Monthly Premium</label><input type="number" step="0.01" id="principalMonthlyPremium"></div>
-                        <div class="form-group"><label>Parent Monthly Premium</label><input type="number" step="0.01" id="parentMonthlyPremium"></div>
-                    </div>
-                    <div class="form-row">
-                        <div class="form-group"><label>Principal Registration Fee</label><input type="number" step="0.01" id="principalRegistrationFee"></div>
-                        <div class="form-group"><label>Dependant Registration Fee</label><input type="number" step="0.01" id="dependantRegistrationFee"></div>
-                    </div>
-                    <div class="form-row">
-                        <div class="form-group"><label>Principal Benefit</label><input type="number" step="0.01" id="principalBenefit"></div>
-                        <div class="form-group"><label>Dependant Benefit</label><input type="number" step="0.01" id="dependantBenefit"></div>
-                    </div>
-                </fieldset>
+function renderPlanRow(plan) {
+  const tr = document.createElement("tr");
+  const isActive = plan.is_active !== false;
 
-                <fieldset>
-                    <legend>Eligibility</legend>
-                    <div class="form-row-3">
-                        <div class="form-group"><label>Max Dependants</label><input type="number" id="maxDependants"></div>
-                        <div class="form-group"><label>Min Parents</label><input type="number" id="minimumParents"></div>
-                        <div class="form-group"><label>Max Parents</label><input type="number" id="maximumParents"></div>
-                    </div>
-                    <div class="form-row">
-                        <div class="form-group"><label>Principal Entry Max Age</label><input type="number" id="principalEntryMaxAge"></div>
-                        <div class="form-group"><label>Principal Exit Age</label><input type="number" id="principalExitAge"></div>
-                    </div>
-                    <div class="form-group"><label>Exit Age</label><input type="number" id="exitAge"></div>
-                </fieldset>
+  tr.innerHTML = `
+    <td>
+      <div style="font-weight:700;">${plan.plan_code || ""} — ${plan.name || ""}</div>
+      ${plan.description ? `<div style="font-size:12px;color:var(--text-light);max-width:220px;white-space:normal;">${plan.description}</div>` : ""}
+    </td>
+    <td>
+      <div>Principal: ${fmtKES(plan.principal_monthly_premium)}</div>
+      <div style="font-size:12px;color:var(--text-light);">Parent: ${fmtKES(plan.parent_monthly_premium)}</div>
+    </td>
+    <td>
+      <div>Principal: ${fmtKES(plan.principal_registration_fee)}</div>
+      <div style="font-size:12px;color:var(--text-light);">Dependant: ${fmtKES(plan.dependant_registration_fee)}</div>
+    </td>
+    <td>
+      <div>Principal: ${fmtKES(plan.principal_benefit)}</div>
+      <div style="font-size:12px;color:var(--text-light);">Dependant: ${fmtKES(plan.dependant_benefit)}</div>
+    </td>
+    <td><span class="status-badge ${isActive ? "active" : "inactive"}">${isActive ? "Active" : "Inactive"}</span></td>
+    <td style="text-align:right;white-space:nowrap;">
+      <button type="button" class="btn-sm gray" data-action="edit">Edit</button>
+      <button type="button" class="btn-sm gray" data-action="toggle">${isActive ? "Deactivate" : "Activate"}</button>
+      <button type="button" class="btn-sm danger" data-action="delete">Delete</button>
+    </td>
+  `;
 
-                <fieldset>
-                    <legend>Periods &amp; Deadlines</legend>
-                    <div class="form-row-3">
-                        <div class="form-group"><label>Waiting Period (months)</label><input type="number" id="waitingPeriodMonths"></div>
-                        <div class="form-group"><label>Grace Period (days)</label><input type="number" id="gracePeriodDays"></div>
-                        <div class="form-group"><label>Renewal Period (months)</label><input type="number" id="renewalPeriodMonths"></div>
-                    </div>
-                    <div class="form-row">
-                        <div class="form-group"><label>Monthly Payment Deadline (days)</label><input type="number" id="monthlyPaymentDeadlineDays"></div>
-                        <div class="form-group"><label>Activation Required (months)</label><input type="number" id="activationRequiredMonths"></div>
-                    </div>
-                </fieldset>
+  tr.querySelector('[data-action="edit"]').addEventListener("click", () => openPlanModal(plan));
+  tr.querySelector('[data-action="toggle"]').addEventListener("click", () => togglePlanStatus(plan, tr));
+  tr.querySelector('[data-action="delete"]').addEventListener("click", () => deletePlan(plan, tr));
 
-                <div class="checkbox-row">
-                    <input type="checkbox" id="planIsActive" checked>
-                    <label for="planIsActive" style="margin:0;">Active — visible for new registrations</label>
-                </div>
+  return tr;
+}
 
-                <div class="form-error" id="planFormError"></div>
-                <div class="form-success" id="planFormSuccess"></div>
-                <div class="modal-actions">
-                    <button type="button" class="btn-sm gray" onclick="closePlanModal()">Cancel</button>
-                    <button type="submit" class="btn-sm primary" id="planSubmitBtn">
-                        <i class="fas fa-save"></i> Save Plan
-                    </button>
-                </div>
-            </form>
-        </div>
-    </div>
+// ---------- Modal open/close/prefill ----------
 
-    <script src="../js/supabase-config.js"></script>
-    <script src="../js/admin-auth.js"></script>
-    <script src="../js/admin-pricing.js"></script>
-</body>
-</html>
+function openPlanModal(plan) {
+  const form = document.getElementById("planForm");
+  form.reset();
+  document.getElementById("planFormError").style.display = "none";
+  document.getElementById("planFormSuccess").style.display = "none";
+
+  const fieldMap = {
+    planCode: "plan_code",
+    planName: "name",
+    planDescription: "description",
+    principalMonthlyPremium: "principal_monthly_premium",
+    parentMonthlyPremium: "parent_monthly_premium",
+    principalRegistrationFee: "principal_registration_fee",
+    dependantRegistrationFee: "dependant_registration_fee",
+    principalBenefit: "principal_benefit",
+    dependantBenefit: "dependant_benefit",
+    maxDependants: "max_dependants",
+    minimumParents: "minimum_parents",
+    maximumParents: "maximum_parents",
+    principalEntryMaxAge: "principal_entry_max_age",
+    principalExitAge: "principal_exit_age",
+    exitAge: "exit_age",
+    waitingPeriodMonths: "waiting_period_months",
+    gracePeriodDays: "grace_period_days",
+    renewalPeriodMonths: "renewal_period_months",
+    monthlyPaymentDeadlineDays: "monthly_payment_deadline_days",
+    activationRequiredMonths: "activation_required_months",
+  };
+
+  document.getElementById("planId").value = plan ? plan.id : "";
+  document.getElementById("planModalTitle").innerHTML = plan
+    ? '<i class="fas fa-tags" style="color:var(--primary);"></i> Edit Plan'
+    : '<i class="fas fa-tags" style="color:var(--primary);"></i> New Plan';
+
+  Object.entries(fieldMap).forEach(([elId, key]) => {
+    const el = document.getElementById(elId);
+    if (!el) return;
+    el.value = plan && plan[key] !== null && plan[key] !== undefined ? plan[key] : "";
+  });
+
+  document.getElementById("planIsActive").checked = plan ? plan.is_active !== false : true;
+
+  document.getElementById("planModal").classList.add("open");
+}
+
+function closePlanModal() {
+  document.getElementById("planModal").classList.remove("open");
+}
+
+// ---------- Create / update ----------
+
+async function handlePlanFormSubmit(e) {
+  e.preventDefault();
+
+  const errorEl = document.getElementById("planFormError");
+  const successEl = document.getElementById("planFormSuccess");
+  const submitBtn = document.getElementById("planSubmitBtn");
+  errorEl.style.display = "none";
+  successEl.style.display = "none";
+
+  const numeric = (id) => {
+    const val = document.getElementById(id).value;
+    return val === "" ? null : Number(val);
+  };
+  const text = (id) => document.getElementById(id).value.trim();
+
+  const payload = {
+    plan_code: text("planCode"),
+    name: text("planName"),
+    description: text("planDescription") || null,
+    principal_monthly_premium: numeric("principalMonthlyPremium"),
+    parent_monthly_premium: numeric("parentMonthlyPremium"),
+    principal_registration_fee: numeric("principalRegistrationFee"),
+    dependant_registration_fee: numeric("dependantRegistrationFee"),
+    principal_benefit: numeric("principalBenefit"),
+    dependant_benefit: numeric("dependantBenefit"),
+    max_dependants: numeric("maxDependants"),
+    minimum_parents: numeric("minimumParents"),
+    maximum_parents: numeric("maximumParents"),
+    principal_entry_max_age: numeric("principalEntryMaxAge"),
+    principal_exit_age: numeric("principalExitAge"),
+    exit_age: numeric("exitAge"),
+    waiting_period_months: numeric("waitingPeriodMonths"),
+    grace_period_days: numeric("gracePeriodDays"),
+    renewal_period_months: numeric("renewalPeriodMonths"),
+    monthly_payment_deadline_days: numeric("monthlyPaymentDeadlineDays"),
+    activation_required_months: numeric("activationRequiredMonths"),
+    is_active: document.getElementById("planIsActive").checked,
+  };
+
+  if (!payload.plan_code || !payload.name) {
+    errorEl.textContent = "Plan code and plan name are required.";
+    errorEl.style.display = "block";
+    return;
+  }
+
+  const planId = document.getElementById("planId").value;
+  submitBtn.disabled = true;
+
+  const { error } = planId
+    ? await supabaseClient.from("membership_plans").update(payload).eq("id", planId)
+    : await supabaseClient.from("membership_plans").insert(payload);
+
+  submitBtn.disabled = false;
+
+  if (error) {
+    errorEl.textContent = error.message;
+    errorEl.style.display = "block";
+    return;
+  }
+
+  successEl.textContent = planId ? "Plan updated." : "Plan created.";
+  successEl.style.display = "block";
+  await loadPlans();
+  setTimeout(closePlanModal, 600);
+}
+
+// ---------- Toggle / delete ----------
+
+async function togglePlanStatus(plan, rowEl) {
+  const nextActive = !(plan.is_active !== false);
+  const buttons = rowEl.querySelectorAll("button");
+  buttons.forEach((b) => (b.disabled = true));
+
+  const { error } = await supabaseClient
+    .from("membership_plans")
+    .update({ is_active: nextActive })
+    .eq("id", plan.id);
+
+  buttons.forEach((b) => (b.disabled = false));
+
+  if (error) {
+    alert(`Could not update plan status: ${error.message}`);
+    return;
+  }
+  plan.is_active = nextActive;
+  rowEl.replaceWith(renderPlanRow(plan));
+}
+
+async function deletePlan(plan, rowEl) {
+  const confirmed = confirm(`Delete "${plan.name}"? This cannot be undone. Members already on this plan are not affected.`);
+  if (!confirmed) return;
+
+  const buttons = rowEl.querySelectorAll("button");
+  buttons.forEach((b) => (b.disabled = true));
+
+  const { error } = await supabaseClient.from("membership_plans").delete().eq("id", plan.id);
+
+  if (error) {
+    buttons.forEach((b) => (b.disabled = false));
+    alert(`Could not delete plan: ${error.message}`);
+    return;
+  }
+  rowEl.remove();
+  allPlans = allPlans.filter((p) => p.id !== plan.id);
+  if (!allPlans.length) {
+    document.getElementById("plansList").innerHTML =
+      '<p style="color:var(--text-light);">No plans yet. Use "New Plan" to add one.</p>';
+  }
+}
