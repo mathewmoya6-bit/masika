@@ -29,7 +29,7 @@ class AdminAuthService {
     // Allowed roles configuration
     // --------------------------------------------------------
     get ALLOWED_ROLES() {
-        return ['SUPER_ADMIN', 'BRANCH_MANAGER', 'SALES_AGENT', 'AUDITOR'];
+        return ['SUPER_ADMIN'];
     }
 
     get SESSION_KEYS() {
