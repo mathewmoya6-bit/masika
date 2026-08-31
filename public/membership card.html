@@ -1,0 +1,619 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Membership Card | Masika Benevolent</title>
+    <meta name="description" content="Check your Masika Benevolent membership card status and download it.">
+
+    <link rel="icon" type="image/png" href="assets/favicon-32x32.png">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- html2canvas: rasterizes the on-screen card div so it can be saved as
+         an image or dropped into a PDF pixel-for-pixel identical to what the
+         member sees. jsPDF: wraps that raster into a downloadable PDF. -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <!-- qrcodejs: renders a small verification QR code onto the card. -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        :root {
+            --primary: #0b5d3b;
+            --primary-dark: #06452c;
+            --primary-light: #e8f5ee;
+            --gold: #d4a843;
+            --danger: #dc3545;
+            --text: #1f2933;
+            --text-light: #6b7280;
+            --gray-100: #f3f4f6;
+            --gray-200: #e5e7eb;
+            --shadow: 0 4px 24px rgba(0,0,0,0.1);
+            --radius: 12px;
+            --transition: all 0.3s ease;
+
+            /* Three-plan color system, matching the rest of the site */
+            --comfort: #0b5d3b;
+            --comfort-light: #e8f5ee;
+            --dignity: #1d4ed8;
+            --dignity-light: #e8eefc;
+            --wazazi: #7c3aed;
+            --wazazi-light: #f2ebfd;
+        }
+
+        body {
+            font-family: 'Segoe UI', Arial, sans-serif;
+            background: #f0f4f2;
+            color: var(--text);
+            min-height: 100vh;
+        }
+
+        .topbar {
+            background: var(--primary);
+            color: white;
+            padding: 16px 28px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 12px;
+            position: sticky;
+            top: 0;
+            z-index: 100;
+        }
+
+        .brand { display: flex; align-items: center; gap: 12px; text-decoration: none; color: white; }
+        .brand-logo {
+            width: 40px; height: 40px; background: white; border-radius: 50%;
+            display: flex; align-items: center; justify-content: center;
+            font-weight: 900; color: var(--primary); font-size: 18px;
+        }
+        .brand-text { font-weight: 700; font-size: 18px; }
+        .brand-sub { font-size: 11px; opacity: 0.7; display: block; }
+
+        .btn {
+            padding: 10px 20px; border: none; border-radius: 8px; font-weight: 600;
+            cursor: pointer; transition: var(--transition); text-decoration: none;
+            font-family: inherit; font-size: 14px; display: inline-flex;
+            align-items: center; gap: 8px;
+        }
+        .btn:hover { transform: translateY(-1px); box-shadow: 0 4px 12px rgba(0,0,0,0.15); }
+        .btn-light { background: white; color: var(--primary); }
+        .btn-light:hover { background: #f0f0f0; }
+        .btn-outline-light { background: transparent; color: white; border: 2px solid rgba(255,255,255,0.3); }
+        .btn-outline-light:hover { background: rgba(255,255,255,0.1); border-color: white; }
+        .btn-primary { background: var(--primary); color: white; }
+        .btn-primary:hover { background: var(--primary-dark); }
+        .btn-gold { background: var(--gold); color: white; }
+        .btn-gold:hover { background: #c4951a; }
+        .btn-secondary { background: #eef1f2; color: #374151; }
+        .btn-secondary:hover { background: #e2e6e8; }
+        .btn:disabled { opacity: 0.6; cursor: not-allowed; transform: none !important; }
+
+        .container { max-width: 700px; margin: 0 auto; padding: 40px 24px 60px; }
+
+        .card {
+            background: white; border-radius: var(--radius); padding: 32px;
+            box-shadow: var(--shadow); margin-bottom: 24px;
+        }
+        .card-header { border-bottom: 1px solid var(--gray-200); padding-bottom: 16px; margin-bottom: 24px; }
+        .card-header h2 { font-size: 20px; font-weight: 700; }
+        .card-header p { color: var(--text-light); font-size: 14px; margin-top: 4px; }
+
+        .form-group { margin-bottom: 18px; }
+        .form-group label { display: block; font-weight: 600; font-size: 13px; margin-bottom: 6px; }
+        .form-control {
+            width: 100%; padding: 12px 16px; border: 2px solid var(--gray-200);
+            border-radius: 8px; font-size: 15px; font-family: inherit; background: white; color: var(--text);
+        }
+        .form-control:focus { outline: none; border-color: var(--primary); box-shadow: 0 0 0 3px rgba(11,93,59,0.1); }
+
+        .alert { display: none; padding: 14px 18px; border-radius: 8px; margin-bottom: 20px; font-size: 14px; }
+        .alert.show { display: block; }
+        .alert.success { background: #ecfdf5; border: 1px solid #a7f3d0; color: #065f46; }
+        .alert.error { background: #fef2f2; border: 1px solid #fecaca; color: #991b1b; }
+        .alert.info { background: #eff6ff; border: 1px solid #bfdbfe; color: #1e40af; }
+        .alert.warning { background: #fffbeb; border: 1px solid #fde68a; color: #92400e; }
+
+        .spinner {
+            display: none; width: 20px; height: 20px; border: 3px solid rgba(255,255,255,0.3);
+            border-top-color: white; border-radius: 50%; animation: spin 0.8s linear infinite;
+        }
+        .btn.loading .spinner { display: inline-block; }
+        .btn.loading .btn-text { display: none; }
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+        /* Countdown (not yet eligible) */
+        .waiting-panel { text-align: center; padding: 12px 0; }
+        .waiting-panel .big-days {
+            font-size: 48px; font-weight: 800; color: var(--gold); line-height: 1;
+        }
+        .waiting-panel .big-days-label { font-size: 13px; color: var(--text-light); margin-top: 4px; }
+        .progress-track {
+            width: 100%; height: 10px; background: var(--gray-200); border-radius: 6px;
+            overflow: hidden; margin: 20px 0 8px;
+        }
+        .progress-fill {
+            height: 100%; background: linear-gradient(90deg, var(--primary), var(--gold));
+            border-radius: 6px; transition: width 0.6s ease;
+        }
+        .progress-dates { display: flex; justify-content: space-between; font-size: 12px; color: var(--text-light); }
+
+        /* ============================================================
+           MEMBERSHIP CARD
+           Sized like a real ID / bank card (85.6mm x 54mm, scaled up 4x
+           for crisp on-screen and rasterized output).
+        ============================================================ */
+        .card-stage {
+            display: flex; justify-content: center; padding: 20px 0 8px;
+            overflow-x: auto;
+        }
+
+        .membership-card {
+            width: 342px;
+            height: 216px;
+            border-radius: 16px;
+            position: relative;
+            color: white;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.25);
+            font-family: 'Segoe UI', Arial, sans-serif;
+            overflow: hidden;
+            flex-shrink: 0;
+        }
+
+        /* Plan color themes */
+        .membership-card.plan-comfort { background: linear-gradient(135deg, #0b5d3b 0%, #06452c 100%); }
+        .membership-card.plan-dignity { background: linear-gradient(135deg, #1d4ed8 0%, #1e3a8a 100%); }
+        .membership-card.plan-wazazi  { background: linear-gradient(135deg, #7c3aed 0%, #4c1d95 100%); }
+
+        .membership-card .card-watermark {
+            position: absolute; right: -20px; top: -20px; font-size: 140px;
+            opacity: 0.08; transform: rotate(-10deg);
+        }
+
+        .membership-card .card-top {
+            display: flex; justify-content: space-between; align-items: flex-start; z-index: 1;
+        }
+        .membership-card .org-name { font-weight: 800; font-size: 15px; letter-spacing: 0.3px; }
+        .membership-card .org-sub { font-size: 9px; opacity: 0.8; margin-top: 1px; }
+        .membership-card .plan-badge {
+            background: rgba(255,255,255,0.18);
+            border: 1px solid rgba(255,255,255,0.35);
+            border-radius: 20px;
+            padding: 3px 10px;
+            font-size: 10px;
+            font-weight: 700;
+            letter-spacing: 0.5px;
+            text-transform: uppercase;
+        }
+
+        .membership-card .card-mid { z-index: 1; }
+        .membership-card .member-name { font-size: 18px; font-weight: 700; margin-bottom: 2px; }
+        .membership-card .member-number { font-size: 13px; letter-spacing: 1.5px; opacity: 0.9; font-family: 'Courier New', monospace; }
+
+        .membership-card .card-bottom {
+            display: flex; justify-content: space-between; align-items: flex-end; z-index: 1;
+        }
+        .membership-card .valid-block .label { font-size: 8px; opacity: 0.75; text-transform: uppercase; letter-spacing: 0.5px; }
+        .membership-card .valid-block .value { font-size: 12px; font-weight: 600; }
+        .membership-card .qr-box {
+            background: white; border-radius: 6px; padding: 4px; width: 52px; height: 52px;
+            display: flex; align-items: center; justify-content: center;
+        }
+        .membership-card .qr-box img, .membership-card .qr-box canvas { width: 44px; height: 44px; }
+
+        .card-actions { display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; margin-top: 20px; }
+
+        .lookup-hint { font-size: 12px; color: var(--text-light); margin-top: 4px; }
+
+        @media (max-width: 480px) {
+            .container { padding: 24px 16px 40px; }
+            .card { padding: 20px; }
+        }
+    </style>
+</head>
+
+<body>
+
+    <header class="topbar">
+        <a href="index.html" class="brand">
+            <div class="brand-logo">MB</div>
+            <div>
+                <span class="brand-text">Masika Benevolent</span>
+                <span class="brand-sub">Membership Card</span>
+            </div>
+        </a>
+        <div>
+            <a href="index.html" class="btn btn-outline-light">← Home</a>
+        </div>
+    </header>
+
+    <main class="container">
+
+        <div id="alertBox" class="alert"></div>
+
+        <!-- Lookup form -->
+        <div class="card" id="lookupCard">
+            <div class="card-header">
+                <h2>🪪 Your Membership Card</h2>
+                <p>Your digital card unlocks once your first month as a paying member is complete.</p>
+            </div>
+
+            <form id="lookupForm" onsubmit="checkCardStatus(event)">
+                <div class="form-group">
+                    <label>Member Number <span style="color:var(--danger);">*</span></label>
+                    <input type="text" id="memberNumberInput" class="form-control" placeholder="e.g. MB-0001" required>
+                </div>
+                <div class="form-group">
+                    <label>Phone Number Used to Register <span style="color:var(--danger);">*</span></label>
+                    <input type="tel" id="phoneInput" class="form-control" placeholder="0712345678" required>
+                    <p class="lookup-hint">Used only to verify it's you — we never show member details from the number alone.</p>
+                </div>
+                <button type="submit" class="btn btn-primary" style="width:100%;padding:14px;font-size:15px;" id="lookupBtn">
+                    <span class="btn-text"><i class="fas fa-search"></i> Check My Card Status</span>
+                    <span class="spinner"></span>
+                </button>
+            </form>
+        </div>
+
+        <!-- Not yet eligible -->
+        <div class="card" id="waitingCard" style="display:none;">
+            <div class="card-header">
+                <h2>⏳ Almost There</h2>
+                <p>Your card unlocks after your first full month of membership.</p>
+            </div>
+            <div class="waiting-panel">
+                <div class="big-days" id="daysRemaining">--</div>
+                <div class="big-days-label">days remaining</div>
+                <div class="progress-track">
+                    <div class="progress-fill" id="progressFill" style="width:0%;"></div>
+                </div>
+                <div class="progress-dates">
+                    <span id="progressStartDate">—</span>
+                    <span id="progressEndDate">—</span>
+                </div>
+            </div>
+            <div class="card-actions">
+                <button class="btn btn-secondary" onclick="resetLookup()"><i class="fas fa-undo"></i> Check Another</button>
+                <button class="btn btn-primary" onclick="checkCardStatus()"><i class="fas fa-sync"></i> Refresh Status</button>
+            </div>
+        </div>
+
+        <!-- Eligible: show the card -->
+        <div class="card" id="cardResult" style="display:none;">
+            <div class="card-header">
+                <h2>🎉 Your Card Is Ready</h2>
+                <p>Download it below, or save the image to your phone.</p>
+            </div>
+
+            <div class="card-stage">
+                <div class="membership-card plan-comfort" id="membershipCardEl">
+                    <div class="card-watermark"><i class="fas fa-shield-heart"></i></div>
+                    <div class="card-top">
+                        <div>
+                            <div class="org-name">MASIKA BENEVOLENT</div>
+                            <div class="org-sub">Last Expense Benevolent Fund</div>
+                        </div>
+                        <div class="plan-badge" id="cardPlanBadge">Comfort</div>
+                    </div>
+                    <div class="card-mid">
+                        <div class="member-name" id="cardMemberName">—</div>
+                        <div class="member-number" id="cardMemberNumber">—</div>
+                    </div>
+                    <div class="card-bottom">
+                        <div class="valid-block">
+                            <div class="label">Member Since</div>
+                            <div class="value" id="cardValidSince">—</div>
+                        </div>
+                        <div class="qr-box" id="cardQrBox"></div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card-actions">
+                <button class="btn btn-primary" onclick="downloadCardImage()"><i class="fas fa-image"></i> Download Image</button>
+                <button class="btn btn-gold" onclick="downloadCardPdf()"><i class="fas fa-file-pdf"></i> Download PDF</button>
+                <button class="btn btn-secondary" onclick="resetLookup()"><i class="fas fa-undo"></i> Check Another</button>
+            </div>
+        </div>
+
+    </main>
+
+    <script>
+        // ============================================================
+        // CONFIGURATION
+        // ============================================================
+        const API_BASE_URL = 'https://masika-c921.onrender.com';
+
+        // Expected backend contract (create this endpoint if it doesn't
+        // exist yet):
+        //
+        //   GET /api/public/membership/card-status
+        //       ?member_number=MB-0001&phone=0712345678
+        //
+        //   200 {
+        //     "success": true,
+        //     "data": {
+        //       "eligible": true | false,
+        //       "full_name": "Jane Wanjiru",
+        //       "member_number": "MB-0001",
+        //       "plan_name": "Comfort" | "Dignity" | "Wazazi",
+        //       "registration_date": "2026-07-15",   // ISO date, payment date
+        //       "activation_date": "2026-08-15",      // registration + 1 month
+        //       "days_remaining": 0,
+        //       "status": "active" | "pending" | "lapsed"
+        //     }
+        //   }
+        //
+        // member_number + phone must both match the same record server-side
+        // (mirrors the "no public lookup by id alone" rule already used on
+        // payment.html, so this endpoint can't be used to enumerate members).
+        // "eligible" should be true once activation_date has passed AND the
+        // member's most recent monthly contribution is up to date.
+
+        const alertBox = document.getElementById('alertBox');
+        const lookupCard = document.getElementById('lookupCard');
+        const waitingCard = document.getElementById('waitingCard');
+        const cardResult = document.getElementById('cardResult');
+        const lookupBtn = document.getElementById('lookupBtn');
+        const memberNumberInput = document.getElementById('memberNumberInput');
+        const phoneInput = document.getElementById('phoneInput');
+
+        let currentCardData = null;
+
+        // ============================================================
+        // PREFILL FROM URL / SESSION (carried over from payment.html)
+        // ============================================================
+        document.addEventListener('DOMContentLoaded', function () {
+            const params = new URLSearchParams(window.location.search);
+            const urlMemberNumber = params.get('member_number');
+            const sessionMemberNumber = sessionStorage.getItem('newMemberNumber');
+            const sessionPhone = sessionStorage.getItem('newMemberPhone');
+
+            if (urlMemberNumber || sessionMemberNumber) {
+                memberNumberInput.value = urlMemberNumber || sessionMemberNumber;
+            }
+            if (sessionPhone) {
+                phoneInput.value = sessionPhone;
+            }
+        });
+
+        // ============================================================
+        // API HELPER
+        // ============================================================
+        async function apiRequest(path, options = {}) {
+            let response;
+            try {
+                response = await fetch(`${API_BASE_URL}${path}`, {
+                    headers: { 'Content-Type': 'application/json' },
+                    ...options
+                });
+            } catch (networkError) {
+                throw new Error('Unable to reach the server. Please check your connection and try again.');
+            }
+
+            let body = null;
+            try { body = await response.json(); } catch (e) { /* non-JSON body */ }
+
+            if (!response.ok) {
+                const detail = body && body.detail;
+                const message =
+                    (typeof detail === 'string' && detail) ||
+                    (detail && detail.message) ||
+                    (body && body.message) ||
+                    `Request failed (HTTP ${response.status}).`;
+                throw new Error(message);
+            }
+            return body;
+        }
+
+        // ============================================================
+        // CHECK CARD STATUS
+        // ============================================================
+        async function checkCardStatus(event) {
+            if (event) event.preventDefault();
+
+            const memberNumber = memberNumberInput.value.trim();
+            const phone = phoneInput.value.trim();
+
+            if (!memberNumber || !phone) {
+                showAlert('Please enter both your member number and phone number.', 'error');
+                return;
+            }
+
+            lookupBtn.classList.add('loading');
+            lookupBtn.disabled = true;
+            clearAlert();
+
+            try {
+                const qs = new URLSearchParams({ member_number: memberNumber, phone: phone });
+                const result = await apiRequest(`/api/public/membership/card-status?${qs.toString()}`);
+
+                if (!result || !result.success) {
+                    throw new Error((result && result.message) || 'Could not verify your membership.');
+                }
+
+                const data = result.data;
+
+                if (data.eligible) {
+                    renderCard(data);
+                } else {
+                    renderWaiting(data);
+                }
+
+            } catch (error) {
+                console.error('Card status error:', error);
+                // If the backend endpoint doesn't exist yet, fail gracefully
+                // instead of showing a raw network/404 error to a member.
+                showAlert(
+                    error.message && error.message.includes('HTTP 404')
+                        ? 'Membership card lookup isn\'t available yet — please check back soon or contact support.'
+                        : (error.message || 'Something went wrong. Please try again.'),
+                    'error'
+                );
+            } finally {
+                lookupBtn.classList.remove('loading');
+                lookupBtn.disabled = false;
+            }
+        }
+
+        // ============================================================
+        // WAITING STATE
+        // ============================================================
+        function renderWaiting(data) {
+            lookupCard.style.display = 'none';
+            cardResult.style.display = 'none';
+            waitingCard.style.display = 'block';
+
+            const daysRemaining = Math.max(0, Number(data.days_remaining) || 0);
+            document.getElementById('daysRemaining').textContent = daysRemaining;
+
+            const totalDays = 30; // 1 calendar month, matches backend's activation window
+            const progressed = Math.min(100, Math.max(0, ((totalDays - daysRemaining) / totalDays) * 100));
+            document.getElementById('progressFill').style.width = `${progressed}%`;
+
+            document.getElementById('progressStartDate').textContent =
+                data.registration_date ? formatDate(data.registration_date) : '—';
+            document.getElementById('progressEndDate').textContent =
+                data.activation_date ? formatDate(data.activation_date) : '—';
+
+            if (data.status === 'lapsed') {
+                showAlert('Your membership shows as lapsed. Please clear any outstanding contribution to unlock your card.', 'warning');
+            }
+        }
+
+        // ============================================================
+        // CARD RESULT
+        // ============================================================
+        function renderCard(data) {
+            lookupCard.style.display = 'none';
+            waitingCard.style.display = 'none';
+            cardResult.style.display = 'block';
+
+            currentCardData = data;
+
+            const cardEl = document.getElementById('membershipCardEl');
+            const planKey = normalizePlan(data.plan_name);
+            cardEl.className = `membership-card plan-${planKey}`;
+
+            document.getElementById('cardPlanBadge').textContent = data.plan_name || 'Membership';
+            document.getElementById('cardMemberName').textContent = data.full_name || 'Member';
+            document.getElementById('cardMemberNumber').textContent = data.member_number || '—';
+            document.getElementById('cardValidSince').textContent =
+                data.registration_date ? formatDate(data.registration_date, { month: 'short', year: 'numeric' }) : '—';
+
+            // QR encodes a lightweight verification URL — anyone who scans it
+            // (e.g. a service provider checking membership) lands on a page
+            // that can confirm active status without exposing personal data
+            // in the QR payload itself.
+            const qrBox = document.getElementById('cardQrBox');
+            qrBox.innerHTML = '';
+            if (window.QRCode) {
+                const verifyUrl = `${window.location.origin}${window.location.pathname.replace('membership-card.html', 'verify.html')}?member_number=${encodeURIComponent(data.member_number || '')}`;
+                new QRCode(qrBox, {
+                    text: verifyUrl,
+                    width: 44,
+                    height: 44,
+                    colorDark: '#000000',
+                    colorLight: '#ffffff'
+                });
+            }
+
+            showAlert('🎉 Your membership card is ready to download.', 'success');
+        }
+
+        function normalizePlan(planName) {
+            const p = (planName || '').toLowerCase();
+            if (p.includes('dignity')) return 'dignity';
+            if (p.includes('wazazi')) return 'wazazi';
+            return 'comfort';
+        }
+
+        // ============================================================
+        // DOWNLOAD: IMAGE
+        // ============================================================
+        async function downloadCardImage() {
+            const cardEl = document.getElementById('membershipCardEl');
+            if (!window.html2canvas) {
+                showAlert('Could not load the image renderer. Check your connection and try again.', 'error');
+                return;
+            }
+            const canvas = await html2canvas(cardEl, { scale: 3, backgroundColor: null });
+            const link = document.createElement('a');
+            link.download = `Masika-Membership-Card-${safeFilename()}.png`;
+            link.href = canvas.toDataURL('image/png');
+            link.click();
+        }
+
+        // ============================================================
+        // DOWNLOAD: PDF
+        // ============================================================
+        async function downloadCardPdf() {
+            const cardEl = document.getElementById('membershipCardEl');
+            if (!window.html2canvas || !window.jspdf) {
+                showAlert('Could not load the PDF library. Check your connection and try again.', 'error');
+                return;
+            }
+            const canvas = await html2canvas(cardEl, { scale: 3, backgroundColor: null });
+            const imgData = canvas.toDataURL('image/png');
+
+            const { jsPDF } = window.jspdf;
+            // Card is 85.6mm x 54mm — standard ID card size — centered on an
+            // A6-ish page so it prints cleanly and can be cut out if needed.
+            const doc = new jsPDF({ unit: 'mm', format: [100, 70], orientation: 'landscape' });
+            const cardWidthMm = 85.6;
+            const cardHeightMm = 54;
+            const pageWidth = doc.internal.pageSize.getWidth();
+            const pageHeight = doc.internal.pageSize.getHeight();
+            const x = (pageWidth - cardWidthMm) / 2;
+            const y = (pageHeight - cardHeightMm) / 2;
+
+            doc.addImage(imgData, 'PNG', x, y, cardWidthMm, cardHeightMm);
+            doc.save(`Masika-Membership-Card-${safeFilename()}.pdf`);
+        }
+
+        function safeFilename() {
+            const number = currentCardData && currentCardData.member_number ? currentCardData.member_number : 'member';
+            return String(number).replace(/[^a-zA-Z0-9]/g, '');
+        }
+
+        // ============================================================
+        // RESET
+        // ============================================================
+        function resetLookup() {
+            lookupCard.style.display = 'block';
+            waitingCard.style.display = 'none';
+            cardResult.style.display = 'none';
+            currentCardData = null;
+            clearAlert();
+        }
+
+        // ============================================================
+        // UTILITIES
+        // ============================================================
+        function showAlert(message, type = 'error') {
+            alertBox.textContent = message;
+            alertBox.className = `alert show ${type}`;
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        }
+
+        function clearAlert() {
+            alertBox.className = 'alert';
+        }
+
+        function formatDate(isoDate, opts) {
+            try {
+                return new Date(isoDate).toLocaleDateString('en-KE', opts || { dateStyle: 'medium' });
+            } catch (e) {
+                return isoDate;
+            }
+        }
+    </script>
+
+</body>
+</html>
