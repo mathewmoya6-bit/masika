@@ -1,13 +1,17 @@
-// Masika Benevolent — admin-pricing.js
-// Aligned with Supabase public.plans table
+// ============================================================
+// MASIKA BENEVOLENT
+// ADMIN PRICING / PLANS MANAGEMENT
+// Supabase table: public.plans
+// ============================================================
 
 let allPlans = [];
+
 
 // ============================================================
 // INITIALIZATION
 // ============================================================
 
-document.addEventListener("DOMContentLoaded", async () => {
+document.addEventListener("DOMContentLoaded", async function () {
     try {
         const session = await AdminAuth.requireSession();
 
@@ -24,7 +28,7 @@ document.addEventListener("DOMContentLoaded", async () => {
         await loadPlans();
 
     } catch (error) {
-        console.error("Pricing page initialization error:", error);
+        console.error("Pricing initialization error:", error);
     }
 });
 
@@ -41,14 +45,13 @@ async function loadPlans() {
         return;
     }
 
-    container.innerHTML = `
-        <div class="loading-spinner">
-            <div class="spinner"></div>
-            <p>Loading plans...</p>
-        </div>
-    `;
+    container.innerHTML =
+        '<div class="loading-spinner">' +
+        '<div class="spinner"></div>' +
+        '<p>Loading plans...</p>' +
+        '</div>';
 
-    const { data, error } = await supabaseClient
+    const result = await supabaseClient
         .from("plans")
         .select("*")
         .order("principal_monthly_premium", {
@@ -56,52 +59,52 @@ async function loadPlans() {
             nullsFirst: false
         });
 
-    if (error) {
-        console.error("Could not load plans:", error);
+    if (result.error) {
+        console.error("Load plans error:", result.error);
 
-        container.innerHTML = `
-            <p class="form-error" style="display:block;">
-                Could not load plans: ${escapeHtml(error.message)}
-            </p>
-        `;
+        container.innerHTML =
+            '<p class="form-error" style="display:block;">' +
+            'Could not load plans: ' +
+            escapeHtml(result.error.message) +
+            '</p>';
 
         return;
     }
 
-    allPlans = data || [];
+    allPlans = result.data || [];
 
     if (allPlans.length === 0) {
-        container.innerHTML = `
-            <p style="color:var(--text-light);">
-                No plans found. Use "New Plan" to create one.
-            </p>
-        `;
+        container.innerHTML =
+            '<p style="color:var(--text-light);">' +
+            'No plans yet. Use "New Plan" to add one.' +
+            '</p>';
+
         return;
     }
 
-    container.innerHTML = `
-        <div class="table-wrapper">
-            <table>
-                <thead>
-                    <tr>
-                        <th>Plan</th>
-                        <th>Monthly Premium</th>
-                        <th>Registration Fee</th>
-                        <th>Benefits</th>
-                        <th>Parents</th>
-                        <th>Age</th>
-                        <th>Status</th>
-                        <th>Actions</th>
-                    </tr>
-                </thead>
-                <tbody id="plansTableBody"></tbody>
-            </table>
-        </div>
-    `;
+    container.innerHTML =
+        '<div class="table-wrapper">' +
+        '<table>' +
+        '<thead>' +
+        '<tr>' +
+        '<th>Plan</th>' +
+        '<th>Monthly Premium</th>' +
+        '<th>Registration Fee</th>' +
+        '<th>Benefit</th>' +
+        '<th>Parents</th>' +
+        '<th>Age</th>' +
+        '<th>Waiting</th>' +
+        '<th>Status</th>' +
+        '<th>Actions</th>' +
+        '</tr>' +
+        '</thead>' +
+        '<tbody id="plansTableBody"></tbody>' +
+        '</table>' +
+        '</div>';
 
     const tbody = document.getElementById("plansTableBody");
 
-    allPlans.forEach((plan) => {
+    allPlans.forEach(function (plan) {
         tbody.appendChild(renderPlanRow(plan));
     });
 }
@@ -112,7 +115,11 @@ async function loadPlans() {
 // ============================================================
 
 function fmtKES(value) {
-    if (value === null || value === undefined || value === "") {
+    if (
+        value === null ||
+        value === undefined ||
+        value === ""
+    ) {
         return "—";
     }
 
@@ -122,19 +129,32 @@ function fmtKES(value) {
         return "—";
     }
 
-    return "KES " + number.toLocaleString("en-KE", {
-        minimumFractionDigits: 0,
-        maximumFractionDigits: 2
-    });
+    return (
+        "KES " +
+        number.toLocaleString("en-KE", {
+            minimumFractionDigits: 0,
+            maximumFractionDigits: 2
+        })
+    );
 }
 
 
 function fmtNumber(value) {
-    if (value === null || value === undefined || value === "") {
+    if (
+        value === null ||
+        value === undefined ||
+        value === ""
+    ) {
         return "—";
     }
 
-    return Number(value).toLocaleString("en-KE");
+    const number = Number(value);
+
+    if (Number.isNaN(number)) {
+        return "—";
+    }
+
+    return number.toLocaleString("en-KE");
 }
 
 
@@ -161,157 +181,133 @@ function renderPlanRow(plan) {
 
     const isActive = plan.is_active !== false;
 
-    const planCode = escapeHtml(plan.plan_code || "");
-    const planName = escapeHtml(plan.plan_name || "");
-    const description = escapeHtml(plan.description || "");
+    const code = escapeHtml(plan.plan_code);
+    const name = escapeHtml(plan.plan_name);
+    const description = escapeHtml(plan.description);
 
-    tr.innerHTML = `
-        <td>
-            <div style="font-weight:700;">
-                ${planCode} — ${planName}
-            </div>
+    const minParents = Number(plan.minimum_parents || 0);
+    const maxParents = Number(plan.maximum_parents || 0);
 
-            ${
-                description
-                    ? `
-                        <div style="
-                            font-size:12px;
-                            color:var(--text-light);
-                            max-width:220px;
-                            white-space:normal;
-                            margin-top:4px;
-                        ">
-                            ${description}
-                        </div>
-                    `
-                    : ""
-            }
-        </td>
+    let parentDisplay = "Not required";
 
-        <td>
-            <div>
-                Principal:
-                <strong>${fmtKES(plan.principal_monthly_premium)}</strong>
-            </div>
+    if (minParents > 0) {
+        parentDisplay =
+            minParents +
+            " – " +
+            maxParents;
+    }
 
-            <div style="
-                font-size:12px;
-                color:var(--text-light);
-                margin-top:3px;
-            ">
-                Parent:
-                ${fmtKES(plan.parent_monthly_premium)}
-            </div>
-        </td>
+    tr.innerHTML =
+        '<td>' +
+        '<div style="font-weight:700;">' +
+        code +
+        ' — ' +
+        name +
+        '</div>' +
+        (
+            description
+                ? '<div style="font-size:12px;color:var(--text-light);' +
+                  'max-width:220px;white-space:normal;margin-top:4px;">' +
+                  description +
+                  '</div>'
+                : ""
+        ) +
+        '</td>' +
 
-        <td>
-            <div>
-                Principal:
-                <strong>${fmtKES(plan.principal_registration_fee)}</strong>
-            </div>
+        '<td>' +
+        '<div>Principal: <strong>' +
+        fmtKES(plan.principal_monthly_premium) +
+        '</strong></div>' +
+        '<div style="font-size:12px;color:var(--text-light);">' +
+        'Parent: ' +
+        fmtKES(plan.parent_monthly_premium) +
+        '</div>' +
+        '</td>' +
 
-            <div style="
-                font-size:12px;
-                color:var(--text-light);
-                margin-top:3px;
-            ">
-                Dependant:
-                ${fmtKES(plan.dependant_registration_fee)}
-            </div>
-        </td>
+        '<td>' +
+        '<div>Principal: <strong>' +
+        fmtKES(plan.principal_registration_fee) +
+        '</strong></div>' +
+        '<div style="font-size:12px;color:var(--text-light);">' +
+        'Dependant: ' +
+        fmtKES(plan.dependant_registration_fee) +
+        '</div>' +
+        '</td>' +
 
-        <td>
-            <div>
-                Principal:
-                ${fmtKES(plan.principal_benefit)}
-            </div>
+        '<td>' +
+        '<div>Principal: ' +
+        fmtKES(plan.principal_benefit) +
+        '</div>' +
+        '<div style="font-size:12px;color:var(--text-light);">' +
+        'Dependant: ' +
+        fmtKES(plan.dependant_benefit) +
+        '</div>' +
+        '</td>' +
 
-            <div style="
-                font-size:12px;
-                color:var(--text-light);
-                margin-top:3px;
-            ">
-                Dependant:
-                ${fmtKES(plan.dependant_benefit)}
-            </div>
-        </td>
+        '<td>' +
+        parentDisplay +
+        '</td>' +
 
-        <td>
-            ${
-                Number(plan.minimum_parents || 0) > 0
-                    ? `
-                        <div>
-                            ${fmtNumber(plan.minimum_parents)}
-                            –
-                            ${fmtNumber(plan.maximum_parents)}
-                        </div>
-                    `
-                    : "Not required"
-            }
-        </td>
+        '<td>' +
+        '<div>Entry: ' +
+        fmtNumber(plan.principal_entry_max_age) +
+        '</div>' +
+        '<div style="font-size:12px;color:var(--text-light);">' +
+        'Exit: ' +
+        fmtNumber(plan.exit_age) +
+        '</div>' +
+        '</td>' +
 
-        <td>
-            <div>
-                Entry: ${fmtNumber(plan.principal_entry_max_age)}
-            </div>
+        '<td>' +
+        fmtNumber(plan.waiting_period_months) +
+        ' month(s)' +
+        '</td>' +
 
-            <div style="
-                font-size:12px;
-                color:var(--text-light);
-            ">
-                Exit: ${fmtNumber(plan.exit_age)}
-            </div>
-        </td>
+        '<td>' +
+        '<span class="status-badge ' +
+        (isActive ? "active" : "inactive") +
+        '">' +
+        (isActive ? "Active" : "Inactive") +
+        '</span>' +
+        '</td>' +
 
-        <td>
-            <span class="status-badge ${isActive ? "active" : "inactive"}">
-                ${isActive ? "Active" : "Inactive"}
-            </span>
-        </td>
+        '<td style="text-align:right;white-space:nowrap;">' +
 
-        <td style="
-            text-align:right;
-            white-space:nowrap;
-        ">
-            <button
-                type="button"
-                class="btn-sm gray"
-                data-action="edit"
-            >
-                Edit
-            </button>
+        '<button type="button" ' +
+        'class="btn-sm gray" ' +
+        'data-action="edit">' +
+        'Edit' +
+        '</button> ' +
 
-            <button
-                type="button"
-                class="btn-sm gray"
-                data-action="toggle"
-            >
-                ${isActive ? "Deactivate" : "Activate"}
-            </button>
+        '<button type="button" ' +
+        'class="btn-sm gray" ' +
+        'data-action="toggle">' +
+        (isActive ? "Deactivate" : "Activate") +
+        '</button> ' +
 
-            <button
-                type="button"
-                class="btn-sm danger"
-                data-action="delete"
-            >
-                Delete
-            </button>
-        </td>
-    `;
+        '<button type="button" ' +
+        'class="btn-sm danger" ' +
+        'data-action="delete">' +
+        'Delete' +
+        '</button>' +
 
-    const editButton = tr.querySelector('[data-action="edit"]');
-    const toggleButton = tr.querySelector('[data-action="toggle"]');
-    const deleteButton = tr.querySelector('[data-action="delete"]');
+        '</td>';
 
-    editButton.addEventListener("click", () => {
+    tr.querySelector(
+        '[data-action="edit"]'
+    ).addEventListener("click", function () {
         openPlanModal(plan);
     });
 
-    toggleButton.addEventListener("click", () => {
+    tr.querySelector(
+        '[data-action="toggle"]'
+    ).addEventListener("click", function () {
         togglePlanStatus(plan, tr);
     });
 
-    deleteButton.addEventListener("click", () => {
+    tr.querySelector(
+        '[data-action="delete"]'
+    ).addEventListener("click", function () {
         deletePlan(plan, tr);
     });
 
@@ -323,20 +319,26 @@ function renderPlanRow(plan) {
 // OPEN PLAN MODAL
 // ============================================================
 
-function openPlanModal(plan = null) {
+function openPlanModal(plan) {
+    if (plan === undefined) {
+        plan = null;
+    }
+
     const form = document.getElementById("planForm");
     const modal = document.getElementById("planModal");
-    const title = document.getElementById("planModalTitle");
 
     if (!form || !modal) {
-        console.error("Plan modal/form not found.");
+        console.error("Plan modal or form not found.");
         return;
     }
 
     form.reset();
 
-    const errorEl = document.getElementById("planFormError");
-    const successEl = document.getElementById("planFormSuccess");
+    const errorEl =
+        document.getElementById("planFormError");
+
+    const successEl =
+        document.getElementById("planFormSuccess");
 
     if (errorEl) {
         errorEl.style.display = "none";
@@ -351,41 +353,62 @@ function openPlanModal(plan = null) {
     document.getElementById("planId").value =
         plan && plan.id ? plan.id : "";
 
-    title.innerHTML = plan
+    document.getElementById(
+        "planModalTitle"
+    ).innerHTML = plan
         ? '<i class="fas fa-tags" style="color:var(--primary);"></i> Edit Plan'
         : '<i class="fas fa-tags" style="color:var(--primary);"></i> New Plan';
 
-
-    // --------------------------------------------------------
-    // Database column -> HTML field mapping
-    // --------------------------------------------------------
 
     const fieldMap = {
         planCode: "plan_code",
         planName: "plan_name",
         planDescription: "description",
 
-        principalMonthlyPremium: "principal_monthly_premium",
-        parentMonthlyPremium: "parent_monthly_premium",
+        principalMonthlyPremium:
+            "principal_monthly_premium",
 
-        principalRegistrationFee: "principal_registration_fee",
-        dependantRegistrationFee: "dependant_registration_fee",
+        parentMonthlyPremium:
+            "parent_monthly_premium",
 
-        principalBenefit: "principal_benefit",
-        dependantBenefit: "dependant_benefit",
+        principalRegistrationFee:
+            "principal_registration_fee",
 
-        maxDependants: "max_dependants",
+        dependantRegistrationFee:
+            "dependant_registration_fee",
 
-        minimumParents: "minimum_parents",
-        maximumParents: "maximum_parents",
+        principalBenefit:
+            "principal_benefit",
 
-        principalEntryMaxAge: "principal_entry_max_age",
-        principalExitAge: "principal_exit_age",
-        exitAge: "exit_age",
+        dependantBenefit:
+            "dependant_benefit",
 
-        waitingPeriodMonths: "waiting_period_months",
-        gracePeriodDays: "grace_period_days",
-        renewalPeriodMonths: "renewal_period_months",
+        maxDependants:
+            "max_dependants",
+
+        minimumParents:
+            "minimum_parents",
+
+        maximumParents:
+            "maximum_parents",
+
+        principalEntryMaxAge:
+            "principal_entry_max_age",
+
+        principalExitAge:
+            "principal_exit_age",
+
+        exitAge:
+            "exit_age",
+
+        waitingPeriodMonths:
+            "waiting_period_months",
+
+        gracePeriodDays:
+            "grace_period_days",
+
+        renewalPeriodMonths:
+            "renewal_period_months",
 
         monthlyPaymentDeadlineDays:
             "monthly_payment_deadline_days",
@@ -395,12 +418,16 @@ function openPlanModal(plan = null) {
     };
 
 
-    Object.entries(fieldMap).forEach(([elementId, columnName]) => {
-        const element = document.getElementById(elementId);
+    Object.keys(fieldMap).forEach(function (elementId) {
+        const element =
+            document.getElementById(elementId);
 
         if (!element) {
             return;
         }
+
+        const columnName =
+            fieldMap[elementId];
 
         if (
             plan &&
@@ -414,16 +441,12 @@ function openPlanModal(plan = null) {
     });
 
 
-    // --------------------------------------------------------
-    // Active status
-    // --------------------------------------------------------
-
-    const activeCheckbox = document.getElementById("planIsActive");
+    const activeCheckbox =
+        document.getElementById("planIsActive");
 
     if (activeCheckbox) {
-        activeCheckbox.checked = plan
-            ? plan.is_active !== false
-            : true;
+        activeCheckbox.checked =
+            plan ? plan.is_active !== false : true;
     }
 
 
@@ -432,15 +455,67 @@ function openPlanModal(plan = null) {
 
 
 // ============================================================
-// CLOSE MODAL
+// CLOSE PLAN MODAL
 // ============================================================
 
 function closePlanModal() {
-    const modal = document.getElementById("planModal");
+    const modal =
+        document.getElementById("planModal");
 
     if (modal) {
         modal.classList.remove("open");
     }
+}
+
+
+// ============================================================
+// READ TEXT FIELD
+// ============================================================
+
+function getText(id) {
+    const element =
+        document.getElementById(id);
+
+    if (!element) {
+        return "";
+    }
+
+    return element.value.trim();
+}
+
+
+// ============================================================
+// READ NUMERIC FIELD
+// ============================================================
+
+function getNumber(id, defaultValue) {
+    const element =
+        document.getElementById(id);
+
+    if (!element) {
+        return defaultValue === undefined
+            ? null
+            : defaultValue;
+    }
+
+    const value =
+        element.value.trim();
+
+    if (value === "") {
+        return defaultValue === undefined
+            ? null
+            : defaultValue;
+    }
+
+    const number = Number(value);
+
+    if (Number.isNaN(number)) {
+        return defaultValue === undefined
+            ? null
+            : defaultValue;
+    }
+
+    return number;
 }
 
 
@@ -451,138 +526,84 @@ function closePlanModal() {
 async function handlePlanFormSubmit(event) {
     event.preventDefault();
 
-    const errorEl = document.getElementById("planFormError");
-    const successEl = document.getElementById("planFormSuccess");
-    const submitBtn = document.getElementById("planSubmitBtn");
+    const errorEl =
+        document.getElementById("planFormError");
+
+    const successEl =
+        document.getElementById("planFormSuccess");
+
+    const submitBtn =
+        document.getElementById("planSubmitBtn");
+
 
     errorEl.style.display = "none";
     successEl.style.display = "none";
 
-    const text = (id) => {
-        const element = document.getElementById(id);
 
-        if (!element) {
-            return "";
-        }
+    const planCode =
+        getText("planCode");
 
-        return element.value.trim();
-    };
+    const planName =
+        getText("planName");
 
 
-    const numeric = (id) => {
-        const element = document.getElementById(id);
-
-        if (!element) {
-            return null;
-        }
-
-        const value = element.value.trim();
-
-        if (value === "") {
-            return null;
-        }
-
-        const number = Number(value);
-
-        return Number.isNaN(number) ? null : number;
-    };
-
-
-    // ========================================================
-    // Payload aligned exactly to public.plans
-    // ========================================================
-
-    const payload = {
-        plan_code: text("planCode"),
-        plan_name: text("planName"),
-        description: text("planDescription") || null,
-
-        principal_monthly_premium:
-            numeric("principalMonthlyPremium"),
-
-        parent_monthly_premium:
-            numeric("parentMonthlyPremium"),
-
-        principal_registration_fee:
-            numeric("principalRegistrationFee") ?? 0,
-
-        dependant_registration_fee:
-            numeric("dependantRegistrationFee") ?? 0,
-
-        principal_benefit:
-            numeric("principalBenefit"),
-
-        dependant_benefit:
-            numeric("dependantBenefit"),
-
-        max_dependants:
-            numeric("maxDependants"),
-
-        minimum_parents:
-            numeric("minimumParents") ?? 0,
-
-        maximum_parents:
-            numeric("maximumParents") ?? 0,
-
-        principal_entry_max_age:
-            numeric("principalEntryMaxAge") ?? 70,
-
-        principal_exit_age:
-            numeric("principalExitAge") ?? 80,
-
-        exit_age:
-            numeric("exitAge") ?? 80,
-
-        waiting_period_months:
-            numeric("waitingPeriodMonths") ?? 0,
-
-        grace_period_days:
-            numeric("gracePeriodDays") ?? 0,
-
-        renewal_period_months:
-            numeric("renewalPeriodMonths") ?? 1,
-
-        monthly_payment_deadline_days:
-            numeric("monthlyPaymentDeadlineDays") ?? 10,
-
-        activation_required_months:
-            numeric("activationRequiredMonths") ?? 0,
-
-        is_active:
-            document.getElementById("planIsActive").checked
-    };
-
-
-    // ========================================================
-    // Validation
-    // ========================================================
-
-    if (!payload.plan_code) {
-        errorEl.textContent = "Plan code is required.";
-        errorEl.style.display = "block";
-        return;
-    }
-
-    if (!payload.plan_name) {
-        errorEl.textContent = "Plan name is required.";
-        errorEl.style.display = "block";
-        return;
-    }
-
-    if (
-        payload.principal_monthly_premium === null ||
-        payload.principal_monthly_premium < 0
-    ) {
+    if (!planCode) {
         errorEl.textContent =
-            "Principal monthly premium must be a valid amount.";
+            "Plan code is required.";
 
         errorEl.style.display = "block";
         return;
     }
 
-    if (
-        payload.minimum_parents > payload.maximum_parents
-    ) {
+
+    if (!planName) {
+        errorEl.textContent =
+            "Plan name is required.";
+
+        errorEl.style.display = "block";
+        return;
+    }
+
+
+    const principalPremium =
+        getNumber("principalMonthlyPremium", 0);
+
+    const parentPremium =
+        getNumber("parentMonthlyPremium", 0);
+
+    const principalRegistration =
+        getNumber("principalRegistrationFee", 0);
+
+    const dependantRegistration =
+        getNumber("dependantRegistrationFee", 0);
+
+
+    // --------------------------------------------------------
+    // IMPORTANT:
+    // The database still has legacy NOT NULL columns:
+    //
+    // monthly_premium
+    // registration_fee
+    // waiting_period_days
+    //
+    // Keep them synchronized with the current fields.
+    // --------------------------------------------------------
+
+    const waitingMonths =
+        getNumber("waitingPeriodMonths", 0);
+
+    const waitingDays =
+        waitingMonths * 30;
+
+
+    const minimumParents =
+        getNumber("minimumParents", 0);
+
+    const maximumParents =
+        getNumber("maximumParents", 0);
+
+
+    if (minimumParents > maximumParents) {
         errorEl.textContent =
             "Minimum parents cannot be greater than maximum parents.";
 
@@ -591,22 +612,116 @@ async function handlePlanFormSubmit(event) {
     }
 
 
-    const planId = document.getElementById("planId").value.trim();
+    const activeCheckbox =
+        document.getElementById("planIsActive");
+
+
+    const payload = {
+
+        plan_code: planCode,
+
+        plan_name: planName,
+
+        description:
+            getText("planDescription") || null,
+
+
+        // Current pricing fields
+        principal_monthly_premium:
+            principalPremium,
+
+        parent_monthly_premium:
+            parentPremium,
+
+        principal_registration_fee:
+            principalRegistration,
+
+        dependant_registration_fee:
+            dependantRegistration,
+
+
+        // Legacy fields — required by current schema
+        monthly_premium:
+            principalPremium,
+
+        registration_fee:
+            principalRegistration,
+
+        waiting_period_days:
+            waitingDays,
+
+
+        principal_benefit:
+            getNumber("principalBenefit"),
+
+        dependant_benefit:
+            getNumber("dependantBenefit"),
+
+
+        max_dependants:
+            getNumber("maxDependants"),
+
+
+        minimum_parents:
+            minimumParents,
+
+        maximum_parents:
+            maximumParents,
+
+
+        principal_entry_max_age:
+            getNumber("principalEntryMaxAge", 70),
+
+        principal_exit_age:
+            getNumber("principalExitAge", 80),
+
+        exit_age:
+            getNumber("exitAge", 80),
+
+
+        waiting_period_months:
+            waitingMonths,
+
+        grace_period_days:
+            getNumber("gracePeriodDays", 0),
+
+        renewal_period_months:
+            getNumber("renewalPeriodMonths", 1),
+
+        monthly_payment_deadline_days:
+            getNumber("monthlyPaymentDeadlineDays", 10),
+
+        activation_required_months:
+            getNumber("activationRequiredMonths", 0),
+
+
+        is_active:
+            activeCheckbox
+                ? activeCheckbox.checked
+                : true
+    };
+
+
+    const planId =
+        document.getElementById("planId").value.trim();
+
 
     submitBtn.disabled = true;
 
-    const originalText = submitBtn.innerHTML;
+    const originalButtonText =
+        submitBtn.innerHTML;
 
     submitBtn.innerHTML =
         '<i class="fas fa-spinner fa-spin"></i> Saving...';
 
 
     try {
+
         let result;
+
 
         if (planId) {
 
-            // UPDATE
             result = await supabaseClient
                 .from("plans")
                 .update(payload)
@@ -614,7 +729,6 @@ async function handlePlanFormSubmit(event) {
 
         } else {
 
-            // INSERT
             result = await supabaseClient
                 .from("plans")
                 .insert(payload);
@@ -626,9 +740,10 @@ async function handlePlanFormSubmit(event) {
         }
 
 
-        successEl.textContent = planId
-            ? "Plan updated successfully."
-            : "Plan created successfully.";
+        successEl.textContent =
+            planId
+                ? "Plan updated successfully."
+                : "Plan created successfully.";
 
         successEl.style.display = "block";
 
@@ -636,59 +751,75 @@ async function handlePlanFormSubmit(event) {
         await loadPlans();
 
 
-        setTimeout(() => {
+        setTimeout(function () {
             closePlanModal();
         }, 700);
 
 
     } catch (error) {
 
-        console.error("Plan save error:", error);
+        console.error(
+            "Save plan error:",
+            error
+        );
 
         errorEl.textContent =
-            "Could not save plan: " + error.message;
+            "Could not save plan: " +
+            error.message;
 
         errorEl.style.display = "block";
 
     } finally {
 
         submitBtn.disabled = false;
-        submitBtn.innerHTML = originalText;
+
+        submitBtn.innerHTML =
+            originalButtonText;
     }
 }
 
 
 // ============================================================
-// TOGGLE ACTIVE / INACTIVE
+// TOGGLE PLAN STATUS
 // ============================================================
 
 async function togglePlanStatus(plan, rowEl) {
 
-    const nextActive = !(plan.is_active !== false);
+    const currentActive =
+        plan.is_active !== false;
 
-    const buttons = rowEl.querySelectorAll("button");
+    const nextActive =
+        !currentActive;
 
-    buttons.forEach((button) => {
+
+    const buttons =
+        rowEl.querySelectorAll("button");
+
+
+    buttons.forEach(function (button) {
         button.disabled = true;
     });
 
 
     try {
 
-        const { error } = await supabaseClient
-            .from("plans")
-            .update({
-                is_active: nextActive
-            })
-            .eq("id", plan.id);
+        const result =
+            await supabaseClient
+                .from("plans")
+                .update({
+                    is_active: nextActive
+                })
+                .eq("id", plan.id);
 
 
-        if (error) {
-            throw error;
+        if (result.error) {
+            throw result.error;
         }
 
 
-        plan.is_active = nextActive;
+        plan.is_active =
+            nextActive;
+
 
         rowEl.replaceWith(
             renderPlanRow(plan)
@@ -697,11 +828,15 @@ async function togglePlanStatus(plan, rowEl) {
 
     } catch (error) {
 
-        console.error("Plan status update error:", error);
+        console.error(
+            "Toggle plan error:",
+            error
+        );
 
-        buttons.forEach((button) => {
+        buttons.forEach(function (button) {
             button.disabled = false;
         });
+
 
         alert(
             "Could not update plan status: " +
@@ -717,18 +852,19 @@ async function togglePlanStatus(plan, rowEl) {
 
 async function deletePlan(plan, rowEl) {
 
-    const planName =
+    const name =
         plan.plan_name ||
         plan.plan_code ||
         "this plan";
 
 
-    const confirmed = confirm(
-        'Delete "' +
-        planName +
-        '"?\n\n' +
-        "This cannot be undone."
-    );
+    const confirmed =
+        confirm(
+            'Delete "' +
+            name +
+            '"?\n\n' +
+            "This cannot be undone."
+        );
 
 
     if (!confirmed) {
@@ -736,50 +872,61 @@ async function deletePlan(plan, rowEl) {
     }
 
 
-    const buttons = rowEl.querySelectorAll("button");
+    const buttons =
+        rowEl.querySelectorAll("button");
 
-    buttons.forEach((button) => {
+
+    buttons.forEach(function (button) {
         button.disabled = true;
     });
 
 
     try {
 
-        const { error } = await supabaseClient
-            .from("plans")
-            .delete()
-            .eq("id", plan.id);
+        const result =
+            await supabaseClient
+                .from("plans")
+                .delete()
+                .eq("id", plan.id);
 
 
-        if (error) {
-            throw error;
+        if (result.error) {
+            throw result.error;
         }
 
 
         rowEl.remove();
 
-        allPlans = allPlans.filter(
-            (item) => item.id !== plan.id
-        );
+
+        allPlans =
+            allPlans.filter(function (item) {
+                return item.id !== plan.id;
+            });
 
 
         if (allPlans.length === 0) {
 
-            document.getElementById("plansList").innerHTML = `
-                <p style="color:var(--text-light);">
-                    No plans yet. Use "New Plan" to add one.
-                </p>
-            `;
+            document.getElementById(
+                "plansList"
+            ).innerHTML =
+                '<p style="color:var(--text-light);">' +
+                'No plans yet. Use "New Plan" to add one.' +
+                '</p>';
         }
 
 
     } catch (error) {
 
-        console.error("Plan deletion error:", error);
+        console.error(
+            "Delete plan error:",
+            error
+        );
 
-        buttons.forEach((button) => {
+
+        buttons.forEach(function (button) {
             button.disabled = false;
         });
+
 
         alert(
             "Could not delete plan: " +
@@ -790,30 +937,61 @@ async function deletePlan(plan, rowEl) {
 
 
 // ============================================================
-// CLOSE MODAL WHEN CLICKING OUTSIDE
+// MODAL OUTSIDE CLICK
 // ============================================================
 
-document.addEventListener("click", (event) => {
+document.addEventListener(
+    "click",
+    function (event) {
 
-    const modal = document.getElementById("planModal");
+        const modal =
+            document.getElementById("planModal");
 
-    if (
-        modal &&
-        event.target === modal
-    ) {
-        closePlanModal();
+        if (
+            modal &&
+            event.target === modal
+        ) {
+            closePlanModal();
+        }
     }
-});
+);
 
 
 // ============================================================
-// ESC KEY CLOSES MODAL
+// ESC KEY
 // ============================================================
 
-document.addEventListener("keydown", (event) => {
+document.addEventListener(
+    "keydown",
+    function (event) {
 
-    if (event.key === "Escape") {
-        closePlanModal();
+        if (event.key === "Escape") {
+            closePlanModal();
+        }
     }
-});
+);
+
+
+// ============================================================
+// EXPOSE FUNCTIONS GLOBALLY
+// Required because admin-pricing.html uses onclick="..."
+// ============================================================
+
+window.openPlanModal =
+    openPlanModal;
+
+window.closePlanModal =
+    closePlanModal;
+
+window.loadPlans =
+    loadPlans;
+
+window.handlePlanFormSubmit =
+    handlePlanFormSubmit;
+
+window.togglePlanStatus =
+    togglePlanStatus;
+
+window.deletePlan =
+    deletePlan;
 ```
