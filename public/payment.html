@@ -8,6 +8,9 @@
     
     <link rel="icon" type="image/png" href="assets/favicon-32x32.png">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- jsPDF: used client-side to generate the payment receipt PDF right after
+         M-Pesa confirmation, with zero backend involvement. -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     
     <style>
         * {
@@ -557,6 +560,28 @@
             color: var(--primary);
         }
 
+        /* Membership card teaser on the success screen */
+        .card-teaser {
+            background: #f8faf9;
+            border: 2px dashed var(--primary);
+            border-radius: 10px;
+            padding: 16px;
+            margin: 16px 0;
+            text-align: left;
+        }
+
+        .card-teaser .teaser-title {
+            font-weight: 700;
+            color: var(--primary);
+            font-size: 14px;
+            margin-bottom: 4px;
+        }
+
+        .card-teaser p {
+            font-size: 13px;
+            color: var(--text-light);
+        }
+
         /* Responsive */
         @media (max-width: 768px) {
             .topbar {
@@ -748,6 +773,14 @@
                         <span class="value highlight" id="successAmount">KES 0</span>
                     </div>
                 </div>
+
+                <!-- Receipt download -->
+                <div style="margin:16px 0;">
+                    <button class="btn btn-primary" onclick="downloadReceipt()" id="receiptBtn">
+                        <i class="fas fa-file-invoice"></i> Download Receipt (PDF)
+                    </button>
+                </div>
+
                 <div style="background:var(--primary-light);border-radius:8px;padding:16px;margin:16px 0;text-align:left;">
                     <p><strong>📋 What's Next?</strong></p>
                     <ul style="padding-left:20px;color:var(--text-light);">
@@ -756,9 +789,19 @@
                         <li>🎯 Your coverage starts after the waiting period</li>
                     </ul>
                 </div>
+
+                <!-- Membership card teaser -->
+                <div class="card-teaser">
+                    <div class="teaser-title">🪪 Your Membership Card</div>
+                    <p>Your digital membership card unlocks once you've completed your first month as a paying member. Use the link below any time to check its status or download it.</p>
+                </div>
+
                 <div style="display:flex;gap:12px;justify-content:center;flex-wrap:wrap;">
                     <a href="index.html" class="btn btn-primary">← Home</a>
-                    <a href="register.html" class="btn btn-gold">Register Another Member</a>
+                    <a id="membershipCardLink" href="membership-card.html" class="btn btn-gold">
+                        <i class="fas fa-id-card"></i> View Membership Card
+                    </a>
+                    <a href="register.html" class="btn btn-secondary">Register Another Member</a>
                 </div>
             </div>
         </div>
@@ -791,6 +834,12 @@
         const maxPollAttempts = 60; // 60 * 3 seconds = 3 minutes
         let isProcessing = false;
 
+        // Filled in by paymentSuccess() and consumed by downloadReceipt().
+        // Kept separate from registrationData because it carries payment-time
+        // facts (receipt number, paid-at timestamp) that don't exist until
+        // M-Pesa actually confirms the transaction.
+        let lastReceiptData = null;
+
         // ============================================================
         // DOM REFERENCES
         // ============================================================
@@ -815,6 +864,7 @@
         const successName = document.getElementById('successName');
         const successNumber = document.getElementById('successNumber');
         const successAmount = document.getElementById('successAmount');
+        const membershipCardLink = document.getElementById('membershipCardLink');
 
         // ============================================================
         // API HELPER
@@ -865,6 +915,7 @@
             const memberNumber = sessionStorage.getItem('newMemberNumber');
             const memberName = sessionStorage.getItem('newMemberName');
             const memberPhone = sessionStorage.getItem('newMemberPhone');
+            const memberPlan = sessionStorage.getItem('newMemberPlan');
             const amount = sessionStorage.getItem('registrationAmount');
 
             if (memberId && amount) {
@@ -872,6 +923,7 @@
                     id: memberId,
                     member_number: memberNumber || memberId,
                     full_name: memberName || 'Member',
+                    plan_name: memberPlan || '',
                     total_amount: Number(amount)
                 };
                 displayPaymentData(registrationData);
@@ -903,6 +955,7 @@
                     id: urlMemberId,
                     member_number: params.get('member_number') || urlMemberId,
                     full_name: params.get('name') || 'Member',
+                    plan_name: params.get('plan') || '',
                     total_amount: Number(urlAmount)
                 };
                 displayPaymentData(registrationData);
@@ -919,6 +972,7 @@
                         id: data.id || data.member_id,
                         member_number: data.member_number || data.id,
                         full_name: data.first_name ? `${data.first_name} ${data.last_name || ''}`.trim() : data.full_name || 'Member',
+                        plan_name: data.plan_name || '',
                         total_amount: data.total_amount || data.registration_amount || data.amount || 0
                     };
                     displayPaymentData(registrationData);
@@ -947,6 +1001,12 @@
             successName.textContent = name || '—';
             successNumber.textContent = memberNumber;
             successAmount.textContent = formatKES(amount);
+
+            // Carry the member number over to the membership card page so it
+            // doesn't have to be typed in twice.
+            if (membershipCardLink && memberNumber && memberNumber !== 'PENDING') {
+                membershipCardLink.href = `membership-card.html?member_number=${encodeURIComponent(memberNumber)}`;
+            }
 
             window.registrationPaymentAmount = amount;
             window.registrationData = data;
@@ -1133,6 +1193,22 @@
                 details.appendChild(receiptRow);
             }
 
+            // Snapshot everything downloadReceipt() will need. data.paid_at
+            // is used when the backend sends it (the actual M-Pesa
+            // transaction time); otherwise we fall back to "now" — close
+            // enough since confirmation and receipt download happen within
+            // the same session.
+            lastReceiptData = {
+                memberName: registrationData ? (registrationData.full_name || successName.textContent) : successName.textContent,
+                memberNumber: registrationData ? (registrationData.member_number || successNumber.textContent) : successNumber.textContent,
+                planName: (registrationData && registrationData.plan_name) || 'Masika Benevolent Membership',
+                amount: window.registrationPaymentAmount || 0,
+                mpesaReceipt: data.receipt || '—',
+                phone: phoneNumber.value.trim(),
+                paidAt: data.paid_at ? new Date(data.paid_at) : new Date(),
+                checkoutRequestId: checkoutRequestId
+            };
+
             showAlert('🎉 Payment confirmed successfully!', 'success');
 
             // Show success card after delay
@@ -1175,6 +1251,134 @@
                 document.getElementById('step3').classList.remove('active');
                 clearAlert();
             }, 3000);
+        }
+
+        // ============================================================
+        // RECEIPT GENERATION (client-side PDF, no backend round trip)
+        // ============================================================
+
+        function downloadReceipt() {
+            if (!lastReceiptData) {
+                showAlert('Receipt data not available yet.', 'error');
+                return;
+            }
+            if (!window.jspdf) {
+                showAlert('Could not load the PDF library. Check your connection and try again.', 'error');
+                return;
+            }
+
+            const { jsPDF } = window.jspdf;
+            const doc = new jsPDF({ unit: 'mm', format: 'a4' });
+            const pageWidth = doc.internal.pageSize.getWidth();
+            const green = [11, 93, 59];   // --primary
+            const gold = [212, 168, 67];  // --gold
+            const grayText = [107, 114, 128];
+
+            // Header band
+            doc.setFillColor(...green);
+            doc.rect(0, 0, pageWidth, 32, 'F');
+            doc.setTextColor(255, 255, 255);
+            doc.setFont('helvetica', 'bold');
+            doc.setFontSize(18);
+            doc.text('MASIKA BENEVOLENT', 15, 15);
+            doc.setFont('helvetica', 'normal');
+            doc.setFontSize(10);
+            doc.text('Last Expense Benevolent Fund', 15, 22);
+
+            doc.setFontSize(14);
+            doc.setFont('helvetica', 'bold');
+            doc.text('PAYMENT RECEIPT', pageWidth - 15, 18, { align: 'right' });
+
+            // Gold accent rule
+            doc.setDrawColor(...gold);
+            doc.setLineWidth(1.2);
+            doc.line(15, 36, pageWidth - 15, 36);
+
+            let y = 48;
+            doc.setTextColor(31, 41, 51);
+
+            const receiptNo = lastReceiptData.mpesaReceipt !== '—'
+                ? lastReceiptData.mpesaReceipt
+                : (lastReceiptData.checkoutRequestId || 'N/A');
+
+            doc.setFontSize(10);
+            doc.setTextColor(...grayText);
+            doc.text('Receipt No.', 15, y);
+            doc.text('Date Issued', pageWidth - 15, y, { align: 'right' });
+
+            y += 6;
+            doc.setFontSize(12);
+            doc.setFont('helvetica', 'bold');
+            doc.setTextColor(31, 41, 51);
+            doc.text(String(receiptNo), 15, y);
+            doc.text(
+                lastReceiptData.paidAt.toLocaleString('en-KE', {
+                    dateStyle: 'medium',
+                    timeStyle: 'short'
+                }),
+                pageWidth - 15, y, { align: 'right' }
+            );
+
+            y += 14;
+            doc.setDrawColor(229, 231, 235);
+            doc.setLineWidth(0.3);
+            doc.line(15, y, pageWidth - 15, y);
+            y += 10;
+
+            const row = (label, value, bold = false) => {
+                doc.setFont('helvetica', 'normal');
+                doc.setFontSize(11);
+                doc.setTextColor(...grayText);
+                doc.text(label, 15, y);
+                doc.setFont('helvetica', bold ? 'bold' : 'normal');
+                doc.setTextColor(31, 41, 51);
+                doc.text(String(value), pageWidth - 15, y, { align: 'right' });
+                y += 9;
+            };
+
+            row('Member Name', lastReceiptData.memberName);
+            row('Member Number', lastReceiptData.memberNumber);
+            row('Plan', lastReceiptData.planName);
+            row('Paid From (M-Pesa No.)', lastReceiptData.phone || 'N/A');
+            row('Payment Method', 'M-Pesa (Paybill 348127)');
+
+            y += 4;
+            doc.setDrawColor(229, 231, 235);
+            doc.line(15, y, pageWidth - 15, y);
+            y += 14;
+
+            // Amount block
+            doc.setFillColor(232, 245, 238); // --primary-light
+            doc.roundedRect(15, y - 8, pageWidth - 30, 20, 3, 3, 'F');
+            doc.setFont('helvetica', 'normal');
+            doc.setFontSize(11);
+            doc.setTextColor(...grayText);
+            doc.text('AMOUNT PAID', 22, y + 3);
+            doc.setFont('helvetica', 'bold');
+            doc.setFontSize(16);
+            doc.setTextColor(...green);
+            doc.text(formatKES(lastReceiptData.amount), pageWidth - 22, y + 4, { align: 'right' });
+
+            y += 30;
+            doc.setFont('helvetica', 'italic');
+            doc.setFontSize(9);
+            doc.setTextColor(...grayText);
+            doc.text(
+                'This receipt confirms membership payment only. Coverage begins after the applicable waiting period.',
+                15, y, { maxWidth: pageWidth - 30 }
+            );
+
+            // Footer
+            const pageHeight = doc.internal.pageSize.getHeight();
+            doc.setDrawColor(...gold);
+            doc.setLineWidth(0.8);
+            doc.line(15, pageHeight - 20, pageWidth - 15, pageHeight - 20);
+            doc.setFontSize(8);
+            doc.setTextColor(...grayText);
+            doc.text('Masika Benevolent · Paybill 348127 · Generated automatically at payment confirmation', 15, pageHeight - 14);
+
+            const filenameSafeNumber = String(lastReceiptData.memberNumber).replace(/[^a-zA-Z0-9]/g, '');
+            doc.save(`Masika-Receipt-${filenameSafeNumber || 'member'}.pdf`);
         }
 
         // ============================================================
