@@ -1,4 +1,3 @@
-```javascript
 // ============================================================
 // MASIKA BENEVOLENT - ADMIN PRICING
 // Database table: public.plans
