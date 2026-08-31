@@ -1,340 +1,268 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Admin Login | Masika Benevolent</title>
-    <link rel="icon" type="image/png" href="../assets/favicon-32x32.png">
+<script>
+// ============================================================
+// MASIKA BENEVOLENT — ADMIN LOGIN
+// ============================================================
+
+const alertBox = document.getElementById('alertBox');
+const loginBtn = document.getElementById('loginBtn');
+const loginForm = document.getElementById('loginForm');
+
+// ------------------------------------------------------------
+// Alert utilities
+// ------------------------------------------------------------
+function showAlert(message, type = 'error') {
+    alertBox.textContent = message;
+    alertBox.className = `alert show ${type}`;
+}
+
+function clearAlert() {
+    alertBox.className = 'alert';
+}
+
+function setInputError(inputId, hasError) {
+    const input = document.getElementById(inputId);
+    if (input) {
+        input.classList.toggle('error', hasError);
+    }
+}
+
+// ------------------------------------------------------------
+// Login handler
+// ------------------------------------------------------------
+async function handleLogin(event) {
+    event.preventDefault();
+    clearAlert();
     
-    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    const emailInput = document.getElementById('email');
+    const passwordInput = document.getElementById('password');
     
-    <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
+    const email = emailInput.value.trim().toLowerCase();
+    const password = passwordInput.value;
+
+    // Validate inputs
+    setInputError('email', false);
+    setInputError('password', false);
+
+    if (!email) {
+        showAlert('Please enter your email address.');
+        setInputError('email', true);
+        emailInput.focus();
+        return;
+    }
+
+    if (!password) {
+        showAlert('Please enter your password.');
+        setInputError('password', true);
+        passwordInput.focus();
+        return;
+    }
+
+    if (password.length < 8) {
+        showAlert('Password must be at least 8 characters.');
+        setInputError('password', true);
+        passwordInput.focus();
+        return;
+    }
+
+    // Show loading state
+    loginBtn.classList.add('loading');
+    loginBtn.disabled = true;
+
+    try {
+        // 1. Authenticate with Supabase
+        const { data, error } = await supabaseClient.auth.signInWithPassword({
+            email,
+            password
+        });
+
+        if (error) {
+            console.error('Supabase login error:', error);
+            showAlert(error.message || 'Invalid email or password.');
+            setInputError('email', true);
+            setInputError('password', true);
+            return;
         }
 
-        :root {
-            --primary: #0b5d3b;
-            --primary-dark: #06452c;
-            --primary-light: #e8f5ee;
-            --gold: #d4a843;
-            --danger: #dc3545;
-            --text: #1f2933;
-            --text-light: #6b7280;
-            --white: #ffffff;
-            --shadow: 0 4px 24px rgba(0,0,0,0.1);
-            --radius: 12px;
+        if (!data?.user) {
+            showAlert('Login failed. No user session was created.');
+            return;
         }
 
-        body {
-            font-family: 'Segoe UI', Arial, sans-serif;
-            background: #f0f4f2;
-            min-height: 100vh;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            padding: 20px;
+        console.log('Authentication successful:', data.user.id);
+
+        // 2. Verify staff record
+        const { data: staff, error: staffError } = await supabaseClient
+            .from('staff')
+            .select('id, auth_user_id, employee_number, full_name, role_id')
+            .eq('auth_user_id', data.user.id)
+            .maybeSingle();
+
+        if (staffError) {
+            console.error('Staff lookup error:', staffError);
+            await supabaseClient.auth.signOut();
+            showAlert('Could not verify your staff account. Please contact support.');
+            return;
         }
 
-        .login-container {
-            background: var(--white);
-            border-radius: var(--radius);
-            padding: 48px 40px;
-            max-width: 420px;
-            width: 100%;
-            box-shadow: var(--shadow);
+        if (!staff) {
+            console.error('No staff record for:', data.user.id);
+            await supabaseClient.auth.signOut();
+            showAlert('Access denied. Your account is not registered as staff.');
+            return;
         }
 
-        .login-header {
-            text-align: center;
-            margin-bottom: 32px;
+        console.log('Staff record found:', staff);
+
+        // 3. Verify role
+        const { data: role, error: roleError } = await supabaseClient
+            .from('roles')
+            .select('id, role_code, role_name, is_active')
+            .eq('id', staff.role_id)
+            .maybeSingle();
+
+        if (roleError || !role) {
+            console.error('Role lookup error:', roleError);
+            await supabaseClient.auth.signOut();
+            showAlert('Could not verify your staff role. Please contact support.');
+            return;
         }
 
-        .login-header .logo {
-            width: 64px;
-            height: 64px;
-            background: var(--primary);
-            border-radius: 50%;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            margin: 0 auto 16px;
-            font-size: 28px;
-            font-weight: 900;
-            color: white;
+        console.log('Role found:', role);
+
+        // 4. Validate role
+        const roleCode = String(role.role_code || '').trim().toUpperCase();
+        const allowedRoles = ['SUPER_ADMIN', 'BRANCH_MANAGER', 'SALES_AGENT', 'AUDITOR'];
+
+        if (role.is_active !== true) {
+            await supabaseClient.auth.signOut();
+            showAlert('Access denied. Your staff role is inactive.');
+            return;
         }
 
-        .login-header h1 {
-            font-size: 24px;
-            font-weight: 700;
-            color: var(--text);
+        if (!allowedRoles.includes(roleCode)) {
+            console.error('Unauthorized role:', roleCode);
+            await supabaseClient.auth.signOut();
+            showAlert('Access denied. Your role does not have system access.');
+            return;
         }
 
-        .login-header p {
-            color: var(--text-light);
-            font-size: 14px;
-            margin-top: 4px;
-        }
+        // 5. Store session
+        const sessionData = {
+            adminLoggedIn: 'true',
+            adminId: staff.id,
+            adminAuthUserId: data.user.id,
+            adminRole: roleCode,
+            adminName: staff.full_name || data.user.email,
+            adminEmployeeNumber: staff.employee_number || '',
+            adminProfile: JSON.stringify({
+                id: staff.id,
+                auth_user_id: staff.auth_user_id,
+                employee_number: staff.employee_number,
+                full_name: staff.full_name,
+                email: data.user.email,
+                role: roleCode,
+                role_name: role.role_name
+            })
+        };
 
-        .form-group {
-            margin-bottom: 18px;
-        }
+        Object.entries(sessionData).forEach(([key, value]) => {
+            sessionStorage.setItem(key, value);
+        });
 
-        .form-group label {
-            display: block;
-            font-weight: 600;
-            font-size: 13px;
-            margin-bottom: 6px;
-            color: var(--text);
-        }
+        // 6. Show success message
+        const displayName = staff.full_name || 'Admin';
+        showAlert(`Welcome ${displayName}! Redirecting...`, 'success');
 
-        .form-group input {
-            width: 100%;
-            padding: 12px 16px;
-            border: 2px solid #e5e7eb;
-            border-radius: 8px;
-            font-size: 15px;
-            transition: all 0.2s;
-            font-family: inherit;
-        }
+        // 7. Redirect
+        setTimeout(() => {
+            window.location.href = 'admin-dashboard.html';
+        }, 500);
 
-        .form-group input:focus {
-            outline: none;
-            border-color: var(--primary);
-            box-shadow: 0 0 0 3px rgba(11,93,59,0.1);
-        }
+    } catch (error) {
+        console.error('Unexpected login error:', error);
+        showAlert('An unexpected error occurred. Please try again.');
+    } finally {
+        loginBtn.classList.remove('loading');
+        loginBtn.disabled = false;
+    }
+}
 
-        .form-group input.error {
-            border-color: var(--danger);
-        }
-
-        .btn {
-            width: 100%;
-            padding: 14px;
-            border: none;
-            border-radius: 8px;
-            font-size: 16px;
-            font-weight: 600;
-            cursor: pointer;
-            transition: all 0.2s;
-            font-family: inherit;
-        }
-
-        .btn-primary {
-            background: var(--primary);
-            color: white;
-        }
-
-        .btn-primary:hover {
-            background: var(--primary-dark);
-            transform: translateY(-1px);
-            box-shadow: 0 4px 12px rgba(11,93,59,0.3);
-        }
-
-        .btn-primary:disabled {
-            opacity: 0.6;
-            cursor: not-allowed;
-            transform: none;
-        }
-
-        .alert {
-            display: none;
-            padding: 12px 16px;
-            border-radius: 8px;
-            margin-bottom: 16px;
-            font-size: 14px;
-        }
-
-        .alert.show {
-            display: block;
-        }
-
-        .alert.error {
-            background: #fef2f2;
-            border: 1px solid #fecaca;
-            color: #991b1b;
-        }
-
-        .alert.success {
-            background: #ecfdf5;
-            border: 1px solid #a7f3d0;
-            color: #065f46;
-        }
-
-        .login-footer {
-            text-align: center;
-            margin-top: 20px;
-            font-size: 13px;
-            color: var(--text-light);
-        }
-
-        .login-footer a {
-            color: var(--primary);
-            text-decoration: none;
-        }
-
-        .login-footer a:hover {
-            text-decoration: underline;
-        }
-
-        .spinner {
-            display: none;
-            width: 20px;
-            height: 20px;
-            border: 3px solid rgba(255,255,255,0.3);
-            border-top-color: white;
-            border-radius: 50%;
-            animation: spin 0.8s linear infinite;
-            margin: 0 auto;
-        }
-
-        .btn.loading .spinner {
-            display: inline-block;
-        }
-
-        .btn.loading .btn-text {
-            display: none;
-        }
-
-        @keyframes spin {
-            to { transform: rotate(360deg); }
-        }
-
-        @media (max-width: 480px) {
-            .login-container {
-                padding: 32px 24px;
-            }
-        }
-    </style>
-</head>
-<body>
-
-    <div class="login-container">
-        <div class="login-header">
-            <div class="logo">MB</div>
-            <h1>Admin Login</h1>
-            <p>Masika Benevolent Management System</p>
-        </div>
-
-        <div id="alertBox" class="alert"></div>
-
-        <form id="loginForm" onsubmit="handleLogin(event)">
-            <div class="form-group">
-                <label for="email">Email Address</label>
-                <input type="email" id="email" placeholder="admin@masikabbs.com" required>
-            </div>
-
-            <div class="form-group">
-                <label for="password">Password</label>
-                <input type="password" id="password" placeholder="Enter your password" required minlength="8">
-            </div>
-
-            <button type="submit" class="btn btn-primary" id="loginBtn">
-                <span class="btn-text">Sign In</span>
-                <span class="spinner"></span>
-            </button>
-        </form>
-
-        <div class="login-footer">
-            <a href="../index.html">← Back to Home</a>
-        </div>
-    </div>
-
-    <script src="../js/supabase-config.js"></script>
-    <script>
-        // ============================================================
-        // ADMIN LOGIN
-        // ============================================================
-
-        const alertBox = document.getElementById('alertBox');
-        const loginBtn = document.getElementById('loginBtn');
-
-        function showAlert(message, type = 'error') {
-            alertBox.textContent = message;
-            alertBox.className = `alert show ${type}`;
-        }
-
-        function clearAlert() {
-            alertBox.className = 'alert';
-        }
-
-        async function handleLogin(event) {
-            event.preventDefault();
-            clearAlert();
-
-            const email = document.getElementById('email').value.trim();
-            const password = document.getElementById('password').value;
-
-            if (!email || !password) {
-                showAlert('Please enter your email and password.', 'error');
+// ------------------------------------------------------------
+// Check existing session
+// ------------------------------------------------------------
+async function checkExistingSession() {
+    try {
+        // Check session storage first
+        const loggedIn = sessionStorage.getItem('adminLoggedIn');
+        if (loggedIn === 'true') {
+            const profile = sessionStorage.getItem('adminProfile');
+            if (profile) {
+                window.location.href = 'admin-dashboard.html';
                 return;
             }
-
-            loginBtn.classList.add('loading');
-            loginBtn.disabled = true;
-
-            try {
-                // Sign in with Supabase
-                const { data, error } = await window.supabaseClient.auth.signInWithPassword({
-                    email: email,
-                    password: password
-                });
-
-                if (error) {
-                    showAlert('Invalid email or password.', 'error');
-                    return;
-                }
-
-                // Check if user is admin
-                const { data: admin, error: adminError } = await window.supabaseClient
-                    .from('admin_profiles')
-                    .select('*')
-                    .eq('user_id', data.user.id)
-                    .eq('is_active', true)
-                    .maybeSingle();
-
-                if (adminError || !admin) {
-                    await window.supabaseClient.auth.signOut();
-                    showAlert('Access denied. You are not authorized as admin.', 'error');
-                    return;
-                }
-
-                // Check admin role
-                const allowedRoles = ['super_admin', 'admin', 'manager'];
-                if (!allowedRoles.includes(admin.role?.toLowerCase())) {
-                    await window.supabaseClient.auth.signOut();
-                    showAlert('Access denied. Insufficient permissions.', 'error');
-                    return;
-                }
-
-                // Store admin session
-                sessionStorage.setItem('adminLoggedIn', 'true');
-                sessionStorage.setItem('adminRole', admin.role);
-                sessionStorage.setItem('adminId', admin.id);
-                sessionStorage.setItem('adminName', admin.full_name || 'Admin');
-
-                // Redirect to dashboard
-                window.location.href = 'admin-dashboard.html';
-
-            } catch (error) {
-                console.error('Login error:', error);
-                showAlert('An error occurred. Please try again.', 'error');
-            } finally {
-                loginBtn.classList.remove('loading');
-                loginBtn.disabled = false;
-            }
         }
 
-        // Check if already logged in
-        document.addEventListener('DOMContentLoaded', async function() {
-            const loggedIn = sessionStorage.getItem('adminLoggedIn');
-            if (loggedIn === 'true') {
-                window.location.href = 'admin-dashboard.html';
-            }
-        });
-    </script>
+        // Check Supabase session
+        const { data } = await supabaseClient.auth.getSession();
+        if (!data?.session) return;
 
-</body>
-</html>
+        const userId = data.session.user.id;
+
+        // Verify staff record
+        const { data: staff } = await supabaseClient
+            .from('staff')
+            .select('id, auth_user_id, employee_number, full_name, role_id')
+            .eq('auth_user_id', userId)
+            .maybeSingle();
+
+        if (!staff) return;
+
+        // Verify role
+        const { data: role } = await supabaseClient
+            .from('roles')
+            .select('id, role_code, role_name, is_active')
+            .eq('id', staff.role_id)
+            .maybeSingle();
+
+        const roleCode = String(role?.role_code || '').trim().toUpperCase();
+        const allowedRoles = ['SUPER_ADMIN', 'BRANCH_MANAGER', 'SALES_AGENT', 'AUDITOR'];
+
+        if (role?.is_active === true && allowedRoles.includes(roleCode)) {
+            // Rebuild session
+            const sessionData = {
+                adminLoggedIn: 'true',
+                adminId: staff.id,
+                adminAuthUserId: userId,
+                adminRole: roleCode,
+                adminName: staff.full_name || data.session.user.email,
+                adminEmployeeNumber: staff.employee_number || '',
+                adminProfile: JSON.stringify({
+                    id: staff.id,
+                    auth_user_id: staff.auth_user_id,
+                    employee_number: staff.employee_number,
+                    full_name: staff.full_name,
+                    email: data.session.user.email,
+                    role: roleCode,
+                    role_name: role.role_name
+                })
+            };
+
+            Object.entries(sessionData).forEach(([key, value]) => {
+                sessionStorage.setItem(key, value);
+            });
+
+            window.location.href = 'admin-dashboard.html';
+        }
+    } catch (error) {
+        console.warn('Session check failed:', error);
+    }
+}
+
+// ------------------------------------------------------------
+// Initialize
+// ------------------------------------------------------------
+document.addEventListener('DOMContentLoaded', checkExistingSession);
+
+// Attach login handler to form
+document.getElementById('loginForm').addEventListener('submit', handleLogin);
+</script>
