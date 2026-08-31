@@ -1,389 +1,285 @@
 // ============================================================
-// MASIKA BENEVOLENT — ADMIN AUTHENTICATION & AUTHORIZATION
-// ============================================================
-// Database schema:
-//   staff (id, auth_user_id, employee_number, full_name, role_id)
-//   roles (id, role_code, role_name, is_active)
-// Authorized roles: SUPER_ADMIN, BRANCH_MANAGER, SALES_AGENT, AUDITOR
+// MASIKA BENEVOLENT — ADMIN LOGIN
 // ============================================================
 
-class AdminAuthService {
-    constructor() {
-        this.session = null;
-        this.profile = null;
-        this._initialized = false;
-        this._authListeners = [];
+const ALLOWED_ROLES = ['SUPER_ADMIN'];
+const DASHBOARD_URL = 'admin-dashboard.html';
+
+// Get DOM elements
+const alertBox = document.getElementById('alertBox');
+const loginBtn = document.getElementById('loginBtn');
+const loginForm = document.getElementById('loginForm');
+const emailInput = document.getElementById('email');
+const passwordInput = document.getElementById('password');
+
+// ------------------------------------------------------------
+// Alert utilities
+// ------------------------------------------------------------
+function showAlert(message, type = 'error') {
+    alertBox.textContent = message;
+    alertBox.className = `alert show ${type}`;
+}
+
+function clearAlert() {
+    alertBox.className = 'alert';
+}
+
+function setInputError(inputId, hasError) {
+    const input = document.getElementById(inputId);
+    if (input) {
+        input.classList.toggle('error', hasError);
+    }
+}
+
+// ------------------------------------------------------------
+// Build a session profile object from staff + role rows
+// ------------------------------------------------------------
+function buildProfile(staff, role, authUser) {
+    const roleCode = String(role.role_code || '').trim().toUpperCase();
+    return {
+        id: staff.id,
+        auth_user_id: staff.auth_user_id,
+        employee_number: staff.employee_number || '',
+        full_name: staff.full_name || 'Staff Member',
+        email: authUser.email || '',
+        role: roleCode,
+        role_name: role.role_name || roleCode,
+        role_id: role.id,
+        role_is_active: role.is_active
+    };
+}
+
+function persistSession(profile) {
+    const sessionValues = {
+        adminLoggedIn: 'true',
+        adminId: profile.id,
+        adminAuthUserId: profile.auth_user_id,
+        adminRole: profile.role,
+        adminName: profile.full_name || profile.email,
+        adminEmployeeNumber: profile.employee_number || '',
+        adminProfile: JSON.stringify(profile)
+    };
+
+    Object.entries(sessionValues).forEach(([key, value]) => {
+        sessionStorage.setItem(key, value);
+    });
+}
+
+// ------------------------------------------------------------
+// Look up the staff record + role for a given auth user.
+// Returns { staff, role } or null (and shows an alert) on failure.
+// Signs the user out of Supabase on any verification failure.
+// ------------------------------------------------------------
+async function verifyStaffAccess(authUser) {
+    // 1. Staff record
+    const { data: staff, error: staffError } = await supabaseClient
+        .from('staff')
+        .select('id, auth_user_id, employee_number, full_name, role_id')
+        .eq('auth_user_id', authUser.id)
+        .maybeSingle();
+
+    if (staffError) {
+        console.error('Staff lookup error:', staffError);
+        await supabaseClient.auth.signOut();
+        showAlert('Could not verify your staff account. Please contact support.');
+        return null;
     }
 
-    // --------------------------------------------------------
-    // Singleton instance
-    // --------------------------------------------------------
-    static getInstance() {
-        if (!AdminAuthService._instance) {
-            AdminAuthService._instance = new AdminAuthService();
+    if (!staff) {
+        console.error('No staff record for:', authUser.id);
+        await supabaseClient.auth.signOut();
+        showAlert('Access denied. Your account is not registered as staff.');
+        return null;
+    }
+
+    // 2. Role record
+    const { data: role, error: roleError } = await supabaseClient
+        .from('roles')
+        .select('id, role_code, role_name, is_active')
+        .eq('id', staff.role_id)
+        .maybeSingle();
+
+    if (roleError) {
+        console.error('Role lookup error:', roleError);
+        await supabaseClient.auth.signOut();
+        showAlert('Could not verify your staff role. Please contact support.');
+        return null;
+    }
+
+    if (!role) {
+        await supabaseClient.auth.signOut();
+        showAlert('Access denied. No staff role is assigned.');
+        return null;
+    }
+
+    // 3. Validate role
+    const roleCode = String(role.role_code || '').trim().toUpperCase();
+
+    if (role.is_active !== true) {
+        await supabaseClient.auth.signOut();
+        showAlert('Access denied. Your staff role is inactive.');
+        return null;
+    }
+
+    if (!ALLOWED_ROLES.includes(roleCode)) {
+        console.error('Unauthorized role:', roleCode);
+        await supabaseClient.auth.signOut();
+        showAlert('Access denied. This panel is restricted to Super Admins.');
+        return null;
+    }
+
+    return { staff, role };
+}
+
+// ------------------------------------------------------------
+// Login handler
+// ------------------------------------------------------------
+async function handleLogin(event) {
+    event.preventDefault();
+    clearAlert();
+
+    const email = emailInput.value.trim().toLowerCase();
+    const password = passwordInput.value;
+
+    // Reset previous validation state
+    setInputError('email', false);
+    setInputError('password', false);
+
+    if (!email) {
+        showAlert('Please enter your email address.');
+        setInputError('email', true);
+        emailInput.focus();
+        return;
+    }
+
+    if (!password) {
+        showAlert('Please enter your password.');
+        setInputError('password', true);
+        passwordInput.focus();
+        return;
+    }
+
+    if (password.length < 8) {
+        showAlert('Password must be at least 8 characters.');
+        setInputError('password', true);
+        passwordInput.focus();
+        return;
+    }
+
+    // Show loading state
+    loginBtn.classList.add('loading');
+    loginBtn.disabled = true;
+
+    try {
+        // 1. Authenticate with Supabase
+        const { data: authData, error: authError } = await supabaseClient.auth.signInWithPassword({
+            email,
+            password
+        });
+
+        if (authError) {
+            console.error('Supabase login error:', authError);
+            showAlert(authError.message || 'Invalid email or password.');
+            setInputError('email', true);
+            setInputError('password', true);
+            return;
         }
-        return AdminAuthService._instance;
-    }
 
-    // --------------------------------------------------------
-    // Allowed roles configuration
-    // --------------------------------------------------------
-    get ALLOWED_ROLES() {
-        return ['SUPER_ADMIN'];
-    }
+        if (!authData?.user) {
+            showAlert('Login failed. No user session was created.');
+            return;
+        }
 
-    get SESSION_KEYS() {
-        return {
-            LOGGED_IN: 'adminLoggedIn',
-            ID: 'adminId',
-            AUTH_USER_ID: 'adminAuthUserId',
-            ROLE: 'adminRole',
-            NAME: 'adminName',
-            EMPLOYEE_NUMBER: 'adminEmployeeNumber',
-            PROFILE: 'adminProfile'
-        };
-    }
+        console.log('Authentication successful:', authData.user.id);
 
-    // --------------------------------------------------------
-    // Require authenticated + authorized staff.
-    // Call this once per protected page; it renders the sidebar
-    // profile and redirects unauthenticated/unauthorized users
-    // to the login page.
-    // --------------------------------------------------------
-    async requireSession(redirectOnFail = true) {
-        try {
-            // Check session storage first for performance
-            if (this._hasStoredSession()) {
-                const profile = this._getStoredProfile();
-                if (profile) {
-                    this.profile = profile;
-                    this._renderProfile();
-                    return this.profile;
+        // 2. Verify staff + role
+        const access = await verifyStaffAccess(authData.user);
+        if (!access) {
+            return; // verifyStaffAccess already showed an alert and signed the user out
+        }
+
+        const { staff, role } = access;
+        console.log('Staff record found:', staff);
+        console.log('Role found:', role);
+
+        // 3. Build + persist session
+        const profile = buildProfile(staff, role, authData.user);
+        persistSession(profile);
+
+        // 4. Show success message
+        const displayName = staff.full_name || 'Admin';
+        showAlert(`Welcome ${displayName}! Redirecting...`, 'success');
+
+        // 5. Redirect
+        setTimeout(() => {
+            window.location.href = DASHBOARD_URL;
+        }, 500);
+
+    } catch (error) {
+        console.error('Unexpected login error:', error);
+        showAlert('An unexpected error occurred. Please try again.');
+    } finally {
+        loginBtn.classList.remove('loading');
+        loginBtn.disabled = false;
+    }
+}
+
+// ------------------------------------------------------------
+// Check existing session (sessionStorage first, then Supabase)
+// ------------------------------------------------------------
+async function checkExistingSession() {
+    try {
+        // Check session storage first
+        const loggedIn = sessionStorage.getItem('adminLoggedIn');
+        if (loggedIn === 'true') {
+            const storedProfile = sessionStorage.getItem('adminProfile');
+            if (storedProfile) {
+                try {
+                    const parsedProfile = JSON.parse(storedProfile);
+                    if (parsedProfile && parsedProfile.id) {
+                        window.location.href = DASHBOARD_URL;
+                        return;
+                    }
+                } catch (e) {
+                    console.warn('Invalid profile data in session storage, clearing it.');
+                    sessionStorage.clear();
                 }
             }
-
-            // Fall back to Supabase session
-            const { data: sessionData, error: sessionError } =
-                await supabaseClient.auth.getSession();
-
-            if (sessionError) {
-                throw new Error(`Session error: ${sessionError.message}`);
-            }
-
-            const session = sessionData?.session;
-            if (!session) {
-                if (redirectOnFail) this.redirectToLogin();
-                return null;
-            }
-
-            this.session = session;
-
-            // Load and verify staff profile
-            const authorized = await this._loadProfile();
-            if (!authorized) {
-                await supabaseClient.auth.signOut();
-                if (redirectOnFail) this.redirectToLogin();
-                return null;
-            }
-
-            // Render admin information
-            this._renderProfile();
-
-            return this.profile;
-
-        } catch (error) {
-            console.error('Admin authentication error:', error);
-            if (redirectOnFail) this.redirectToLogin();
-            return null;
-        }
-    }
-
-    // --------------------------------------------------------
-    // Check stored session
-    // --------------------------------------------------------
-    _hasStoredSession() {
-        return sessionStorage.getItem(this.SESSION_KEYS.LOGGED_IN) === 'true';
-    }
-
-    _getStoredProfile() {
-        try {
-            const data = sessionStorage.getItem(this.SESSION_KEYS.PROFILE);
-            return data ? JSON.parse(data) : null;
-        } catch {
-            return null;
-        }
-    }
-
-    // --------------------------------------------------------
-    // Load staff profile and role
-    // --------------------------------------------------------
-    async _loadProfile() {
-        if (!this.session?.user?.id) {
-            console.warn('No user ID in session');
-            return false;
         }
 
-        const authUserId = this.session.user.id;
-        console.log('Checking staff authorization for:', authUserId);
-
-        try {
-            // 1. Find staff record
-            const { data: staff, error: staffError } = await supabaseClient
-                .from('staff')
-                .select('id, auth_user_id, employee_number, full_name, role_id')
-                .eq('auth_user_id', authUserId)
-                .maybeSingle();
-
-            if (staffError) {
-                console.error('Staff lookup error:', staffError);
-                return false;
-            }
-
-            if (!staff) {
-                console.error('No staff record found for auth user:', authUserId);
-                return false;
-            }
-
-            console.log('Staff record found:', staff);
-
-            // 2. Load role
-            const { data: role, error: roleError } = await supabaseClient
-                .from('roles')
-                .select('id, role_code, role_name, is_active')
-                .eq('id', staff.role_id)
-                .maybeSingle();
-
-            if (roleError) {
-                console.error('Role lookup error:', roleError);
-                return false;
-            }
-
-            if (!role) {
-                console.error('No role found for role_id:', staff.role_id);
-                return false;
-            }
-
-            console.log('Role found:', role);
-
-            // 3. Validate role
-            const roleCode = this._normalizeRoleCode(role.role_code);
-
-            if (role.is_active !== true) {
-                console.error('Staff role is inactive:', roleCode);
-                return false;
-            }
-
-            if (!this.ALLOWED_ROLES.includes(roleCode)) {
-                console.error('Unauthorized role:', roleCode);
-                return false;
-            }
-
-            // 4. Build and store profile
-            this.profile = {
-                id: staff.id,
-                auth_user_id: staff.auth_user_id,
-                employee_number: staff.employee_number,
-                full_name: staff.full_name,
-                email: this.session.user.email,
-                role_id: role.id,
-                role: roleCode,
-                role_code: roleCode,
-                role_name: role.role_name,
-                role_is_active: role.is_active
-            };
-
-            // 5. Store in session
-            this._storeProfile();
-
-            console.log('ADMIN AUTHORIZED:', this.profile);
-            return true;
-
-        } catch (error) {
-            console.error('Profile loading error:', error);
-            return false;
+        // Fall back to checking Supabase's own session
+        const { data: authSessionData } = await supabaseClient.auth.getSession();
+        if (!authSessionData?.session) {
+            console.log('No active Supabase session found');
+            return;
         }
-    }
 
-    // --------------------------------------------------------
-    // Store profile in session storage
-    // --------------------------------------------------------
-    _storeProfile() {
-        if (!this.profile) return;
+        const authUser = authSessionData.session.user;
+        console.log('Found existing Supabase session for user:', authUser.id);
 
-        const keys = this.SESSION_KEYS;
-        sessionStorage.setItem(keys.LOGGED_IN, 'true');
-        sessionStorage.setItem(keys.ID, this.profile.id);
-        sessionStorage.setItem(keys.AUTH_USER_ID, this.profile.auth_user_id);
-        sessionStorage.setItem(keys.ROLE, this.profile.role);
-        sessionStorage.setItem(keys.NAME, this.profile.full_name || this.profile.email);
-        sessionStorage.setItem(keys.EMPLOYEE_NUMBER, this.profile.employee_number || '');
-        sessionStorage.setItem(keys.PROFILE, JSON.stringify(this.profile));
-    }
-
-    // --------------------------------------------------------
-    // Clear stored session
-    // --------------------------------------------------------
-    _clearStoredSession() {
-        const keys = this.SESSION_KEYS;
-        Object.values(keys).forEach(key => {
-            sessionStorage.removeItem(key);
-        });
-    }
-
-    // --------------------------------------------------------
-    // Normalize role code
-    // --------------------------------------------------------
-    _normalizeRoleCode(code) {
-        return String(code || '').trim().toUpperCase();
-    }
-
-    // --------------------------------------------------------
-    // Render admin information (sidebar footer + topbar greeting)
-    // --------------------------------------------------------
-    _renderProfile() {
-        if (!this.profile) return;
-
-        const displayName = this.profile.full_name || this.profile.email || 'Admin';
-        const firstName = displayName.trim().split(' ')[0] || displayName;
-        const roleDisplay = this.profile.role_name || this.profile.role_code || 'Administrator';
-
-        const elements = {
-            adminName: displayName,
-            welcomeName: firstName,
-            adminRole: roleDisplay,
-            adminAvatar: displayName.trim().charAt(0).toUpperCase()
-        };
-
-        Object.entries(elements).forEach(([id, text]) => {
-            const el = document.getElementById(id);
-            if (el) el.textContent = text;
-        });
-
-        // Give the avatar a stable color derived from the name
-        const avatarEl = document.getElementById('adminAvatar');
-        if (avatarEl) {
-            const colors = ['#0b5d3b', '#d4a843', '#06452c', '#1f2933'];
-            const hash = displayName.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
-            avatarEl.style.backgroundColor = colors[hash % colors.length];
+        // Verify staff + role for this existing session
+        const access = await verifyStaffAccess(authUser);
+        if (!access) {
+            return; // already signed out + alerted if invalid
         }
-    }
 
-    // --------------------------------------------------------
-    // Role helpers
-    // --------------------------------------------------------
-    isSuperAdmin() {
-        return this.profile?.role === 'SUPER_ADMIN';
-    }
+        const { staff, role } = access;
+        const profile = buildProfile(staff, role, authUser);
+        persistSession(profile);
 
-    isBranchManager() {
-        return this.profile?.role === 'BRANCH_MANAGER';
-    }
+        window.location.href = DASHBOARD_URL;
 
-    isSalesAgent() {
-        return this.profile?.role === 'SALES_AGENT';
-    }
-
-    isAuditor() {
-        return this.profile?.role === 'AUDITOR';
-    }
-
-    hasRole(role) {
-        if (!this.profile?.role) return false;
-        return this.profile.role === this._normalizeRoleCode(role);
-    }
-
-    hasAnyRole(roles) {
-        if (!Array.isArray(roles)) roles = [roles];
-        return roles.some(role => this.hasRole(role));
-    }
-
-    canAccess(requiredRoles) {
-        if (!this.profile) return false;
-        if (!requiredRoles) return true;
-        if (!Array.isArray(requiredRoles)) requiredRoles = [requiredRoles];
-        return requiredRoles.some(role => this.hasRole(role));
-    }
-
-    // --------------------------------------------------------
-    // Redirect to login
-    // --------------------------------------------------------
-    redirectToLogin() {
-        this._clearStoredSession();
-        window.location.href = 'admin-login.html';
-    }
-
-    // --------------------------------------------------------
-    // Logout
-    // --------------------------------------------------------
-    async logout() {
-        try {
-            await supabaseClient.auth.signOut();
-        } catch (error) {
-            console.error('Logout error:', error);
-        } finally {
-            this._clearStoredSession();
-            this.session = null;
-            this.profile = null;
-            window.location.href = 'admin-login.html';
-        }
-    }
-
-    // --------------------------------------------------------
-    // Get current user info
-    // --------------------------------------------------------
-    getUserInfo() {
-        return {
-            ...this.profile,
-            session: this.session
-        };
-    }
-
-    // --------------------------------------------------------
-    // Live auth state listener (e.g. token expiry / sign-out
-    // in another tab)
-    // --------------------------------------------------------
-    initAuthListener() {
-        supabaseClient.auth.onAuthStateChange((event, session) => {
-            if (event === 'SIGNED_OUT') {
-                this._clearStoredSession();
-                this.session = null;
-                this.profile = null;
-                window.location.href = 'admin-login.html';
-            } else if (event === 'SIGNED_IN' && session) {
-                this.session = session;
-                this._loadProfile().then((authorized) => {
-                    if (authorized) this._renderProfile();
-                });
-            }
-        });
+    } catch (error) {
+        // Non-fatal: just means the user sees the login form
+        console.error('Error checking existing session:', error);
     }
 }
 
-// --------------------------------------------------------
-// Global singleton instance
-// --------------------------------------------------------
-const AdminAuth = AdminAuthService.getInstance();
-
-// Global logout function for HTML onclick="handleLogout()"
-async function handleLogout() {
-    await AdminAuth.logout();
+// ------------------------------------------------------------
+// Wire up events
+// ------------------------------------------------------------
+if (loginForm) {
+    loginForm.addEventListener('submit', handleLogin);
 }
 
-// Expose to window
-window.AdminAuth = AdminAuth;
-window.handleLogout = handleLogout;
-
-// --------------------------------------------------------
-// Auto-guard: run on every page that includes this script.
-// Redirects unauthenticated/unauthorized visitors to login,
-// and tells the rest of the page (e.g. admin-dashboard.js)
-// once it's safe to start loading data.
-// --------------------------------------------------------
-document.addEventListener('DOMContentLoaded', async () => {
-    const profile = await AdminAuth.requireSession();
-    if (profile) {
-        AdminAuth.initAuthListener();
-        document.dispatchEvent(new CustomEvent('admin:authorized', { detail: profile }));
-    }
-    // If profile is null, requireSession() already redirected to login.
-});
+document.addEventListener('DOMContentLoaded', checkExistingSession);
