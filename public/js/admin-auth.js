@@ -7,7 +7,7 @@
 // Authorized roles: SUPER_ADMIN, BRANCH_MANAGER, SALES_AGENT, AUDITOR
 // ============================================================
 
-class AdminAuth {
+class AdminAuthService {
     constructor() {
         this.session = null;
         this.profile = null;
@@ -19,10 +19,10 @@ class AdminAuth {
     // Singleton instance
     // --------------------------------------------------------
     static getInstance() {
-        if (!AdminAuth._instance) {
-            AdminAuth._instance = new AdminAuth();
+        if (!AdminAuthService._instance) {
+            AdminAuthService._instance = new AdminAuthService();
         }
-        return AdminAuth._instance;
+        return AdminAuthService._instance;
     }
 
     // --------------------------------------------------------
@@ -45,7 +45,10 @@ class AdminAuth {
     }
 
     // --------------------------------------------------------
-    // Require authenticated + authorized staff
+    // Require authenticated + authorized staff.
+    // Call this once per protected page; it renders the sidebar
+    // profile and redirects unauthenticated/unauthorized users
+    // to the login page.
     // --------------------------------------------------------
     async requireSession(redirectOnFail = true) {
         try {
@@ -55,13 +58,12 @@ class AdminAuth {
                 if (profile) {
                     this.profile = profile;
                     this._renderProfile();
-                    await this._loadAgentCount();
-                    return this.session;
+                    return this.profile;
                 }
             }
 
             // Fall back to Supabase session
-            const { data: sessionData, error: sessionError } = 
+            const { data: sessionData, error: sessionError } =
                 await supabaseClient.auth.getSession();
 
             if (sessionError) {
@@ -86,9 +88,8 @@ class AdminAuth {
 
             // Render admin information
             this._renderProfile();
-            await this._loadAgentCount();
 
-            return this.session;
+            return this.profile;
 
         } catch (error) {
             console.error('Admin authentication error:', error);
@@ -166,7 +167,7 @@ class AdminAuth {
 
             // 3. Validate role
             const roleCode = this._normalizeRoleCode(role.role_code);
-            
+
             if (role.is_active !== true) {
                 console.error('Staff role is inactive:', roleCode);
                 return false;
@@ -237,31 +238,28 @@ class AdminAuth {
     }
 
     // --------------------------------------------------------
-    // Render admin information
+    // Render admin information (sidebar footer + topbar greeting)
     // --------------------------------------------------------
     _renderProfile() {
         if (!this.profile) return;
 
         const displayName = this.profile.full_name || this.profile.email || 'Admin';
+        const firstName = displayName.trim().split(' ')[0] || displayName;
         const roleDisplay = this.profile.role_name || this.profile.role_code || 'Administrator';
 
-        // Update UI elements
         const elements = {
-            adminName: { text: displayName },
-            adminRole: { text: roleDisplay },
-            adminAvatar: { text: displayName.trim().charAt(0).toUpperCase() }
+            adminName: displayName,
+            welcomeName: firstName,
+            adminRole: roleDisplay,
+            adminAvatar: displayName.trim().charAt(0).toUpperCase()
         };
 
-        Object.entries(elements).forEach(([id, config]) => {
+        Object.entries(elements).forEach(([id, text]) => {
             const el = document.getElementById(id);
-            if (el) {
-                if (config.text !== undefined) {
-                    el.textContent = config.text;
-                }
-            }
+            if (el) el.textContent = text;
         });
 
-        // Update avatar background if exists
+        // Give the avatar a stable color derived from the name
         const avatarEl = document.getElementById('adminAvatar');
         if (avatarEl) {
             const colors = ['#0b5d3b', '#d4a843', '#06452c', '#1f2933'];
@@ -271,46 +269,8 @@ class AdminAuth {
     }
 
     // --------------------------------------------------------
-    // Load agent count (staff with SALES_AGENT role)
-    // --------------------------------------------------------
-    async _loadAgentCount() {
-        const badge = document.getElementById('agentCountBadge');
-        if (!badge) return;
-
-        try {
-            // Get the SALES_AGENT role ID first
-            const { data: role, error: roleError } = await supabaseClient
-                .from('roles')
-                .select('id')
-                .eq('role_code', 'SALES_AGENT')
-                .maybeSingle();
-
-            if (roleError || !role) {
-                console.warn('Could not find SALES_AGENT role:', roleError);
-                return;
-            }
-
-            const { count, error } = await supabaseClient
-                .from('staff')
-                .select('id', { count: 'exact', head: true })
-                .eq('role_id', role.id);
-
-            if (!error && typeof count === 'number') {
-                badge.textContent = count;
-                badge.style.display = count > 0 ? 'inline-block' : 'none';
-            }
-        } catch (error) {
-            console.warn('Could not load agent count:', error);
-        }
-    }
-
-    // --------------------------------------------------------
     // Role helpers
     // --------------------------------------------------------
-    isAdmin() {
-        return this.profile?.role === 'SUPER_ADMIN';
-    }
-
     isSuperAdmin() {
         return this.profile?.role === 'SUPER_ADMIN';
     }
@@ -379,7 +339,8 @@ class AdminAuth {
     }
 
     // --------------------------------------------------------
-    // Initialize auth listener
+    // Live auth state listener (e.g. token expiry / sign-out
+    // in another tab)
     // --------------------------------------------------------
     initAuthListener() {
         supabaseClient.auth.onAuthStateChange((event, session) => {
@@ -390,9 +351,8 @@ class AdminAuth {
                 window.location.href = 'admin-login.html';
             } else if (event === 'SIGNED_IN' && session) {
                 this.session = session;
-                this._loadProfile().then(() => {
-                    this._renderProfile();
-                    this._loadAgentCount();
+                this._loadProfile().then((authorized) => {
+                    if (authorized) this._renderProfile();
                 });
             }
         });
@@ -400,11 +360,11 @@ class AdminAuth {
 }
 
 // --------------------------------------------------------
-// Global instance
+// Global singleton instance
 // --------------------------------------------------------
-const AdminAuth = AdminAuth.getInstance();
+const AdminAuth = AdminAuthService.getInstance();
 
-// Global logout function for HTML onclick
+// Global logout function for HTML onclick="handleLogout()"
 async function handleLogout() {
     await AdminAuth.logout();
 }
@@ -412,3 +372,18 @@ async function handleLogout() {
 // Expose to window
 window.AdminAuth = AdminAuth;
 window.handleLogout = handleLogout;
+
+// --------------------------------------------------------
+// Auto-guard: run on every page that includes this script.
+// Redirects unauthenticated/unauthorized visitors to login,
+// and tells the rest of the page (e.g. admin-dashboard.js)
+// once it's safe to start loading data.
+// --------------------------------------------------------
+document.addEventListener('DOMContentLoaded', async () => {
+    const profile = await AdminAuth.requireSession();
+    if (profile) {
+        AdminAuth.initAuthListener();
+        document.dispatchEvent(new CustomEvent('admin:authorized', { detail: profile }));
+    }
+    // If profile is null, requireSession() already redirected to login.
+});
