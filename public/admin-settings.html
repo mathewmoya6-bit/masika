@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Settings — Masika Benevolent</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:wght@500;600&family=Inter:wght@400;500;600&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="css/app.css" />
+</head>
+<body>
+  <div class="app-shell">
+    <header class="topbar">
+      <div class="brand">
+        <span class="brand-mark">Masika Benevolent</span>
+        <span class="brand-sub">Staff console</span>
+      </div>
+      <div class="who">
+        <span id="staff-name">—</span>
+        <button type="button" id="sign-out">Sign out</button>
+      </div>
+    </header>
+
+    <div class="settings-layout" id="settings-root">
+      <nav class="settings-rail" aria-label="Settings sections">
+        <button type="button" data-panel="panel-plans" aria-current="true">Membership plans</button>
+        <button type="button" data-panel="panel-staff" aria-current="false">Staff accounts</button>
+        <button type="button" data-panel="panel-general" aria-current="false">General</button>
+      </nav>
+
+      <div>
+        <!-- Membership plans -->
+        <section id="panel-plans" class="settings-panel active">
+          <div class="settings-header">
+            <h1>Membership plans</h1>
+            <p>Monthly and registration fees for COMFORT, DIGNITY, and WAZAZI. Changes apply to future billing cycles.</p>
+          </div>
+          <div class="plan-grid" id="plan-grid">
+            <p class="hint">Loading plans…</p>
+          </div>
+        </section>
+
+        <!-- Staff accounts -->
+        <section id="panel-staff" class="settings-panel">
+          <div class="settings-header card-row">
+            <div>
+              <h1>Staff accounts</h1>
+              <p>Everyone who can sign in to this console, and what they're allowed to do.</p>
+            </div>
+            <button type="button" class="btn btn-primary" id="invite-staff-btn">Invite staff member</button>
+          </div>
+          <div class="card">
+            <table>
+              <thead>
+                <tr>
+                  <th>Name</th>
+                  <th>Role</th>
+                  <th>Status</th>
+                  <th></th>
+                </tr>
+              </thead>
+              <tbody id="staff-table-body">
+                <tr><td colspan="4" class="hint">Loading staff…</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </section>
+
+        <!-- General settings -->
+        <section id="panel-general" class="settings-panel">
+          <div class="settings-header">
+            <h1>General</h1>
+            <p>Organization details used on receipts and membership cards.</p>
+          </div>
+          <div class="card">
+            <form id="system-settings-form">
+              <div class="field-row">
+                <div class="field">
+                  <label for="org_name">Organization name</label>
+                  <input type="text" id="org_name" name="org_name" required />
+                </div>
+                <div class="field">
+                  <label for="org_phone">Phone number</label>
+                  <input type="tel" id="org_phone" name="org_phone" />
+                </div>
+              </div>
+              <div class="field-row">
+                <div class="field">
+                  <label for="org_email">Contact email</label>
+                  <input type="email" id="org_email" name="org_email" />
+                </div>
+                <div class="field">
+                  <label for="org_address">Address</label>
+                  <input type="text" id="org_address" name="org_address" />
+                </div>
+              </div>
+              <div class="field">
+                <label for="receipt_footer_note">Receipt footer note</label>
+                <textarea id="receipt_footer_note" name="receipt_footer_note" placeholder="e.g. Thank you for supporting your Masika Benevolent community."></textarea>
+                <p class="hint">Printed at the bottom of every payment receipt.</p>
+              </div>
+              <div class="field" style="display:flex; align-items:center; gap:8px;">
+                <input type="checkbox" id="card_issuance_enabled" name="card_issuance_enabled" style="width:auto;" />
+                <label for="card_issuance_enabled" style="margin:0;">Issue membership cards automatically after a member's first month</label>
+              </div>
+              <div class="status-line" id="system-status"></div>
+              <button type="submit" class="btn btn-primary">Save changes</button>
+            </form>
+          </div>
+        </section>
+      </div>
+    </div>
+  </div>
+
+  <!-- Invite staff modal -->
+  <div class="modal-backdrop" id="invite-modal">
+    <div class="modal" role="dialog" aria-modal="true" aria-labelledby="invite-title">
+      <h3 id="invite-title">Invite staff member</h3>
+      <p class="modal-sub">They'll get an email to set up their sign-in.</p>
+      <form id="invite-form">
+        <div class="field">
+          <label for="invite-name">Full name</label>
+          <input type="text" id="invite-name" required />
+        </div>
+        <div class="field">
+          <label for="invite-email">Email</label>
+          <input type="email" id="invite-email" required />
+        </div>
+        <div class="field">
+          <label for="invite-role">Role</label>
+          <select id="invite-role">
+            <option value="registrar">Registrar</option>
+            <option value="cashier">Cashier</option>
+            <option value="admin">Admin</option>
+          </select>
+        </div>
+        <div class="status-line" id="invite-status"></div>
+        <div class="modal-actions">
+          <button type="button" class="btn btn-ghost" id="invite-cancel">Cancel</button>
+          <button type="submit" class="btn btn-primary">Send invite</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <div class="toast" id="toast"></div>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="js/supabase.js"></script>
+  <script src="js/auth.js"></script>
+  <script src="js/admin-settings.js"></script>
+</body>
+</html>
