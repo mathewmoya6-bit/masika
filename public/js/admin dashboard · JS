@@ -1,0 +1,379 @@
+// ============================================================
+// ADMIN DASHBOARD
+// Masika Benevolent - Dashboard data loading & rendering
+// ============================================================
+
+document.addEventListener("DOMContentLoaded", () => {
+  updateDateTime();
+  setInterval(updateDateTime, 60 * 1000);
+
+  loadAdminProfile();
+  loadStats();
+  loadRecentRegistrations();
+  loadRecentAgents();
+  loadRecentPayments();
+});
+
+// ------------------------------------------------------------
+// Helpers
+// ------------------------------------------------------------
+
+function updateDateTime() {
+  const el = document.getElementById("currentDateTime");
+  if (!el) return;
+  const now = new Date();
+  el.textContent = now.toLocaleString("en-KE", {
+    weekday: "short",
+    year: "numeric",
+    month: "short",
+    day: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+}
+
+function formatKES(amount) {
+  const n = Number(amount) || 0;
+  return "KES " + n.toLocaleString("en-KE", { maximumFractionDigits: 0 });
+}
+
+function formatDate(dateStr) {
+  if (!dateStr) return "—";
+  const d = new Date(dateStr);
+  return d.toLocaleDateString("en-KE", {
+    day: "numeric",
+    month: "short",
+    year: "numeric",
+  });
+}
+
+function timeAgo(dateStr) {
+  if (!dateStr) return "—";
+  const diffMs = Date.now() - new Date(dateStr).getTime();
+  const mins = Math.floor(diffMs / 60000);
+  if (mins < 1) return "just now";
+  if (mins < 60) return `${mins}m ago`;
+  const hrs = Math.floor(mins / 60);
+  if (hrs < 24) return `${hrs}h ago`;
+  const days = Math.floor(hrs / 24);
+  if (days < 30) return `${days}d ago`;
+  return formatDate(dateStr);
+}
+
+function statusBadgeClass(status) {
+  const map = {
+    ACTIVE: "active",
+    INACTIVE: "inactive",
+    SUSPENDED: "inactive",
+    DORMANT: "pending",
+    CANCELLED: "rejected",
+    PENDING: "pending",
+    SUCCESSFUL: "paid",
+    FAILED: "rejected",
+    REVERSED: "rejected",
+    PARTIAL: "pending",
+  };
+  return map[status] || "pending";
+}
+
+function escapeHtml(str) {
+  if (str === null || str === undefined) return "";
+  return String(str)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
+}
+
+function renderLoading(container) {
+  container.innerHTML = `
+    <div class="loading-spinner">
+      <div class="spinner"></div>
+      <p>Loading...</p>
+    </div>`;
+}
+
+function renderError(container, message, retryFn) {
+  container.innerHTML = `
+    <div class="loading-spinner">
+      <p style="color:var(--danger);margin-bottom:12px;">
+        <i class="fas fa-triangle-exclamation"></i> ${escapeHtml(message)}
+      </p>
+      <button class="btn-sm primary" id="retryBtn">
+        <i class="fas fa-rotate-right"></i> Retry
+      </button>
+    </div>`;
+  const btn = container.querySelector("#retryBtn");
+  if (btn && retryFn) btn.addEventListener("click", retryFn);
+}
+
+function renderEmpty(container, message) {
+  container.innerHTML = `
+    <div class="loading-spinner">
+      <p style="color:var(--text-light);">${escapeHtml(message)}</p>
+    </div>`;
+}
+
+// ------------------------------------------------------------
+// Admin profile (sidebar footer)
+// ------------------------------------------------------------
+
+async function loadAdminProfile() {
+  try {
+    const {
+      data: { session },
+      error: sessionError,
+    } = await window.supabaseClient.auth.getSession();
+
+    if (sessionError || !session) return;
+
+    const { data: staffRow, error } = await window.supabaseClient
+      .from("staff")
+      .select("full_name, roles(role_name)")
+      .eq("auth_user_id", session.user.id)
+      .single();
+
+    if (error || !staffRow) return;
+
+    const nameEl = document.getElementById("adminName");
+    const welcomeEl = document.getElementById("welcomeName");
+    const roleEl = document.getElementById("adminRole");
+    const avatarEl = document.getElementById("adminAvatar");
+
+    if (nameEl) nameEl.textContent = staffRow.full_name;
+    if (welcomeEl) welcomeEl.textContent = staffRow.full_name.split(" ")[0];
+    if (roleEl) roleEl.textContent = staffRow.roles?.role_name || "Administrator";
+    if (avatarEl) avatarEl.textContent = staffRow.full_name.charAt(0).toUpperCase();
+  } catch (err) {
+    console.error("Failed to load admin profile:", err);
+  }
+}
+
+// ------------------------------------------------------------
+// Stat cards (via get_dashboard_stats RPC)
+// ------------------------------------------------------------
+
+async function loadStats() {
+  try {
+    const { data, error } = await window.supabaseClient.rpc("get_dashboard_stats");
+    if (error) throw error;
+
+    document.getElementById("totalMembers").textContent = (data.total_members ?? 0).toLocaleString();
+    document.getElementById("totalAgents").textContent = (data.total_agents ?? 0).toLocaleString();
+    document.getElementById("pendingApprovals").textContent = (data.active_agents ?? 0).toLocaleString();
+    document.getElementById("totalRevenue").textContent = formatKES(data.total_revenue);
+
+    // Update pending approvals label to reflect what the number now means
+    const pendingLabel = document.querySelector("#pendingApprovals")?.parentElement?.querySelector(".stat-label");
+    if (pendingLabel) pendingLabel.textContent = "Active Agents";
+
+    const badge = document.getElementById("pendingAgentsBadge");
+    if (badge) badge.textContent = data.total_agents ?? 0;
+  } catch (err) {
+    console.error("Failed to load stats:", err);
+    ["totalMembers", "totalAgents", "pendingApprovals", "totalRevenue"].forEach((id) => {
+      const el = document.getElementById(id);
+      if (el) el.textContent = "—";
+    });
+  }
+}
+
+// ------------------------------------------------------------
+// Recent Registrations
+// ------------------------------------------------------------
+
+async function loadRecentRegistrations() {
+  const container = document.getElementById("recentMembers");
+  if (!container) return;
+  renderLoading(container);
+
+  try {
+    const { data, error } = await window.supabaseClient
+      .from("members")
+      .select("id, full_name, membership_number, member_status, registration_date, created_at")
+      .order("created_at", { ascending: false })
+      .limit(5);
+
+    if (error) throw error;
+    if (!data || data.length === 0) {
+      renderEmpty(container, "No members registered yet.");
+      return;
+    }
+
+    container.innerHTML = `
+      <div class="table-wrapper">
+        <table>
+          <thead>
+            <tr>
+              <th>Member</th>
+              <th>Membership #</th>
+              <th>Status</th>
+              <th>Registered</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${data
+              .map(
+                (m) => `
+              <tr>
+                <td>${escapeHtml(m.full_name)}</td>
+                <td>${escapeHtml(m.membership_number || "—")}</td>
+                <td><span class="status-badge ${statusBadgeClass(m.member_status)}">${escapeHtml(m.member_status)}</span></td>
+                <td>${formatDate(m.registration_date || m.created_at)}</td>
+              </tr>`
+              )
+              .join("")}
+          </tbody>
+        </table>
+      </div>`;
+  } catch (err) {
+    console.error("Failed to load recent registrations:", err);
+    renderError(container, "Couldn't load recent registrations.", loadRecentRegistrations);
+  }
+}
+
+// ------------------------------------------------------------
+// Recently Added Agents (repurposed "Pending Agent Applications" panel)
+// ------------------------------------------------------------
+
+async function loadRecentAgents() {
+  const container = document.getElementById("pendingAgents");
+  if (!container) return;
+  renderLoading(container);
+
+  // Update the panel title/icon to reflect its new purpose
+  const header = container.closest(".card")?.querySelector(".card-header h3");
+  if (header) {
+    header.innerHTML = `<i class="fas fa-user-clock" style="color:var(--gold);"></i> Recently Added Agents`;
+  }
+
+  try {
+    const { data, error } = await window.supabaseClient
+      .from("staff")
+      .select("id, full_name, employee_number, status, created_at, roles!inner(role_code), branches(branch_name)")
+      .eq("roles.role_code", "SALES_AGENT")
+      .order("created_at", { ascending: false })
+      .limit(5);
+
+    if (error) throw error;
+    if (!data || data.length === 0) {
+      renderEmpty(container, "No sales agents added yet.");
+      return;
+    }
+
+    container.innerHTML = `
+      <div class="table-wrapper">
+        <table>
+          <thead>
+            <tr>
+              <th>Agent</th>
+              <th>Employee #</th>
+              <th>Branch</th>
+              <th>Status</th>
+              <th>Added</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${data
+              .map(
+                (a) => `
+              <tr>
+                <td>${escapeHtml(a.full_name)}</td>
+                <td>${escapeHtml(a.employee_number || "—")}</td>
+                <td>${escapeHtml(a.branches?.branch_name || "—")}</td>
+                <td><span class="status-badge ${statusBadgeClass(a.status)}">${escapeHtml(a.status)}</span></td>
+                <td>${timeAgo(a.created_at)}</td>
+              </tr>`
+              )
+              .join("")}
+          </tbody>
+        </table>
+      </div>`;
+  } catch (err) {
+    console.error("Failed to load recent agents:", err);
+    renderError(container, "Couldn't load recent agents.", loadRecentAgents);
+  }
+}
+
+// ------------------------------------------------------------
+// Recent Payments
+// ------------------------------------------------------------
+
+async function loadRecentPayments() {
+  const container = document.getElementById("recentPayments");
+  if (!container) return;
+  renderLoading(container);
+
+  try {
+    const { data, error } = await window.supabaseClient
+      .from("payments")
+      .select("id, amount, payment_status, created_at, members(full_name, membership_number)")
+      .order("created_at", { ascending: false })
+      .limit(5);
+
+    if (error) throw error;
+    if (!data || data.length === 0) {
+      renderEmpty(container, "No payments recorded yet.");
+      return;
+    }
+
+    container.innerHTML = `
+      <div class="table-wrapper">
+        <table>
+          <thead>
+            <tr>
+              <th>Member</th>
+              <th>Amount</th>
+              <th>Status</th>
+              <th>Date</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${data
+              .map(
+                (p) => `
+              <tr>
+                <td>${escapeHtml(p.members?.full_name || "—")}</td>
+                <td>${formatKES(p.amount)}</td>
+                <td><span class="status-badge ${statusBadgeClass(p.payment_status)}">${escapeHtml(p.payment_status)}</span></td>
+                <td>${timeAgo(p.created_at)}</td>
+              </tr>`
+              )
+              .join("")}
+          </tbody>
+        </table>
+      </div>`;
+  } catch (err) {
+    console.error("Failed to load recent payments:", err);
+    renderError(container, "Couldn't load recent payments.", loadRecentPayments);
+  }
+}
+
+// ------------------------------------------------------------
+// Top-level actions used by the HTML (onclick handlers)
+// ------------------------------------------------------------
+
+function refreshData() {
+  loadStats();
+  loadRecentRegistrations();
+  loadRecentAgents();
+  loadRecentPayments();
+}
+
+function toggleSidebar() {
+  document.getElementById("sidebar")?.classList.toggle("open");
+}
+
+async function handleLogout() {
+  try {
+    await window.supabaseClient.auth.signOut();
+  } catch (err) {
+    console.error("Logout error:", err);
+  } finally {
+    window.location.href = "login.html";
+  }
+}
+
+window.refreshData = refreshData;
+window.toggleSidebar = toggleSidebar;
+window.handleLogout = handleLogout;
