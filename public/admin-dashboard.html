@@ -808,12 +808,15 @@
         }
 
         function handleLogout() {
-            if (typeof window.adminLogout === 'function') {
-                window.adminLogout();
+            // admin-auth.js owns the real logout flow (signs out of Supabase,
+            // clears sessionStorage, redirects). Defer to it when available.
+            if (window.AdminAuth && typeof window.AdminAuth.logout === 'function') {
+                window.AdminAuth.logout();
                 return;
             }
-            // Fallback if admin-auth.js hasn't defined a custom logout yet
-            if (window.supabaseClient) {
+            // Fallback only if admin-auth.js failed to load for some reason
+            console.warn('AdminAuth not found — using fallback logout.');
+            if (typeof supabaseClient !== 'undefined' && supabaseClient) {
                 supabaseClient.auth.signOut().finally(() => {
                     sessionStorage.clear();
                     window.location.href = 'admin-login.html';
