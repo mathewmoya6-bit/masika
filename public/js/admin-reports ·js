@@ -1,0 +1,229 @@
+// ============================================================
+// ADMIN REPORTS
+// Masika Benevolent - CSV export for payments, members, dependants
+// ============================================================
+
+document.addEventListener("DOMContentLoaded", () => {
+  loadAdminProfileForReportsPage();
+  loadAgentBadgeForReportsPage();
+});
+
+async function loadAdminProfileForReportsPage() {
+  try {
+    const {
+      data: { session },
+    } = await window.supabaseClient.auth.getSession();
+    if (!session) return;
+
+    const { data: staffRow } = await window.supabaseClient
+      .from("staff")
+      .select("full_name, roles(role_name)")
+      .eq("auth_user_id", session.user.id)
+      .single();
+
+    if (!staffRow) return;
+    document.getElementById("adminName").textContent = staffRow.full_name;
+    document.getElementById("adminRole").textContent = staffRow.roles?.role_name || "Administrator";
+    document.getElementById("adminAvatar").textContent = staffRow.full_name.charAt(0).toUpperCase();
+  } catch (err) {
+    console.error("Failed to load admin profile:", err);
+  }
+}
+
+async function loadAgentBadgeForReportsPage() {
+  try {
+    const { count } = await window.supabaseClient
+      .from("staff")
+      .select("id, roles!inner(role_code)", { count: "exact", head: true })
+      .eq("roles.role_code", "SALES_AGENT");
+    document.getElementById("agentCountBadge").textContent = count || 0;
+  } catch (err) {
+    console.error("Failed to load agent count:", err);
+  }
+}
+
+// ------------------------------------------------------------
+// CSV helpers
+// ------------------------------------------------------------
+
+function toCsv(rows) {
+  if (!rows || rows.length === 0) return "";
+  const headers = Object.keys(rows[0]);
+  const escapeCell = (val) => {
+    if (val === null || val === undefined) return "";
+    const str = String(val);
+    if (/[",\n]/.test(str)) return `"${str.replace(/"/g, '""')}"`;
+    return str;
+  };
+  const lines = [headers.join(",")];
+  rows.forEach((row) => {
+    lines.push(headers.map((h) => escapeCell(row[h])).join(","));
+  });
+  return lines.join("\n");
+}
+
+function downloadCsv(csvString, filename) {
+  const blob = new Blob([csvString], { type: "text/csv;charset=utf-8;" });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = filename;
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+  URL.revokeObjectURL(url);
+}
+
+function setStatus(elId, message, type) {
+  const el = document.getElementById(elId);
+  el.textContent = message;
+  el.className = "report-status" + (type ? " " + type : "");
+}
+
+function setBtnLoading(btnId, loading, defaultHtml) {
+  const btn = document.getElementById(btnId);
+  btn.disabled = loading;
+  btn.innerHTML = loading
+    ? `<i class="fas fa-spinner fa-spin"></i> Exporting...`
+    : defaultHtml;
+}
+
+const MAX_EXPORT_ROWS = 5000;
+
+// ------------------------------------------------------------
+// Payments export (payment_report view)
+// ------------------------------------------------------------
+
+async function exportPaymentsCsv() {
+  const from = document.getElementById("paymentsFrom").value;
+  const to = document.getElementById("paymentsTo").value;
+  const status = document.getElementById("paymentsStatus").value;
+
+  setBtnLoading("exportPaymentsBtn", true);
+  setStatus("paymentsStatusMsg", "Fetching payments...", "");
+
+  try {
+    let query = window.supabaseClient
+      .from("payment_report")
+      .select("*")
+      .order("payment_date", { ascending: false })
+      .limit(MAX_EXPORT_ROWS);
+
+    if (from) query = query.gte("payment_date", from);
+    if (to) query = query.lte("payment_date", to + "T23:59:59");
+    if (status) query = query.eq("payment_status", status);
+
+    const { data, error } = await query;
+    if (error) throw error;
+
+    if (!data || data.length === 0) {
+      setStatus("paymentsStatusMsg", "No payments match those filters.", "error");
+      return;
+    }
+
+    downloadCsv(toCsv(data), `payments_report_${todayStamp()}.csv`);
+    setStatus("paymentsStatusMsg", `Exported ${data.length} rows.`, "success");
+  } catch (err) {
+    console.error("Failed to export payments:", err);
+    setStatus("paymentsStatusMsg", "Export failed: " + err.message, "error");
+  } finally {
+    setBtnLoading("exportPaymentsBtn", false, `<i class="fas fa-download"></i> Export Payments CSV`);
+  }
+}
+
+// ------------------------------------------------------------
+// Members export (members table)
+// ------------------------------------------------------------
+
+async function exportMembersCsv() {
+  const from = document.getElementById("membersFrom").value;
+  const to = document.getElementById("membersTo").value;
+  const status = document.getElementById("membersStatus").value;
+
+  setBtnLoading("exportMembersBtn", true);
+  setStatus("membersStatusMsg", "Fetching members...", "");
+
+  try {
+    let query = window.supabaseClient
+      .from("members")
+      .select(
+        "membership_number, full_name, id_number, phone, email, county, sub_county, town, plan, benefit_option, member_status, registration_date, registration_fee_paid, agent_name, next_of_kin_name, next_of_kin_phone"
+      )
+      .order("registration_date", { ascending: false })
+      .limit(MAX_EXPORT_ROWS);
+
+    if (from) query = query.gte("registration_date", from);
+    if (to) query = query.lte("registration_date", to);
+    if (status) query = query.eq("member_status", status);
+
+    const { data, error } = await query;
+    if (error) throw error;
+
+    if (!data || data.length === 0) {
+      setStatus("membersStatusMsg", "No members match those filters.", "error");
+      return;
+    }
+
+    downloadCsv(toCsv(data), `members_report_${todayStamp()}.csv`);
+    setStatus("membersStatusMsg", `Exported ${data.length} rows.`, "success");
+  } catch (err) {
+    console.error("Failed to export members:", err);
+    setStatus("membersStatusMsg", "Export failed: " + err.message, "error");
+  } finally {
+    setBtnLoading("exportMembersBtn", false, `<i class="fas fa-download"></i> Export Members CSV`);
+  }
+}
+
+// ------------------------------------------------------------
+// Dependants export (dependant_report view)
+// ------------------------------------------------------------
+
+async function exportDependantsCsv() {
+  const status = document.getElementById("dependantsStatus").value;
+
+  setBtnLoading("exportDependantsBtn", true);
+  setStatus("dependantsStatusMsg", "Fetching dependants...", "");
+
+  try {
+    let query = window.supabaseClient
+      .from("dependant_report")
+      .select("*")
+      .order("principal_member_name", { ascending: true })
+      .limit(MAX_EXPORT_ROWS);
+
+    if (status) query = query.eq("membership_status", status);
+
+    const { data, error } = await query;
+    if (error) throw error;
+
+    if (!data || data.length === 0) {
+      setStatus("dependantsStatusMsg", "No dependants match those filters.", "error");
+      return;
+    }
+
+    downloadCsv(toCsv(data), `dependants_report_${todayStamp()}.csv`);
+    setStatus("dependantsStatusMsg", `Exported ${data.length} rows.`, "success");
+  } catch (err) {
+    console.error("Failed to export dependants:", err);
+    setStatus("dependantsStatusMsg", "Export failed: " + err.message, "error");
+  } finally {
+    setBtnLoading("exportDependantsBtn", false, `<i class="fas fa-download"></i> Export Dependants CSV`);
+  }
+}
+
+function todayStamp() {
+  return new Date().toISOString().slice(0, 10);
+}
+
+window.exportPaymentsCsv = exportPaymentsCsv;
+window.exportMembersCsv = exportMembersCsv;
+window.exportDependantsCsv = exportDependantsCsv;
+
+async function handleLogout() {
+  try {
+    await window.supabaseClient.auth.signOut();
+  } finally {
+    window.location.href = "login.html";
+  }
+}
+window.handleLogout = handleLogout;
