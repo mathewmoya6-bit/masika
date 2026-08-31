@@ -2,17 +2,18 @@
 Membership Service - Card eligibility
 """
 
+import calendar
 import logging
-from datetime import datetime, timedelta, timezone
-from typing import Any, Dict, Optional
+from datetime import date, datetime, timezone
+from typing import Any, Dict
 
 from app.database import get_supabase
 from app.utils.helpers import normalize_phone
 
 logger = logging.getLogger(__name__)
 
-# How long after coverage starts a member's digital card unlocks.
-CARD_WAITING_PERIOD_DAYS = 30
+# Used only if a member row somehow has no waiting_period_months set.
+DEFAULT_WAITING_PERIOD_MONTHS = 1
 
 
 class MembershipService:
@@ -28,9 +29,13 @@ class MembershipService:
     async def get_card_status(self, member_number: str, phone: str) -> Dict[str, Any]:
         """
         Look up a member by member_number AND phone together. Both must
-        match the same record -- deliberately not a lookup-by-number-alone,
-        same reasoning already used for member lookups elsewhere: it stops
-        this public endpoint being used to enumerate member records.
+        match the same record -- this is deliberately not a lookup by
+        member_number alone, so this public endpoint can't be used to
+        enumerate member records.
+
+        Eligibility is driven entirely by columns already on `members`:
+        registration_date + waiting_period_months. No `payments` lookup
+        is needed for this.
 
         Returns a dict matching what membership-card.html expects:
             eligible, full_name, member_number, plan_name,
@@ -59,71 +64,66 @@ class MembershipService:
             # that the member_number matched but the phone didn't.
             return self._not_found()
 
+        full_name = member.get("full_name")
+        plan_name = member.get("plan")
+        member_number_out = member.get("member_number")
+
         if not member.get("registration_fee_paid"):
             return {
                 "eligible": False,
-                "full_name": member.get("full_name"),
-                "member_number": member.get("member_number"),
-                "plan_name": member.get("plan_name"),
+                "full_name": full_name,
+                "member_number": member_number_out,
+                "plan_name": plan_name,
                 "registration_date": None,
                 "activation_date": None,
                 "days_remaining": None,
                 "status": "unpaid",
             }
 
-        coverage_start_raw = member.get("coverage_start_date")
-
-        # coverage_start_date is normally set the moment the registration
-        # payment is confirmed (see PaymentService.query_stk_status /
-        # handle_mpesa_webhook). Fall back to the confirmed registration
-        # payment's confirmed_at if it's somehow missing on the member row.
-        if not coverage_start_raw:
-            payment_result = (
-                self.supabase.table("payments")
-                .select("confirmed_at")
-                .eq("member_id", member["id"])
-                .eq("payment_type", "registration")
-                .eq("status", "confirmed")
-                .order("confirmed_at")
-                .limit(1)
-                .execute()
-            )
-            if payment_result.data:
-                coverage_start_raw = payment_result.data[0].get("confirmed_at")
-
-        if not coverage_start_raw:
-            # Flag says paid but we can't find when -- treat as unpaid
-            # rather than guessing a start date.
+        registration_date_raw = member.get("registration_date")
+        if not registration_date_raw:
             logger.warning(
-                f"Member {member.get('member_number')} has registration_fee_paid=True "
-                f"but no coverage_start_date or confirmed registration payment."
+                f"Member {member_number_out} has registration_fee_paid=True "
+                f"but no registration_date set."
             )
             return {
                 "eligible": False,
-                "full_name": member.get("full_name"),
-                "member_number": member.get("member_number"),
-                "plan_name": member.get("plan_name"),
+                "full_name": full_name,
+                "member_number": member_number_out,
+                "plan_name": plan_name,
                 "registration_date": None,
                 "activation_date": None,
                 "days_remaining": None,
                 "status": "unpaid",
             }
 
-        coverage_start = self._parse_datetime(coverage_start_raw)
-        activation_date = coverage_start + timedelta(days=CARD_WAITING_PERIOD_DAYS)
-        now = datetime.now(timezone.utc)
-        eligible = now >= activation_date
-        days_remaining = max(0, (activation_date - now).days)
+        registration_date = self._parse_date(registration_date_raw)
+        waiting_months = member.get("waiting_period_months") or DEFAULT_WAITING_PERIOD_MONTHS
+        activation_date = self._add_months(registration_date, waiting_months)
+
+        today = datetime.now(timezone.utc).date()
+        is_active = member.get("is_active", True)
+        date_reached = today >= activation_date
+        eligible = date_reached and is_active
+
+        days_remaining = max(0, (activation_date - today).days)
+
+        if not is_active:
+            status = "dormant" if member.get("dormant_at") else "inactive"
+        elif eligible:
+            status = "active"
+        else:
+            status = "pending"
 
         return {
             "eligible": eligible,
-            "full_name": member.get("full_name"),
-            "member_number": member.get("member_number"),
-            "plan_name": member.get("plan_name"),
-            "registration_date": coverage_start.date().isoformat(),
-            "activation_date": activation_date.date().isoformat(),
+            "full_name": full_name,
+            "member_number": member_number_out,
+            "plan_name": plan_name,
+            "registration_date": registration_date.isoformat(),
+            "activation_date": activation_date.isoformat(),
             "days_remaining": days_remaining,
-            "status": "active" if eligible else "pending",
+            "status": status,
         }
 
     # ============================================================
@@ -144,16 +144,25 @@ class MembershipService:
         }
 
     @staticmethod
-    def _parse_datetime(value) -> datetime:
-        """Supabase returns timestamps as ISO strings; normalize to an
-        aware UTC datetime regardless of whether 'Z' or '+00:00' is used."""
-        if isinstance(value, datetime):
-            dt = value
-        else:
-            dt = datetime.fromisoformat(str(value).replace("Z", "+00:00"))
-        if dt.tzinfo is None:
-            dt = dt.replace(tzinfo=timezone.utc)
-        return dt
+    def _parse_date(value) -> date:
+        """members.registration_date is a plain date column, but Supabase
+        may hand it back as a 'YYYY-MM-DD' string or a date object depending
+        on the client version -- normalize either way."""
+        if isinstance(value, date):
+            return value
+        return datetime.strptime(str(value)[:10], "%Y-%m-%d").date()
+
+    @staticmethod
+    def _add_months(d: date, months: int) -> date:
+        """Calendar-correct month addition with no extra dependency
+        (dateutil isn't imported anywhere else in this codebase).
+        Clamps the day if the target month is shorter (e.g. Jan 31 + 1
+        month -> Feb 28/29, not an overflow into March)."""
+        month_index = d.month - 1 + int(months)
+        year = d.year + month_index // 12
+        month = month_index % 12 + 1
+        day = min(d.day, calendar.monthrange(year, month)[1])
+        return date(year, month, day)
 
 
 # ============================================================
