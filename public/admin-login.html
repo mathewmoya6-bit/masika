@@ -1,10 +1,14 @@
+<script>
 // ============================================================
 // MASIKA BENEVOLENT — ADMIN LOGIN
 // ============================================================
 
+// Get DOM elements
 const alertBox = document.getElementById('alertBox');
 const loginBtn = document.getElementById('loginBtn');
 const loginForm = document.getElementById('loginForm');
+const emailInput = document.getElementById('email');
+const passwordInput = document.getElementById('password');
 
 // ------------------------------------------------------------
 // Alert utilities
@@ -31,9 +35,6 @@ function setInputError(inputId, hasError) {
 async function handleLogin(event) {
     event.preventDefault();
     clearAlert();
-    
-    const emailInput = document.getElementById('email');
-    const passwordInput = document.getElementById('password');
     
     const email = emailInput.value.trim().toLowerCase();
     const password = passwordInput.value;
@@ -119,10 +120,16 @@ async function handleLogin(event) {
             .eq('id', staff.role_id)
             .maybeSingle();
 
-        if (roleError || !role) {
+        if (roleError) {
             console.error('Role lookup error:', roleError);
             await supabaseClient.auth.signOut();
             showAlert('Could not verify your staff role. Please contact support.');
+            return;
+        }
+
+        if (!role) {
+            await supabaseClient.auth.signOut();
+            showAlert('Access denied. No staff role is assigned.');
             return;
         }
 
@@ -145,7 +152,20 @@ async function handleLogin(event) {
             return;
         }
 
-        // 5. Store session
+        // 5. Build profile data
+        const profile = {
+            id: staff.id,
+            auth_user_id: staff.auth_user_id,
+            employee_number: staff.employee_number || '',
+            full_name: staff.full_name || 'Staff Member',
+            email: data.user.email || '',
+            role: roleCode,
+            role_name: role.role_name || roleCode,
+            role_id: role.id,
+            role_is_active: role.is_active
+        };
+
+        // 6. Store session
         const sessionData = {
             adminLoggedIn: 'true',
             adminId: staff.id,
@@ -153,26 +173,18 @@ async function handleLogin(event) {
             adminRole: roleCode,
             adminName: staff.full_name || data.user.email,
             adminEmployeeNumber: staff.employee_number || '',
-            adminProfile: JSON.stringify({
-                id: staff.id,
-                auth_user_id: staff.auth_user_id,
-                employee_number: staff.employee_number,
-                full_name: staff.full_name,
-                email: data.user.email,
-                role: roleCode,
-                role_name: role.role_name
-            })
+            adminProfile: JSON.stringify(profile)
         };
 
         Object.entries(sessionData).forEach(([key, value]) => {
             sessionStorage.setItem(key, value);
         });
 
-        // 6. Show success message
+        // 7. Show success message
         const displayName = staff.full_name || 'Admin';
         showAlert(`Welcome ${displayName}! Redirecting...`, 'success');
 
-        // 7. Redirect
+        // 8. Redirect
         setTimeout(() => {
             window.location.href = 'admin-dashboard.html';
         }, 500);
@@ -196,72 +208,74 @@ async function checkExistingSession() {
         if (loggedIn === 'true') {
             const profile = sessionStorage.getItem('adminProfile');
             if (profile) {
-                window.location.href = 'admin-dashboard.html';
-                return;
+                try {
+                    const parsedProfile = JSON.parse(profile);
+                    if (parsedProfile && parsedProfile.id) {
+                        window.location.href = 'admin-dashboard.html';
+                        return;
+                    }
+                } catch (e) {
+                    console.warn('Invalid profile data in session storage');
+                }
             }
         }
 
         // Check Supabase session
-        const { data } = await supabaseClient.auth.getSession();
-        if (!data?.session) return;
+        const { data: sessionData } = await supabaseClient.auth.getSession();
+        if (!sessionData?.session) {
+            console.log('No active Supabase session found');
+            return;
+        }
 
-        const userId = data.session.user.id;
+        const userId = sessionData.session.user.id;
+        console.log('Found existing Supabase session for user:', userId);
 
         // Verify staff record
-        const { data: staff } = await supabaseClient
+        const { data: staff, error: staffError } = await supabaseClient
             .from('staff')
             .select('id, auth_user_id, employee_number, full_name, role_id')
             .eq('auth_user_id', userId)
             .maybeSingle();
 
-        if (!staff) return;
+        if (staffError || !staff) {
+            console.warn('Staff record not found for existing session');
+            return;
+        }
 
         // Verify role
-        const { data: role } = await supabaseClient
+        const { data: role, error: roleError } = await supabaseClient
             .from('roles')
             .select('id, role_code, role_name, is_active')
             .eq('id', staff.role_id)
             .maybeSingle();
 
-        const roleCode = String(role?.role_code || '').trim().toUpperCase();
+        if (roleError || !role) {
+            console.warn('Role not found for existing session');
+            return;
+        }
+
+        const roleCode = String(role.role_code || '').trim().toUpperCase();
         const allowedRoles = ['SUPER_ADMIN', 'BRANCH_MANAGER', 'SALES_AGENT', 'AUDITOR'];
 
-        if (role?.is_active === true && allowedRoles.includes(roleCode)) {
+        if (role.is_active === true && allowedRoles.includes(roleCode)) {
             // Rebuild session
+            const profile = {
+                id: staff.id,
+                auth_user_id: staff.auth_user_id,
+                employee_number: staff.employee_number || '',
+                full_name: staff.full_name || 'Staff Member',
+                email: sessionData.session.user.email || '',
+                role: roleCode,
+                role_name: role.role_name || roleCode,
+                role_id: role.id,
+                role_is_active: role.is_active
+            };
+
             const sessionData = {
                 adminLoggedIn: 'true',
                 adminId: staff.id,
                 adminAuthUserId: userId,
                 adminRole: roleCode,
-                adminName: staff.full_name || data.session.user.email,
+                adminName: staff.full_name || sessionData.session.user.email,
                 adminEmployeeNumber: staff.employee_number || '',
-                adminProfile: JSON.stringify({
-                    id: staff.id,
-                    auth_user_id: staff.auth_user_id,
-                    employee_number: staff.employee_number,
-                    full_name: staff.full_name,
-                    email: data.session.user.email,
-                    role: roleCode,
-                    role_name: role.role_name
-                })
-            };
-
-            Object.entries(sessionData).forEach(([key, value]) => {
-                sessionStorage.setItem(key, value);
-            });
-
-            window.location.href = 'admin-dashboard.html';
-        }
-    } catch (error) {
-        console.warn('Session check failed:', error);
-    }
-}
-
-// ------------------------------------------------------------
-// Initialize
-// ------------------------------------------------------------
-document.addEventListener('DOMContentLoaded', checkExistingSession);
-
-// Attach login handler to form
-document.getElementById('loginForm').addEventListener('submit', handleLogin);
-</script>
+                adminProfile: JSON.stringify(profile
