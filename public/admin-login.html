@@ -1,280 +1,622 @@
+```html
+<script>
 // ============================================================
-// MASIKA BENEVOLENT — ADMIN LOGIN
+// MASIKA BENEVOLENT — ADMIN LOGIN & SESSION GUARD
+// ============================================================
+//
+// Requirements:
+//   - Supabase client must already be initialized as:
+//       const supabaseClient = ...
+//
+// Expected tables:
+//
+//   staff
+//     id
+//     auth_user_id
+//     employee_number
+//     full_name
+//     role_id
+//
+//   roles
+//     id
+//     role_code
+//     role_name
+//     is_active
+//
+// Allowed roles:
+//   SUPER_ADMIN
+//   BRANCH_MANAGER
+//   SALES_AGENT
+//   AUDITOR
 // ============================================================
 
-// Get DOM elements
-const alertBox = document.getElementById('alertBox');
-const loginBtn = document.getElementById('loginBtn');
-const loginForm = document.getElementById('loginForm');
-const emailInput = document.getElementById('email');
-const passwordInput = document.getElementById('password');
+(() => {
+    'use strict';
 
-// ------------------------------------------------------------
-// Alert utilities
-// ------------------------------------------------------------
-function showAlert(message, type = 'error') {
-    alertBox.textContent = message;
-    alertBox.className = `alert show ${type}`;
-}
+    // --------------------------------------------------------
+    // Configuration
+    // --------------------------------------------------------
 
-function clearAlert() {
-    alertBox.className = 'alert';
-}
+    const DASHBOARD_URL = 'admin-dashboard.html';
 
-function setInputError(inputId, hasError) {
-    const input = document.getElementById(inputId);
-    if (input) {
-        input.classList.toggle('error', hasError);
-    }
-}
+    const ALLOWED_ROLES = new Set([
+        'SUPER_ADMIN',
+        'BRANCH_MANAGER',
+        'SALES_AGENT',
+        'AUDITOR'
+    ]);
 
-// ------------------------------------------------------------
-// Login handler
-// ------------------------------------------------------------
-async function handleLogin(event) {
-    event.preventDefault();
-    clearAlert();
-    
-    const email = emailInput.value.trim().toLowerCase();
-    const password = passwordInput.value;
+    const SESSION_KEYS = {
+        loggedIn: 'adminLoggedIn',
+        adminId: 'adminId',
+        authUserId: 'adminAuthUserId',
+        role: 'adminRole',
+        name: 'adminName',
+        employeeNumber: 'adminEmployeeNumber',
+        profile: 'adminProfile'
+    };
 
-    // Validate inputs
-    setInputError('email', false);
-    setInputError('password', false);
+    // --------------------------------------------------------
+    // DOM elements
+    // --------------------------------------------------------
 
-    if (!email) {
-        showAlert('Please enter your email address.');
-        setInputError('email', true);
-        emailInput.focus();
+    const alertBox = document.getElementById('alertBox');
+    const loginBtn = document.getElementById('loginBtn');
+    const loginForm = document.getElementById('loginForm');
+    const emailInput = document.getElementById('email');
+    const passwordInput = document.getElementById('password');
+
+    // --------------------------------------------------------
+    // Safety check
+    // --------------------------------------------------------
+
+    if (!loginForm || !loginBtn || !emailInput || !passwordInput) {
+        console.error(
+            'Masika Admin Login: Required login elements were not found.'
+        );
         return;
     }
 
-    if (!password) {
-        showAlert('Please enter your password.');
-        setInputError('password', true);
-        passwordInput.focus();
-        return;
+    // --------------------------------------------------------
+    // Alert utilities
+    // --------------------------------------------------------
+
+    function showAlert(message, type = 'error') {
+        if (!alertBox) return;
+
+        alertBox.textContent = message;
+        alertBox.className = `alert show ${type}`;
     }
 
-    if (password.length < 8) {
-        showAlert('Password must be at least 8 characters.');
-        setInputError('password', true);
-        passwordInput.focus();
-        return;
+    function clearAlert() {
+        if (!alertBox) return;
+
+        alertBox.textContent = '';
+        alertBox.className = 'alert';
     }
 
-    // Show loading state
-    loginBtn.classList.add('loading');
-    loginBtn.disabled = true;
+    function setInputError(input, hasError) {
+        if (!input) return;
 
-    try {
-        // 1. Authenticate with Supabase
-        const { data, error } = await supabaseClient.auth.signInWithPassword({
-            email,
-            password
+        input.classList.toggle('error', Boolean(hasError));
+        input.setAttribute('aria-invalid', hasError ? 'true' : 'false');
+    }
+
+    function clearInputErrors() {
+        setInputError(emailInput, false);
+        setInputError(passwordInput, false);
+    }
+
+    // --------------------------------------------------------
+    // Loading state
+    // --------------------------------------------------------
+
+    function setLoading(isLoading) {
+        loginBtn.disabled = isLoading;
+        loginBtn.classList.toggle('loading', isLoading);
+
+        if (isLoading) {
+            loginBtn.setAttribute('aria-busy', 'true');
+        } else {
+            loginBtn.removeAttribute('aria-busy');
+        }
+    }
+
+    // --------------------------------------------------------
+    // Session utilities
+    // --------------------------------------------------------
+
+    function clearAdminSession() {
+        Object.values(SESSION_KEYS).forEach(key => {
+            sessionStorage.removeItem(key);
         });
+    }
 
-        if (error) {
-            console.error('Supabase login error:', error);
-            showAlert(error.message || 'Invalid email or password.');
-            setInputError('email', true);
-            setInputError('password', true);
-            return;
+    function saveAdminSession(profile) {
+        const session = {
+            [SESSION_KEYS.loggedIn]: 'true',
+            [SESSION_KEYS.adminId]: profile.id,
+            [SESSION_KEYS.authUserId]: profile.auth_user_id,
+            [SESSION_KEYS.role]: profile.role,
+            [SESSION_KEYS.name]: profile.full_name,
+            [SESSION_KEYS.employeeNumber]: profile.employee_number,
+            [SESSION_KEYS.profile]: JSON.stringify(profile)
+        };
+
+        Object.entries(session).forEach(([key, value]) => {
+            sessionStorage.setItem(key, String(value ?? ''));
+        });
+    }
+
+    function getStoredAdminProfile() {
+        if (sessionStorage.getItem(SESSION_KEYS.loggedIn) !== 'true') {
+            return null;
         }
 
-        if (!data?.user) {
-            showAlert('Login failed. No user session was created.');
-            return;
+        const rawProfile = sessionStorage.getItem(SESSION_KEYS.profile);
+
+        if (!rawProfile) {
+            return null;
         }
 
-        console.log('Authentication successful:', data.user.id);
+        try {
+            const profile = JSON.parse(rawProfile);
 
-        // 2. Verify staff record
-        const { data: staff, error: staffError } = await supabaseClient
+            if (!profile || !profile.id || !profile.auth_user_id) {
+                return null;
+            }
+
+            return profile;
+
+        } catch (error) {
+            console.warn(
+                'Masika Admin: Invalid stored profile.',
+                error
+            );
+
+            return null;
+        }
+    }
+
+    // --------------------------------------------------------
+    // Validate staff + role
+    // --------------------------------------------------------
+
+    async function getVerifiedStaffProfile(user) {
+        if (!user?.id) {
+            return {
+                success: false,
+                message: 'No authenticated user was found.'
+            };
+        }
+
+        // ----------------------------------------------------
+        // 1. Find staff record
+        // ----------------------------------------------------
+
+        const {
+            data: staff,
+            error: staffError
+        } = await supabaseClient
             .from('staff')
-            .select('id, auth_user_id, employee_number, full_name, role_id')
-            .eq('auth_user_id', data.user.id)
+            .select(`
+                id,
+                auth_user_id,
+                employee_number,
+                full_name,
+                role_id
+            `)
+            .eq('auth_user_id', user.id)
             .maybeSingle();
 
         if (staffError) {
-            console.error('Staff lookup error:', staffError);
-            await supabaseClient.auth.signOut();
-            showAlert('Could not verify your staff account. Please contact support.');
-            return;
+            console.error(
+                'Masika Admin: Staff lookup failed:',
+                staffError
+            );
+
+            return {
+                success: false,
+                message: 'Unable to verify your staff account.'
+            };
         }
 
         if (!staff) {
-            console.error('No staff record for:', data.user.id);
-            await supabaseClient.auth.signOut();
-            showAlert('Access denied. Your account is not registered as staff.');
-            return;
+            console.warn(
+                'Masika Admin: No staff record for user:',
+                user.id
+            );
+
+            return {
+                success: false,
+                message: 'Access denied. Your account is not registered as staff.'
+            };
         }
 
-        console.log('Staff record found:', staff);
+        // ----------------------------------------------------
+        // 2. Find role
+        // ----------------------------------------------------
 
-        // 3. Verify role
-        const { data: role, error: roleError } = await supabaseClient
+        if (!staff.role_id) {
+            return {
+                success: false,
+                message: 'Access denied. No staff role is assigned.'
+            };
+        }
+
+        const {
+            data: role,
+            error: roleError
+        } = await supabaseClient
             .from('roles')
-            .select('id, role_code, role_name, is_active')
+            .select(`
+                id,
+                role_code,
+                role_name,
+                is_active
+            `)
             .eq('id', staff.role_id)
             .maybeSingle();
 
         if (roleError) {
-            console.error('Role lookup error:', roleError);
-            await supabaseClient.auth.signOut();
-            showAlert('Could not verify your staff role. Please contact support.');
-            return;
+            console.error(
+                'Masika Admin: Role lookup failed:',
+                roleError
+            );
+
+            return {
+                success: false,
+                message: 'Unable to verify your staff role.'
+            };
         }
 
         if (!role) {
-            await supabaseClient.auth.signOut();
-            showAlert('Access denied. No staff role is assigned.');
-            return;
+            return {
+                success: false,
+                message: 'Access denied. Your staff role could not be found.'
+            };
         }
 
-        console.log('Role found:', role);
+        // ----------------------------------------------------
+        // 3. Normalize role
+        // ----------------------------------------------------
 
-        // 4. Validate role
-        const roleCode = String(role.role_code || '').trim().toUpperCase();
-        const allowedRoles = ['SUPER_ADMIN', 'BRANCH_MANAGER', 'SALES_AGENT', 'AUDITOR'];
+        const roleCode = String(
+            role.role_code || ''
+        ).trim().toUpperCase();
+
+        // ----------------------------------------------------
+        // 4. Validate role status
+        // ----------------------------------------------------
 
         if (role.is_active !== true) {
-            await supabaseClient.auth.signOut();
-            showAlert('Access denied. Your staff role is inactive.');
-            return;
+            return {
+                success: false,
+                message: 'Access denied. Your staff role is inactive.'
+            };
         }
 
-        if (!allowedRoles.includes(roleCode)) {
-            console.error('Unauthorized role:', roleCode);
-            await supabaseClient.auth.signOut();
-            showAlert('Access denied. Your role does not have system access.');
-            return;
+        if (!ALLOWED_ROLES.has(roleCode)) {
+            console.warn(
+                'Masika Admin: Unauthorized role:',
+                roleCode
+            );
+
+            return {
+                success: false,
+                message: 'Access denied. Your role does not have system access.'
+            };
         }
 
-        // 5. Build profile data
+        // ----------------------------------------------------
+        // 5. Build trusted profile
+        // ----------------------------------------------------
+
         const profile = {
             id: staff.id,
             auth_user_id: staff.auth_user_id,
             employee_number: staff.employee_number || '',
             full_name: staff.full_name || 'Staff Member',
-            email: data.user.email || '',
+            email: user.email || '',
             role: roleCode,
             role_name: role.role_name || roleCode,
             role_id: role.id,
             role_is_active: role.is_active
         };
 
-        // 6. Store session
-        const sessionData = {
-            adminLoggedIn: 'true',
-            adminId: staff.id,
-            adminAuthUserId: data.user.id,
-            adminRole: roleCode,
-            adminName: staff.full_name || data.user.email,
-            adminEmployeeNumber: staff.employee_number || '',
-            adminProfile: JSON.stringify(profile)
+        return {
+            success: true,
+            profile
         };
-
-        Object.entries(sessionData).forEach(([key, value]) => {
-            sessionStorage.setItem(key, value);
-        });
-
-        // 7. Show success message
-        const displayName = staff.full_name || 'Admin';
-        showAlert(`Welcome ${displayName}! Redirecting...`, 'success');
-
-        // 8. Redirect
-        setTimeout(() => {
-            window.location.href = 'admin-dashboard.html';
-        }, 500);
-
-    } catch (error) {
-        console.error('Unexpected login error:', error);
-        showAlert('An unexpected error occurred. Please try again.');
-    } finally {
-        loginBtn.classList.remove('loading');
-        loginBtn.disabled = false;
     }
-}
 
-// ------------------------------------------------------------
-// Check existing session
-// ------------------------------------------------------------
-async function checkExistingSession() {
-    try {
-        // Check session storage first
-        const loggedIn = sessionStorage.getItem('adminLoggedIn');
-        if (loggedIn === 'true') {
-            const profile = sessionStorage.getItem('adminProfile');
-            if (profile) {
-                try {
-                    const parsedProfile = JSON.parse(profile);
-                    if (parsedProfile && parsedProfile.id) {
-                        window.location.href = 'admin-dashboard.html';
-                        return;
-                    }
-                } catch (e) {
-                    console.warn('Invalid profile data in session storage');
-                }
+    // --------------------------------------------------------
+    // Sign out safely
+    // --------------------------------------------------------
+
+    async function forceLogout() {
+        clearAdminSession();
+
+        try {
+            await supabaseClient.auth.signOut();
+        } catch (error) {
+            console.warn(
+                'Masika Admin: Supabase sign-out warning:',
+                error
+            );
+        }
+    }
+
+    // --------------------------------------------------------
+    // LOGIN
+    // --------------------------------------------------------
+
+    async function handleLogin(event) {
+        event.preventDefault();
+
+        clearAlert();
+        clearInputErrors();
+
+        const email = emailInput.value.trim().toLowerCase();
+        const password = passwordInput.value;
+
+        // ----------------------------------------------------
+        // Validate email
+        // ----------------------------------------------------
+
+        if (!email) {
+            showAlert('Please enter your email address.');
+            setInputError(emailInput, true);
+            emailInput.focus();
+            return;
+        }
+
+        if (!email.includes('@')) {
+            showAlert('Please enter a valid email address.');
+            setInputError(emailInput, true);
+            emailInput.focus();
+            return;
+        }
+
+        // ----------------------------------------------------
+        // Validate password
+        // ----------------------------------------------------
+
+        if (!password) {
+            showAlert('Please enter your password.');
+            setInputError(passwordInput, true);
+            passwordInput.focus();
+            return;
+        }
+
+        if (password.length < 8) {
+            showAlert('Password must be at least 8 characters.');
+            setInputError(passwordInput, true);
+            passwordInput.focus();
+            return;
+        }
+
+        setLoading(true);
+
+        try {
+            // ------------------------------------------------
+            // Authenticate with Supabase
+            // ------------------------------------------------
+
+            const {
+                data: authData,
+                error: authError
+            } = await supabaseClient.auth.signInWithPassword({
+                email,
+                password
+            });
+
+            if (authError) {
+                console.error(
+                    'Masika Admin: Authentication failed:',
+                    authError
+                );
+
+                showAlert(
+                    'Invalid email or password. Please try again.'
+                );
+
+                setInputError(emailInput, true);
+                setInputError(passwordInput, true);
+
+                return;
             }
+
+            const user = authData?.user;
+
+            if (!user) {
+                showAlert(
+                    'Login failed. No authenticated user was returned.'
+                );
+                return;
+            }
+
+            console.log(
+                'Masika Admin: Authentication successful:',
+                user.id
+            );
+
+            // ------------------------------------------------
+            // Verify staff + role
+            // ------------------------------------------------
+
+            const verification =
+                await getVerifiedStaffProfile(user);
+
+            if (!verification.success) {
+                await forceLogout();
+
+                showAlert(
+                    verification.message ||
+                    'Access denied. Your account could not be verified.'
+                );
+
+                return;
+            }
+
+            const profile = verification.profile;
+
+            // ------------------------------------------------
+            // Store admin session
+            // ------------------------------------------------
+
+            saveAdminSession(profile);
+
+            console.log(
+                'Masika Admin: Staff verified:',
+                profile.full_name,
+                profile.role
+            );
+
+            // ------------------------------------------------
+            // Success
+            // ------------------------------------------------
+
+            showAlert(
+                `Welcome ${profile.full_name}! Redirecting...`,
+                'success'
+            );
+
+            // Give the success alert time to display
+            setTimeout(() => {
+                window.location.replace(DASHBOARD_URL);
+            }, 500);
+
+        } catch (error) {
+            console.error(
+                'Masika Admin: Unexpected login error:',
+                error
+            );
+
+            showAlert(
+                'An unexpected error occurred. Please try again.'
+            );
+
+        } finally {
+            setLoading(false);
         }
+    }
 
-        // Check Supabase session
-        const { data: sessionData } = await supabaseClient.auth.getSession();
-        if (!sessionData?.session) {
-            console.log('No active Supabase session found');
-            return;
+    // --------------------------------------------------------
+    // CHECK EXISTING SESSION
+    // --------------------------------------------------------
+
+    async function checkExistingSession() {
+        try {
+            // ------------------------------------------------
+            // First check Supabase's real authentication state
+            // ------------------------------------------------
+
+            const {
+                data: authSession,
+                error: sessionError
+            } = await supabaseClient.auth.getSession();
+
+            if (sessionError) {
+                console.warn(
+                    'Masika Admin: Could not retrieve session:',
+                    sessionError
+                );
+
+                clearAdminSession();
+                return;
+            }
+
+            const session = authSession?.session;
+
+            // No Supabase session
+            if (!session?.user) {
+                clearAdminSession();
+                return;
+            }
+
+            const user = session.user;
+
+            console.log(
+                'Masika Admin: Existing Supabase session:',
+                user.id
+            );
+
+            // ------------------------------------------------
+            // Verify the user is still an authorized staff user
+            // ------------------------------------------------
+
+            const verification =
+                await getVerifiedStaffProfile(user);
+
+            if (!verification.success) {
+                console.warn(
+                    'Masika Admin: Existing session rejected:',
+                    verification.message
+                );
+
+                await forceLogout();
+                return;
+            }
+
+            const profile = verification.profile;
+
+            // ------------------------------------------------
+            // Refresh local session data
+            // ------------------------------------------------
+
+            saveAdminSession(profile);
+
+            console.log(
+                'Masika Admin: Existing session verified:',
+                profile.full_name,
+                profile.role
+            );
+
+            // ------------------------------------------------
+            // Redirect
+            // ------------------------------------------------
+
+            window.location.replace(DASHBOARD_URL);
+
+        } catch (error) {
+            console.error(
+                'Masika Admin: Existing session check failed:',
+                error
+            );
+
+            clearAdminSession();
         }
+    }
 
-        const userId = sessionData.session.user.id;
-        console.log('Found existing Supabase session for user:', userId);
+    // --------------------------------------------------------
+    // Prevent duplicate form submissions
+    // --------------------------------------------------------
 
-        // Verify staff record
-        const { data: staff, error: staffError } = await supabaseClient
-            .from('staff')
-            .select('id, auth_user_id, employee_number, full_name, role_id')
-            .eq('auth_user_id', userId)
-            .maybeSingle();
+    loginForm.addEventListener('submit', handleLogin);
 
-        if (staffError || !staff) {
-            console.warn('Staff record not found for existing session');
-            return;
-        }
+    // --------------------------------------------------------
+    // Enter key / input cleanup
+    // --------------------------------------------------------
 
-        // Verify role
-        const { data: role, error: roleError } = await supabaseClient
-            .from('roles')
-            .select('id, role_code, role_name, is_active')
-            .eq('id', staff.role_id)
-            .maybeSingle();
+    emailInput.addEventListener('input', () => {
+        setInputError(emailInput, false);
+        clearAlert();
+    });
 
-        if (roleError || !role) {
-            console.warn('Role not found for existing session');
-            return;
-        }
+    passwordInput.addEventListener('input', () => {
+        setInputError(passwordInput, false);
+        clearAlert();
+    });
 
-        const roleCode = String(role.role_code || '').trim().toUpperCase();
-        const allowedRoles = ['SUPER_ADMIN', 'BRANCH_MANAGER', 'SALES_AGENT', 'AUDITOR'];
+    // --------------------------------------------------------
+    // Initialize
+    // --------------------------------------------------------
 
-        if (role.is_active === true && allowedRoles.includes(roleCode)) {
-            // Rebuild session
-            const profile = {
-                id: staff.id,
-                auth_user_id: staff.auth_user_id,
-                employee_number: staff.employee_number || '',
-                full_name: staff.full_name || 'Staff Member',
-                email: sessionData.session.user.email || '',
-                role: roleCode,
-                role_name: role.role_name || roleCode,
-                role_id: role.id,
-                role_is_active: role.is_active
-            };
+    document.addEventListener('DOMContentLoaded', () => {
+        checkExistingSession();
+    });
 
-            const sessionData = {
-                adminLoggedIn: 'true',
-                adminId: staff.id,
-                adminAuthUserId: userId,
-                adminRole: roleCode,
-                adminName: staff.full_name || sessionData.session.user.email,
-                adminEmployeeNumber: staff.employee_number || '',
-                adminProfile: JSON.stringify(profile
+})();
+</script>
+```
