@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Reports | Masika Benevolent</title>
+    <link rel="icon" type="image/png" href="../assets/favicon-32x32.png">
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        * { margin:0; padding:0; box-sizing:border-box; }
+        :root {
+            --primary:#0b5d3b; --primary-dark:#06452c; --gold:#d4a843;
+            --danger:#dc3545; --success:#198754; --info:#0dcaf0;
+            --text:#1f2933; --text-light:#6b7280;
+            --gray-100:#f3f4f6; --gray-200:#e5e7eb;
+            --shadow:0 2px 12px rgba(0,0,0,0.08);
+            --radius:12px; --transition:all 0.3s ease;
+        }
+        body { font-family:'Segoe UI',Arial,sans-serif; background:#f0f4f2; color:var(--text); min-height:100vh; }
+        .admin-layout { display:flex; min-height:100vh; }
+        .sidebar { width:260px; background:var(--primary); color:white; padding:24px 0; position:fixed; height:100vh; overflow-y:auto; z-index:100; }
+        .sidebar-brand { padding:0 24px 24px; border-bottom:1px solid rgba(255,255,255,0.1); margin-bottom:20px; }
+        .sidebar-brand .logo { display:flex; align-items:center; gap:12px; text-decoration:none; color:white; }
+        .sidebar-brand .logo-icon { width:40px; height:40px; background:white; border-radius:50%; display:flex; align-items:center; justify-content:center; font-weight:900; color:var(--primary); font-size:18px; }
+        .sidebar-brand .logo-text { font-weight:700; font-size:18px; }
+        .sidebar-brand .logo-sub { font-size:11px; opacity:0.7; display:block; }
+        .sidebar-nav { list-style:none; padding:0 12px; }
+        .sidebar-nav li { margin-bottom:2px; }
+        .sidebar-nav a { display:flex; align-items:center; gap:12px; padding:12px 16px; border-radius:8px; color:rgba(255,255,255,0.7); text-decoration:none; font-size:14px; font-weight:500; }
+        .sidebar-nav a:hover { background:rgba(255,255,255,0.1); color:white; }
+        .sidebar-nav a.active { background:rgba(255,255,255,0.15); color:white; }
+        .sidebar-nav a i { width:20px; text-align:center; }
+        .sidebar-nav .badge { margin-left:auto; background:var(--gold); color:white; padding:2px 10px; border-radius:12px; font-size:11px; font-weight:600; }
+        .sidebar-footer { padding:20px 24px; border-top:1px solid rgba(255,255,255,0.1); margin-top:20px; }
+        .sidebar-footer .user-info { display:flex; align-items:center; gap:12px; }
+        .sidebar-footer .user-avatar { width:36px; height:36px; border-radius:50%; background:var(--gold); display:flex; align-items:center; justify-content:center; font-weight:700; font-size:14px; }
+        .sidebar-footer .user-name { font-weight:600; font-size:14px; }
+        .sidebar-footer .user-role { font-size:12px; opacity:0.6; }
+        .sidebar-footer .logout-btn { display:block; width:100%; margin-top:12px; padding:10px; border:1px solid rgba(255,255,255,0.2); border-radius:8px; background:transparent; color:rgba(255,255,255,0.7); cursor:pointer; font-family:inherit; font-size:14px; font-weight:500; }
+        .sidebar-footer .logout-btn:hover { background:rgba(255,255,255,0.1); color:white; }
+        .main-content { margin-left:260px; padding:24px 32px; flex:1; width:calc(100% - 260px); }
+        .topbar { margin-bottom:24px; }
+        .topbar h1 { font-size:26px; font-weight:800; }
+        .topbar h1 small { font-size:14px; font-weight:400; color:var(--text-light); display:block; }
+        .report-grid { display:grid; grid-template-columns:repeat(auto-fit, minmax(320px, 1fr)); gap:20px; }
+        .card { background:white; border-radius:var(--radius); padding:24px; box-shadow:var(--shadow); }
+        .card-header { display:flex; align-items:center; gap:10px; margin-bottom:16px; padding-bottom:12px; border-bottom:1px solid var(--gray-200); }
+        .card-header h3 { font-size:17px; font-weight:700; }
+        .card-header i { font-size:18px; }
+        .filter-group { margin-bottom:14px; }
+        .filter-group label { display:block; font-size:13px; font-weight:600; margin-bottom:6px; color:var(--text-light); }
+        .filter-group input, .filter-group select {
+            width:100%; padding:9px 12px; border:1px solid var(--gray-200); border-radius:8px; font-family:inherit; font-size:14px;
+        }
+        .filter-row { display:grid; grid-template-columns:1fr 1fr; gap:10px; }
+        .btn-sm { padding:10px 18px; font-size:14px; border:none; border-radius:8px; cursor:pointer; font-family:inherit; font-weight:600; transition:var(--transition); width:100%; }
+        .btn-sm:hover { transform:translateY(-1px); }
+        .btn-sm:disabled { opacity:0.6; cursor:not-allowed; transform:none; }
+        .btn-sm.primary { background:var(--primary); color:white; }
+        .btn-sm.primary:hover { background:var(--primary-dark); }
+        .btn-sm.gold { background:var(--gold); color:white; }
+        .btn-sm.info { background:var(--info); color:white; }
+        .report-status { font-size:13px; margin-top:10px; min-height:18px; }
+        .report-status.error { color:var(--danger); }
+        .report-status.success { color:var(--success); }
+
+        @media (max-width:768px) {
+            .sidebar { transform:translateX(-100%); }
+            .sidebar.open { transform:translateX(0); }
+            .main-content { margin-left:0; width:100%; padding:16px; }
+            .filter-row { grid-template-columns:1fr; }
+        }
+    </style>
+</head>
+<body>
+    <div class="admin-layout">
+        <aside class="sidebar" id="sidebar">
+            <div class="sidebar-brand">
+                <a href="admin-dashboard.html" class="logo">
+                    <div class="logo-icon">MB</div>
+                    <div><span class="logo-text">Masika</span><span class="logo-sub">Admin Panel</span></div>
+                </a>
+            </div>
+            <ul class="sidebar-nav">
+                <li><a href="admin-dashboard.html"><i class="fas fa-chart-pie"></i> Dashboard</a></li>
+                <li><a href="admin-agents.html"><i class="fas fa-user-tie"></i> Agents <span class="badge" id="agentCountBadge">0</span></a></li>
+                <li><a href="admin-members.html"><i class="fas fa-users"></i> Members</a></li>
+                <li><a href="admin-payments.html"><i class="fas fa-credit-card"></i> Payments</a></li>
+                <li><a href="admin-pricing.html"><i class="fas fa-tags"></i> Pricing</a></li>
+                <li><a href="admin-reports.html" class="active"><i class="fas fa-file-alt"></i> Reports</a></li>
+                <li><a href="admin-settings.html"><i class="fas fa-cog"></i> Settings</a></li>
+            </ul>
+            <div class="sidebar-footer">
+                <div class="user-info">
+                    <div class="user-avatar" id="adminAvatar">A</div>
+                    <div><div class="user-name" id="adminName">Admin</div><div class="user-role" id="adminRole">Administrator</div></div>
+                </div>
+                <button class="logout-btn" onclick="handleLogout()"><i class="fas fa-sign-out-alt"></i> Logout</button>
+            </div>
+        </aside>
+
+        <main class="main-content">
+            <div class="topbar">
+                <h1>Reports <small>Export data as CSV</small></h1>
+            </div>
+
+            <div class="report-grid">
+
+                <!-- Payments Report -->
+                <div class="card">
+                    <div class="card-header">
+                        <i class="fas fa-credit-card" style="color:var(--success);"></i>
+                        <h3>Payments</h3>
+                    </div>
+                    <div class="filter-row">
+                        <div class="filter-group">
+                            <label>From</label>
+                            <input type="date" id="paymentsFrom">
+                        </div>
+                        <div class="filter-group">
+                            <label>To</label>
+                            <input type="date" id="paymentsTo">
+                        </div>
+                    </div>
+                    <div class="filter-group">
+                        <label>Status</label>
+                        <select id="paymentsStatus">
+                            <option value="">All statuses</option>
+                            <option value="SUCCESSFUL">Successful</option>
+                            <option value="PENDING">Pending</option>
+                            <option value="FAILED">Failed</option>
+                            <option value="REVERSED">Reversed</option>
+                            <option value="PARTIAL">Partial</option>
+                        </select>
+                    </div>
+                    <button class="btn-sm primary" onclick="exportPaymentsCsv()" id="exportPaymentsBtn">
+                        <i class="fas fa-download"></i> Export Payments CSV
+                    </button>
+                    <div class="report-status" id="paymentsStatusMsg"></div>
+                </div>
+
+                <!-- Members Report -->
+                <div class="card">
+                    <div class="card-header">
+                        <i class="fas fa-users" style="color:var(--gold);"></i>
+                        <h3>Members</h3>
+                    </div>
+                    <div class="filter-row">
+                        <div class="filter-group">
+                            <label>Registered From</label>
+                            <input type="date" id="membersFrom">
+                        </div>
+                        <div class="filter-group">
+                            <label>Registered To</label>
+                            <input type="date" id="membersTo">
+                        </div>
+                    </div>
+                    <div class="filter-group">
+                        <label>Status</label>
+                        <select id="membersStatus">
+                            <option value="">All statuses</option>
+                            <option value="ACTIVE">Active</option>
+                            <option value="DORMANT">Dormant</option>
+                            <option value="SUSPENDED">Suspended</option>
+                            <option value="CANCELLED">Cancelled</option>
+                            <option value="PENDING">Pending</option>
+                        </select>
+                    </div>
+                    <button class="btn-sm gold" onclick="exportMembersCsv()" id="exportMembersBtn">
+                        <i class="fas fa-download"></i> Export Members CSV
+                    </button>
+                    <div class="report-status" id="membersStatusMsg"></div>
+                </div>
+
+                <!-- Dependants Report -->
+                <div class="card">
+                    <div class="card-header">
+                        <i class="fas fa-people-roof" style="color:var(--info);"></i>
+                        <h3>Dependants</h3>
+                    </div>
+                    <div class="filter-group">
+                        <label>Membership Status</label>
+                        <select id="dependantsStatus">
+                            <option value="">All statuses</option>
+                            <option value="ACTIVE">Active</option>
+                            <option value="DORMANT">Dormant</option>
+                            <option value="SUSPENDED">Suspended</option>
+                            <option value="CANCELLED">Cancelled</option>
+                            <option value="PENDING">Pending</option>
+                        </select>
+                    </div>
+                    <button class="btn-sm info" onclick="exportDependantsCsv()" id="exportDependantsBtn">
+                        <i class="fas fa-download"></i> Export Dependants CSV
+                    </button>
+                    <div class="report-status" id="dependantsStatusMsg"></div>
+                </div>
+
+            </div>
+        </main>
+    </div>
+
+    <script src="../js/supabase-config.js"></script>
+    <script src="../js/admin-auth.js"></script>
+    <script src="../js/admin-reports.js"></script>
+</body>
+</html>
