@@ -19,6 +19,7 @@ Public Endpoints (No Auth Required):
     GET  /api/public/payment/status/{checkout_request_id}
     POST /api/public/payment/confirm
     GET  /api/public/check-member/{phone}
+    GET  /api/public/membership/card-status
 
 Staff Endpoints (Auth Required):
     GET  /api/staff/dashboard
@@ -52,12 +53,13 @@ import logging
 import json
 import base64
 import time
+import calendar
 import traceback
-from datetime import datetime, timezone, timedelta
+from datetime import datetime, timezone, timedelta, date
 from typing import Any, Dict, List, Optional
 from enum import Enum
 
-from fastapi import FastAPI, HTTPException, Request, Depends, status
+from fastapi import FastAPI, HTTPException, Request, Depends, status, Query
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from fastapi.responses import JSONResponse
