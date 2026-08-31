@@ -2,12 +2,18 @@
 // ADMIN DASHBOARD
 // Masika Benevolent - Dashboard data loading & rendering
 // ============================================================
+// NOTE: This file no longer loads the admin profile (name/role/
+// avatar/welcome text) itself — admin-auth.js already does that
+// as part of requireSession(). This file only starts loading
+// dashboard data once it hears the 'admin:authorized' event that
+// admin-auth.js fires, so nothing queries Supabase before we know
+// the visitor is actually an authorized staff member.
+// ============================================================
 
-document.addEventListener("DOMContentLoaded", () => {
+document.addEventListener("admin:authorized", () => {
   updateDateTime();
   setInterval(updateDateTime, 60 * 1000);
 
-  loadAdminProfile();
   loadStats();
   loadRecentRegistrations();
   loadRecentAgents();
@@ -115,57 +121,18 @@ function renderEmpty(container, message) {
 }
 
 // ------------------------------------------------------------
-// Admin profile (sidebar footer)
-// ------------------------------------------------------------
-
-async function loadAdminProfile() {
-  try {
-    const {
-      data: { session },
-      error: sessionError,
-    } = await window.supabaseClient.auth.getSession();
-
-    if (sessionError || !session) return;
-
-    const { data: staffRow, error } = await window.supabaseClient
-      .from("staff")
-      .select("full_name, roles(role_name)")
-      .eq("auth_user_id", session.user.id)
-      .single();
-
-    if (error || !staffRow) return;
-
-    const nameEl = document.getElementById("adminName");
-    const welcomeEl = document.getElementById("welcomeName");
-    const roleEl = document.getElementById("adminRole");
-    const avatarEl = document.getElementById("adminAvatar");
-
-    if (nameEl) nameEl.textContent = staffRow.full_name;
-    if (welcomeEl) welcomeEl.textContent = staffRow.full_name.split(" ")[0];
-    if (roleEl) roleEl.textContent = staffRow.roles?.role_name || "Administrator";
-    if (avatarEl) avatarEl.textContent = staffRow.full_name.charAt(0).toUpperCase();
-  } catch (err) {
-    console.error("Failed to load admin profile:", err);
-  }
-}
-
-// ------------------------------------------------------------
 // Stat cards (via get_dashboard_stats RPC)
 // ------------------------------------------------------------
 
 async function loadStats() {
   try {
-    const { data, error } = await window.supabaseClient.rpc("get_dashboard_stats");
+    const { data, error } = await supabaseClient.rpc("get_dashboard_stats");
     if (error) throw error;
 
     document.getElementById("totalMembers").textContent = (data.total_members ?? 0).toLocaleString();
     document.getElementById("totalAgents").textContent = (data.total_agents ?? 0).toLocaleString();
-    document.getElementById("pendingApprovals").textContent = (data.active_agents ?? 0).toLocaleString();
+    document.getElementById("activeAgents").textContent = (data.active_agents ?? 0).toLocaleString();
     document.getElementById("totalRevenue").textContent = formatKES(data.total_revenue);
-
-    // Update pending approvals label to reflect what the number now means
-    const pendingLabel = document.querySelector("#pendingApprovals")?.parentElement?.querySelector(".stat-label");
-    if (pendingLabel) pendingLabel.textContent = "Active Agents";
 
     const badge = document.getElementById("pendingAgentsBadge");
     if (badge) badge.textContent = data.total_agents ?? 0;
@@ -174,7 +141,7 @@ async function loadStats() {
     if (memberBadge) memberBadge.textContent = data.total_members ?? 0;
   } catch (err) {
     console.error("Failed to load stats:", err);
-    ["totalMembers", "totalAgents", "pendingApprovals", "totalRevenue"].forEach((id) => {
+    ["totalMembers", "totalAgents", "activeAgents", "totalRevenue"].forEach((id) => {
       const el = document.getElementById(id);
       if (el) el.textContent = "—";
     });
@@ -191,7 +158,7 @@ async function loadRecentRegistrations() {
   renderLoading(container);
 
   try {
-    const { data, error } = await window.supabaseClient
+    const { data, error } = await supabaseClient
       .from("members")
       .select("id, full_name, membership_number, member_status, registration_date, created_at")
       .order("created_at", { ascending: false })
@@ -236,7 +203,7 @@ async function loadRecentRegistrations() {
 }
 
 // ------------------------------------------------------------
-// Recently Added Agents (repurposed "Pending Agent Applications" panel)
+// Recently Added Agents
 // ------------------------------------------------------------
 
 async function loadRecentAgents() {
@@ -244,14 +211,8 @@ async function loadRecentAgents() {
   if (!container) return;
   renderLoading(container);
 
-  // Update the panel title/icon to reflect its new purpose
-  const header = container.closest(".card")?.querySelector(".card-header h3");
-  if (header) {
-    header.innerHTML = `<i class="fas fa-user-clock" style="color:var(--gold);"></i> Recently Added Agents`;
-  }
-
   try {
-    const { data, error } = await window.supabaseClient
+    const { data, error } = await supabaseClient
       .from("staff")
       .select("id, full_name, employee_number, status, created_at, roles!inner(role_code), branches(branch_name)")
       .eq("roles.role_code", "SALES_AGENT")
@@ -308,7 +269,7 @@ async function loadRecentPayments() {
   renderLoading(container);
 
   try {
-    const { data, error } = await window.supabaseClient
+    const { data, error } = await supabaseClient
       .from("payments")
       .select("id, amount, payment_status, created_at, members(full_name, membership_number)")
       .order("created_at", { ascending: false })
@@ -353,30 +314,19 @@ async function loadRecentPayments() {
 }
 
 // ------------------------------------------------------------
-// Top-level actions used by the HTML (onclick handlers)
+// Exposed for the "Refresh" button in admin-dashboard.html.
+// NOTE: named loadDashboardData (not refreshData / toggleSidebar /
+// handleLogout) so it doesn't collide with the sidebar-toggle and
+// logout functions owned by admin-dashboard.html and admin-auth.js.
 // ------------------------------------------------------------
 
-function refreshData() {
-  loadStats();
-  loadRecentRegistrations();
-  loadRecentAgents();
-  loadRecentPayments();
+function loadDashboardData() {
+  return Promise.all([
+    loadStats(),
+    loadRecentRegistrations(),
+    loadRecentAgents(),
+    loadRecentPayments(),
+  ]);
 }
 
-function toggleSidebar() {
-  document.getElementById("sidebar")?.classList.toggle("open");
-}
-
-async function handleLogout() {
-  try {
-    await window.supabaseClient.auth.signOut();
-  } catch (err) {
-    console.error("Logout error:", err);
-  } finally {
-    window.location.href = "login.html";
-  }
-}
-
-window.refreshData = refreshData;
-window.toggleSidebar = toggleSidebar;
-window.handleLogout = handleLogout;
+window.loadDashboardData = loadDashboardData;
