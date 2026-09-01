@@ -105,7 +105,8 @@ async function loadMembers() {
       .select(
         "id, full_name, membership_number, member_number, phone, id_number, member_status, plan, registration_date, created_at",
         { count: "exact" }
-      );
+      )
+      .is("deleted_at", null); // hide soft-deleted members from the default list
 
     if (currentStatusFilter) {
       query = query.eq("member_status", currentStatusFilter);
@@ -195,22 +196,29 @@ async function loadMembers() {
 }
 
 // ------------------------------------------------------------
-// Delete a member
+// Delete a member (soft delete)
 // ------------------------------------------------------------
 // Can be called either from the table row's trash icon (triggerBtn
 // is passed, gets disabled/spun while the request is in flight) or
 // from the detail modal's "Delete Member" button (no triggerBtn).
 //
+// This does NOT remove the row from the database — members can
+// have payment records referencing them (payments_member_id_fkey),
+// and hard-deleting would either fail outright or destroy payment
+// history. Instead this sets `deleted_at`, and loadMembers() filters
+// out any member where deleted_at is not null. Payments are
+// untouched and stay linked to the (now-hidden) member.
+//
 // NOTE: This only succeeds if your Supabase Row Level Security
-// policy on `members` allows DELETE for the signed-in admin/staff
-// role — the anon key alone does not grant delete rights.
+// policy on `members` allows UPDATE for the signed-in admin/staff
+// role — the same policy that already backs saveMemberStatus().
 // ------------------------------------------------------------
 
 async function deleteMember(id, name, triggerBtn) {
   if (!id) return;
 
   const confirmed = window.confirm(
-    `Delete ${name || "this member"}? This cannot be undone.`
+    `Delete ${name || "this member"}? They'll be removed from the list, but their payment history is kept.`
   );
   if (!confirmed) return;
 
@@ -222,7 +230,7 @@ async function deleteMember(id, name, triggerBtn) {
   try {
     const { error } = await window.supabaseClient
       .from("members")
-      .delete()
+      .update({ deleted_at: new Date().toISOString() })
       .eq("id", id);
 
     if (error) throw error;
