@@ -1,0 +1,455 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Confirmation | Masika Benevolent</title>
+    <meta name="description" content="Registration and payment confirmation for Masika Benevolent members.">
+
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="js/supabase-config.js"></script>
+
+    <style>
+        :root {
+            --primary: #0b5d3b;
+            --primary-dark: #06452c;
+            --secondary: #d9a441;
+            --danger: #dc3545;
+            --success: #198754;
+            --warning: #b8860b;
+            --light: #f5f7f8;
+            --border: #dfe4e7;
+            --text: #1f2933;
+            --muted: #6b7280;
+            --white: #ffffff;
+        }
+
+        * { box-sizing: border-box; }
+
+        body {
+            margin: 0;
+            font-family: Arial, Helvetica, sans-serif;
+            background: var(--light);
+            color: var(--text);
+        }
+
+        .page-wrapper { min-height: 100vh; }
+
+        /* HEADER */
+        .topbar {
+            background: var(--primary);
+            color: white;
+            min-height: 68px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 0 28px;
+            box-shadow: 0 2px 8px rgba(0,0,0,.12);
+        }
+
+        .brand {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .brand-logo {
+            width: 42px;
+            height: 42px;
+            border-radius: 50%;
+            background: white;
+            color: var(--primary);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 800;
+            font-size: 17px;
+        }
+
+        .brand-text strong { display: block; font-size: 18px; }
+        .brand-text span { display: block; font-size: 12px; opacity: .85; }
+
+        /* CONTENT */
+        .container {
+            width: min(560px, calc(100% - 32px));
+            margin: 50px auto 60px;
+        }
+
+        .card {
+            background: white;
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 36px 30px;
+            box-shadow: 0 2px 7px rgba(0,0,0,.04);
+            text-align: center;
+        }
+
+        .status-icon {
+            width: 72px;
+            height: 72px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 0 auto 20px;
+            font-size: 36px;
+        }
+
+        .status-icon.paid {
+            background: #effaf3;
+            color: var(--success);
+        }
+
+        .status-icon.pending {
+            background: #fdf6e3;
+            color: var(--warning);
+        }
+
+        .status-icon.unknown {
+            background: #f3f4f6;
+            color: var(--muted);
+        }
+
+        h1 {
+            font-size: 24px;
+            margin: 0 0 8px;
+        }
+
+        .subtitle {
+            color: var(--muted);
+            font-size: 15px;
+            margin: 0 0 28px;
+        }
+
+        .status-badge {
+            display: inline-block;
+            padding: 5px 16px;
+            border-radius: 20px;
+            font-size: 13px;
+            font-weight: 700;
+            margin-bottom: 24px;
+            letter-spacing: 0.02em;
+        }
+
+        .status-badge.paid { background: #d4edda; color: #155724; }
+        .status-badge.pending { background: #fff3cd; color: #856404; }
+        .status-badge.unknown { background: #e5e7eb; color: #374151; }
+
+        .summary {
+            background: #f7faf8;
+            border: 1px solid #dbe9e2;
+            border-radius: 10px;
+            padding: 18px 20px;
+            margin-bottom: 26px;
+            text-align: left;
+        }
+
+        .summary-row {
+            display: flex;
+            justify-content: space-between;
+            padding: 8px 0;
+            border-bottom: 1px solid #e2e9e5;
+            font-size: 14px;
+        }
+
+        .summary-row:last-child { border-bottom: 0; }
+        .summary-row span { color: var(--muted); }
+        .summary-row strong { text-align: right; }
+
+        .note-box {
+            background: #eef6fb;
+            border: 1px solid #bcdcf0;
+            color: #1c5a85;
+            border-radius: 8px;
+            padding: 12px 14px;
+            font-size: 13px;
+            margin-bottom: 26px;
+            text-align: left;
+        }
+
+        .actions {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+
+        .btn {
+            flex: 1;
+            min-width: 160px;
+            border: 0;
+            border-radius: 7px;
+            padding: 13px 17px;
+            font-weight: 600;
+            cursor: pointer;
+            text-decoration: none;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 7px;
+            font-size: 14px;
+            transition: all 0.2s;
+        }
+
+        .btn:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+        }
+
+        .btn-primary { background: var(--primary); color: white; }
+        .btn-primary:hover { background: var(--primary-dark); }
+
+        .btn-secondary { background: #eef1f2; color: #374151; }
+
+        .empty-note {
+            color: var(--muted);
+            font-size: 14px;
+            margin-bottom: 26px;
+        }
+
+        @media (max-width: 500px) {
+            .actions { flex-direction: column; }
+        }
+    </style>
+</head>
+
+<body>
+
+<div class="page-wrapper">
+
+    <header class="topbar">
+        <div class="brand">
+            <div class="brand-logo">MB</div>
+            <div class="brand-text">
+                <strong>Masika Benevolent</strong>
+                <span>Membership Management System</span>
+            </div>
+        </div>
+    </header>
+
+    <main class="container">
+        <div class="card" id="confirmationCard">
+            <div class="status-icon unknown" id="statusIcon">…</div>
+            <h1 id="statusTitle">Loading confirmation…</h1>
+            <p class="subtitle" id="statusSubtitle">Please wait a moment.</p>
+        </div>
+    </main>
+</div>
+
+<script>
+/* ============================================================
+   CONFIRMATION PAGE
+   ============================================================
+   payment.js redirects here in two ways, both WITHOUT any query
+   params — everything relies on sessionStorage:
+
+   1. Real success: paymentCompleted() sets sessionStorage
+      "completedPayment" = { id, status, amount, receipt_number }
+      before redirecting. -> show a PAID confirmation.
+
+   2. Edge Function unavailable / fallback: recordPendingPayment()
+      runs, but "completedPayment" is NEVER set — only
+      "registrationResult" (itself bridged from register.html's
+      keys on payment.html) is available. -> show a PENDING
+      confirmation using that.
+
+   3. Neither exists (direct visit, sessionStorage cleared,
+      different device/tab): fall back to a Supabase lookup using
+      ?member_id= in the URL, if present. If that's also missing,
+      show a plain "can't find this" state instead of a blank page.
+   ============================================================ */
+
+function formatKES(amount) {
+    const n = Number(amount);
+    if (!amount && amount !== 0) return "—";
+    return new Intl.NumberFormat("en-KE", {
+        style: "currency",
+        currency: "KES",
+        minimumFractionDigits: 0
+    }).format(n);
+}
+
+function formatDateTime(value) {
+    if (!value) return "—";
+    try {
+        return new Date(value).toLocaleString("en-KE", {
+            day: "numeric", month: "short", year: "numeric",
+            hour: "2-digit", minute: "2-digit"
+        });
+    } catch {
+        return "—";
+    }
+}
+
+function renderPaid({ memberName, memberNumber, amount, receiptNumber, paidAt }) {
+    document.getElementById("statusIcon").className = "status-icon paid";
+    document.getElementById("statusIcon").textContent = "✓";
+    document.getElementById("statusTitle").textContent = "Payment Confirmed";
+    document.getElementById("statusSubtitle").textContent =
+        "Your registration payment was received successfully.";
+
+    document.getElementById("confirmationCard").insertAdjacentHTML("beforeend", `
+        <span class="status-badge paid">PAID</span>
+        <div class="summary">
+            ${memberName ? `<div class="summary-row"><span>Member</span><strong>${escapeHtml(memberName)}</strong></div>` : ""}
+            ${memberNumber ? `<div class="summary-row"><span>Member Number</span><strong>${escapeHtml(memberNumber)}</strong></div>` : ""}
+            <div class="summary-row"><span>Amount Paid</span><strong>${formatKES(amount)}</strong></div>
+            ${receiptNumber ? `<div class="summary-row"><span>Receipt Number</span><strong>${escapeHtml(receiptNumber)}</strong></div>` : ""}
+            ${paidAt ? `<div class="summary-row"><span>Date</span><strong>${formatDateTime(paidAt)}</strong></div>` : ""}
+        </div>
+        <div class="actions">
+            <a href="register.html" class="btn btn-primary">Register Another Member</a>
+            <a href="index.html" class="btn btn-secondary">Back to Home</a>
+        </div>
+    `);
+}
+
+function renderPending({ memberName, memberNumber, amount }) {
+    document.getElementById("statusIcon").className = "status-icon pending";
+    document.getElementById("statusIcon").textContent = "⏳";
+    document.getElementById("statusTitle").textContent = "Registration Received";
+    document.getElementById("statusSubtitle").textContent =
+        "Your details were saved. We're waiting to confirm your M-Pesa payment.";
+
+    document.getElementById("confirmationCard").insertAdjacentHTML("beforeend", `
+        <span class="status-badge pending">PENDING</span>
+        <div class="summary">
+            ${memberName ? `<div class="summary-row"><span>Member</span><strong>${escapeHtml(memberName)}</strong></div>` : ""}
+            ${memberNumber ? `<div class="summary-row"><span>Member Number</span><strong>${escapeHtml(memberNumber)}</strong></div>` : ""}
+            <div class="summary-row"><span>Amount Due</span><strong>${formatKES(amount)}</strong></div>
+        </div>
+        <div class="note-box">
+            If you completed the M-Pesa prompt, your payment will be confirmed shortly.
+            If you didn't receive a prompt or it expired, please contact support with your
+            member number above.
+        </div>
+        <div class="actions">
+            <a href="register.html" class="btn btn-primary">Register Another Member</a>
+            <a href="index.html" class="btn btn-secondary">Back to Home</a>
+        </div>
+    `);
+}
+
+function renderUnknown() {
+    document.getElementById("statusIcon").className = "status-icon unknown";
+    document.getElementById("statusIcon").textContent = "?";
+    document.getElementById("statusTitle").textContent = "We couldn't find this confirmation";
+    document.getElementById("statusSubtitle").textContent =
+        "Your session details weren't available. This can happen if this link was opened on a different device or after some time has passed.";
+
+    document.getElementById("confirmationCard").insertAdjacentHTML("beforeend", `
+        <p class="empty-note">
+            If you just registered a member, please check your SMS/email for confirmation,
+            or contact support with the member's name or phone number.
+        </p>
+        <div class="actions">
+            <a href="register.html" class="btn btn-primary">Register a Member</a>
+            <a href="index.html" class="btn btn-secondary">Back to Home</a>
+        </div>
+    `);
+}
+
+function escapeHtml(str) {
+    if (str === null || str === undefined) return "";
+    return String(str)
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;");
+}
+
+async function init() {
+    // 1. Real completed payment (paymentCompleted() in payment.js)
+    const completedRaw = sessionStorage.getItem("completedPayment");
+    if (completedRaw) {
+        try {
+            const completed = JSON.parse(completedRaw);
+            const registrationRaw = sessionStorage.getItem("registrationResult");
+            const registration = registrationRaw ? JSON.parse(registrationRaw) : {};
+
+            renderPaid({
+                memberName: registration.full_name,
+                memberNumber: registration.member_number,
+                amount: completed.amount,
+                receiptNumber: completed.receipt_number,
+                paidAt: completed.created_at || completed.paid_at
+            });
+            return;
+        } catch (err) {
+            console.error("Failed to parse completedPayment:", err);
+        }
+    }
+
+    // 2. Pending path — registrationResult only
+    const registrationRaw = sessionStorage.getItem("registrationResult");
+    if (registrationRaw) {
+        try {
+            const registration = JSON.parse(registrationRaw);
+            renderPending({
+                memberName: registration.full_name,
+                memberNumber: registration.member_number,
+                amount: registration.amount
+            });
+            return;
+        } catch (err) {
+            console.error("Failed to parse registrationResult:", err);
+        }
+    }
+
+    // 3. Fallback — look up via ?member_id= if payment.js's redirects
+    // are ever updated to include it (they don't yet, by default).
+    const params = new URLSearchParams(window.location.search);
+    const memberId = params.get("member_id");
+
+    if (memberId && window.supabaseClient) {
+        try {
+            const { data: member, error: memberError } = await window.supabaseClient
+                .from("members")
+                .select("id, full_name, membership_number, member_number")
+                .eq("id", memberId)
+                .single();
+            if (memberError) throw memberError;
+
+            const { data: paymentRow } = await window.supabaseClient
+                .from("payments")
+                .select("amount, status, payment_status, receipt_number, created_at")
+                .eq("member_id", memberId)
+                .eq("payment_type", "registration")
+                .order("created_at", { ascending: false })
+                .limit(1)
+                .maybeSingle();
+
+            const status = String(paymentRow?.status || paymentRow?.payment_status || "").toUpperCase();
+            const isPaid = ["PAID", "SUCCESS", "COMPLETED", "CONFIRMED"].includes(status);
+
+            const memberNumber = member.membership_number || member.member_number;
+
+            if (isPaid) {
+                renderPaid({
+                    memberName: member.full_name,
+                    memberNumber,
+                    amount: paymentRow.amount,
+                    receiptNumber: paymentRow.receipt_number,
+                    paidAt: paymentRow.created_at
+                });
+            } else {
+                renderPending({
+                    memberName: member.full_name,
+                    memberNumber,
+                    amount: paymentRow?.amount
+                });
+            }
+            return;
+        } catch (err) {
+            console.error("Confirmation fallback lookup failed:", err);
+        }
+    }
+
+    // 4. Nothing to show
+    renderUnknown();
+}
+
+init();
+</script>
+
+</body>
+</html>
