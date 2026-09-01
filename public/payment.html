@@ -1,0 +1,443 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Complete Payment | Masika Benevolent</title>
+    <meta name="description" content="Complete your Masika Benevolent registration payment via M-Pesa.">
+
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="js/supabase-config.js"></script>
+
+    <style>
+        :root {
+            --primary: #0b5d3b;
+            --primary-dark: #06452c;
+            --secondary: #d9a441;
+            --danger: #dc3545;
+            --success: #198754;
+            --light: #f5f7f8;
+            --border: #dfe4e7;
+            --text: #1f2933;
+            --muted: #6b7280;
+            --white: #ffffff;
+        }
+
+        * { box-sizing: border-box; }
+
+        body {
+            margin: 0;
+            font-family: Arial, Helvetica, sans-serif;
+            background: var(--light);
+            color: var(--text);
+        }
+
+        .page-wrapper { min-height: 100vh; }
+
+        /* HEADER */
+        .topbar {
+            background: var(--primary);
+            color: white;
+            min-height: 68px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0 28px;
+            box-shadow: 0 2px 8px rgba(0,0,0,.12);
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+
+        .brand {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .brand-logo {
+            width: 42px;
+            height: 42px;
+            border-radius: 50%;
+            background: white;
+            color: var(--primary);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 800;
+            font-size: 17px;
+        }
+
+        .brand-text strong { display: block; font-size: 18px; }
+        .brand-text span { display: block; font-size: 12px; opacity: .85; }
+
+        .btn {
+            border: 0;
+            border-radius: 7px;
+            padding: 11px 17px;
+            font-weight: 600;
+            cursor: pointer;
+            text-decoration: none;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 7px;
+            font-size: 14px;
+            transition: all 0.2s;
+            width: 100%;
+        }
+
+        .btn:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+        }
+
+        .btn-outline-light {
+            background: transparent;
+            color: white;
+            border: 2px solid rgba(255,255,255,0.3);
+        }
+
+        .btn-outline-light:hover {
+            background: rgba(255,255,255,0.1);
+            border-color: white;
+        }
+
+        .btn-success {
+            background: var(--success);
+            color: white;
+        }
+
+        .btn:disabled {
+            opacity: .55;
+            cursor: not-allowed;
+            transform: none !important;
+        }
+
+        /* CONTENT */
+        .container {
+            width: min(560px, calc(100% - 32px));
+            margin: 50px auto 60px;
+        }
+
+        .page-title { margin-bottom: 22px; text-align: center; }
+        .page-title h1 { margin: 0 0 7px; font-size: 27px; }
+        .page-title p { margin: 0; color: var(--muted); }
+
+        /* CARD */
+        .card {
+            background: white;
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 28px;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 7px rgba(0,0,0,.04);
+        }
+
+        /* SUMMARY */
+        .summary {
+            background: #f7faf8;
+            border: 1px solid #dbe9e2;
+            border-radius: 10px;
+            padding: 20px;
+            margin-bottom: 24px;
+        }
+
+        .summary-row {
+            display: flex;
+            justify-content: space-between;
+            padding: 9px 0;
+            border-bottom: 1px solid #e2e9e5;
+        }
+
+        .summary-row:last-child { border-bottom: 0; }
+
+        .summary-row span { color: var(--muted); font-size: 14px; }
+        .summary-row strong { font-size: 15px; }
+
+        .summary-row.total strong {
+            font-size: 22px;
+            font-weight: 800;
+            color: var(--primary);
+        }
+
+        /* FORM */
+        .form-group { display: flex; flex-direction: column; margin-bottom: 18px; }
+
+        label {
+            font-size: 13px;
+            font-weight: 700;
+            margin-bottom: 7px;
+        }
+
+        input {
+            width: 100%;
+            border: 1px solid #cfd6da;
+            border-radius: 7px;
+            padding: 13px 14px;
+            font-size: 15px;
+            outline: none;
+            background: white;
+            color: var(--text);
+            transition: border-color 0.2s;
+        }
+
+        input:focus {
+            border-color: var(--primary);
+            box-shadow: 0 0 0 3px rgba(11,93,59,.08);
+        }
+
+        .help-text {
+            color: var(--muted);
+            font-size: 12px;
+            margin-top: 5px;
+        }
+
+        /* ALERT */
+        .alert {
+            display: none;
+            padding: 13px 15px;
+            border-radius: 7px;
+            margin-bottom: 18px;
+            font-size: 14px;
+        }
+
+        .alert.show { display: block; }
+
+        .alert.error {
+            background: #fff0f0;
+            border: 1px solid #f1b5b5;
+            color: #9f1239;
+        }
+
+        .alert.success {
+            background: #effaf3;
+            border: 1px solid #b9dfc7;
+            color: #166534;
+        }
+
+        .mpesa-badge {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            background: #effaf3;
+            border: 1px solid #b9dfc7;
+            border-radius: 8px;
+            padding: 10px 14px;
+            margin-bottom: 20px;
+            font-size: 13px;
+            color: #166534;
+        }
+
+        .footer-links {
+            text-align: center;
+            font-size: 13px;
+            color: var(--muted);
+        }
+
+        .footer-links a {
+            color: var(--primary);
+            font-weight: 600;
+            text-decoration: none;
+        }
+
+        @media (max-width: 600px) {
+            .topbar {
+                padding: 12px 15px;
+                flex-direction: column;
+                align-items: stretch;
+            }
+            .brand { justify-content: center; }
+            .card { padding: 20px; }
+        }
+    </style>
+</head>
+
+<body>
+
+<div class="page-wrapper">
+
+    <!-- HEADER -->
+    <header class="topbar">
+        <div class="brand">
+            <div class="brand-logo">MB</div>
+            <div class="brand-text">
+                <strong>Masika Benevolent</strong>
+                <span>Membership Management System</span>
+            </div>
+        </div>
+    </header>
+
+    <main class="container">
+
+        <div class="page-title">
+            <h1>Complete Your Payment</h1>
+            <p>Confirm your details and pay the registration fee via M-Pesa.</p>
+        </div>
+
+        <div id="paymentError" class="alert error"></div>
+        <div id="paymentSuccess" class="alert success"></div>
+
+        <div class="card">
+
+            <div class="summary">
+                <div class="summary-row">
+                    <span>Member</span>
+                    <strong id="memberName">—</strong>
+                </div>
+                <div class="summary-row">
+                    <span>Member Number</span>
+                    <strong id="memberNumber">—</strong>
+                </div>
+                <div class="summary-row total">
+                    <span>Amount to Pay</span>
+                    <strong id="paymentAmount" data-payment-amount>KES 0</strong>
+                </div>
+            </div>
+
+            <div class="mpesa-badge">
+                📱 You'll receive an M-Pesa STK push prompt on this number.
+            </div>
+
+            <form id="paymentForm">
+                <div class="form-group">
+                    <label for="mpesaPhone">M-Pesa Phone Number <span style="color:var(--danger);">*</span></label>
+                    <input type="tel" id="mpesaPhone" name="phone" placeholder="e.g. 0712345678" autocomplete="tel" required>
+                    <span class="help-text">Enter the phone number registered with M-Pesa.</span>
+                </div>
+
+                <button type="submit" class="btn btn-success">
+                    Pay Now
+                </button>
+            </form>
+        </div>
+
+        <p class="footer-links">
+            Having trouble? <a href="index.html">Return home</a> or contact support.
+        </p>
+
+    </main>
+</div>
+
+<script>
+    // ============================================================
+    // BRIDGE: reconcile register.html's sessionStorage keys with
+    // what payment.js actually expects.
+    //
+    // register.html stores individual keys:
+    //   newMemberId, newMemberNumber, newMemberName,
+    //   newMemberPhone, registrationAmount
+    //
+    // payment.js's loadRegistrationPayment() only reads a single
+    // JSON blob under the key "registrationResult". Without this,
+    // the amount and member name never populate after a real
+    // registration. This runs synchronously before payment.js loads.
+    // ============================================================
+    (function bridgeRegistrationStorage() {
+        const existing = sessionStorage.getItem("registrationResult");
+        if (existing) return; // already in the shape payment.js expects
+
+        const id = sessionStorage.getItem("newMemberId");
+        const memberNumber = sessionStorage.getItem("newMemberNumber");
+        const fullName = sessionStorage.getItem("newMemberName");
+        const phone = sessionStorage.getItem("newMemberPhone");
+        const amount = sessionStorage.getItem("registrationAmount");
+
+        if (!id && !memberNumber && !amount) return; // nothing to bridge
+
+        const registrationResult = {
+            id: id,
+            member_id: id,
+            member_number: memberNumber,
+            full_name: fullName,
+            phone: phone,
+            amount: amount !== null ? Number(amount) : undefined
+        };
+
+        sessionStorage.setItem("registrationResult", JSON.stringify(registrationResult));
+    })();
+</script>
+
+<script src="js/payment.js"></script>
+
+<script>
+    // ============================================================
+    // FALLBACK: if there was no usable sessionStorage data at all
+    // (e.g. page refreshed, or opened directly from a saved link),
+    // fetch the member's name/number and their most recent pending
+    // registration payment amount straight from Supabase using the
+    // member_id in the URL.
+    // ============================================================
+    document.addEventListener("DOMContentLoaded", async () => {
+        // payment.js's own DOMContentLoaded handler (registered
+        // above, so it runs first) already set window.registrationPaymentAmount
+        // if sessionStorage had usable data. If it's already set, skip.
+        if (window.registrationPaymentAmount) return;
+
+        const params = new URLSearchParams(window.location.search);
+        const memberId = params.get("member_id");
+        if (!memberId || !window.supabaseClient) return;
+
+        try {
+            const { data: member, error: memberError } = await window.supabaseClient
+                .from("members")
+                .select("id, full_name, membership_number, member_number")
+                .eq("id", memberId)
+                .single();
+
+            if (memberError) throw memberError;
+
+            let amount = null;
+            const { data: paymentRow } = await window.supabaseClient
+                .from("payments")
+                .select("amount")
+                .eq("member_id", memberId)
+                .eq("payment_type", "registration")
+                .order("created_at", { ascending: false })
+                .limit(1)
+                .maybeSingle();
+
+            if (paymentRow && paymentRow.amount != null) {
+                amount = Number(paymentRow.amount);
+            }
+
+            const nameEl = document.getElementById("memberName");
+            const numberEl = document.getElementById("memberNumber");
+            if (nameEl && member.full_name) nameEl.textContent = member.full_name;
+            if (numberEl) {
+                numberEl.textContent = member.membership_number || member.member_number || "—";
+            }
+
+            if (amount != null) {
+                window.registrationPaymentAmount = amount;
+                if (typeof updatePaymentAmount === "function") {
+                    updatePaymentAmount(amount);
+                }
+            } else {
+                const errEl = document.getElementById("paymentError");
+                if (errEl) {
+                    errEl.textContent = "Couldn't find a pending registration amount for this member. Please contact support or restart registration.";
+                    errEl.classList.add("show");
+                }
+            }
+
+            // Keep getStoredRegistration() (used by payment.js on submit) working.
+            sessionStorage.setItem("registrationResult", JSON.stringify({
+                id: memberId,
+                member_id: memberId,
+                member_number: member.membership_number || member.member_number,
+                full_name: member.full_name,
+                amount: amount
+            }));
+        } catch (err) {
+            console.error("Payment fallback lookup failed:", err);
+            const errEl = document.getElementById("paymentError");
+            if (errEl) {
+                errEl.textContent = "Couldn't load payment details for this member. Please contact support.";
+                errEl.classList.add("show");
+            }
+        }
+    });
+</script>
+
+</body>
+</html>
