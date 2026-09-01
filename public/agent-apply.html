@@ -638,7 +638,7 @@
                             <option>Garissa</option><option>Wajir</option><option>Mandera</option>
                             <option>Tana River</option><option>Lamu</option><option>Taita-Taveta</option>
                             <option>Kwale</option><option>Turkana</option><option>Marsabit</option>
-                            <option>Voi</option><option>Other</option>
+                            <option>Other</option>
                         </select>
                     </div>
 
@@ -725,7 +725,7 @@
         // ============================================================
 
         const SUPABASE_URL = 'https://wpxzlcdrirlcyvfiquld.supabase.co';
-        const SUPABASE_ANON_KEY = 'YOUR_SUPABASE_ANON_KEY'; // REPLACE WITH YOUR ACTUAL KEY
+        const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6IndweHpsY2RyaXJsY3l2ZmlxdWxkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODc5Mjc4MDcsImV4cCI6MjEwMzUwMzgwN30.OUP9pmPbrML_egpHflZtDfLv1_UDM37_BYjtb842xjg';
 
         const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
@@ -859,7 +859,7 @@
 
                 if (error) {
                     console.error('Submit error:', error);
-                    showAlert('Failed to submit application. Please try again.', 'error');
+                    showAlert('Failed to submit application: ' + (error.message || 'Please try again.'), 'error');
                     return;
                 }
 
