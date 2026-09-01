@@ -179,28 +179,102 @@ async function loadRecentRegistrations() {
               <th>Membership #</th>
               <th>Status</th>
               <th>Registered</th>
+              <th>Actions</th>
             </tr>
           </thead>
           <tbody>
             ${data
               .map(
                 (m) => `
-              <tr>
+              <tr data-member-row="${escapeHtml(m.id)}">
                 <td>${escapeHtml(m.full_name)}</td>
                 <td>${escapeHtml(m.membership_number || "—")}</td>
                 <td><span class="status-badge ${statusBadgeClass(m.member_status)}">${escapeHtml(m.member_status)}</span></td>
                 <td>${formatDate(m.registration_date || m.created_at)}</td>
+                <td>
+                  <button
+                    class="btn-sm danger delete-member-btn"
+                    data-id="${escapeHtml(m.id)}"
+                    data-name="${escapeHtml(m.full_name)}"
+                    title="Delete member"
+                  >
+                    <i class="fas fa-trash"></i>
+                  </button>
+                </td>
               </tr>`
               )
               .join("")}
           </tbody>
         </table>
       </div>`;
+
+    // Wire up delete buttons for this render.
+    container.querySelectorAll(".delete-member-btn").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        const id = btn.getAttribute("data-id");
+        const name = btn.getAttribute("data-name");
+        deleteMember(id, name, btn);
+      });
+    });
   } catch (err) {
     console.error("Failed to load recent registrations:", err);
     renderError(container, "Couldn't load recent registrations.", loadRecentRegistrations);
   }
 }
+
+// ------------------------------------------------------------
+// Delete a member
+// ------------------------------------------------------------
+// Confirms with the admin, disables the triggering button while
+// the request is in flight, deletes the row from Supabase, then
+// refreshes the registrations list and the stat cards so the
+// dashboard stays in sync.
+//
+// NOTE: This only succeeds if your Supabase Row Level Security
+// policy on `members` allows DELETE for the signed-in admin/staff
+// role. The anon key alone does not grant delete rights — RLS is
+// what actually enforces (or blocks) this.
+// ------------------------------------------------------------
+
+async function deleteMember(id, name, triggerBtn) {
+  if (!id) return;
+
+  const confirmed = window.confirm(
+    `Delete ${name || "this member"}? This cannot be undone.`
+  );
+  if (!confirmed) return;
+
+  if (triggerBtn) {
+    triggerBtn.disabled = true;
+    triggerBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
+  }
+
+  try {
+    const { error } = await supabaseClient
+      .from("members")
+      .delete()
+      .eq("id", id);
+
+    if (error) throw error;
+
+    // Refresh the list and the stat cards so counts stay accurate.
+    await Promise.all([loadRecentRegistrations(), loadStats()]);
+  } catch (err) {
+    console.error("Failed to delete member:", err);
+    alert(
+      "Couldn't delete this member. " +
+        (err?.message || "Please check your permissions and try again.")
+    );
+    if (triggerBtn) {
+      triggerBtn.disabled = false;
+      triggerBtn.innerHTML = '<i class="fas fa-trash"></i>';
+    }
+  }
+}
+
+// Exposed in case you want to trigger it from elsewhere (e.g. a
+// future admin-members.html page reusing the same logic).
+window.deleteMember = deleteMember;
 
 // ------------------------------------------------------------
 // Recently Added Agents
