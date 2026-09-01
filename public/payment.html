@@ -186,6 +186,11 @@
             box-shadow: 0 0 0 3px rgba(11,93,59,.08);
         }
 
+        input:disabled {
+            background: #f5f5f5;
+            cursor: not-allowed;
+        }
+
         .help-text {
             color: var(--muted);
             font-size: 12px;
@@ -282,15 +287,15 @@
             <div class="summary">
                 <div class="summary-row">
                     <span>Member</span>
-                    <strong id="memberName">—</strong>
+                    <strong id="memberName">Loading…</strong>
                 </div>
                 <div class="summary-row">
                     <span>Member Number</span>
-                    <strong id="memberNumber">—</strong>
+                    <strong id="memberNumber">Loading…</strong>
                 </div>
                 <div class="summary-row total">
                     <span>Amount to Pay</span>
-                    <strong id="paymentAmount" data-payment-amount>KES 0</strong>
+                    <strong id="paymentAmount" data-payment-amount>Loading…</strong>
                 </div>
             </div>
 
@@ -305,7 +310,7 @@
                     <span class="help-text">Enter the phone number registered with M-Pesa.</span>
                 </div>
 
-                <button type="submit" class="btn btn-success">
+                <button type="submit" class="btn btn-success" id="payNowBtn" disabled>
                     Pay Now
                 </button>
             </form>
@@ -318,123 +323,139 @@
     </main>
 </div>
 
-<script>
-    // ============================================================
-    // BRIDGE: reconcile register.html's sessionStorage keys with
-    // what payment.js actually expects.
-    //
-    // register.html stores individual keys:
-    //   newMemberId, newMemberNumber, newMemberName,
-    //   newMemberPhone, registrationAmount
-    //
-    // payment.js's loadRegistrationPayment() only reads a single
-    // JSON blob under the key "registrationResult". Without this,
-    // the amount and member name never populate after a real
-    // registration. This runs synchronously before payment.js loads.
-    // ============================================================
-    (function bridgeRegistrationStorage() {
-        const existing = sessionStorage.getItem("registrationResult");
-        if (existing) return; // already in the shape payment.js expects
-
-        const id = sessionStorage.getItem("newMemberId");
-        const memberNumber = sessionStorage.getItem("newMemberNumber");
-        const fullName = sessionStorage.getItem("newMemberName");
-        const phone = sessionStorage.getItem("newMemberPhone");
-        const amount = sessionStorage.getItem("registrationAmount");
-
-        if (!id && !memberNumber && !amount) return; // nothing to bridge
-
-        const registrationResult = {
-            id: id,
-            member_id: id,
-            member_number: memberNumber,
-            full_name: fullName,
-            phone: phone,
-            amount: amount !== null ? Number(amount) : undefined
-        };
-
-        sessionStorage.setItem("registrationResult", JSON.stringify(registrationResult));
-    })();
-</script>
-
 <script src="js/payment.js"></script>
 
 <script>
     // ============================================================
-    // FALLBACK: if there was no usable sessionStorage data at all
-    // (e.g. page refreshed, or opened directly from a saved link),
-    // fetch the member's name/number and their most recent pending
-    // registration payment amount straight from Supabase using the
-    // member_id in the URL.
+    // AUTHORITATIVE AMOUNT LOADER
+    //
+    // WHY THIS EXISTS:
+    // payment.js's own loadRegistrationPayment() trusts whatever is
+    // sitting in sessionStorage["registrationResult"]. sessionStorage
+    // persists for the whole browser tab/session, not just one
+    // registration. If this tab was ever used for an earlier
+    // registration attempt (including a failed/test one, or someone
+    // else's registration on a shared machine) that left a stale or
+    // malformed registrationResult behind, every payment page opened
+    // afterwards in that tab silently displayed that stale data --
+    // most commonly surfacing as "KES 0" even though the real fee in
+    // the database was correct the whole time.
+    //
+    // Money-relevant values should never be trusted from client
+    // storage alone. This script ALWAYS re-fetches the member and
+    // their pending registration payment straight from Supabase using
+    // only the member_id in the URL, and OVERWRITES whatever payment.js
+    // set from sessionStorage -- both on screen and in
+    // window.registrationPaymentAmount (which is what payment.js's
+    // handlePayment() actually charges when "Pay Now" is clicked).
+    //
+    // sessionStorage is still used for ONE thing: prefilling the
+    // M-Pesa phone field for convenience, since that's not
+    // security/money sensitive.
     // ============================================================
+
     document.addEventListener("DOMContentLoaded", async () => {
-        // payment.js's own DOMContentLoaded handler (registered
-        // above, so it runs first) already set window.registrationPaymentAmount
-        // if sessionStorage had usable data. If it's already set, skip.
-        if (window.registrationPaymentAmount) return;
+        const payNowBtn = document.getElementById("payNowBtn");
+        const nameEl = document.getElementById("memberName");
+        const numberEl = document.getElementById("memberNumber");
+        const errEl = document.getElementById("paymentError");
+        const phoneInput = document.getElementById("mpesaPhone");
+
+        // Convenience-only prefill, never used for the amount.
+        const sessionPhone = sessionStorage.getItem("newMemberPhone");
+        if (sessionPhone && !phoneInput.value) {
+            phoneInput.value = sessionPhone;
+        }
 
         const params = new URLSearchParams(window.location.search);
         const memberId = params.get("member_id");
-        if (!memberId || !window.supabaseClient) return;
+
+        if (!memberId) {
+            nameEl.textContent = "—";
+            numberEl.textContent = "—";
+            document.getElementById("paymentAmount").textContent = "KES 0";
+            errEl.textContent = "No member specified. Please restart registration.";
+            errEl.classList.add("show");
+            return;
+        }
+
+        if (!window.supabaseClient) {
+            errEl.textContent = "Could not connect to the database. Please refresh the page.";
+            errEl.classList.add("show");
+            return;
+        }
 
         try {
             const { data: member, error: memberError } = await window.supabaseClient
                 .from("members")
-                .select("id, full_name, membership_number, member_number")
+                .select("id, full_name, first_name, last_name, member_number")
                 .eq("id", memberId)
                 .single();
 
             if (memberError) throw memberError;
 
-            let amount = null;
-            const { data: paymentRow } = await window.supabaseClient
+            const fullName = member.full_name
+                || [member.first_name, member.last_name].filter(Boolean).join(" ")
+                || "Member";
+
+            // member_number is the canonical, actually-used member ID
+            // throughout the rest of the app (register.html, main.py,
+            // members.html, member-details.html). membership_number is a
+            // separate, unrelated column populated by an unrelated DB
+            // trigger and is not used anywhere else -- so it must never be
+            // shown here even if present on the row.
+            nameEl.textContent = fullName;
+            numberEl.textContent = member.member_number || "—";
+
+            const { data: paymentRow, error: paymentError } = await window.supabaseClient
                 .from("payments")
-                .select("amount")
+                .select("id, amount")
                 .eq("member_id", memberId)
                 .eq("payment_type", "registration")
                 .order("created_at", { ascending: false })
                 .limit(1)
                 .maybeSingle();
 
-            if (paymentRow && paymentRow.amount != null) {
-                amount = Number(paymentRow.amount);
+            if (paymentError) throw paymentError;
+
+            if (!paymentRow || paymentRow.amount == null) {
+                document.getElementById("paymentAmount").textContent = "KES 0";
+                errEl.textContent = "Couldn't find a pending registration amount for this member. Please contact support or restart registration.";
+                errEl.classList.add("show");
+                return;
             }
 
-            const nameEl = document.getElementById("memberName");
-            const numberEl = document.getElementById("memberNumber");
-            if (nameEl && member.full_name) nameEl.textContent = member.full_name;
-            if (numberEl) {
-                numberEl.textContent = member.membership_number || member.member_number || "—";
-            }
+            const amount = Number(paymentRow.amount);
 
-            if (amount != null) {
-                window.registrationPaymentAmount = amount;
-                if (typeof updatePaymentAmount === "function") {
-                    updatePaymentAmount(amount);
-                }
+            // Overwrite whatever payment.js set from sessionStorage --
+            // this is now the single source of truth for both display
+            // and what gets charged on submit.
+            window.registrationPaymentAmount = amount;
+            if (typeof updatePaymentAmount === "function") {
+                updatePaymentAmount(amount);
             } else {
-                const errEl = document.getElementById("paymentError");
-                if (errEl) {
-                    errEl.textContent = "Couldn't find a pending registration amount for this member. Please contact support or restart registration.";
-                    errEl.classList.add("show");
-                }
+                document.getElementById("paymentAmount").textContent =
+                    "KES " + amount.toLocaleString("en-KE", { maximumFractionDigits: 0 });
             }
 
-            // Keep getStoredRegistration() (used by payment.js on submit) working.
+            // Keep sessionStorage in sync so payment.js's submit-time
+            // getStoredRegistration() (used for registration_id on the
+            // STK payload) also reflects the correct, current member.
             sessionStorage.setItem("registrationResult", JSON.stringify({
                 id: memberId,
                 member_id: memberId,
-                member_number: member.membership_number || member.member_number,
-                full_name: member.full_name,
+                member_number: member.member_number,
+                full_name: fullName,
                 amount: amount
             }));
+
+            payNowBtn.disabled = false;
+
         } catch (err) {
-            console.error("Payment fallback lookup failed:", err);
-            const errEl = document.getElementById("paymentError");
-            if (errEl) {
-                errEl.textContent = "Couldn't load payment details for this member. Please contact support.";
-                errEl.classList.add("show");
-            }
+            console.error("Payment page load failed:", err);
+            document.getElementById("paymentAmount").textContent = "KES 0";
+            errEl.textContent = "Couldn't load payment details for this member. Please contact support.";
+            errEl.classList.add("show");
         }
     });
 </script>
