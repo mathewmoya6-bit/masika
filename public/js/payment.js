@@ -9,9 +9,22 @@
 //
 // IMPORTANT:
 // Actual Daraja credentials must NEVER be placed in this file.
-// STK Push should go through your secure backend/Supabase Edge
-// Function.
+// STK Push goes through the FastAPI backend
+// (POST /api/public/payment/stk-push), which holds the Daraja
+// credentials server-side and talks to Safaricom directly.
+//
+// FIX (was): this file previously called a Supabase Edge Function
+// "mpesa-stk-push" via supabaseClient.functions.invoke(). That
+// function does not exist in this project, so every payment attempt
+// failed silently, was swallowed by the catch block, and fell
+// through to recordPendingPayment() -- which just writes a "pending"
+// row directly to Supabase and redirects to confirmation.html
+// WITHOUT ever calling Safaricom. That's why no STK prompt was ever
+// sent and the Network tab showed only a `payments` insert, no
+// backend call at all.
 // ============================================================
+
+const API_BASE_URL = 'https://masika-c921.onrender.com';
 
 document.addEventListener("DOMContentLoaded", () => {
 
@@ -114,105 +127,74 @@ async function handlePayment(event) {
         return;
     }
 
+    const registrationResult = getStoredRegistration();
+    const memberId = registrationResult?.member_id || registrationResult?.id;
+
+    if (!memberId) {
+        showPaymentError("Could not find your registration. Please restart registration.");
+        return;
+    }
+
     const button = form.querySelector('[type="submit"]');
     setPaymentLoading(button, true);
     clearPaymentMessages();
 
     try {
-        // Get registration data
-        const registrationResult = getStoredRegistration();
-
         const payload = {
+            member_id: memberId,
             phone: phone,
             amount: amount,
-            registration_id: registrationResult?.registration_id ?? registrationResult?.id ?? null
+            transaction_desc: "Membership Registration"
         };
 
         console.log("Starting payment:", payload);
 
-        // Try to call Supabase Edge Function for M-Pesa STK Push
+        const response = await fetch(`${API_BASE_URL}/api/public/payment/stk-push`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(payload)
+        });
+
+        let result = null;
         try {
-            const { data, error } = await window.supabaseClient.functions.invoke(
-                "mpesa-stk-push",
-                { body: payload }
+            result = await response.json();
+        } catch (parseError) {
+            // non-JSON response, fall through with result = null
+        }
+
+        if (!response.ok) {
+            const detail = result && (result.detail || result.message);
+            throw new Error(
+                (typeof detail === "string" && detail) ||
+                `STK push request failed (HTTP ${response.status}).`
             );
+        }
 
-            if (error) {
-                console.error("Payment request error:", error);
-                // Fallback: record payment as pending
-                await recordPendingPayment(registrationResult, amount, phone);
-                showPaymentSuccess("Payment recorded. You will receive confirmation shortly.");
-                setTimeout(() => {
-                    window.location.href = "confirmation.html";
-                }, 2000);
-                return;
-            }
+        if (!result || result.success === false) {
+            showPaymentError((result && result.message) || "Payment could not be initiated.");
+            return;
+        }
 
-            console.log("Payment request:", data);
-
-            if (data?.success === false || data?.error) {
-                showPaymentError(data.message || data.error || "Payment could not be initiated.");
-                return;
-            }
-
-            showPaymentSuccess("Payment request sent. Please check your phone and enter your M-Pesa PIN.");
-
-            // Begin checking payment status
-            if (data?.checkout_request_id) {
-                await monitorPayment(data.checkout_request_id);
-            }
-
-        } catch (e) {
-            // If Edge Function fails, record payment as pending
-            console.warn("Edge Function failed, recording as pending:", e);
-            await recordPendingPayment(registrationResult, amount, phone);
-            showPaymentSuccess("Payment recorded. You will receive confirmation shortly.");
+        if (result.data && result.data.already_paid) {
+            showPaymentSuccess("Registration fee already paid.");
             setTimeout(() => {
                 window.location.href = "confirmation.html";
-            }, 2000);
+            }, 1500);
+            return;
+        }
+
+        showPaymentSuccess("Payment request sent. Please check your phone and enter your M-Pesa PIN.");
+
+        const checkoutRequestId = result.data && result.data.checkout_request_id;
+        if (checkoutRequestId) {
+            await monitorPayment(checkoutRequestId);
         }
 
     } catch (error) {
         console.error("Payment error:", error);
-        showPaymentError("An unexpected payment error occurred.");
+        showPaymentError(error.message || "An unexpected payment error occurred.");
     } finally {
         setPaymentLoading(button, false);
-    }
-}
-
-
-// ============================================================
-// RECORD PENDING PAYMENT
-// ============================================================
-
-async function recordPendingPayment(registration, amount, phone) {
-    try {
-        const memberId = registration?.id || registration?.member_id;
-
-        const { data, error } = await window.supabaseClient
-            .from("payments")
-            .insert({
-                member_id: memberId,
-                amount: amount,
-                payment_type: 'registration',
-                status: 'pending',
-                paybill_number: '348127',
-                account_number: registration?.member_number || 'PENDING',
-                notes: `Registration payment - Phone: ${phone}`
-            })
-            .select()
-            .single();
-
-        if (error) {
-            console.error("Failed to record payment:", error);
-        } else {
-            console.log("Payment recorded:", data);
-        }
-
-        return data;
-    } catch (error) {
-        console.error("Error recording payment:", error);
-        return null;
     }
 }
 
@@ -231,16 +213,17 @@ async function monitorPayment(checkoutRequestId) {
         attempts++;
 
         try {
-            const { data, error } = await window.supabaseClient
-                .from("payments")
-                .select("id, status, amount, receipt_number")
-                .eq("checkout_request_id", checkoutRequestId)
-                .maybeSingle();
+            const response = await fetch(
+                `${API_BASE_URL}/api/public/payment/status/${encodeURIComponent(checkoutRequestId)}`
+            );
 
-            if (error) {
-                console.error("Payment status error:", error);
+            if (!response.ok) {
+                console.error("Payment status error: HTTP", response.status);
                 return;
             }
+
+            const result = await response.json();
+            const data = result && result.data;
 
             if (!data) {
                 if (attempts >= maxAttempts) {
@@ -251,7 +234,7 @@ async function monitorPayment(checkoutRequestId) {
 
             const status = String(data.status || "").toUpperCase();
 
-            if (status === "PAID" || status === "SUCCESS" || status === "COMPLETED" || status === "confirmed") {
+            if (status === "CONFIRMED" || status === "PAID" || status === "SUCCESS" || status === "COMPLETED") {
                 clearInterval(interval);
                 paymentCompleted(data);
                 return;
@@ -260,6 +243,7 @@ async function monitorPayment(checkoutRequestId) {
             if (status === "FAILED" || status === "CANCELLED") {
                 clearInterval(interval);
                 showPaymentError("The M-Pesa payment was not completed.");
+                return;
             }
 
             if (attempts >= maxAttempts) {
@@ -281,7 +265,11 @@ async function monitorPayment(checkoutRequestId) {
 
 function paymentCompleted(payment) {
 
-    sessionStorage.setItem("completedPayment", JSON.stringify(payment));
+    sessionStorage.setItem("completedPayment", JSON.stringify({
+        amount: payment.amount,
+        receipt_number: payment.receipt,
+        created_at: new Date().toISOString()
+    }));
 
     showPaymentSuccess("✅ Payment received successfully!");
 
@@ -325,6 +313,7 @@ function showPaymentError(message) {
 
     element.textContent = message;
     element.style.display = "block";
+    element.classList.add("show");
 }
 
 
@@ -339,6 +328,7 @@ function showPaymentSuccess(message) {
 
     element.textContent = message;
     element.style.display = "block";
+    element.classList.add("show");
 }
 
 
@@ -350,11 +340,13 @@ function clearPaymentMessages() {
     if (error) {
         error.textContent = "";
         error.style.display = "none";
+        error.classList.remove("show");
     }
 
     if (success) {
         success.textContent = "";
         success.style.display = "none";
+        success.classList.remove("show");
     }
 }
 
