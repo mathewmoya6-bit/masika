@@ -1,1 +1,351 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Staff Sign In — Masika Benevolent</title>
+<meta name="robots" content="noindex, nofollow">
+<link rel="icon" type="image/png" href="../assets/favicon-32x32.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,500;8..60,600;8..60,700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --primary: #0b5d3b;
+    --primary-dark: #06452c;
+    --primary-light: #e8f5ee;
+    --gold: #d4a843;
+    --gold-light: #f5e6b8;
+    --bg-light: #f0f4f2;
+    --paper: #FFFFFF;
+    --ink: #1f2933;
+    --muted: #6b7280;
+    --line: #e5e7eb;
+    --error: #dc3545;
+    --success: #198754;
+    --radius: 12px;
+  }
 
+  * { box-sizing: border-box; }
+
+  html, body {
+    margin: 0;
+    padding: 0;
+    height: 100%;
+    font-family: 'Inter', sans-serif;
+    color: var(--ink);
+    background: var(--paper);
+  }
+
+  body {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    min-height: 100vh;
+  }
+
+  /* ---------------- Brand panel ---------------- */
+  .brand-panel {
+    background: var(--primary);
+    color: var(--gold-light);
+    position: relative;
+    padding: 4rem 3.5rem;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    overflow: hidden;
+  }
+
+  .brand-panel::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background-image: repeating-linear-gradient(
+      115deg,
+      transparent 0px,
+      transparent 64px,
+      rgba(246,243,238,0.035) 64px,
+      rgba(246,243,238,0.035) 65px
+    );
+    pointer-events: none;
+  }
+
+  .brand-mark {
+    font-family: 'Source Serif 4', serif;
+    font-weight: 600;
+    font-size: 1.05rem;
+    letter-spacing: 0.01em;
+    position: relative;
+    z-index: 1;
+  }
+
+  .brand-mark span {
+    color: var(--gold);
+  }
+
+  .brand-copy {
+    position: relative;
+    z-index: 1;
+    max-width: 30ch;
+  }
+
+  .brand-copy h1 {
+    font-family: 'Source Serif 4', serif;
+    font-weight: 500;
+    font-size: 2.4rem;
+    line-height: 1.18;
+    margin: 0 0 1.1rem;
+  }
+
+  .brand-copy p {
+    font-size: 0.95rem;
+    line-height: 1.6;
+    color: rgba(246,243,238,0.68);
+    margin: 0;
+  }
+
+  .brand-foot {
+    position: relative;
+    z-index: 1;
+    font-size: 0.8rem;
+    color: rgba(246,243,238,0.45);
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+  }
+
+  .brand-foot .dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--gold);
+    flex-shrink: 0;
+  }
+
+  /* ---------------- Form panel ---------------- */
+  .form-panel {
+    background: var(--bg-light);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 2.5rem;
+  }
+
+  .form-card {
+    width: 100%;
+    max-width: 380px;
+  }
+
+  .form-card h2 {
+    font-family: 'Source Serif 4', serif;
+    font-weight: 600;
+    font-size: 1.6rem;
+    margin: 0 0 0.35rem;
+    color: var(--ink);
+  }
+
+  .form-card .sub {
+    font-size: 0.88rem;
+    color: var(--muted);
+    margin: 0 0 2rem;
+    line-height: 1.5;
+  }
+
+  .alert {
+    display: none;
+    font-size: 0.85rem;
+    line-height: 1.45;
+    padding: 0.7rem 0.9rem;
+    border-radius: var(--radius);
+    margin-bottom: 1.2rem;
+    border: 1px solid transparent;
+  }
+
+  .alert.show { display: block; }
+
+  .alert.error {
+    background: rgba(179,65,58,0.08);
+    border-color: rgba(179,65,58,0.25);
+    color: var(--error);
+  }
+
+  .alert.success {
+    background: rgba(63,116,85,0.08);
+    border-color: rgba(63,116,85,0.25);
+    color: var(--success);
+  }
+
+  .field {
+    margin-bottom: 1.15rem;
+  }
+
+  .field label {
+    display: block;
+    font-size: 0.82rem;
+    font-weight: 500;
+    color: var(--ink);
+    margin-bottom: 0.4rem;
+  }
+
+  .field input {
+    width: 100%;
+    padding: 0.72rem 0.85rem;
+    font-size: 0.92rem;
+    font-family: 'Inter', sans-serif;
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    background: var(--paper);
+    color: var(--ink);
+    transition: border-color 0.15s ease, box-shadow 0.15s ease;
+  }
+
+  .field input:focus {
+    outline: none;
+    border-color: var(--primary);
+    box-shadow: 0 0 0 3px rgba(11,93,59,0.12);
+  }
+
+  .field input.error {
+    border-color: var(--error);
+    box-shadow: 0 0 0 3px rgba(179,65,58,0.1);
+  }
+
+  .form-options {
+    display: flex;
+    justify-content: flex-end;
+    margin: -0.35rem 0 1.5rem;
+  }
+
+  .form-options a {
+    font-size: 0.82rem;
+    color: var(--primary);
+    text-decoration: none;
+  }
+
+  .form-options a:hover {
+    text-decoration: underline;
+  }
+
+  .btn {
+    width: 100%;
+    padding: 0.82rem 1rem;
+    border: none;
+    border-radius: var(--radius);
+    background: var(--primary);
+    color: var(--paper);
+    font-family: 'Inter', sans-serif;
+    font-size: 0.92rem;
+    font-weight: 500;
+    cursor: pointer;
+    position: relative;
+    transition: background 0.15s ease;
+  }
+
+  .btn:hover:not(:disabled) {
+    background: var(--primary-dark);
+  }
+
+  .btn:disabled {
+    cursor: not-allowed;
+    opacity: 0.75;
+  }
+
+  .btn.loading .btn-label {
+    visibility: hidden;
+  }
+
+  .btn.loading::after {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 16px;
+    height: 16px;
+    margin: -8px 0 0 -8px;
+    border: 2px solid rgba(255,255,255,0.35);
+    border-top-color: var(--paper);
+    border-radius: 50%;
+    animation: spin 0.7s linear infinite;
+  }
+
+  @keyframes spin {
+    to { transform: rotate(360deg); }
+  }
+
+  .restricted-note {
+    margin-top: 1.6rem;
+    font-size: 0.78rem;
+    color: var(--muted);
+    line-height: 1.5;
+    border-top: 1px solid var(--line);
+    padding-top: 1.1rem;
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--primary);
+    outline-offset: 2px;
+  }
+
+  @media (max-width: 860px) {
+    body { grid-template-columns: 1fr; }
+    .brand-panel { display: none; }
+    .form-panel { padding: 1.5rem; }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .btn.loading::after { animation: none; }
+  }
+</style>
+</head>
+<body>
+
+  <div class="brand-panel">
+    <div class="brand-mark">Masika<span>Benevolent</span></div>
+    <div class="brand-copy">
+      <h1>Staff access, held to a higher standard.</h1>
+      <p>This portal manages member records, contributions, and last-expense claims. Sign-in here is limited to Super Admin accounts only.</p>
+    </div>
+    <div class="brand-foot"><span class="dot"></span>Every action on this panel is logged.</div>
+  </div>
+
+  <div class="form-panel">
+    <div class="form-card">
+      <h2>Sign in</h2>
+      <p class="sub">Use your registered staff email and password.</p>
+
+      <div id="alertBox" class="alert"></div>
+
+      <form id="loginForm" novalidate>
+        <div class="field">
+          <label for="email">Email address</label>
+          <input type="email" id="email" name="email" autocomplete="username" placeholder="you@masikabenevolent.co.ke">
+        </div>
+
+        <div class="field">
+          <label for="password">Password</label>
+          <input type="password" id="password" name="password" autocomplete="current-password" placeholder="Enter your password">
+        </div>
+
+        <div class="form-options">
+          <a href="#">Forgot password?</a>
+        </div>
+
+        <button type="submit" id="loginBtn" class="btn">
+          <span class="btn-label">Sign In</span>
+        </button>
+      </form>
+
+      <p class="restricted-note">Access is restricted to Super Admin roles. Branch managers, sales agents, and auditors should use their dedicated dashboards.</p>
+    </div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script>
+    // TODO: replace with your Masika Benevolent Supabase project credentials
+    const SUPABASE_URL = 'https://YOUR-PROJECT-REF.supabase.co';
+    const SUPABASE_ANON_KEY = 'YOUR-SUPABASE-ANON-KEY';
+    const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+  </script>
+  <script src="admin-login.js"></script>
+
+</body>
+</html>
