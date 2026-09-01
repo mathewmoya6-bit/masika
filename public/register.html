@@ -739,9 +739,7 @@
                 <label>Membership Plan <span class="required">*</span></label>
                 <select id="planSelect" required>
                     <option value="">Select a plan</option>
-                    <option value="COMFORT">COMFORT — KES 200 registration</option>
-                    <option value="DIGNITY">DIGNITY — KES 500 registration</option>
-                    <option value="WAZAZI">WAZAZI — KES 100 registration</option>
+                    <!-- Populated live from Supabase `plans` table by loadPlans() -->
                 </select>
                 <span class="help-text" id="planDescription">&nbsp;</span>
             </div>
@@ -942,16 +940,76 @@ function sleep(ms) {
 const planSelect = document.getElementById("planSelect");
 const planDescription = document.getElementById("planDescription");
 
-const PLAN_DESCRIPTIONS = {
-    COMFORT: "Basic membership protection for individuals and families.",
-    DIGNITY: "Enhanced family protection and benevolent support.",
-    WAZAZI: "Comprehensive parent and family protection."
-};
+// ============================================================
+// LIVE PLAN PRICING — loaded from Supabase `plans` table (the
+// same table admin-pricing.html edits), NOT hardcoded. Keyed by
+// plan_code, e.g. planPricing["COMFORT"] = { name, description,
+// principal_registration_fee, dependant_registration_fee, ... }.
+//
+// This replaces the old hardcoded PLAN_DESCRIPTIONS object and the
+// old hardcoded planFees/dependantFees used in the fee estimate
+// further down — a price change in admin-pricing.html now shows up
+// here automatically on next page load, instead of needing a manual
+// code edit that's easy to forget (which is exactly how the old
+// estimate and the backend's old hardcoded fees drifted apart).
+// ============================================================
+let planPricing = {};
+
+// Only used if the Supabase fetch fails outright (e.g. offline),
+// so the form doesn't become completely unusable. These are stale
+// on purpose — if you see this used, loadPlans() is failing and
+// should be checked, not this fallback data updated.
+const FALLBACK_PLANS = [
+    { plan_code: "COMFORT", plan_name: "Comfort", description: "Basic membership protection for individuals and families.", principal_registration_fee: 200, dependant_registration_fee: 50 },
+    { plan_code: "DIGNITY", plan_name: "Dignity", description: "Enhanced family protection and benevolent support.", principal_registration_fee: 500, dependant_registration_fee: 100 },
+    { plan_code: "WAZAZI", plan_name: "Wazazi", description: "Comprehensive parent and family protection.", principal_registration_fee: 100, dependant_registration_fee: 100 }
+];
+
+function applyPlanRows(rows) {
+    planPricing = {};
+    planSelect.querySelectorAll("option[value]:not([value=''])").forEach(o => o.remove());
+
+    rows.forEach(row => {
+        if (!row.plan_code) return;
+        planPricing[row.plan_code] = row;
+
+        const option = document.createElement("option");
+        option.value = row.plan_code;
+        const feeText = (row.principal_registration_fee || row.principal_registration_fee === 0)
+            ? ` — KES ${Number(row.principal_registration_fee).toLocaleString("en-KE")} registration`
+            : "";
+        option.textContent = `${row.plan_code}${feeText}`;
+        planSelect.appendChild(option);
+    });
+}
+
+async function loadPlans() {
+    try {
+        if (!window.supabaseClient) {
+            throw new Error("Supabase client not initialized.");
+        }
+
+        const { data, error } = await window.supabaseClient
+            .from("plans")
+            .select("plan_code, plan_name, description, principal_registration_fee, dependant_registration_fee, principal_monthly_premium")
+            .eq("is_active", true)
+            .order("principal_monthly_premium", { ascending: true });
+
+        if (error) throw error;
+        if (!data || data.length === 0) throw new Error("No active plans returned.");
+
+        applyPlanRows(data);
+    } catch (error) {
+        console.warn("Could not load live plan pricing, using fallback values:", error.message);
+        applyPlanRows(FALLBACK_PLANS);
+    }
+}
 
 planSelect.addEventListener("change", () => {
     calculatedRegistration = null;
     registerBtn.disabled = true;
-    planDescription.textContent = PLAN_DESCRIPTIONS[planSelect.value] || "\u00A0";
+    const plan = planPricing[planSelect.value];
+    planDescription.textContent = (plan && plan.description) ? plan.description : "\u00A0";
     updateSummary();
 });
 
@@ -1170,28 +1228,21 @@ async function calculateRegistrationPayment() {
         // NOTE: This is a client-side ESTIMATE shown for the user's convenience
         // only. The authoritative fee is calculated by the backend inside
         // POST /api/public/register (calculate_registration_fee) at the
-        // moment the member is actually created, so it can't be tampered
-        // with from the browser. Keep these tables in sync with
-        // PLAN_FEES / DEPENDANT_FEES in main.py if those ever change.
-        const planFees = {
-            'COMFORT': 200,
-            'DIGNITY': 500,
-            'WAZAZI': 100
-        };
+        // moment the member is actually created. Both now read pricing from
+        // the same place — the `plans` table edited via admin-pricing.html —
+        // instead of separate hardcoded numbers, so this estimate can't
+        // silently drift out of sync with a real price change the way the
+        // old hardcoded tables did.
+        //
+        // The `plans` table stores one flat dependant_registration_fee per
+        // plan (no per-relationship pricing), so every dependant costs the
+        // same flat fee here, matching calculate_registration_fee() in
+        // main.py.
+        const selectedPlan = planPricing[payload.plan] || {};
+        const principalFee = Number(selectedPlan.principal_registration_fee) || 0;
+        const perDependantFee = Number(selectedPlan.dependant_registration_fee) || 0;
 
-        const dependantFees = {
-            'SPOUSE': 100,
-            'CHILD': 50,
-            'PARENT': 150,
-            'SIBLING': 100,
-            'OTHER': 100
-        };
-
-        let totalFee = planFees[payload.plan] || 0;
-
-        for (const dep of payload.dependants) {
-            totalFee += dependantFees[dep.relationship] || 50;
-        }
+        let totalFee = principalFee + (perDependantFee * payload.dependants.length);
 
         calculatedRegistration = {
             total_amount: totalFee,
@@ -1416,6 +1467,9 @@ function init() {
     // Kick off the background warm-up ping immediately so the Render
     // instance has a head start waking up before the user submits.
     warmUpServer();
+
+    // Populate the plan dropdown + pricing from Supabase (live, admin-managed).
+    loadPlans();
 
     // Populate the agent sales code dropdown from Supabase (best-effort, non-blocking).
     loadSalesCodes();
