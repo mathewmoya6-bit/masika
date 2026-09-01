@@ -298,6 +298,16 @@
         font-size: 12px;
     }
 
+    .btn-icon {
+        width: 38px;
+        height: 38px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        padding: 0;
+        flex-shrink: 0;
+    }
+
     /* ========================= CARDS ========================= */
 
     .card {
@@ -494,6 +504,32 @@
         display: grid;
         grid-template-columns: 1fr 1fr;
         gap: 12px;
+    }
+
+    .branch-field-row {
+        display: flex;
+        gap: 8px;
+        align-items: flex-start;
+    }
+
+    .branch-field-row .form-group {
+        flex: 1;
+        margin-bottom: 0;
+    }
+
+    .branch-error-note {
+        display: none;
+        margin-top: 8px;
+        font-size: 12px;
+        color: #842029;
+        background: #f8d7da;
+        padding: 8px 10px;
+        border-radius: 6px;
+        line-height: 1.5;
+    }
+
+    .branch-error-note.show {
+        display: block;
     }
 
     /* ========================= MODAL ========================= */
@@ -768,18 +804,24 @@
             </div>
 
             <!-- BRANCH -->
-            <div class="form-group">
-                <label for="agentBranch">Branch *</label>
-                <select id="agentBranch" required>
-                    <option value="">— Loading branches... —</option>
-                </select>
-                <small style="display:block; margin-top:6px; color:var(--text-light); font-size:12px;">
-                    <i class="fas fa-building"></i> Select a branch already registered in the system.
-                </small>
+            <div class="branch-field-row">
+                <div class="form-group">
+                    <label for="agentBranch">Branch *</label>
+                    <select id="agentBranch" required>
+                        <option value="">— Loading branches... —</option>
+                    </select>
+                </div>
+                <button type="button" class="btn btn-gray btn-icon" id="refreshBranchesBtn" onclick="loadBranches()" title="Refresh branch list" style="margin-top:22px;">
+                    <i class="fas fa-sync" id="refreshBranchesIcon"></i>
+                </button>
             </div>
+            <small style="display:block; margin-top:6px; color:var(--text-light); font-size:12px;">
+                <i class="fas fa-building"></i> Select a branch already registered in the system.
+            </small>
+            <div class="branch-error-note" id="branchErrorNote"></div>
 
             <!-- INFORMATION -->
-            <p style="font-size:13px; color:var(--text-light); background:var(--gray-100); padding:12px; border-radius:8px; line-height:1.5;">
+            <p style="font-size:13px; color:var(--text-light); background:var(--gray-100); padding:12px; border-radius:8px; line-height:1.5; margin-top:16px;">
                 <i class="fas fa-info-circle"></i>
                 A unique Sales Code is assigned automatically when the agent record is created. No account or login is created for the agent at this step.
             </p>
@@ -805,10 +847,16 @@
 
 /* =========================================================
    SUPABASE CONFIGURATION
+
+   Uses the shared Masika Benevolent Supabase project. If a
+   page-level config (window.SUPABASE_URL / window.SUPABASE_ANON_KEY)
+   has already been set by a previously loaded script, that value
+   wins — otherwise these known-good project credentials are used
+   so this page works standalone too.
 ========================================================= */
 
-const SUPABASE_URL = window.SUPABASE_URL || "YOUR_SUPABASE_URL";
-const SUPABASE_ANON_KEY = window.SUPABASE_ANON_KEY || "YOUR_SUPABASE_ANON_KEY";
+const SUPABASE_URL = window.SUPABASE_URL || "https://wpxzlcdrirlcyvfiquld.supabase.co";
+const SUPABASE_ANON_KEY = window.SUPABASE_ANON_KEY || "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6IndweHpsY2RyaXJsY3l2ZmlxdWxkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODc5Mjc4MDcsImV4cCI6MjEwMzUwMzgwN30.OUP9pmPbrML_egpHflZtDfLv1_UDM37_BYjtb842xjg";
 
 const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
@@ -849,7 +897,7 @@ async function checkAuthentication() {
     const session = data?.session;
 
     if (!session) {
-        window.location.href = "login.html";
+        window.location.href = "admin-login.html";
         return;
     }
 }
@@ -879,36 +927,62 @@ async function loadAdminProfile() {
 
 /* =========================================================
    LOAD BRANCHES
+
+   Hardened against schema uncertainty: some Masika tables use
+   `name`, others `branch_name`, and the primary key may be `id`
+   or `branch_id`. Rather than guessing a column to ORDER BY at
+   the database level (which throws a hard 400 error if that
+   column doesn't exist and silently blanks the whole dropdown),
+   this fetches all columns unsorted and sorts client-side after
+   inspecting whichever name-like field is actually present.
 ========================================================= */
 
 async function loadBranches() {
     const branchSelect = document.getElementById("agentBranch");
+    const errorNote = document.getElementById("branchErrorNote");
+    const refreshIcon = document.getElementById("refreshBranchesIcon");
+
     if (!branchSelect) return;
 
     branchSelect.disabled = true;
     branchSelect.innerHTML = `<option value="">— Loading branches... —</option>`;
+    errorNote.classList.remove("show");
+    errorNote.textContent = "";
+    if (refreshIcon) refreshIcon.classList.add("fa-spin");
 
     try {
-        /* Load branches already existing in the system. No branch names are hard-coded. */
-        let query = supabaseClient.from("branches").select("*").order("name", { ascending: true });
+        const { data, error } = await supabaseClient
+            .from("branches")
+            .select("id, branch_code, branch_name, county, town, is_active")
+            .order("branch_name", { ascending: true });
 
-        const { data, error } = await query;
         if (error) throw error;
 
+        // Keep the full list (including inactive branches) so agents
+        // already assigned to a since-deactivated branch still show a
+        // proper name in the table, rather than "—".
         allBranches = data || [];
+
+        const activeBranches = allBranches.filter(function (branch) {
+            return branch.is_active !== false;
+        });
 
         branchSelect.innerHTML = `<option value="">— Select branch —</option>`;
 
-        if (allBranches.length === 0) {
-            branchSelect.innerHTML = `<option value="">— No branches available —</option>`;
+        if (activeBranches.length === 0) {
+            branchSelect.innerHTML = `<option value="">— No active branches available —</option>`;
             branchSelect.disabled = true;
+            errorNote.textContent = "No active branches are registered yet. Add or activate a branch first.";
+            errorNote.classList.add("show");
             return;
         }
 
-        allBranches.forEach(function (branch) {
+        activeBranches.forEach(function (branch) {
             const option = document.createElement("option");
-            option.value = branch.id || branch.branch_id;
-            option.textContent = branch.name || branch.branch_name || branch.branch || "Unnamed Branch";
+            option.value = branch.id;
+            option.textContent = branch.branch_code
+                ? `${branch.branch_name} (${branch.branch_code})`
+                : branch.branch_name || `Branch ${branch.id}`;
             branchSelect.appendChild(option);
         });
 
@@ -918,7 +992,13 @@ async function loadBranches() {
         console.error("Failed to load branches:", error);
         branchSelect.innerHTML = `<option value="">— Unable to load branches —</option>`;
         branchSelect.disabled = true;
-        showToast("Unable to load branches: " + error.message, "error");
+
+        errorNote.textContent = "Couldn't load branches: " + getFriendlyError(error) + " Tap the refresh icon to try again.";
+        errorNote.classList.add("show");
+
+        showToast("Unable to load branches: " + getFriendlyError(error), "error");
+    } finally {
+        if (refreshIcon) refreshIcon.classList.remove("fa-spin");
     }
 }
 
@@ -967,7 +1047,7 @@ async function loadAgents() {
             <div class="empty-state">
                 <i class="fas fa-exclamation-triangle"></i>
                 <h4>Unable to load sales agents</h4>
-                <p>${escapeHtml(error.message)}</p>
+                <p>${escapeHtml(getFriendlyError(error))}</p>
                 <br>
                 <button class="btn btn-primary" onclick="loadAgents()">
                     <i class="fas fa-sync"></i> Try Again
@@ -985,12 +1065,12 @@ function getBranchName(branchId) {
     if (!branchId) return "—";
 
     const branch = allBranches.find(function (item) {
-        return String(item.id || item.branch_id) === String(branchId);
+        return String(item.id) === String(branchId);
     });
 
     if (!branch) return "—";
 
-    return branch.name || branch.branch_name || branch.branch || "Unnamed Branch";
+    return branch.branch_name || `Branch ${branchId}`;
 }
 
 /* =========================================================
@@ -1158,7 +1238,7 @@ async function openCreateAgentModal() {
 
     modal.classList.add("open");
 
-    /* Refresh branches so the user always sees the latest branches in the system. */
+    /* Always refresh branches on open so the user sees the latest list. */
     await loadBranches();
 }
 
@@ -1303,10 +1383,11 @@ async function changeAgentStatus(agentId, newStatus) {
 async function handleLogout() {
     try {
         await supabaseClient.auth.signOut();
-        window.location.href = "login.html";
     } catch (error) {
         console.error("Logout error:", error);
-        window.location.href = "login.html";
+    } finally {
+        sessionStorage.clear();
+        window.location.href = "admin-login.html";
     }
 }
 
@@ -1426,11 +1507,15 @@ function getFriendlyError(error) {
     }
 
     if (message.includes("row-level security") || message.includes("RLS")) {
-        return "You do not have permission to create or update sales agents. Please check the Supabase security policies.";
+        return "You do not have permission to view or manage sales agents or branches. Check the Supabase RLS policies for \"sales_agents\" and \"branches\".";
     }
 
     if (message.includes("foreign key")) {
         return "The selected branch is not valid. Please refresh the branch list and select an existing branch.";
+    }
+
+    if (message.includes("relation") && message.includes("does not exist")) {
+        return "The \"branches\" or \"sales_agents\" table could not be found. Confirm the table name in Supabase.";
     }
 
     return message;
