@@ -140,21 +140,43 @@ async function loadMembers() {
       <div class="table-wrapper">
         <table>
           <thead>
-            <tr><th>Name</th><th>Membership #</th><th>Phone</th><th>Plan</th><th>Status</th><th>Registered</th></tr>
+            <tr><th>Name</th><th>Membership #</th><th>Phone</th><th>Plan</th><th>Status</th><th>Registered</th><th>Actions</th></tr>
           </thead>
           <tbody>
             ${membersCache.map((m) => `
-              <tr onclick="openMemberModal('${m.id}')">
+              <tr data-member-row="${escapeHtml(m.id)}" onclick="openMemberModal('${m.id}')">
                 <td>${escapeHtml(m.full_name)}</td>
                 <td>${escapeHtml(m.membership_number || m.member_number || "—")}</td>
                 <td>${escapeHtml(m.phone || "—")}</td>
                 <td>${escapeHtml(m.plan || "—")}</td>
                 <td><span class="status-badge ${statusBadgeClass(m.member_status)}">${escapeHtml(m.member_status)}</span></td>
                 <td>${formatDate(m.registration_date || m.created_at)}</td>
+                <td>
+                  <button
+                    class="btn-sm delete-member-btn"
+                    style="background:var(--danger);color:white;"
+                    data-id="${escapeHtml(m.id)}"
+                    data-name="${escapeHtml(m.full_name)}"
+                    title="Delete member"
+                  >
+                    <i class="fas fa-trash"></i>
+                  </button>
+                </td>
               </tr>`).join("")}
           </tbody>
         </table>
       </div>`;
+
+    // Delete buttons: stop the click from bubbling up to the row's
+    // onclick (which would otherwise open the detail modal instead).
+    container.querySelectorAll(".delete-member-btn").forEach((btn) => {
+      btn.addEventListener("click", (e) => {
+        e.stopPropagation();
+        const id = btn.getAttribute("data-id");
+        const name = btn.getAttribute("data-name");
+        deleteMember(id, name, btn);
+      });
+    });
 
     const totalPages = Math.max(1, Math.ceil(totalMemberCount / PAGE_SIZE));
     document.getElementById("paginationInfo").textContent =
@@ -171,6 +193,73 @@ async function loadMembers() {
       </div>`;
   }
 }
+
+// ------------------------------------------------------------
+// Delete a member
+// ------------------------------------------------------------
+// Can be called either from the table row's trash icon (triggerBtn
+// is passed, gets disabled/spun while the request is in flight) or
+// from the detail modal's "Delete Member" button (no triggerBtn).
+//
+// NOTE: This only succeeds if your Supabase Row Level Security
+// policy on `members` allows DELETE for the signed-in admin/staff
+// role — the anon key alone does not grant delete rights.
+// ------------------------------------------------------------
+
+async function deleteMember(id, name, triggerBtn) {
+  if (!id) return;
+
+  const confirmed = window.confirm(
+    `Delete ${name || "this member"}? This cannot be undone.`
+  );
+  if (!confirmed) return;
+
+  if (triggerBtn) {
+    triggerBtn.disabled = true;
+    triggerBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
+  }
+
+  try {
+    const { error } = await window.supabaseClient
+      .from("members")
+      .delete()
+      .eq("id", id);
+
+    if (error) throw error;
+
+    // If the deleted member's modal happens to be open, close it.
+    if (openMemberId === id) {
+      closeMemberModal();
+    }
+
+    // Adjust the current page if this was the last row on it, so
+    // we don't land on an empty page after deleting.
+    const isLastRowOnPage = membersCache.length === 1 && currentPage > 0;
+    if (isLastRowOnPage) currentPage -= 1;
+
+    await Promise.all([loadMembers(), loadSidebarCounts()]);
+  } catch (err) {
+    console.error("Failed to delete member:", err);
+    alert(
+      "Couldn't delete this member. " +
+        (err?.message || "Please check your permissions and try again.")
+    );
+    if (triggerBtn) {
+      triggerBtn.disabled = false;
+      triggerBtn.innerHTML = '<i class="fas fa-trash"></i>';
+    }
+  }
+}
+
+// Called from the "Delete Member" button inside the detail modal.
+function deleteOpenMember() {
+  if (!openMemberId) return;
+  const nameEl = document.getElementById("memberModalName");
+  deleteMember(openMemberId, nameEl ? nameEl.textContent : "this member");
+}
+
+window.deleteMember = deleteMember;
+window.deleteOpenMember = deleteOpenMember;
 
 // ------------------------------------------------------------
 // Member detail modal
