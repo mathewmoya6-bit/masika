@@ -6,6 +6,9 @@
     <title>Register Member | Masika Benevolent</title>
     <meta name="description" content="Register a new Masika Benevolent member and calculate membership registration payment.">
 
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="js/supabase-config.js"></script>
+
     <style>
         :root {
             --primary: #0b5d3b;
@@ -1362,16 +1365,29 @@ document.addEventListener('keydown', function(e) {
 });
 
 /* ============================================================
-   LOAD AGENT SALES CODES INTO DROPDOWN
+   LOAD AGENT SALES CODES — now read directly from Supabase
+   (public_agent_codes view: only exposes code + agent_name for
+   active sales agents, via a public-safe view + anon grant, so
+   this page doesn't need to hit the FastAPI backend just for a
+   dropdown, and doesn't need to be logged in either).
    ============================================================ */
 
 async function loadSalesCodes() {
     try {
-        const result = await apiRequest('/api/public/sales-codes', { method: 'GET' });
-        const codes = (result && result.data) || [];
+        if (!window.supabaseClient) {
+            throw new Error("Supabase client not initialized — check that js/supabase-config.js loaded correctly.");
+        }
+
+        const { data, error } = await window.supabaseClient
+            .from('public_agent_codes')
+            .select('code, agent_name')
+            .order('agent_name', { ascending: true });
+
+        if (error) throw error;
 
         // Keep the default "No agent" option, append the rest.
-        codes.forEach(entry => {
+        (data || []).forEach(entry => {
+            if (!entry.code) return;
             const option = document.createElement("option");
             option.value = entry.code;
             option.textContent = entry.agent_name
@@ -1401,7 +1417,7 @@ function init() {
     // instance has a head start waking up before the user submits.
     warmUpServer();
 
-    // Populate the agent sales code dropdown (best-effort, non-blocking).
+    // Populate the agent sales code dropdown from Supabase (best-effort, non-blocking).
     loadSalesCodes();
 }
 
