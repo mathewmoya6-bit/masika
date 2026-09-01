@@ -352,18 +352,59 @@ class AgentApplicationResponse(BaseModel):
 # ============================================================
 
 VALID_PLANS = {"COMFORT", "DIGNITY", "WAZAZI"}
-PLAN_FEES = {
-    "COMFORT": 200,
-    "DIGNITY": 500,
-    "WAZAZI": 100
-}
-DEPENDANT_FEES = {
-    "SPOUSE": 100,
-    "CHILD": 50,
-    "PARENT": 150,
-    "SIBLING": 100,
-    "OTHER": 100
-}
+
+# ============================================================
+# PLAN PRICING — read live from the `plans` table (the same table
+# admin-pricing.html edits), NOT hardcoded. The old PLAN_FEES /
+# DEPENDANT_FEES dicts have been removed: they never reflected a
+# price change made in the admin panel, so an admin editing a fee
+# there previously had zero effect on what a member was actually
+# charged here.
+#
+# NOTE: `plans` stores a single flat `dependant_registration_fee`
+# per plan — there is no per-relationship pricing (SPOUSE vs CHILD
+# vs PARENT, etc.) in the admin pricing schema/UI. The old
+# DEPENDANT_FEES dict differentiated by relationship type; that
+# distinction is gone. Every dependant on a registration now costs
+# the plan's flat `dependant_registration_fee`, regardless of
+# relationship. If per-relationship dependant pricing is wanted
+# back, `plans` (and admin-pricing.html) need new columns for it
+# first — this can't invent pricing that isn't configurable.
+# ============================================================
+
+def get_plan_row(database: Client, plan_code: str) -> Optional[Dict[str, Any]]:
+    """Fetch a single active plan row from `plans` by plan_code (case-insensitive)."""
+    try:
+        result = (
+            database.table("plans")
+            .select("*")
+            .ilike("plan_code", plan_code)
+            .eq("is_active", True)
+            .limit(1)
+            .execute()
+        )
+        return result.data[0] if result.data else None
+    except Exception as e:
+        logger.error(f"Failed to fetch plan '{plan_code}' from plans table: {e}")
+        return None
+
+
+def calculate_registration_fee(database: Client, plan: str, dependants: List[Dict]) -> float:
+    """Calculate registration fee using LIVE pricing from the `plans` table."""
+    plan_row = get_plan_row(database, plan)
+
+    if not plan_row:
+        logger.warning(
+            f"No active plan found in `plans` for code={plan!r}; "
+            "registration fee defaulting to 0. Check admin-pricing.html "
+            "has an active plan with this plan_code."
+        )
+        return 0.0
+
+    principal_fee = float(plan_row.get("principal_registration_fee") or 0)
+    dependant_fee = float(plan_row.get("dependant_registration_fee") or 0)
+
+    return principal_fee + (dependant_fee * len(dependants))
 
 def normalize_phone(phone: str) -> str:
     """Convert common Kenyan phone formats to 254XXXXXXXXX."""
@@ -380,16 +421,6 @@ def normalize_phone(phone: str) -> str:
         raise ValueError("Phone number must be 12 digits (including 254)")
 
     return phone
-
-def calculate_registration_fee(plan: str, dependants: List[Dict]) -> float:
-    """Calculate registration fee based on plan and dependants."""
-    fee = PLAN_FEES.get(plan.upper(), 0)
-
-    for dep in dependants:
-        relationship = dep.get("relationship", "").upper()
-        fee += DEPENDANT_FEES.get(relationship, 50)
-
-    return float(fee)
 
 # ============================================================
 # GENERATE MEMBER NUMBER - ATOMIC FROM SUPABASE, WITH FALLBACK
@@ -1024,73 +1055,71 @@ async def get_public_sales_codes():
 
 @app.get("/api/public/plans")
 async def get_public_plans():
-    """Get all available membership plans."""
+    """Get all available membership plans — live from the `plans` table
+    (managed via admin-pricing.html), not hardcoded."""
+    database = get_supabase()
+
+    try:
+        result = (
+            database.table("plans")
+            .select("*")
+            .eq("is_active", True)
+            .order("principal_monthly_premium")
+            .execute()
+        )
+        rows = result.data or []
+    except Exception as e:
+        logger.error(f"Failed to fetch plans: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to load plans"
+        )
+
+    data = [
+        {
+            "code": row.get("plan_code"),
+            "name": row.get("plan_name"),
+            "description": row.get("description"),
+            "monthly_fee": row.get("principal_monthly_premium"),
+            "parent_monthly_fee": row.get("parent_monthly_premium"),
+            "registration_fee": row.get("principal_registration_fee"),
+            "dependant_registration_fee": row.get("dependant_registration_fee"),
+            "waiting_period": row.get("waiting_period_months"),
+        }
+        for row in rows
+    ]
+
     return {
         "success": True,
         "message": "Plans retrieved successfully",
-        "data": [
-            {
-                "code": "COMFORT",
-                "name": "Comfort Plan",
-                "monthly_fee": 300,
-                "registration_fee": PLAN_FEES["COMFORT"],
-                "waiting_period": 4,
-            },
-            {
-                "code": "DIGNITY",
-                "name": "Dignity Plan",
-                "monthly_fee": 1000,
-                "registration_fee": PLAN_FEES["DIGNITY"],
-                "waiting_period": 6,
-            },
-            {
-                "code": "WAZAZI",
-                "name": "Wazazi Plan",
-                "monthly_fee": 350,
-                "registration_fee": PLAN_FEES["WAZAZI"],
-                "waiting_period": 6,
-            }
-        ]
+        "data": data
     }
 
 @app.get("/api/public/plans/{plan_code}")
 async def get_plan_details(plan_code: str):
-    """Get details for a specific plan."""
-    plan_code = plan_code.upper()
-    if plan_code not in VALID_PLANS:
+    """Get details for a specific plan — live from the `plans` table."""
+    database = get_supabase()
+    row = get_plan_row(database, plan_code)
+
+    if not row:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Plan not found"
         )
 
-    plans = {
-        "COMFORT": {
-            "code": "COMFORT",
-            "name": "Comfort Plan",
-            "monthly_fee": 300,
-            "registration_fee": PLAN_FEES["COMFORT"],
-            "waiting_period": 4
-        },
-        "DIGNITY": {
-            "code": "DIGNITY",
-            "name": "Dignity Plan",
-            "monthly_fee": 1000,
-            "registration_fee": PLAN_FEES["DIGNITY"],
-            "waiting_period": 6
-        },
-        "WAZAZI": {
-            "code": "WAZAZI",
-            "name": "Wazazi Plan",
-            "monthly_fee": 350,
-            "registration_fee": PLAN_FEES["WAZAZI"],
-            "waiting_period": 6
-        }
-    }
-
     return {
         "success": True,
         "message": "Plan details retrieved",
-        "data": plans[plan_code]
+        "data": {
+            "code": row.get("plan_code"),
+            "name": row.get("plan_name"),
+            "description": row.get("description"),
+            "monthly_fee": row.get("principal_monthly_premium"),
+            "parent_monthly_fee": row.get("parent_monthly_premium"),
+            "registration_fee": row.get("principal_registration_fee"),
+            "dependant_registration_fee": row.get("dependant_registration_fee"),
+            "waiting_period": row.get("waiting_period_months"),
+        }
     }
 
 # ============================================================
@@ -1156,10 +1185,11 @@ async def public_register(registration: RegistrationRequest):
         logger.warning(f"Duplicate phone check failed: {e}")
 
     # --------------------------------------------------------
-    # CALCULATE REGISTRATION FEE
+    # CALCULATE REGISTRATION FEE (live from `plans` table)
     # --------------------------------------------------------
 
     fee = calculate_registration_fee(
+        database,
         registration.plan.value,
         registration.dependants
     )
