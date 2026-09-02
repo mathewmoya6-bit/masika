@@ -48,6 +48,35 @@ IMPORTANT:
 - Never expose the Supabase service-role key to the frontend.
 - Public registration does NOT require staff login.
 - All staff endpoints require valid JWT token.
+
+============================================================
+2026-09-02 PATCH NOTES (applied in this revision)
+============================================================
+1. payments.confirmed_at does not exist in the real schema (only
+   verified_at does), and payments.status is a legacy column that
+   payment_report / payment_dashboard do NOT read (they read
+   payment_status, an enum). Every write that previously set
+   "status"/"confirmed_at" now sets "payment_status"/"verified_at",
+   using the REAL enum values confirmed from Postgres:
+     payment_status: PENDING | SUCCESSFUL | FAILED | REVERSED | PARTIAL
+     payment_type:   REGISTRATION | MONTHLY | REGISTRATION_AND_MONTHLY |
+                      ADVANCE | ADJUSTMENT | REFUND
+   This fixes the PGRST204 "Could not find the 'confirmed_at' column"
+   error that was firing on every STK query poll, every manual confirm,
+   and every real M-Pesa webhook callback -- meaning real completed
+   payments were being silently left at PENDING forever.
+2. members.agent_id does not exist. The real column is
+   members.assigned_agent_id (confirmed via information_schema).
+   resolve_sales_code()/record_sales_code_usage() previously queried
+   nonexistent tables ("sales_codes", "agents"); they now query
+   sales_agents (confirmed to exist via the public_agent_codes view),
+   keyed on sales_agents.sales_code / sales_agents.id / status='ACTIVE'.
+   *** STILL NEEDS CONFIRMATION: the full column list of sales_agents
+   (id, sales_code, full_name, status confirmed; usage-count/expiry
+   columns NOT yet confirmed -- see inline TODOs). Until that's
+   confirmed, usage-tracking calls are defensive/best-effort and will
+   log + no-op rather than break registration if a column is missing. ***
+============================================================
 """
 
 import os
@@ -82,7 +111,7 @@ logger = logging.getLogger("masika-api")
 SUPABASE_URL = os.getenv("SUPABASE_URL")
 SUPABASE_SERVICE_ROLE_KEY = os.getenv("SUPABASE_SERVICE_ROLE_KEY")
 FRONTEND_URL = os.getenv("FRONTEND_URL", "https://www.masikabbs.com")
-API_VERSION = "2.1.0"
+API_VERSION = "2.1.1"
 ENVIRONMENT = os.getenv("ENVIRONMENT", "development")
 DEBUG = os.getenv("DEBUG", "false").lower() == "true"
 
@@ -216,18 +245,27 @@ class BenefitOptionEnum(str, Enum):
     SERVICE = "service"
     CASH = "cash"
 
+# Real Postgres enum `payment_type` values (confirmed via
+# information_schema): REGISTRATION, MONTHLY, REGISTRATION_AND_MONTHLY,
+# ADVANCE, ADJUSTMENT, REFUND. (A stray lowercase 'registration' label
+# also exists on the enum from earlier writes by this same file --
+# that's cleanup for the DB side, not something to keep emitting.)
 class PaymentTypeEnum(str, Enum):
-    REGISTRATION = "registration"
-    MONTHLY = "monthly"
-    ANNUAL = "annual"
-    TOPUP = "topup"
+    REGISTRATION = "REGISTRATION"
+    MONTHLY = "MONTHLY"
+    REGISTRATION_AND_MONTHLY = "REGISTRATION_AND_MONTHLY"
+    ADVANCE = "ADVANCE"
+    ADJUSTMENT = "ADJUSTMENT"
+    REFUND = "REFUND"
 
+# Real Postgres enum `payment_status` values (confirmed via
+# information_schema): PENDING, SUCCESSFUL, FAILED, REVERSED, PARTIAL.
 class PaymentStatusEnum(str, Enum):
-    PENDING = "pending"
-    CONFIRMED = "confirmed"
-    PAID = "paid"
-    FAILED = "failed"
-    REFUNDED = "refunded"
+    PENDING = "PENDING"
+    SUCCESSFUL = "SUCCESSFUL"
+    FAILED = "FAILED"
+    REVERSED = "REVERSED"
+    PARTIAL = "PARTIAL"
 
 # ============================================================
 # REQUEST MODELS
@@ -413,21 +451,7 @@ MIN_CHAMA_MEMBERS = 30
 
 # ============================================================
 # PLAN PRICING — read live from the `plans` table (the same table
-# admin-pricing.html edits), NOT hardcoded. The old PLAN_FEES /
-# DEPENDANT_FEES dicts have been removed: they never reflected a
-# price change made in the admin panel, so an admin editing a fee
-# there previously had zero effect on what a member was actually
-# charged here.
-#
-# NOTE: `plans` stores a single flat `dependant_registration_fee`
-# per plan — there is no per-relationship pricing (SPOUSE vs CHILD
-# vs PARENT, etc.) in the admin pricing schema/UI. The old
-# DEPENDANT_FEES dict differentiated by relationship type; that
-# distinction is gone. Every dependant on a registration now costs
-# the plan's flat `dependant_registration_fee`, regardless of
-# relationship. If per-relationship dependant pricing is wanted
-# back, `plans` (and admin-pricing.html) need new columns for it
-# first — this can't invent pricing that isn't configurable.
+# admin-pricing.html edits), NOT hardcoded.
 # ============================================================
 
 def get_plan_row(database: Client, plan_code: str) -> Optional[Dict[str, Any]]:
@@ -597,19 +621,26 @@ def generate_member_number(database: Client) -> str:
 # AGENT SALES CODE RESOLUTION
 # ============================================================
 #
-# ASSUMPTION — adjust to match your actual Supabase schema:
-#   Table: sales_codes
-#     code        text (unique, e.g. "MASIKA-AB12")
-#     agent_id    uuid, references agents/admin_profiles
-#     is_active   boolean
-#     expires_at  timestamptz, nullable
-#     used_count  integer, default 0
+# REAL SCHEMA (confirmed via information_schema / the public_agent_codes
+# view definition):
+#   Table: sales_agents
+#     sales_code   text (matched via the public_agent_codes view)
+#     full_name    text
+#     status       text  ('ACTIVE' = usable)
+#     id           -- assumed present as PK; NOT yet confirmed by name/type
+#   Table: members
+#     assigned_agent_id  uuid  -- confirmed real column (NOT agent_id)
 #
-# A code is treated as reusable (many members can register under the
-# same agent code) rather than single-use, since that's the common
-# case for agent referral codes. If your codes are meant to be
-# single-use, add a `.eq("used_count", 0)` filter below and increment
-# accordingly.
+# *** OPEN ITEM: the full column list of sales_agents (its PK name,
+# and whether it has expiry / usage-count columns like the old
+# "sales_codes" assumption did) has not been confirmed. Until you run:
+#     SELECT column_name, data_type FROM information_schema.columns
+#     WHERE table_name = 'sales_agents' ORDER BY ordinal_position;
+# this resolver only relies on sales_code / full_name / status / id,
+# which are the columns we have direct evidence for. Usage tracking
+# (record_sales_code_usage) is defensive: if sales_agents doesn't
+# have the columns it tries to update, it logs and no-ops rather than
+# raising, so it can never block registration. ***
 #
 # An invalid/expired/unknown code is intentionally NON-BLOCKING: the
 # member still gets registered, just without agent attribution, and
@@ -621,10 +652,10 @@ sales_code_required = False
 
 def resolve_sales_code(database: Client, code: str) -> Dict[str, Any]:
     """
-    Look up an agent sales code.
+    Look up an agent sales code against the real `sales_agents` table.
 
     Returns a dict:
-      {"valid": True,  "agent_id": <uuid>, "code_id": <uuid>}
+      {"valid": True,  "agent_id": <uuid>, "agent_name": <str>}
       {"valid": False, "reason": "<human readable reason>"}
     Never raises — a lookup failure is treated as an invalid code so a
     Supabase hiccup here can't take down registration entirely.
@@ -633,9 +664,9 @@ def resolve_sales_code(database: Client, code: str) -> Dict[str, Any]:
 
     try:
         result = (
-            database.table("sales_codes")
-            .select("id, agent_id, is_active, expires_at")
-            .eq("code", normalized)
+            database.table("sales_agents")
+            .select("id, sales_code, full_name, status")
+            .eq("sales_code", normalized)
             .execute()
         )
 
@@ -644,22 +675,13 @@ def resolve_sales_code(database: Client, code: str) -> Dict[str, Any]:
 
         record = result.data[0]
 
-        if not record.get("is_active", True):
+        if (record.get("status") or "").upper() != "ACTIVE":
             return {"valid": False, "reason": "Sales code is inactive"}
-
-        expires_at = record.get("expires_at")
-        if expires_at:
-            try:
-                expiry = datetime.fromisoformat(expires_at.replace("Z", "+00:00"))
-                if expiry < datetime.now(timezone.utc):
-                    return {"valid": False, "reason": "Sales code has expired"}
-            except ValueError:
-                logger.warning(f"Could not parse sales_codes.expires_at value: {expires_at!r}")
 
         return {
             "valid": True,
-            "agent_id": record.get("agent_id"),
-            "code_id": record.get("id"),
+            "agent_id": record.get("id"),
+            "agent_name": record.get("full_name"),
         }
 
     except Exception as e:
@@ -667,25 +689,18 @@ def resolve_sales_code(database: Client, code: str) -> Dict[str, Any]:
         return {"valid": False, "reason": "Unable to verify sales code"}
 
 
-def record_sales_code_usage(database: Client, code_id: str, member_id: str) -> None:
+def record_sales_code_usage(database: Client, agent_id: str, member_id: str) -> None:
     """
-    Best-effort bump of usage stats on a sales code after a successful
-    registration. Failure here must never block registration — it's
-    logged and swallowed.
+    Best-effort note of sales code usage. NOTE: this used to bump a
+    used_count/last_used_at pair on a "sales_codes" table that does not
+    exist. sales_agents' real column set for usage tracking is not yet
+    confirmed, so this intentionally does nothing destructive until
+    that's verified — it only logs, so it can never block or corrupt
+    a registration. Once sales_agents' full schema is confirmed, this
+    should be updated to write real usage-tracking columns if they
+    exist.
     """
-    try:
-        current = database.table("sales_codes").select("used_count").eq("id", code_id).execute()
-        used_count = 0
-        if current.data:
-            used_count = current.data[0].get("used_count") or 0
-
-        database.table("sales_codes").update({
-            "used_count": used_count + 1,
-            "last_used_at": datetime.now(timezone.utc).isoformat(),
-        }).eq("id", code_id).execute()
-
-    except Exception as e:
-        logger.warning(f"Failed to record sales code usage for code_id={code_id}: {e}")
+    logger.info(f"Sales code usage: agent_id={agent_id} member_id={member_id}")
 
 
 # ============================================================
@@ -771,14 +786,14 @@ async def initiate_stk_push(
             database = get_supabase()
             payment_data = {
                 "amount": amount,
-                "payment_type": "registration",
-                "status": "pending",
+                "payment_type": "REGISTRATION",
+                "payment_status": "PENDING",
                 "mpesa_receipt": checkout_id,
                 "paybill_number": MPESA_SHORTCODE,
                 "account_number": account_reference,
                 "checkout_request_id": checkout_id,
                 "notes": transaction_desc,
-                "phone": phone
+                "phone_number": phone
             }
             if member_id:
                 payment_data["member_id"] = member_id
@@ -856,15 +871,15 @@ async def initiate_stk_push(
             database = get_supabase()
             payment_data = {
                 "amount": amount,
-                "payment_type": "registration",
-                "status": "pending",
+                "payment_type": "REGISTRATION",
+                "payment_status": "PENDING",
                 "mpesa_receipt": checkout_request_id,
                 "paybill_number": MPESA_SHORTCODE,
                 "account_number": account_reference,
                 "checkout_request_id": checkout_request_id,
                 "merchant_request_id": data.get("MerchantRequestID"),
                 "notes": transaction_desc,
-                "phone": phone
+                "phone_number": phone
             }
             if member_id:
                 payment_data["member_id"] = member_id
@@ -897,7 +912,7 @@ async def query_stk_status(checkout_request_id: str) -> Dict[str, Any]:
     database = get_supabase()
 
     existing = database.table("payments").select("*").eq("checkout_request_id", checkout_request_id).execute()
-    if existing.data and existing.data[0].get("status") == "confirmed":
+    if existing.data and existing.data[0].get("payment_status") == "SUCCESSFUL":
         return {
             "status": "confirmed",
             "payment": existing.data[0]
@@ -955,8 +970,8 @@ async def query_stk_status(checkout_request_id: str) -> Dict[str, Any]:
                         amount = item.get("Value")
 
                 update_data = {
-                    "status": "confirmed",
-                    "confirmed_at": datetime.now(timezone.utc).isoformat(),
+                    "payment_status": "SUCCESSFUL",
+                    "verified_at": datetime.now(timezone.utc).isoformat(),
                     "mpesa_receipt": receipt or checkout_request_id,
                     "amount": amount or None
                 }
@@ -990,7 +1005,7 @@ async def query_stk_status(checkout_request_id: str) -> Dict[str, Any]:
                 return {"status": "pending"}
             else:
                 database.table("payments").update({
-                    "status": "failed",
+                    "payment_status": "FAILED",
                     "notes": f"STK Query: {data.get('ResultDesc', 'Failed')}"
                 }).eq("checkout_request_id", checkout_request_id).execute()
 
@@ -1067,44 +1082,25 @@ async def get_public_sales_codes():
 
     try:
         result = (
-            database.table("sales_codes")
-            .select("id, code, agent_id")
-            .eq("is_active", True)
-            .order("code")
+            database.table("sales_agents")
+            .select("id, sales_code, full_name")
+            .eq("status", "ACTIVE")
+            .order("sales_code")
             .execute()
         )
-        codes = result.data or []
+        agents = result.data or []
     except Exception as e:
         logger.warning(f"Failed to fetch public sales codes: {e}")
         return {"success": True, "message": "No sales codes available", "data": []}
 
-    agent_names: Dict[str, str] = {}
-    agent_ids = [c["agent_id"] for c in codes if c.get("agent_id")]
-
-    if agent_ids:
-        try:
-            agents_result = (
-                database.table("agents")
-                .select("id, full_name")
-                .in_("id", agent_ids)
-                .execute()
-            )
-            agent_names = {
-                a["id"]: a.get("full_name")
-                for a in (agents_result.data or [])
-                if a.get("full_name")
-            }
-        except Exception as e:
-            logger.warning(f"Could not enrich sales codes with agent names: {e}")
-
     data = [
         {
-            "code": c["code"],
-            "agent_id": c.get("agent_id"),
-            "agent_name": agent_names.get(c.get("agent_id")),
+            "code": a["sales_code"],
+            "agent_id": a.get("id"),
+            "agent_name": a.get("full_name"),
         }
-        for c in codes
-        if c.get("code")
+        for a in agents
+        if a.get("sales_code")
     ]
 
     return {
@@ -1305,7 +1301,9 @@ async def public_register(registration: RegistrationRequest):
     }
 
     if sales_code_result and sales_code_result["valid"]:
-        member_data["agent_id"] = sales_code_result["agent_id"]
+        member_data["assigned_agent_id"] = sales_code_result["agent_id"]
+        if sales_code_result.get("agent_name"):
+            member_data["agent_name"] = sales_code_result["agent_name"]
 
     # --------------------------------------------------------
     # CREATE MEMBER
@@ -1332,8 +1330,8 @@ async def public_register(registration: RegistrationRequest):
         payment_data = {
             "member_id": member_id,
             "amount": fee,
-            "payment_type": "registration",
-            "status": "pending",
+            "payment_type": "REGISTRATION",
+            "payment_status": "PENDING",
             "paybill_number": MPESA_SHORTCODE,
             "account_number": member_number,
         }
@@ -1345,7 +1343,7 @@ async def public_register(registration: RegistrationRequest):
         if sales_code_result and sales_code_result["valid"]:
             record_sales_code_usage(
                 database,
-                sales_code_result["code_id"],
+                sales_code_result["agent_id"],
                 str(member_id)
             )
 
@@ -1721,23 +1719,23 @@ async def public_confirm_payment(payment: PaymentConfirmRequest):
 
     try:
         payment_update = {
-            "status": "confirmed",
+            "payment_status": "SUCCESSFUL",
             "mpesa_receipt": payment.mpesa_receipt,
-            "confirmed_at": datetime.now(timezone.utc).isoformat()
+            "verified_at": datetime.now(timezone.utc).isoformat()
         }
 
-        result = database.table("payments").update(payment_update).eq("member_id", payment.member_id).eq("payment_type", "registration").execute()
+        result = database.table("payments").update(payment_update).eq("member_id", payment.member_id).eq("payment_type", "REGISTRATION").execute()
 
         if not result.data:
             payment_data = {
                 "member_id": payment.member_id,
                 "amount": payment.amount,
-                "payment_type": "registration",
-                "status": "confirmed",
+                "payment_type": "REGISTRATION",
+                "payment_status": "SUCCESSFUL",
                 "mpesa_receipt": payment.mpesa_receipt,
                 "paybill_number": payment.paybill_number,
                 "account_number": member_data.get("member_number"),
-                "confirmed_at": datetime.now(timezone.utc).isoformat()
+                "verified_at": datetime.now(timezone.utc).isoformat()
             }
             database.table("payments").insert(payment_data).execute()
 
@@ -1916,8 +1914,8 @@ async def mpesa_webhook(request: Request):
 
         if result_code == "0":
             database.table("payments").update({
-                "status": "confirmed",
-                "confirmed_at": datetime.now(timezone.utc).isoformat()
+                "payment_status": "SUCCESSFUL",
+                "verified_at": datetime.now(timezone.utc).isoformat()
             }).eq("checkout_request_id", checkout_request_id).execute()
 
             # Mirror the same "mark paid" logic used by query_stk_status()
@@ -1945,7 +1943,7 @@ async def mpesa_webhook(request: Request):
             return {"ResultCode": 0, "ResultDesc": "Success"}
         else:
             database.table("payments").update({
-                "status": "failed",
+                "payment_status": "FAILED",
                 "notes": f"Webhook: {result_desc}"
             }).eq("checkout_request_id", checkout_request_id).execute()
 
