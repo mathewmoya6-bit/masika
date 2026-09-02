@@ -7,6 +7,7 @@
     <meta name="description" content="Register a new Masika Benevolent member and calculate membership registration payment.">
 
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
     <script src="js/supabase-config.js"></script>
 
     <style>
@@ -37,6 +38,8 @@
         .page-wrapper {
             min-height: 100vh;
         }
+
+        .hidden { display: none !important; }
 
         /* HEADER */
         .topbar {
@@ -489,6 +492,47 @@
             margin-left: 7px;
         }
 
+        /* CHAMA */
+        .official-block {
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            padding: 16px;
+            margin-bottom: 14px;
+            background: #fbfcfc;
+        }
+
+        .official-block h4 {
+            margin: 0 0 12px;
+            font-size: 14px;
+            color: var(--primary);
+        }
+
+        .upload-box {
+            border: 2px dashed var(--border);
+            border-radius: 10px;
+            padding: 22px;
+            text-align: center;
+            background: #fbfcfc;
+        }
+
+        .upload-box input[type="file"] {
+            margin: 10px auto 0;
+        }
+
+        .chama-preview {
+            margin-top: 12px;
+            font-size: 13px;
+            font-weight: 600;
+        }
+
+        .template-link {
+            font-size: 12px;
+            color: var(--primary);
+            text-decoration: underline;
+            cursor: pointer;
+            font-weight: 600;
+        }
+
         /* FOOTER ACTIONS */
         .form-actions {
             display: flex;
@@ -632,7 +676,7 @@
         <div id="alertBox" class="alert"></div>
 
         <!-- MEMBER DETAILS -->
-        <section class="card">
+        <section class="card" id="memberDetailsCard">
             <div class="card-header">
                 <h2>1. Member Information</h2>
                 <p>Enter the principal member's personal and contact details.</p>
@@ -745,8 +789,88 @@
             </div>
         </section>
 
+        <!-- CHAMA GROUP DETAILS (shown only when plan = Chama) -->
+        <section class="card hidden" id="chamaCard">
+            <div class="card-header">
+                <h2>Chama Group Details</h2>
+                <p>Chama registration requires the three group officials and a list of at least 30 principal members.</p>
+            </div>
+
+            <div class="form-grid" style="margin-bottom: 18px;">
+                <div class="form-group">
+                    <label>Group Name <span class="required">*</span></label>
+                    <input type="text" id="chamaGroupName" placeholder="e.g. Umoja Chama Group" required>
+                </div>
+                <div class="form-group">
+                    <label>Registration Number</label>
+                    <input type="text" id="chamaRegNumber" placeholder="Group registration number, if any">
+                </div>
+                <div class="form-group">
+                    <label>County</label>
+                    <select id="chamaCounty">
+                        <option value="">Select county</option>
+                        <option>Nairobi</option><option>Mombasa</option><option>Kisumu</option>
+                        <option>Nakuru</option><option>Kiambu</option><option>Machakos</option>
+                        <option>Kajiado</option><option>Uasin Gishu</option><option>Kericho</option>
+                        <option>Bomet</option><option>Nyeri</option><option>Murang'a</option>
+                        <option>Kirinyaga</option><option>Embu</option><option>Meru</option>
+                        <option>Tharaka-Nithi</option><option>Isiolo</option><option>Laikipia</option>
+                        <option>Samburu</option><option>Trans Nzoia</option><option>Nandi</option>
+                        <option>Baringo</option><option>Elgeyo-Marakwet</option><option>West Pokot</option>
+                        <option>Kakamega</option><option>Vihiga</option><option>Bungoma</option>
+                        <option>Busia</option><option>Siaya</option><option>Homa Bay</option>
+                        <option>Migori</option><option>Kisii</option><option>Nyamira</option>
+                        <option>Nyandarua</option><option>Kitui</option><option>Makueni</option>
+                        <option>Garissa</option><option>Wajir</option><option>Mandera</option>
+                        <option>Tana River</option><option>Lamu</option><option>Taita-Taveta</option>
+                        <option>Kwale</option><option>Turkana</option><option>Marsabit</option>
+                        <option>Voi</option><option>Other</option>
+                    </select>
+                </div>
+            </div>
+
+            <div class="official-block">
+                <h4>Chairperson <span class="required">*</span></h4>
+                <div class="form-grid">
+                    <div class="form-group"><label>Full Name</label><input type="text" id="chairName" placeholder="Full name" required></div>
+                    <div class="form-group"><label>Phone Number</label><input type="tel" id="chairPhone" placeholder="e.g. 0712345678" required></div>
+                    <div class="form-group"><label>National ID</label><input type="text" id="chairId" placeholder="ID number" required></div>
+                </div>
+            </div>
+
+            <div class="official-block">
+                <h4>Treasurer <span class="required">*</span></h4>
+                <div class="form-grid">
+                    <div class="form-group"><label>Full Name</label><input type="text" id="treasurerName" placeholder="Full name" required></div>
+                    <div class="form-group"><label>Phone Number</label><input type="tel" id="treasurerPhone" placeholder="e.g. 0712345678" required></div>
+                    <div class="form-group"><label>National ID</label><input type="text" id="treasurerId" placeholder="ID number" required></div>
+                </div>
+            </div>
+
+            <div class="official-block">
+                <h4>Secretary <span class="required">*</span></h4>
+                <div class="form-grid">
+                    <div class="form-group"><label>Full Name</label><input type="text" id="secretaryName" placeholder="Full name" required></div>
+                    <div class="form-group"><label>Phone Number</label><input type="tel" id="secretaryPhone" placeholder="e.g. 0712345678" required></div>
+                    <div class="form-group"><label>National ID</label><input type="text" id="secretaryId" placeholder="ID number" required></div>
+                </div>
+            </div>
+
+            <div class="upload-box">
+                <strong>Upload Members List (CSV)</strong>
+                <p class="help-text">
+                    Required columns: first_name, last_name, phone, id_number, date_of_birth (YYYY-MM-DD), gender.
+                    Minimum 30 principal members.
+                    <br>
+                    <a class="template-link" id="downloadChamaTemplate" href="#">Download CSV template</a>
+                </p>
+                <input type="file" id="chamaMembersFile" accept=".csv">
+                <div class="chama-preview" id="chamaPreview"></div>
+            </div>
+        </section>
+
         <!-- DEPENDANTS -->
-        <section class="card">
+        <section class="card" id="dependantsCardSection">
             <div class="card-header">
                 <h2>3. Dependants</h2>
                 <p>Add family members who will be covered under this membership.</p>
@@ -832,6 +956,8 @@ const RETRY_DELAYS_MS = [1500, 3000, 6000, 10000]; // backoff between attempts
 let calculatedRegistration = null;
 let dependantIndex = 0;
 let serverIsAwake = false;
+let isChamaMode = false;
+let parsedChamaMembers = [];
 
 /* ============================================================
    DOM REFERENCES
@@ -861,6 +987,12 @@ const resetBtn = document.getElementById("resetBtn");
 
 const serverStatusEl = document.getElementById("serverStatus");
 const serverStatusText = document.getElementById("serverStatusText");
+
+const memberDetailsCard = document.getElementById("memberDetailsCard");
+const dependantsCardSection = document.getElementById("dependantsCardSection");
+const chamaCard = document.getElementById("chamaCard");
+const chamaFileInput = document.getElementById("chamaMembersFile");
+const chamaPreview = document.getElementById("chamaPreview");
 
 /* ============================================================
    ALERT FUNCTIONS
@@ -906,11 +1038,6 @@ async function pingServer(timeoutMs = 8000) {
 async function warmUpServer() {
     setServerStatus("connecting", "Connecting to server…");
 
-    // Try a few times in the background; Render cold starts can take
-    // up to ~60s. We don't block the form on this — the user can fill
-    // in details while it wakes up — we just keep the status updated
-    // and it means the "Calculate"/"Register" clicks are far less
-    // likely to hit a cold instance.
     for (let attempt = 0; attempt < 6; attempt++) {
         const ok = await pingServer();
         if (ok) {
@@ -924,8 +1051,6 @@ async function warmUpServer() {
         await sleep(4000);
     }
 
-    // Gave up pinging in the background; real requests will still be
-    // retried individually when the user actually submits.
     setServerStatus("offline", "Server slow to respond");
 }
 
@@ -940,25 +1065,8 @@ function sleep(ms) {
 const planSelect = document.getElementById("planSelect");
 const planDescription = document.getElementById("planDescription");
 
-// ============================================================
-// LIVE PLAN PRICING — loaded from Supabase `plans` table (the
-// same table admin-pricing.html edits), NOT hardcoded. Keyed by
-// plan_code, e.g. planPricing["COMFORT"] = { name, description,
-// principal_registration_fee, dependant_registration_fee, ... }.
-//
-// This replaces the old hardcoded PLAN_DESCRIPTIONS object and the
-// old hardcoded planFees/dependantFees used in the fee estimate
-// further down — a price change in admin-pricing.html now shows up
-// here automatically on next page load, instead of needing a manual
-// code edit that's easy to forget (which is exactly how the old
-// estimate and the backend's old hardcoded fees drifted apart).
-// ============================================================
 let planPricing = {};
 
-// Only used if the Supabase fetch fails outright (e.g. offline),
-// so the form doesn't become completely unusable. These are stale
-// on purpose — if you see this used, loadPlans() is failing and
-// should be checked, not this fallback data updated.
 const FALLBACK_PLANS = [
     { plan_code: "COMFORT", plan_name: "Comfort", description: "Basic membership protection for individuals and families.", principal_registration_fee: 200, dependant_registration_fee: 50 },
     { plan_code: "DIGNITY", plan_name: "Dignity", description: "Enhanced family protection and benevolent support.", principal_registration_fee: 500, dependant_registration_fee: 100 },
@@ -1010,8 +1118,197 @@ planSelect.addEventListener("change", () => {
     registerBtn.disabled = true;
     const plan = planPricing[planSelect.value];
     planDescription.textContent = (plan && plan.description) ? plan.description : "\u00A0";
+
+    // CHAMA MODE — swap individual member fields + dependants for the
+    // group-officials form + CSV roster upload.
+    isChamaMode = planSelect.value === "Chama";
+    memberDetailsCard.classList.toggle("hidden", isChamaMode);
+    dependantsCardSection.classList.toggle("hidden", isChamaMode);
+    chamaCard.classList.toggle("hidden", !isChamaMode);
+
     updateSummary();
 });
+
+/* ============================================================
+   CHAMA — OFFICIALS + CSV ROSTER
+   ============================================================ */
+
+const CHAMA_REQUIRED_COLUMNS = ["first_name", "last_name", "phone", "id_number", "date_of_birth", "gender"];
+const CHAMA_MIN_MEMBERS = 30;
+
+function getChamaOfficials() {
+    return {
+        Chairperson: {
+            name: document.getElementById("chairName").value.trim(),
+            phone: document.getElementById("chairPhone").value.trim(),
+            id_number: document.getElementById("chairId").value.trim()
+        },
+        Treasurer: {
+            name: document.getElementById("treasurerName").value.trim(),
+            phone: document.getElementById("treasurerPhone").value.trim(),
+            id_number: document.getElementById("treasurerId").value.trim()
+        },
+        Secretary: {
+            name: document.getElementById("secretaryName").value.trim(),
+            phone: document.getElementById("secretaryPhone").value.trim(),
+            id_number: document.getElementById("secretaryId").value.trim()
+        }
+    };
+}
+
+document.getElementById("downloadChamaTemplate").addEventListener("click", (e) => {
+    e.preventDefault();
+    const header = CHAMA_REQUIRED_COLUMNS.join(",") + "\n";
+    const example = "Jane,Wanjiru,0712345678,12345678,1990-05-14,FEMALE\n";
+    const blob = new Blob([header + example], { type: "text/csv" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "chama_members_template.csv";
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+});
+
+chamaFileInput.addEventListener("change", (e) => {
+    const file = e.target.files[0];
+    parsedChamaMembers = [];
+    calculatedRegistration = null;
+    registerBtn.disabled = true;
+
+    if (!file) {
+        chamaPreview.textContent = "";
+        return;
+    }
+
+    Papa.parse(file, {
+        header: true,
+        skipEmptyLines: true,
+        transformHeader: (h) => h.trim().toLowerCase().replace(/\s+/g, "_"),
+        complete: (results) => {
+            const rows = results.data;
+            const firstRow = rows[0] || {};
+            const missingCols = CHAMA_REQUIRED_COLUMNS.filter(col => !(col in firstRow));
+
+            if (missingCols.length > 0) {
+                chamaPreview.innerHTML = `<span style="color:var(--danger)">Missing required column(s): ${missingCols.join(", ")}. Expected headers: ${CHAMA_REQUIRED_COLUMNS.join(", ")}</span>`;
+                return;
+            }
+
+            parsedChamaMembers = rows
+                .map(r => ({
+                    first_name: (r.first_name || "").trim(),
+                    last_name: (r.last_name || "").trim(),
+                    phone: (r.phone || "").trim(),
+                    id_number: (r.id_number || "").trim(),
+                    date_of_birth: (r.date_of_birth || "").trim(),
+                    gender: (r.gender || "").trim().toUpperCase()
+                }))
+                .filter(r => r.first_name && r.phone);
+
+            if (parsedChamaMembers.length < CHAMA_MIN_MEMBERS) {
+                chamaPreview.innerHTML = `<span style="color:var(--danger)">Only ${parsedChamaMembers.length} valid row(s) found — a chama group needs at least ${CHAMA_MIN_MEMBERS} principal members.</span>`;
+                return;
+            }
+
+            chamaPreview.innerHTML = `<span style="color:var(--success)">&#10003; ${parsedChamaMembers.length} members parsed and ready.</span>`;
+        },
+        error: (err) => {
+            chamaPreview.innerHTML = `<span style="color:var(--danger)">Could not read file: ${err.message}</span>`;
+        }
+    });
+});
+
+async function calculateChamaRegistrationPayment() {
+    clearAlert();
+
+    const groupName = document.getElementById("chamaGroupName").value.trim();
+    if (!groupName) {
+        showAlert("Group name is required.");
+        return;
+    }
+
+    const officials = getChamaOfficials();
+    for (const [role, official] of Object.entries(officials)) {
+        if (!official.name || !official.phone || !official.id_number) {
+            showAlert(`Please complete all ${role} details.`);
+            return;
+        }
+    }
+
+    if (parsedChamaMembers.length < CHAMA_MIN_MEMBERS) {
+        showAlert(`Please upload a members CSV with at least ${CHAMA_MIN_MEMBERS} valid rows.`);
+        return;
+    }
+
+    const plan = planPricing["Chama"] || {};
+    const feePerMember = Number(plan.principal_registration_fee) || 0;
+    const totalFee = feePerMember * parsedChamaMembers.length;
+
+    calculatedRegistration = { total_amount: totalFee };
+
+    document.getElementById("summaryRegistration").textContent = formatCurrency(totalFee);
+    document.getElementById("summaryTotal").textContent = formatCurrency(totalFee);
+    registerBtn.disabled = false;
+
+    showAlert(`Estimated registration payment: ${formatCurrency(totalFee)} for ${parsedChamaMembers.length} members. The exact amount is confirmed when you register.`, "success");
+}
+
+async function registerChamaGroup() {
+    if (!calculatedRegistration) {
+        showAlert("Please calculate the registration payment before registering the group.");
+        return;
+    }
+
+    registerBtn.disabled = true;
+    document.getElementById("loading").style.display = "inline";
+
+    try {
+        const officials = getChamaOfficials();
+        const payload = {
+            group_name: document.getElementById("chamaGroupName").value.trim(),
+            registration_number: document.getElementById("chamaRegNumber").value.trim() || null,
+            county: document.getElementById("chamaCounty").value.trim() || null,
+            chairperson: officials.Chairperson,
+            treasurer: officials.Treasurer,
+            secretary: officials.Secretary,
+            members: parsedChamaMembers
+        };
+
+        const result = await apiRequest('/api/public/register/chama', {
+            method: 'POST',
+            body: JSON.stringify(payload)
+        });
+
+        if (!result || !result.success) {
+            throw new Error((result && result.message) || "Failed to register chama group.");
+        }
+
+        let successMessage = `✅ Chama group "${payload.group_name}" registered with ${result.member_count} member(s).`;
+        if (result.skipped && result.skipped.length > 0) {
+            successMessage += ` ${result.skipped.length} row(s) were skipped (duplicate phone or invalid data) — see admin panel to fix and add them separately.`;
+        }
+        showAlert(successMessage, "success");
+
+        sessionStorage.setItem('newChamaGroupId', result.group_id);
+        sessionStorage.setItem('newChamaGroupName', payload.group_name);
+        sessionStorage.setItem('newChamaMemberCount', result.member_count);
+        sessionStorage.setItem('newChamaPhone', payload.chairperson.phone);
+        sessionStorage.setItem('registrationAmount', result.registration_amount);
+
+        setTimeout(() => {
+            window.location.href = `payment.html?group_id=${encodeURIComponent(result.group_id)}`;
+        }, 2000);
+
+    } catch (error) {
+        console.error("Chama registration error:", error);
+        showAlert(error.message || "Unable to register chama group.");
+        registerBtn.disabled = false;
+    } finally {
+        document.getElementById("loading").style.display = "none";
+    }
+}
 
 /* ============================================================
    DEPENDANT MANAGEMENT
@@ -1154,11 +1451,6 @@ function getMemberPayload() {
    ============================================================ */
 
 function isRetryableNetworkError(err) {
-    // "Failed to fetch" / TypeError from the browser means the request
-    // never got a response at all — the classic Render cold-start
-    // symptom. HTTP errors (4xx/5xx with an actual response) are NOT
-    // retried here since retrying won't fix a validation or server
-    // logic error.
     return err instanceof TypeError;
 }
 
@@ -1206,7 +1498,6 @@ async function apiRequest(path, options = {}, { onRetry } = {}) {
         return body;
     }
 
-    // Should not reach here, but just in case.
     throw lastError || new Error("Unable to reach the server. Please check your connection and try again.");
 }
 
@@ -1214,7 +1505,13 @@ async function apiRequest(path, options = {}, { onRetry } = {}) {
    CALCULATE REGISTRATION (client-side estimate only)
    ============================================================ */
 
-calculateBtn.addEventListener("click", calculateRegistrationPayment);
+calculateBtn.addEventListener("click", () => {
+    if (isChamaMode) {
+        calculateChamaRegistrationPayment();
+    } else {
+        calculateRegistrationPayment();
+    }
+});
 
 async function calculateRegistrationPayment() {
     if (!validateForm()) return;
@@ -1228,26 +1525,24 @@ async function calculateRegistrationPayment() {
         // NOTE: This is a client-side ESTIMATE shown for the user's convenience
         // only. The authoritative fee is calculated by the backend inside
         // POST /api/public/register (calculate_registration_fee) at the
-        // moment the member is actually created. Both now read pricing from
-        // the same place — the `plans` table edited via admin-pricing.html —
-        // instead of separate hardcoded numbers, so this estimate can't
-        // silently drift out of sync with a real price change the way the
-        // old hardcoded tables did.
-        //
-        // The `plans` table stores one flat dependant_registration_fee per
-        // plan (no per-relationship pricing), so every dependant costs the
-        // same flat fee here, matching calculate_registration_fee() in
-        // main.py.
+        // moment the member is actually created. Both read pricing from the
+        // same place — the `plans` table edited via admin-pricing.html.
         const selectedPlan = planPricing[payload.plan] || {};
         const principalFee = Number(selectedPlan.principal_registration_fee) || 0;
         const perDependantFee = Number(selectedPlan.dependant_registration_fee) || 0;
 
         let totalFee = principalFee + (perDependantFee * payload.dependants.length);
 
+        // FIX: previously referenced an undefined `planFees` object left
+        // over from before pricing moved to the live `plans` table --
+        // that threw "planFees is not defined" on every click, which
+        // blocked registration entirely. registration_fee/dependant_fees
+        // are now derived from principalFee, which is already computed
+        // above from live plan pricing.
         calculatedRegistration = {
             total_amount: totalFee,
-            registration_fee: planFees[payload.plan] || 0,
-            dependant_fees: totalFee - (planFees[payload.plan] || 0)
+            registration_fee: principalFee,
+            dependant_fees: totalFee - principalFee
         };
 
         document.getElementById("summaryRegistration").textContent = formatCurrency(totalFee);
@@ -1272,13 +1567,20 @@ async function calculateRegistrationPayment() {
    ============================================================ */
 
 function updateSummary() {
-    const name = [firstName.value.trim(), lastName.value.trim()].filter(Boolean).join(" ");
-    document.getElementById("summaryName").textContent = name || "—";
+    if (isChamaMode) {
+        const groupName = document.getElementById("chamaGroupName")?.value.trim();
+        document.getElementById("summaryName").textContent = groupName || "—";
+        document.getElementById("summaryPlan").textContent = "Chama";
+        document.getElementById("summaryDependants").textContent = parsedChamaMembers.length;
+    } else {
+        const name = [firstName.value.trim(), lastName.value.trim()].filter(Boolean).join(" ");
+        document.getElementById("summaryName").textContent = name || "—";
 
-    const plan = getSelectedPlan();
-    document.getElementById("summaryPlan").textContent = plan || "—";
+        const plan = getSelectedPlan();
+        document.getElementById("summaryPlan").textContent = plan || "—";
 
-    updateDependantCount();
+        updateDependantCount();
+    }
 
     if (!calculatedRegistration) {
         document.getElementById("summaryRegistration").textContent = "KES 0";
@@ -1305,7 +1607,13 @@ function formatCurrency(value) {
    the real member_number.
    ============================================================ */
 
-registerBtn.addEventListener("click", registerMember);
+registerBtn.addEventListener("click", () => {
+    if (isChamaMode) {
+        registerChamaGroup();
+    } else {
+        registerMember();
+    }
+});
 
 async function registerMember() {
     if (!validateForm()) return;
@@ -1343,8 +1651,6 @@ async function registerMember() {
         }
         showAlert(successMessage, "success");
 
-        // Store server-confirmed values for the payment page — never the
-        // client's own estimate, since the backend is authoritative.
         sessionStorage.setItem('newMemberId', result.member_id);
         sessionStorage.setItem('newMemberNumber', result.member_number);
         sessionStorage.setItem('newMemberName', `${payload.first_name} ${payload.last_name}`);
@@ -1374,7 +1680,7 @@ resetBtn.addEventListener("click", () => {
     document.querySelectorAll("input, select, textarea").forEach(element => {
         if (element.type === "radio" || element.type === "checkbox") {
             element.checked = false;
-        } else {
+        } else if (element.type !== "file") {
             element.value = "";
         }
         element.classList.remove("error");
@@ -1385,6 +1691,14 @@ resetBtn.addEventListener("click", () => {
     dependantIndex = 0;
     calculatedRegistration = null;
     registerBtn.disabled = true;
+
+    isChamaMode = false;
+    parsedChamaMembers = [];
+    chamaPreview.textContent = "";
+    memberDetailsCard.classList.remove("hidden");
+    dependantsCardSection.classList.remove("hidden");
+    chamaCard.classList.add("hidden");
+
     updateDependantCount();
     updateSummary();
     clearAlert();
@@ -1398,17 +1712,17 @@ resetBtn.addEventListener("click", () => {
     field.addEventListener("input", updateSummary);
 });
 
+document.getElementById("chamaGroupName").addEventListener("input", updateSummary);
+
 /* ============================================================
    KEYBOARD SHORTCUTS
    ============================================================ */
 
 document.addEventListener('keydown', function(e) {
-    // Ctrl+Enter to calculate
     if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
         e.preventDefault();
         calculateBtn.click();
     }
-    // Ctrl+Shift+Enter to register
     if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key === 'Enter') {
         e.preventDefault();
         if (!registerBtn.disabled) registerBtn.click();
@@ -1416,11 +1730,7 @@ document.addEventListener('keydown', function(e) {
 });
 
 /* ============================================================
-   LOAD AGENT SALES CODES — now read directly from Supabase
-   (public_agent_codes view: only exposes code + agent_name for
-   active sales agents, via a public-safe view + anon grant, so
-   this page doesn't need to hit the FastAPI backend just for a
-   dropdown, and doesn't need to be logged in either).
+   LOAD AGENT SALES CODES
    ============================================================ */
 
 async function loadSalesCodes() {
@@ -1436,7 +1746,6 @@ async function loadSalesCodes() {
 
         if (error) throw error;
 
-        // Keep the default "No agent" option, append the rest.
         (data || []).forEach(entry => {
             if (!entry.code) return;
             const option = document.createElement("option");
@@ -1447,7 +1756,6 @@ async function loadSalesCodes() {
             salesCode.appendChild(option);
         });
     } catch (error) {
-        // Non-fatal — registration works fine with no agent selected.
         console.warn("Could not load agent sales codes:", error.message);
     }
 }
@@ -1459,19 +1767,12 @@ async function loadSalesCodes() {
 function init() {
     updateSummary();
 
-    // Set default date of birth to 18 years ago
     const defaultDate = new Date();
     defaultDate.setFullYear(defaultDate.getFullYear() - 18);
     dateOfBirth.value = defaultDate.toISOString().split('T')[0];
 
-    // Kick off the background warm-up ping immediately so the Render
-    // instance has a head start waking up before the user submits.
     warmUpServer();
-
-    // Populate the plan dropdown + pricing from Supabase (live, admin-managed).
     loadPlans();
-
-    // Populate the agent sales code dropdown from Supabase (best-effort, non-blocking).
     loadSalesCodes();
 }
 
