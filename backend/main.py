@@ -12,10 +12,12 @@ API Documentation:
 
 Public Endpoints (No Auth Required):
     POST /api/public/register
+    POST /api/public/register/chama
     POST /api/public/agent/apply
     GET  /api/public/plans
     GET  /api/public/plans/{plan_code}
     POST /api/public/payment/stk-push
+    POST /api/public/payment/stk-push-chama
     GET  /api/public/payment/status/{checkout_request_id}
     POST /api/public/payment/confirm
     GET  /api/public/check-member/{phone}
@@ -80,7 +82,7 @@ logger = logging.getLogger("masika-api")
 SUPABASE_URL = os.getenv("SUPABASE_URL")
 SUPABASE_SERVICE_ROLE_KEY = os.getenv("SUPABASE_SERVICE_ROLE_KEY")
 FRONTEND_URL = os.getenv("FRONTEND_URL", "https://www.masikabbs.com")
-API_VERSION = "2.0.1"
+API_VERSION = "2.1.0"
 ENVIRONMENT = os.getenv("ENVIRONMENT", "development")
 DEBUG = os.getenv("DEBUG", "false").lower() == "true"
 
@@ -259,6 +261,46 @@ class RegistrationRequest(BaseModel):
         except ValueError:
             raise ValueError("Date of birth must be in YYYY-MM-DD format")
 
+
+class ChamaOfficial(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+
+    name: str = Field(..., min_length=2, max_length=150)
+    phone: str = Field(..., min_length=9, max_length=20)
+    id_number: str = Field(..., min_length=5, max_length=30)
+
+
+class ChamaMemberInput(BaseModel):
+    """One row from the uploaded chama members CSV."""
+    model_config = ConfigDict(extra="ignore")
+
+    first_name: str = Field(..., min_length=1, max_length=100)
+    last_name: str = Field(..., min_length=1, max_length=100)
+    phone: str = Field(..., min_length=9, max_length=20)
+    id_number: str = Field(..., min_length=1, max_length=30)
+    date_of_birth: str = Field(..., description="YYYY-MM-DD")
+    gender: str = Field(..., pattern="^(MALE|FEMALE|OTHER)$")
+
+
+class ChamaRegistrationRequest(BaseModel):
+    """
+    Group registration for the Chama plan. Creates one `chama_groups` row
+    for the three officials, then one `members` row per person in
+    `members`, all linked via chama_group_id.
+    """
+    model_config = ConfigDict(extra="ignore")
+
+    group_name: str = Field(..., min_length=2, max_length=200)
+    registration_number: Optional[str] = Field(None, max_length=50)
+    county: Optional[str] = Field(None, max_length=50)
+
+    chairperson: ChamaOfficial
+    treasurer: ChamaOfficial
+    secretary: ChamaOfficial
+
+    members: List[ChamaMemberInput] = Field(default_factory=list)
+
+
 class AgentApplicationRequest(BaseModel):
     model_config = ConfigDict(extra="ignore")
 
@@ -289,6 +331,16 @@ class STKPushRequest(BaseModel):
     phone: str = Field(..., min_length=9, max_length=20)
     amount: float = Field(..., gt=0, le=1000000)
     transaction_desc: str = Field(default="Membership Registration", max_length=36)
+
+
+class STKPushChamaRequest(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+
+    group_id: str
+    phone: str = Field(..., min_length=9, max_length=20)
+    amount: float = Field(..., gt=0, le=10000000)
+    transaction_desc: str = Field(default="Chama Registration", max_length=36)
+
 
 class SalesCodeRequest(BaseModel):
     model_config = ConfigDict(extra="ignore")
@@ -352,6 +404,12 @@ class AgentApplicationResponse(BaseModel):
 # ============================================================
 
 VALID_PLANS = {"COMFORT", "DIGNITY", "WAZAZI"}
+
+# Minimum principal members required to register a Chama group, per the
+# Chama plan's description in the `plans` table ("Organised group of not
+# less 30 principle members"). Kept as a named constant here rather than
+# a magic number so it's easy to find/adjust if the business rule changes.
+MIN_CHAMA_MEMBERS = 30
 
 # ============================================================
 # PLAN PRICING — read live from the `plans` table (the same table
@@ -655,12 +713,6 @@ async def get_mpesa_access_token() -> str:
 
         async with httpx.AsyncClient(timeout=30.0) as client:
             response = await client.get(
-                # FIX: Daraja's OAuth endpoint requires grant_type=client_credentials
-                # as a query param. Without it, Safaricom returns 400.008.02
-                # "Invalid grant type passed" regardless of whether the
-                # consumer key/secret are valid — which was silently
-                # collapsing into the "mock_token" sentinel below and then
-                # surfacing to users as "Payment service unavailable".
                 "https://api.safaricom.co.ke/oauth/v1/generate?grant_type=client_credentials",
                 headers={"Authorization": f"Basic {credentials}"}
             )
@@ -671,13 +723,6 @@ async def get_mpesa_access_token() -> str:
 
             data = response.json()
             _payment_access_token = data.get("access_token")
-            # FIX: Daraja returns expires_in as a STRING (e.g. "3599"), not
-            # an int. `time.time() + expires_in` was raising
-            # "unsupported operand type(s) for +: 'float' and 'str'" here,
-            # which was caught by the except block below and silently
-            # downgraded EVERY production token fetch to the "mock_token"
-            # sentinel — even though the OAuth call itself succeeded and a
-            # real access_token was already sitting in `data`.
             expires_in = int(data.get("expires_in", 3600))
             _payment_token_expiry = time.time() + expires_in - 60
 
@@ -688,8 +733,22 @@ async def get_mpesa_access_token() -> str:
         logger.error(f"Access token error: {e}")
         return "mock_token"
 
-async def initiate_stk_push(phone: str, amount: float, account_reference: str, member_id: str, transaction_desc: str = "Membership Registration") -> Dict[str, Any]:
-    """Initiate M-Pesa STK Push payment."""
+async def initiate_stk_push(
+    phone: str,
+    amount: float,
+    account_reference: str,
+    member_id: Optional[str] = None,
+    chama_group_id: Optional[str] = None,
+    transaction_desc: str = "Membership Registration"
+) -> Dict[str, Any]:
+    """
+    Initiate M-Pesa STK Push payment.
+
+    Exactly one of member_id / chama_group_id should be provided:
+    individual registrations pass member_id, chama group registrations
+    pass chama_group_id (payments.member_id is nullable specifically to
+    support this — see the payments table migration).
+    """
     try:
         phone = normalize_phone(phone)
         if phone.startswith("0"):
@@ -711,15 +770,6 @@ async def initiate_stk_push(phone: str, amount: float, account_reference: str, m
 
             database = get_supabase()
             payment_data = {
-                # FIX: payments.member_id is NOT NULL in the DB schema, but
-                # this used to insert `None` here and rely on a follow-up
-                # UPDATE in public_stk_push() to backfill it — which never
-                # ran because the insert itself was rejected first with
-                # "null value in column 'member_id' violates not-null
-                # constraint". member_id is now known at call time (it's
-                # passed in from public_stk_push), so it's set correctly on
-                # the initial insert instead.
-                "member_id": member_id,
                 "amount": amount,
                 "payment_type": "registration",
                 "status": "pending",
@@ -730,6 +780,11 @@ async def initiate_stk_push(phone: str, amount: float, account_reference: str, m
                 "notes": transaction_desc,
                 "phone": phone
             }
+            if member_id:
+                payment_data["member_id"] = member_id
+            if chama_group_id:
+                payment_data["chama_group_id"] = chama_group_id
+
             result = database.table("payments").insert(payment_data).execute()
 
             return {
@@ -800,10 +855,6 @@ async def initiate_stk_push(phone: str, amount: float, account_reference: str, m
 
             database = get_supabase()
             payment_data = {
-                # FIX: see comment on the mock-mode branch above — same
-                # NOT NULL constraint issue, same fix (member_id is now
-                # passed into this function rather than backfilled later).
-                "member_id": member_id,
                 "amount": amount,
                 "payment_type": "registration",
                 "status": "pending",
@@ -815,6 +866,11 @@ async def initiate_stk_push(phone: str, amount: float, account_reference: str, m
                 "notes": transaction_desc,
                 "phone": phone
             }
+            if member_id:
+                payment_data["member_id"] = member_id
+            if chama_group_id:
+                payment_data["chama_group_id"] = chama_group_id
+
             result = database.table("payments").insert(payment_data).execute()
 
             logger.info(f"STK Push initiated: {checkout_request_id}")
@@ -913,6 +969,18 @@ async def query_stk_status(checkout_request_id: str) -> Dict[str, Any]:
                         "coverage_start_date": datetime.now(timezone.utc).isoformat()
                     }).eq("id", payment.data[0]["member_id"]).execute()
 
+                # For a chama group payment, mark every member in the
+                # group as paid rather than a single member row.
+                if payment.data and payment.data[0].get("chama_group_id"):
+                    group_id = payment.data[0]["chama_group_id"]
+                    database.table("members").update({
+                        "registration_fee_paid": True,
+                        "coverage_start_date": datetime.now(timezone.utc).isoformat()
+                    }).eq("chama_group_id", group_id).execute()
+                    database.table("chama_groups").update({
+                        "status": "active"
+                    }).eq("id", group_id).execute()
+
                 return {
                     "status": "confirmed",
                     "receipt": receipt,
@@ -994,14 +1062,6 @@ async def get_public_sales_codes():
     """
     Public list of active agent sales codes, for populating a
     'register through an agent' dropdown on the registration form.
-
-    ASSUMPTION — adjust to match your actual schema: this expects a
-    `sales_codes` table (code, agent_id, is_active) and, optionally,
-    an `agents` table (id, full_name) to attach a readable name to
-    each code. If the `agents` table/join doesn't match your schema,
-    this still returns the bare codes — it just won't have names.
-    Never raises: if the table isn't set up yet, returns an empty list
-    so the dropdown just shows "No agent".
     """
     database = get_supabase()
 
@@ -1216,8 +1276,6 @@ async def public_register(registration: RegistrationRequest):
         member_number = generate_member_number(database)
 
     except Exception as e:
-        # generate_member_number() already logs the full root cause
-        # (RPC error + fallback error) with a traceback above.
         detail = "Unable to generate member number. Please try again."
         if DEBUG:
             detail += f" (debug: {e})"
@@ -1241,20 +1299,11 @@ async def public_register(registration: RegistrationRequest):
         "county": registration.county.strip(),
         "plan": registration.plan.value.lower(),
         "benefit_option": registration.benefit_option.value,
-
-        # Example:
-        # MSK00001
-        # MSK00002
-        # MSK00003
         "member_number": member_number,
-
         "registration_fee_paid": False,
         "is_active": True,
     }
 
-    # ASSUMPTION: members table has an `agent_id` (nullable uuid) column
-    # to attribute a signup to the referring agent. Adjust the key name
-    # here if your schema calls it something else (e.g. referred_by).
     if sales_code_result and sales_code_result["valid"]:
         member_data["agent_id"] = sales_code_result["agent_id"]
 
@@ -1280,10 +1329,6 @@ async def public_register(registration: RegistrationRequest):
 
         member_id = member.get("id")
 
-        # ----------------------------------------------------
-        # CREATE REGISTRATION PAYMENT
-        # ----------------------------------------------------
-
         payment_data = {
             "member_id": member_id,
             "amount": fee,
@@ -1297,20 +1342,12 @@ async def public_register(registration: RegistrationRequest):
             payment_data
         ).execute()
 
-        # ----------------------------------------------------
-        # RECORD SALES CODE USAGE (best-effort, non-blocking)
-        # ----------------------------------------------------
-
         if sales_code_result and sales_code_result["valid"]:
             record_sales_code_usage(
                 database,
                 sales_code_result["code_id"],
                 str(member_id)
             )
-
-        # ----------------------------------------------------
-        # RESPONSE
-        # ----------------------------------------------------
 
         response_message = (
             "Registration submitted successfully. "
@@ -1346,13 +1383,168 @@ async def public_register(registration: RegistrationRequest):
 
 
 # ============================================================
+# REGISTER CHAMA GROUP
+# ============================================================
+
+@app.post("/api/public/register/chama")
+async def public_register_chama(registration: ChamaRegistrationRequest):
+    """
+    PUBLIC CHAMA (GROUP) REGISTRATION - No Login Required.
+
+    Creates a `chama_groups` row for the three officials, then creates
+    one `members` row per person in the uploaded roster, linked via
+    chama_group_id. Each member gets a real MSK##### number via the
+    same atomic generator individual registration uses.
+
+    Duplicate phones / invalid rows are SKIPPED rather than failing the
+    whole request — one bad row in a 30+ person list shouldn't block
+    everyone else. Skipped rows are returned in `skipped` so the
+    chairperson/staff can fix and add them separately via the admin
+    panel.
+
+    NOTE: this endpoint creates member records only. The group's lump
+    -sum registration payment is a separate step — see
+    POST /api/public/payment/stk-push-chama.
+    """
+    database = get_supabase()
+
+    if len(registration.members) < MIN_CHAMA_MEMBERS:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"A chama group requires at least {MIN_CHAMA_MEMBERS} principal members "
+                   f"({len(registration.members)} provided)."
+        )
+
+    plan_row = get_plan_row(database, "Chama")
+    if not plan_row:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Chama plan is not configured in the plans table."
+        )
+    fee_per_member = float(plan_row.get("principal_registration_fee") or 0)
+
+    try:
+        chairperson_phone = normalize_phone(registration.chairperson.phone)
+        treasurer_phone = normalize_phone(registration.treasurer.phone)
+        secretary_phone = normalize_phone(registration.secretary.phone)
+    except ValueError as exc:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc))
+
+    group_data = {
+        "group_name": registration.group_name.strip(),
+        "registration_number": registration.registration_number.strip() if registration.registration_number else None,
+        "county": registration.county.strip() if registration.county else None,
+        "chairperson_name": registration.chairperson.name.strip(),
+        "chairperson_phone": chairperson_phone,
+        "chairperson_id_number": registration.chairperson.id_number.strip(),
+        "treasurer_name": registration.treasurer.name.strip(),
+        "treasurer_phone": treasurer_phone,
+        "treasurer_id_number": registration.treasurer.id_number.strip(),
+        "secretary_name": registration.secretary.name.strip(),
+        "secretary_phone": secretary_phone,
+        "secretary_id_number": registration.secretary.id_number.strip(),
+        "status": "pending",
+    }
+
+    try:
+        group_result = database.table("chama_groups").insert(group_data).execute()
+        group = group_result.data[0] if group_result.data else None
+        if not group:
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="Failed to create chama group"
+            )
+        group_id = group["id"]
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Chama group creation failed: {e}\n{traceback.format_exc()}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to create chama group"
+        )
+
+    created_members: List[Dict[str, Any]] = []
+    skipped: List[Dict[str, Any]] = []
+
+    for idx, person in enumerate(registration.members):
+        row_num = idx + 1
+
+        try:
+            person_phone = normalize_phone(person.phone)
+        except ValueError as exc:
+            skipped.append({"row": row_num, "phone": person.phone, "reason": str(exc)})
+            continue
+
+        try:
+            existing = database.table("members").select("id").eq("phone", person_phone).execute()
+            if existing.data:
+                skipped.append({"row": row_num, "phone": person_phone, "reason": "Phone already registered"})
+                continue
+        except Exception as e:
+            logger.warning(f"Duplicate phone check failed for chama row {row_num}: {e}")
+
+        try:
+            member_number = generate_member_number(database)
+        except Exception as e:
+            skipped.append({"row": row_num, "phone": person_phone, "reason": f"Could not generate member number: {e}"})
+            continue
+
+        member_data = {
+            "first_name": person.first_name.strip(),
+            "last_name": person.last_name.strip(),
+            "phone": person_phone,
+            "id_number": person.id_number.strip(),
+            "date_of_birth": person.date_of_birth,
+            "gender": person.gender,
+            "county": registration.county.strip() if registration.county else None,
+            "plan": "chama",
+            "benefit_option": "service",
+            "member_number": member_number,
+            "chama_group_id": group_id,
+            "registration_fee_paid": False,
+            "is_active": True,
+        }
+
+        try:
+            insert_result = database.table("members").insert(member_data).execute()
+            member = insert_result.data[0] if insert_result.data else None
+            if member:
+                created_members.append(member)
+            else:
+                skipped.append({"row": row_num, "phone": person_phone, "reason": "Insert returned no data"})
+        except Exception as e:
+            logger.error(f"Failed to insert chama member row {row_num}: {e}")
+            skipped.append({"row": row_num, "phone": person_phone, "reason": str(e)})
+
+    if not created_members:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="No members could be registered from the uploaded list. See skipped rows for reasons."
+        )
+
+    total_fee = fee_per_member * len(created_members)
+
+    return {
+        "success": True,
+        "message": f"Chama group '{group_data['group_name']}' registered with {len(created_members)} member(s).",
+        "group_id": group_id,
+        "member_count": len(created_members),
+        "registration_amount": total_fee,
+        "fee_per_member": fee_per_member,
+        "skipped": skipped,
+        "payment_required": True,
+    }
+
+
+# ============================================================
 # PAYMENT ENDPOINTS
 # ============================================================
 
 @app.post("/api/public/payment/stk-push")
 async def public_stk_push(request: STKPushRequest):
     """
-    Initiate M-Pesa STK Push payment.
+    Initiate M-Pesa STK Push payment for an individual member.
     """
     database = get_supabase()
 
@@ -1390,14 +1582,6 @@ async def public_stk_push(request: STKPushRequest):
 
     account_reference = member_data.get("member_number", f"MEM-{request.member_id[:8]}")
 
-    # FIX: member_id is now passed straight into initiate_stk_push() and
-    # used on the initial insert, instead of being inserted as NULL and
-    # backfilled with a follow-up UPDATE afterward. That two-step pattern
-    # never actually worked: payments.member_id is NOT NULL in the DB, so
-    # the initial insert was rejected before the code ever reached the
-    # update below — the row was never created and the update had nothing
-    # to patch. There is nothing left for a post-insert update to do
-    # (phone is also set correctly on the same insert), so it's removed.
     result = await initiate_stk_push(
         phone=phone,
         amount=request.amount,
@@ -1416,6 +1600,70 @@ async def public_stk_push(request: STKPushRequest):
             "member_id": request.member_id,
         }
     }
+
+
+@app.post("/api/public/payment/stk-push-chama")
+async def public_stk_push_chama(request: STKPushChamaRequest):
+    """
+    Initiate M-Pesa STK Push for a chama group's aggregate registration
+    fee (fee_per_member x number of members registered under the group).
+    Usually paid by the chairperson or treasurer's phone.
+    """
+    database = get_supabase()
+
+    try:
+        group = database.table("chama_groups").select("*").eq("id", request.group_id).execute()
+        if not group.data:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Chama group not found"
+            )
+        group_data = group.data[0]
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Chama group verification failed: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to verify chama group"
+        )
+
+    if group_data.get("status") == "active":
+        return {
+            "success": True,
+            "message": "Chama group registration fee already paid",
+            "data": {
+                "already_paid": True,
+                "group_id": request.group_id
+            }
+        }
+
+    try:
+        phone = normalize_phone(request.phone)
+    except ValueError as exc:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc))
+
+    account_reference = (group_data.get("group_name") or "CHAMA")[:12]
+
+    result = await initiate_stk_push(
+        phone=phone,
+        amount=request.amount,
+        account_reference=account_reference,
+        chama_group_id=request.group_id,
+        transaction_desc=request.transaction_desc
+    )
+
+    return {
+        "success": result.get("success", False),
+        "message": result.get("message", "Payment initiated"),
+        "data": {
+            "checkout_request_id": result.get("checkout_request_id"),
+            "status": result.get("status", "pending"),
+            "mock": result.get("mock", False),
+            "group_id": request.group_id,
+        }
+    }
+
 
 @app.get("/api/public/payment/status/{checkout_request_id}")
 async def public_payment_status(checkout_request_id: str):
@@ -1671,6 +1919,27 @@ async def mpesa_webhook(request: Request):
                 "status": "confirmed",
                 "confirmed_at": datetime.now(timezone.utc).isoformat()
             }).eq("checkout_request_id", checkout_request_id).execute()
+
+            # Mirror the same "mark paid" logic used by query_stk_status()
+            # so a real Safaricom webhook confirmation (not just a manual
+            # status poll) also flips registration_fee_paid, for both
+            # individual members and chama groups.
+            payment = database.table("payments").select("*").eq("checkout_request_id", checkout_request_id).execute()
+            if payment.data:
+                row = payment.data[0]
+                if row.get("member_id"):
+                    database.table("members").update({
+                        "registration_fee_paid": True,
+                        "coverage_start_date": datetime.now(timezone.utc).isoformat()
+                    }).eq("id", row["member_id"]).execute()
+                if row.get("chama_group_id"):
+                    database.table("members").update({
+                        "registration_fee_paid": True,
+                        "coverage_start_date": datetime.now(timezone.utc).isoformat()
+                    }).eq("chama_group_id", row["chama_group_id"]).execute()
+                    database.table("chama_groups").update({
+                        "status": "active"
+                    }).eq("id", row["chama_group_id"]).execute()
 
             logger.info(f"Payment confirmed via webhook: {checkout_request_id}")
             return {"ResultCode": 0, "ResultDesc": "Success"}
