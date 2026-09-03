@@ -936,18 +936,29 @@
 
 const API_BASE_URL = 'https://masika-c921.onrender.com';
 
-// Render free-tier instances spin down after inactivity and can take
-// 30-60s to wake back up. A cold request during that window often
-// fails outright with "Failed to fetch" rather than just being slow.
-// To avoid that hitting the user on their first real submit, we:
-//   1) Ping a lightweight health endpoint as soon as the page loads,
-//      so the instance is already warming up in the background.
-//   2) Wrap real API calls in a retry-with-backoff so a request that
-//      fails purely due to a network/cold-start error is retried a
-//      few times before we show the user an error.
+// The backend creates PENDING member records (status = 'pending')
+// and returns member_id/group_id + registration amount.
+// Final membership numbers are generated AFTER payment confirmation
+// via M-Pesa callback, NOT at registration time.
+//
+// The flow is:
+// 1. register.html collects info and calls POST /api/public/register
+// 2. Backend creates PENDING member (status = 'pending')
+// 3. Returns member_id + registration_amount
+// 4. Redirect to payment.html?member_id=XXXX
+// 5. payment.html handles M-Pesa STK Push
+// 6. M-Pesa callback confirms payment, then backend:
+//    - Sets status = 'active'
+//    - Generates final membership_number
+//    - Generates receipt
+//    - Generates ID card
+//
+// IMPORTANT: The member is NOT active until payment is confirmed.
+// No final membership number is generated before payment.
+
 const WAKEUP_PATH = '/api/health';
 const MAX_RETRIES = 4;
-const RETRY_DELAYS_MS = [1500, 3000, 6000, 10000]; // backoff between attempts
+const RETRY_DELAYS_MS = [1500, 3000, 6000, 10000];
 
 /* ============================================================
    STATE
@@ -1014,7 +1025,6 @@ function clearAlert() {
    ============================================================ */
 
 function setServerStatus(state, text) {
-    // state: 'connecting' | 'online' | 'offline'
     serverStatusEl.className = "server-status " + (state === "connecting" ? "" : state);
     serverStatusText.textContent = text;
 }
@@ -1068,9 +1078,10 @@ const planDescription = document.getElementById("planDescription");
 let planPricing = {};
 
 const FALLBACK_PLANS = [
-    { plan_code: "COMFORT", plan_name: "Comfort", description: "Basic membership protection for individuals and families.", principal_registration_fee: 200, dependant_registration_fee: 50 },
-    { plan_code: "DIGNITY", plan_name: "Dignity", description: "Enhanced family protection and benevolent support.", principal_registration_fee: 500, dependant_registration_fee: 100 },
-    { plan_code: "WAZAZI", plan_name: "Wazazi", description: "Comprehensive parent and family protection.", principal_registration_fee: 100, dependant_registration_fee: 100 }
+    { plan_code: "Comfort", plan_name: "Comfort", description: "Basic membership protection for individuals and families.", principal_registration_fee: 200, dependant_registration_fee: 50 },
+    { plan_code: "Dignity", plan_name: "Dignity", description: "Enhanced family protection and benevolent support.", principal_registration_fee: 500, dependant_registration_fee: 100 },
+    { plan_code: "Wazazi", plan_name: "Wazazi", description: "Comprehensive parent and family protection.", principal_registration_fee: 100, dependant_registration_fee: 100 },
+    { plan_code: "Chama", plan_name: "Chama", description: "Group/chama membership for communities and organizations.", principal_registration_fee: 100, dependant_registration_fee: 0 }
 ];
 
 function applyPlanRows(rows) {
@@ -1089,6 +1100,18 @@ function applyPlanRows(rows) {
         option.textContent = `${row.plan_code}${feeText}`;
         planSelect.appendChild(option);
     });
+
+    // Ensure Chama is always available
+    if (!planPricing["Chama"]) {
+        const chamaPlan = FALLBACK_PLANS.find(p => p.plan_code === "Chama");
+        if (chamaPlan) {
+            planPricing["Chama"] = chamaPlan;
+            const option = document.createElement("option");
+            option.value = "Chama";
+            option.textContent = "Chama — KES 100 per member registration";
+            planSelect.appendChild(option);
+        }
+    }
 }
 
 async function loadPlans() {
@@ -1119,8 +1142,6 @@ planSelect.addEventListener("change", () => {
     const plan = planPricing[planSelect.value];
     planDescription.textContent = (plan && plan.description) ? plan.description : "\u00A0";
 
-    // CHAMA MODE — swap individual member fields + dependants for the
-    // group-officials form + CSV roster upload.
     isChamaMode = planSelect.value === "Chama";
     memberDetailsCard.classList.toggle("hidden", isChamaMode);
     dependantsCardSection.classList.toggle("hidden", isChamaMode);
@@ -1212,7 +1233,7 @@ chamaFileInput.addEventListener("change", (e) => {
                 return;
             }
 
-            chamaPreview.innerHTML = `<span style="color:var(--success)">&#10003; ${parsedChamaMembers.length} members parsed and ready.</span>`;
+            chamaPreview.innerHTML = `<span style="color:var(--success)">✓ ${parsedChamaMembers.length} members parsed and ready.</span>`;
         },
         error: (err) => {
             chamaPreview.innerHTML = `<span style="color:var(--danger)">Could not read file: ${err.message}</span>`;
@@ -1243,7 +1264,7 @@ async function calculateChamaRegistrationPayment() {
     }
 
     const plan = planPricing["Chama"] || {};
-    const feePerMember = Number(plan.principal_registration_fee) || 0;
+    const feePerMember = Number(plan.principal_registration_fee) || 100;
     const totalFee = feePerMember * parsedChamaMembers.length;
 
     calculatedRegistration = { total_amount: totalFee };
@@ -1291,12 +1312,16 @@ async function registerChamaGroup() {
         }
         showAlert(successMessage, "success");
 
+        // IMPORTANT: Store pending registration info for payment.html
+        // Payment will confirm and activate all members at once
         sessionStorage.setItem('newChamaGroupId', result.group_id);
         sessionStorage.setItem('newChamaGroupName', payload.group_name);
         sessionStorage.setItem('newChamaMemberCount', result.member_count);
         sessionStorage.setItem('newChamaPhone', payload.chairperson.phone);
         sessionStorage.setItem('registrationAmount', result.registration_amount);
+        sessionStorage.setItem('isChamaRegistration', 'true');
 
+        // Redirect to payment with group_id
         setTimeout(() => {
             window.location.href = `payment.html?group_id=${encodeURIComponent(result.group_id)}`;
         }, 2000);
@@ -1524,21 +1549,14 @@ async function calculateRegistrationPayment() {
 
         // NOTE: This is a client-side ESTIMATE shown for the user's convenience
         // only. The authoritative fee is calculated by the backend inside
-        // POST /api/public/register (calculate_registration_fee) at the
-        // moment the member is actually created. Both read pricing from the
-        // same place — the `plans` table edited via admin-pricing.html.
+        // POST /api/public/register at the moment the member is actually created.
+        // Both read pricing from the same place — the `plans` table.
         const selectedPlan = planPricing[payload.plan] || {};
         const principalFee = Number(selectedPlan.principal_registration_fee) || 0;
         const perDependantFee = Number(selectedPlan.dependant_registration_fee) || 0;
 
         let totalFee = principalFee + (perDependantFee * payload.dependants.length);
 
-        // FIX: previously referenced an undefined `planFees` object left
-        // over from before pricing moved to the live `plans` table --
-        // that threw "planFees is not defined" on every click, which
-        // blocked registration entirely. registration_fee/dependant_fees
-        // are now derived from principalFee, which is already computed
-        // above from live plan pricing.
         calculatedRegistration = {
             total_amount: totalFee,
             registration_fee: principalFee,
@@ -1571,7 +1589,7 @@ function updateSummary() {
         const groupName = document.getElementById("chamaGroupName")?.value.trim();
         document.getElementById("summaryName").textContent = groupName || "—";
         document.getElementById("summaryPlan").textContent = "Chama";
-        document.getElementById("summaryDependants").textContent = parsedChamaMembers.length;
+        document.getElementById("summaryDependants").textContent = parsedChamaMembers.length + " members";
     } else {
         const name = [firstName.value.trim(), lastName.value.trim()].filter(Boolean).join(" ");
         document.getElementById("summaryName").textContent = name || "—";
@@ -1603,8 +1621,15 @@ function formatCurrency(value) {
 /* ============================================================
    REGISTER MEMBER — goes through the FastAPI backend, which
    re-validates everything, computes the authoritative fee
-   server-side, checks for duplicate phone/email, and generates
-   the real member_number.
+   server-side, checks for duplicate phone/email, and creates
+   a PENDING member record.
+
+   IMPORTANT: The member is NOT active yet. No final membership
+   number is generated here — that happens after payment
+   confirmation via M-Pesa callback.
+
+   The registration returns member_id which is used to redirect
+   to payment.html for M-Pesa STK Push.
    ============================================================ */
 
 registerBtn.addEventListener("click", () => {
@@ -1645,18 +1670,27 @@ async function registerMember() {
             throw new Error((result && result.message) || "Failed to register member.");
         }
 
-        let successMessage = `✅ Member "${payload.first_name} ${payload.last_name}" registered successfully! Member number: ${result.member_number}`;
+        // IMPORTANT: The member is PENDING at this point.
+        // The member_number returned is a temporary identifier,
+        // not the final membership number.
+        // The final membership number is generated after payment.
+        let successMessage = `✅ Member "${payload.first_name} ${payload.last_name}" registered pending payment.`;
         if (payload.sales_code && result.sales_code_applied === false) {
             successMessage += ` (Note: the agent sales code "${payload.sales_code}" could not be applied.)`;
         }
+        successMessage += ` Complete payment to activate membership.`;
         showAlert(successMessage, "success");
 
+        // Store pending registration info for payment.html
         sessionStorage.setItem('newMemberId', result.member_id);
         sessionStorage.setItem('newMemberNumber', result.member_number);
         sessionStorage.setItem('newMemberName', `${payload.first_name} ${payload.last_name}`);
         sessionStorage.setItem('newMemberPhone', payload.phone);
         sessionStorage.setItem('registrationAmount', result.registration_amount);
+        sessionStorage.setItem('isChamaRegistration', 'false');
 
+        // Redirect to payment.html with member_id
+        // payment.html will handle M-Pesa STK Push and confirmation
         setTimeout(() => {
             window.location.href = `payment.html?member_id=${encodeURIComponent(result.member_id)}`;
         }, 1500);
@@ -1781,6 +1815,8 @@ init();
 console.log('🆓 Masika Benevolent - Public Registration');
 console.log('📋 Anyone can register without logging in');
 console.log('🔗 API:', API_BASE_URL);
+console.log('💳 Registration creates PENDING member. Payment required for activation.');
+console.log('🏷️ Final membership number generated AFTER payment confirmation.');
 </script>
 
 </body>
