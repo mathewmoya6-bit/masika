@@ -748,6 +748,74 @@ async def get_mpesa_access_token() -> str:
         logger.error(f"Access token error: {e}")
         return "mock_token"
 
+# A repeated "Pay Now" click (real M-Pesa prompt timed out client-side,
+# broken frontend re-submitting, etc.) should reuse an in-flight payment
+# attempt rather than spawn a new payments row every time. This is the
+# actual root cause of members ending up with a dozen+ PENDING rows for
+# one real attempt -- initiate_stk_push() previously inserted
+# unconditionally on every call.
+DUPLICATE_STK_WINDOW_MINUTES = 5
+
+
+def _find_recent_pending_payment(
+    database: Client,
+    amount: float,
+    member_id: Optional[str] = None,
+    chama_group_id: Optional[str] = None,
+) -> Optional[Dict[str, Any]]:
+    """
+    Look for a still-usable PENDING payment row created in the last
+    DUPLICATE_STK_WINDOW_MINUTES for this member/group + amount, with a
+    real (non-null) checkout_request_id -- i.e. one that actually
+    reached Safaricom and might still be waiting on the user's PIN
+    entry. Rows with no checkout_request_id (never sent to Safaricom,
+    e.g. from the old broken frontend path) are NOT reused; those are
+    dead attempts, not something to resume.
+
+    Never raises -- a lookup failure just falls through to creating a
+    new payment the way this always worked before.
+    """
+    try:
+        query = (
+            database.table("payments")
+            .select("*")
+            .eq("payment_status", "PENDING")
+            .eq("amount", amount)
+            .not_.is_("checkout_request_id", "null")
+            .order("created_at", desc=True)
+            .limit(1)
+        )
+
+        if member_id:
+            query = query.eq("member_id", member_id)
+        elif chama_group_id:
+            query = query.eq("chama_group_id", chama_group_id)
+        else:
+            return None
+
+        result = query.execute()
+
+        if not result.data:
+            return None
+
+        row = result.data[0]
+        created_at_raw = row.get("created_at")
+        if not created_at_raw:
+            return None
+
+        created_at = datetime.fromisoformat(created_at_raw.replace("Z", "+00:00"))
+        age = datetime.now(timezone.utc) - created_at
+
+        if age > timedelta(minutes=DUPLICATE_STK_WINDOW_MINUTES):
+            return None
+
+        return row
+
+    except Exception as e:
+        logger.warning(f"Duplicate-pending-payment lookup failed (continuing to create new): {e}")
+        return None
+
+
 async def initiate_stk_push(
     phone: str,
     amount: float,
@@ -763,6 +831,11 @@ async def initiate_stk_push(
     individual registrations pass member_id, chama group registrations
     pass chama_group_id (payments.member_id is nullable specifically to
     support this — see the payments table migration).
+
+    Before creating a new payment row / sending a new STK prompt, checks
+    for a still-fresh PENDING payment (same member/group + amount, real
+    checkout_request_id, created within DUPLICATE_STK_WINDOW_MINUTES) and
+    reuses it instead -- see _find_recent_pending_payment().
     """
     try:
         phone = normalize_phone(phone)
@@ -776,6 +849,26 @@ async def initiate_stk_push(
                 "success": False,
                 "message": "Invalid phone number format",
                 "status": "failed"
+            }
+
+        database_for_dupe_check = get_supabase()
+        existing_pending = _find_recent_pending_payment(
+            database_for_dupe_check, amount, member_id=member_id, chama_group_id=chama_group_id
+        )
+        if existing_pending:
+            logger.info(
+                f"Reusing existing pending payment {existing_pending.get('id')} "
+                f"(checkout_request_id={existing_pending.get('checkout_request_id')}) "
+                f"instead of creating a duplicate STK push."
+            )
+            return {
+                "success": True,
+                "checkout_request_id": existing_pending.get("checkout_request_id"),
+                "message": "Payment already in progress. Please check your phone and enter your M-Pesa PIN.",
+                "status": "pending",
+                "mock": False,
+                "payment_id": existing_pending.get("id"),
+                "reused": True,
             }
 
         # In sandbox/mock mode
