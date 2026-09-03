@@ -552,6 +552,83 @@
         .fa-sync.spinning {
             animation: spin 0.8s linear infinite;
         }
+
+        /* ============================================================
+           LIVE INDICATOR
+           ============================================================ */
+
+        .live-indicator {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 12px;
+            font-weight: 600;
+            color: var(--text-light);
+        }
+
+        .live-indicator .dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: var(--gray-300);
+        }
+
+        .live-indicator.connected .dot {
+            background: var(--success);
+            box-shadow: 0 0 0 rgba(25, 135, 84, 0.6);
+            animation: pulse-dot 1.8s infinite;
+        }
+
+        .live-indicator.connected { color: var(--success); }
+
+        .live-indicator.error .dot { background: var(--danger); }
+        .live-indicator.error { color: var(--danger); }
+
+        @keyframes pulse-dot {
+            0%   { box-shadow: 0 0 0 0 rgba(25, 135, 84, 0.5); }
+            70%  { box-shadow: 0 0 0 7px rgba(25, 135, 84, 0); }
+            100% { box-shadow: 0 0 0 0 rgba(25, 135, 84, 0); }
+        }
+
+        .stat-card.warning-card { border-left-color: var(--warning); }
+
+        .stat-card .stat-sub {
+            font-size: 12px;
+            color: var(--text-light);
+            margin-top: 4px;
+        }
+
+        .stat-card.flash {
+            animation: flash-update 1s ease;
+        }
+
+        @keyframes flash-update {
+            0%   { background: var(--gold-light); }
+            100% { background: white; }
+        }
+
+        tr.row-mismatch {
+            background: #fff8e6;
+        }
+
+        tr.row-mismatch:hover {
+            background: #fdefc9;
+        }
+
+        .assign-input-row {
+            display: flex;
+            gap: 6px;
+            align-items: center;
+        }
+
+        .assign-input-row input {
+            padding: 4px 8px;
+            border: 1px solid var(--gray-300);
+            border-radius: 6px;
+            font-size: 12px;
+            width: 120px;
+            font-family: inherit;
+        }
     </style>
 </head>
 <body>
@@ -620,6 +697,7 @@
                     </h1>
                 </div>
                 <div class="actions">
+                    <span class="live-indicator" id="liveIndicator"><span class="dot"></span> <span id="liveIndicatorLabel">Connecting…</span></span>
                     <span class="date-time" id="currentDateTime"></span>
                     <button onclick="refreshData()" class="btn-sm primary" id="refreshBtn">
                         <i class="fas fa-sync" id="refreshIcon"></i> Refresh
@@ -644,10 +722,29 @@
                     <div class="stat-value" id="activeAgents">0</div>
                     <div class="stat-label">Active Agents</div>
                 </div>
-                <div class="stat-card blue">
+                <div class="stat-card blue" id="dailyRevenueCard">
+                    <span class="stat-icon">📅</span>
+                    <div class="stat-value" id="dailyRevenue">KES 0</div>
+                    <div class="stat-label">Today's Revenue</div>
+                    <div class="stat-sub" id="dailyRevenueCount">0 payments</div>
+                </div>
+                <div class="stat-card gold" id="monthRevenueCard">
+                    <span class="stat-icon">📆</span>
+                    <div class="stat-value" id="monthRevenue">KES 0</div>
+                    <div class="stat-label" id="monthRevenueLabel">This Month's Revenue</div>
+                    <div class="stat-sub" id="monthRevenueCount">0 payments</div>
+                </div>
+                <div class="stat-card success" id="totalRevenueCard">
                     <span class="stat-icon">💰</span>
                     <div class="stat-value" id="totalRevenue">KES 0</div>
-                    <div class="stat-label">Total Revenue</div>
+                    <div class="stat-label">Total Revenue (All Time)</div>
+                    <div class="stat-sub" id="totalRevenueCount">0 payments</div>
+                </div>
+                <div class="stat-card warning-card" id="unassignedRevenueCard">
+                    <span class="stat-icon">⚠️</span>
+                    <div class="stat-value" id="unassignedCount">0</div>
+                    <div class="stat-label">Unassigned Payments</div>
+                    <div class="stat-sub" id="unassignedAmount">KES 0 unmatched</div>
                 </div>
             </div>
 
@@ -715,6 +812,20 @@
                 </div>
             </div>
 
+            <!-- Unassigned Payments (wrong account / reference number entered) -->
+            <div class="card">
+                <div class="card-header">
+                    <h3><i class="fas fa-triangle-exclamation" style="color:var(--warning);"></i> Unassigned Payments <span class="badge" style="background:var(--warning);color:#333;" id="unassignedBadge">0</span></h3>
+                    <span style="color:var(--text-light);font-size:13px;">M-Pesa payments received with an account/reference number that doesn't match a member</span>
+                </div>
+                <div id="unassignedPayments">
+                    <div class="loading-spinner">
+                        <div class="spinner"></div>
+                        <p>Loading...</p>
+                    </div>
+                </div>
+            </div>
+
         </main>
 
     </div>
@@ -722,6 +833,7 @@
     <script src="../js/supabase-config.js"></script>
     <script src="../js/admin-auth.js"></script>
     <script src="../js/admin-dashboard.js"></script>
+    <script src="../js/admin-revenue.js"></script>
 
     <!-- ============================================================
     SHELL BEHAVIOR: sidebar toggle, backdrop, live clock.
@@ -794,11 +906,20 @@
                 if (btn) btn.disabled = false;
             };
 
+            const tasks = [];
             if (typeof window.loadDashboardData === 'function') {
-                Promise.resolve(window.loadDashboardData()).finally(done);
+                tasks.push(Promise.resolve(window.loadDashboardData()));
             } else {
                 console.warn('loadDashboardData() not found — admin-dashboard.js may not be loaded yet.');
+            }
+            if (window.AdminRevenue && typeof window.AdminRevenue.refresh === 'function') {
+                tasks.push(window.AdminRevenue.refresh());
+            }
+
+            if (tasks.length === 0) {
                 setTimeout(done, 600);
+            } else {
+                Promise.all(tasks).finally(done);
             }
         }
 
