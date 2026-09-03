@@ -50,7 +50,11 @@
 
         staffTable: "staff",
 
+        rolesTable: "roles",
+
         paymentsTable: "payments",
+
+        salesAgentRoleCode: "SALES_AGENT",
 
         members: {
             id: "id",
@@ -92,7 +96,14 @@
 
         dateRefreshMs: 60 * 1000,
 
-        dashboardRefreshMs: 60 * 1000
+        dashboardRefreshMs: 60 * 1000,
+
+        // How long to wait for supabaseClient / admin auth to
+        // become available before giving up and showing an error
+        // instead of hanging on "Loading..." forever.
+        bootTimeoutMs: 15 * 1000,
+
+        bootPollIntervalMs: 150
     };
 
 
@@ -125,13 +136,113 @@
 
 
     // ========================================================
-    // INITIALIZATION
+    // BOOTSTRAP
+    // ------------------------------------------------------------
+    // Previously this only ran off a single 'admin:authorized'
+    // custom event dispatched by admin-auth.js. If that event was
+    // missed for any reason (script order, an error thrown before
+    // it fires, this listener attaching after the event already
+    // fired, etc.) the dashboard would sit on its default HTML
+    // ("Loading...", stat cards at 0) forever with zero indication
+    // anything was wrong.
+    //
+    // This version:
+    //   1. Still listens for 'admin:authorized' (fast path).
+    //   2. ALSO polls for supabaseClient + an authorized profile
+    //      on DOMContentLoaded, so a missed event can't cause a
+    //      silent hang.
+    //   3. Times out loudly (visible error + retry button) instead
+    //      of failing silently if neither path succeeds.
     // ========================================================
 
     document.addEventListener(
         "admin:authorized",
         initializeDashboard
     );
+
+    document.addEventListener(
+        "DOMContentLoaded",
+        bootWithPolling
+    );
+
+
+    function bootWithPolling() {
+
+        const startedAt = Date.now();
+
+        const poll = setInterval(() => {
+
+            if (initialized) {
+                clearInterval(poll);
+                return;
+            }
+
+            const hasClient =
+                typeof supabaseClient !== "undefined" &&
+                !!supabaseClient;
+
+            const hasProfile =
+                !!(window.AdminAuth && window.AdminAuth.profile);
+
+            if (hasClient && hasProfile) {
+                clearInterval(poll);
+                initializeDashboard();
+                return;
+            }
+
+            if (Date.now() - startedAt > CONFIG.bootTimeoutMs) {
+
+                clearInterval(poll);
+
+                if (!initialized) {
+
+                    console.error(
+                        "Masika dashboard: gave up waiting for " +
+                        "supabaseClient/AdminAuth after " +
+                        CONFIG.bootTimeoutMs + "ms.",
+                        {
+                            hasSupabaseClient: hasClient,
+                            hasAdminAuthProfile: hasProfile
+                        }
+                    );
+
+                    showBootFailure();
+
+                }
+
+            }
+
+        }, CONFIG.bootPollIntervalMs);
+
+    }
+
+
+    function showBootFailure() {
+
+        const message =
+            "Couldn't connect to the database. This usually " +
+            "means supabase-config.js failed to load, or your " +
+            "session isn't authorized. Check the browser console " +
+            "for details.";
+
+        [
+            "recentMembers",
+            "pendingAgents",
+            "recentPayments"
+        ].forEach(id => {
+
+            const container = document.getElementById(id);
+
+            if (container) {
+                renderError(container, message, () => {
+                    initialized = false;
+                    bootWithPolling();
+                });
+            }
+
+        });
+
+    }
 
 
     async function initializeDashboard() {
@@ -521,6 +632,62 @@
 
 
     // ========================================================
+    // ROLE LOOKUP (resilient to missing FK / schema-cache issues)
+    // ------------------------------------------------------------
+    // The original code always used an embedded/inner join:
+    //     .select('..., roles!inner(role_code)')
+    //     .eq('roles.role_code', 'SALES_AGENT')
+    //
+    // PostgREST can only do that embed if there's a real foreign
+    // key from staff.role_id -> roles.id that it has picked up in
+    // its schema cache. If that FK is missing, was added after the
+    // cache last refreshed, or is named/pointed differently than
+    // expected, this query throws an error on every call — which,
+    // inside loadStats()/loadRecentAgents(), silently aborted the
+    // whole dashboard render.
+    //
+    // getSalesAgentRoleId() resolves the role id for SALES_AGENT
+    // as a separate, simple query first. All staff queries then
+    // filter on staff.role_id directly (a plain column, no embed
+    // required), and role_code strings are attached in JS. This
+    // works whether or not the FK relationship exists.
+    // ========================================================
+
+    let cachedSalesAgentRoleId = null;
+
+    async function getSalesAgentRoleId() {
+
+        if (cachedSalesAgentRoleId) {
+            return cachedSalesAgentRoleId;
+        }
+
+        const { data, error } =
+            await supabaseClient
+                .from(CONFIG.rolesTable)
+                .select("id, role_code")
+                .eq("role_code", CONFIG.salesAgentRoleCode)
+                .maybeSingle();
+
+        if (error) {
+            throw new Error(
+                "Roles lookup failed: " + error.message
+            );
+        }
+
+        if (!data) {
+            throw new Error(
+                `No role found with role_code = "${CONFIG.salesAgentRoleCode}". ` +
+                "Check the roles table."
+            );
+        }
+
+        cachedSalesAgentRoleId = data.id;
+
+        return cachedSalesAgentRoleId;
+    }
+
+
+    // ========================================================
     // DASHBOARD STATISTICS
     // ========================================================
 
@@ -558,8 +725,11 @@
 
 
         // ----------------------------------------------------
-        // SALES AGENTS
+        // SALES AGENTS (no embedded join — see getSalesAgentRoleId)
         // ----------------------------------------------------
+
+        const salesAgentRoleId =
+            await getSalesAgentRoleId();
 
         const agentsResult =
             await supabaseClient
@@ -567,24 +737,11 @@
                     CONFIG.staffTable
                 )
                 .select(
-                    `
-                        id,
-                        full_name,
-                        status,
-                        sales_code,
-                        employee_number,
-                        role_id,
-                        roles!inner(
-                            role_code
-                        )
-                    `,
-                    {
-                        count: "exact"
-                    }
+                    "id, full_name, status, sales_code, employee_number, role_id"
                 )
                 .eq(
-                    "roles.role_code",
-                    "SALES_AGENT"
+                    "role_id",
+                    salesAgentRoleId
                 );
 
         if (agentsResult.error) {
@@ -1126,7 +1283,8 @@
 
             renderError(
                 container,
-                "Couldn't load recent registrations.",
+                "Couldn't load recent registrations. " +
+                (error?.message ? `(${error.message})` : ""),
                 loadRecentRegistrations
             );
 
@@ -1248,7 +1406,7 @@
 
 
     // ========================================================
-    // RECENT SALES AGENTS
+    // RECENT SALES AGENTS (no embedded join — see getSalesAgentRoleId)
     // ========================================================
 
     async function loadRecentAgents() {
@@ -1269,6 +1427,9 @@
 
         try {
 
+            const salesAgentRoleId =
+                await getSalesAgentRoleId();
+
             const {
                 data,
                 error
@@ -1285,17 +1446,15 @@
                             status,
                             sales_code,
                             created_at,
-                            roles!inner(
-                                role_code
-                            ),
+                            role_id,
                             branches(
                                 branch_name
                             )
                         `
                     )
                     .eq(
-                        "roles.role_code",
-                        "SALES_AGENT"
+                        "role_id",
+                        salesAgentRoleId
                     )
                     .order(
                         "created_at",
@@ -1427,7 +1586,8 @@
 
             renderError(
                 container,
-                "Couldn't load recent agents.",
+                "Couldn't load recent agents. " +
+                (error?.message ? `(${error.message})` : ""),
                 loadRecentAgents
             );
 
@@ -1612,7 +1772,8 @@
 
             renderError(
                 container,
-                "Couldn't load recent payments.",
+                "Couldn't load recent payments. " +
+                (error?.message ? `(${error.message})` : ""),
                 loadRecentPayments
             );
 
@@ -1649,12 +1810,22 @@
 
     async function loadDashboardData() {
 
+        if (loading) {
+            return;
+        }
+
         if (
-            loading ||
-            typeof supabaseClient ===
-            "undefined" ||
+            typeof supabaseClient === "undefined" ||
             !supabaseClient
         ) {
+
+            console.error(
+                "Masika dashboard: supabaseClient is not " +
+                "available. Check that supabase-config.js loaded " +
+                "successfully and runs before admin-dashboard.js."
+            );
+
+            showBootFailure();
 
             return;
         }
@@ -1665,7 +1836,7 @@
 
         try {
 
-            await Promise.all([
+            const results = await Promise.allSettled([
                 loadStats(),
                 loadRecentRegistrations(),
                 loadRecentAgents(),
@@ -1673,9 +1844,25 @@
             ]);
 
 
-            console.log(
-                "Masika dashboard loaded successfully."
+            const failed = results.filter(
+                r => r.status === "rejected"
             );
+
+            if (failed.length > 0) {
+
+                console.error(
+                    "Masika dashboard: one or more sections " +
+                    "failed to load:",
+                    failed.map(f => f.reason)
+                );
+
+            } else {
+
+                console.log(
+                    "Masika dashboard loaded successfully."
+                );
+
+            }
 
 
         } catch (error) {
