@@ -1,406 +1,1071 @@
 // ============================================================
-// ADMIN DASHBOARD
-// Masika Benevolent - Dashboard data loading & rendering
+// MASIKA BENEVOLENT — ADMIN DASHBOARD
 // ============================================================
-// NOTE: This file no longer loads the admin profile (name/role/
-// avatar/welcome text) itself — admin-auth.js already does that
-// as part of requireSession(). This file only starts loading
-// dashboard data once it hears the 'admin:authorized' event that
-// admin-auth.js fires, so nothing queries Supabase before we know
-// the visitor is actually an authorized staff member.
+// Loads dashboard statistics directly from the actual database.
+//
+// MEMBERS:
+//   public.members
+//
+// SALES AGENTS:
+//   public.staff
+//   public.roles.role_code = SALES_AGENT
+//
+// REVENUE:
+//   public.payments
+//   payment_status = SUCCESSFUL
+//
+// This version does NOT depend on get_dashboard_stats().
 // ============================================================
 
 document.addEventListener("admin:authorized", () => {
-  updateDateTime();
-  setInterval(updateDateTime, 60 * 1000);
+    updateDateTime();
+    setInterval(updateDateTime, 60 * 1000);
 
-  loadStats();
-  loadRecentRegistrations();
-  loadRecentAgents();
-  loadRecentPayments();
+    loadDashboardData();
 });
 
-// ------------------------------------------------------------
-// Helpers
-// ------------------------------------------------------------
+
+// ============================================================
+// DATE / TIME
+// ============================================================
 
 function updateDateTime() {
-  const el = document.getElementById("currentDateTime");
-  if (!el) return;
-  const now = new Date();
-  el.textContent = now.toLocaleString("en-KE", {
-    weekday: "short",
-    year: "numeric",
-    month: "short",
-    day: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-  });
+    const el = document.getElementById("currentDateTime");
+    if (!el) return;
+
+    const now = new Date();
+
+    el.textContent = now.toLocaleString("en-KE", {
+        weekday: "short",
+        year: "numeric",
+        month: "short",
+        day: "numeric",
+        hour: "2-digit",
+        minute: "2-digit",
+        timeZone: "Africa/Nairobi"
+    });
 }
+
+
+// ============================================================
+// FORMATTING
+// ============================================================
 
 function formatKES(amount) {
-  const n = Number(amount) || 0;
-  return "KES " + n.toLocaleString("en-KE", { maximumFractionDigits: 0 });
+    const n = Number(amount) || 0;
+
+    return "KES " + n.toLocaleString("en-KE", {
+        maximumFractionDigits: 0
+    });
 }
+
 
 function formatDate(dateStr) {
-  if (!dateStr) return "—";
-  const d = new Date(dateStr);
-  return d.toLocaleDateString("en-KE", {
-    day: "numeric",
-    month: "short",
-    year: "numeric",
-  });
+    if (!dateStr) return "—";
+
+    const d = new Date(dateStr);
+
+    return d.toLocaleDateString("en-KE", {
+        day: "numeric",
+        month: "short",
+        year: "numeric",
+        timeZone: "Africa/Nairobi"
+    });
 }
+
 
 function timeAgo(dateStr) {
-  if (!dateStr) return "—";
-  const diffMs = Date.now() - new Date(dateStr).getTime();
-  const mins = Math.floor(diffMs / 60000);
-  if (mins < 1) return "just now";
-  if (mins < 60) return `${mins}m ago`;
-  const hrs = Math.floor(mins / 60);
-  if (hrs < 24) return `${hrs}h ago`;
-  const days = Math.floor(hrs / 24);
-  if (days < 30) return `${days}d ago`;
-  return formatDate(dateStr);
+    if (!dateStr) return "—";
+
+    const diffMs = Date.now() - new Date(dateStr).getTime();
+
+    const mins = Math.floor(diffMs / 60000);
+
+    if (mins < 1) return "just now";
+    if (mins < 60) return `${mins}m ago`;
+
+    const hrs = Math.floor(mins / 60);
+
+    if (hrs < 24) return `${hrs}h ago`;
+
+    const days = Math.floor(hrs / 24);
+
+    if (days < 30) return `${days}d ago`;
+
+    return formatDate(dateStr);
 }
+
 
 function statusBadgeClass(status) {
-  const map = {
-    ACTIVE: "active",
-    INACTIVE: "inactive",
-    SUSPENDED: "inactive",
-    DORMANT: "pending",
-    CANCELLED: "rejected",
-    PENDING: "pending",
-    SUCCESSFUL: "paid",
-    FAILED: "rejected",
-    REVERSED: "rejected",
-    PARTIAL: "pending",
-  };
-  return map[status] || "pending";
+
+    const value = String(status || "")
+        .trim()
+        .toUpperCase();
+
+    const map = {
+        ACTIVE: "active",
+        INACTIVE: "inactive",
+        SUSPENDED: "inactive",
+        DORMANT: "pending",
+        CANCELLED: "rejected",
+        PENDING: "pending",
+
+        SUCCESSFUL: "paid",
+        SUCCESS: "paid",
+        COMPLETED: "paid",
+        COMPLETE: "paid",
+        PAID: "paid",
+        VERIFIED: "paid",
+        CONFIRMED: "paid",
+
+        FAILED: "rejected",
+        REVERSED: "rejected",
+        PARTIAL: "pending"
+    };
+
+    return map[value] || "pending";
 }
+
 
 function escapeHtml(str) {
-  if (str === null || str === undefined) return "";
-  return String(str)
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;");
+
+    if (str === null || str === undefined) {
+        return "";
+    }
+
+    return String(str)
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#039;");
 }
+
+
+// ============================================================
+// UI HELPERS
+// ============================================================
 
 function renderLoading(container) {
-  container.innerHTML = `
-    <div class="loading-spinner">
-      <div class="spinner"></div>
-      <p>Loading...</p>
-    </div>`;
+
+    if (!container) return;
+
+    container.innerHTML = `
+        <div class="loading-spinner">
+            <div class="spinner"></div>
+            <p>Loading...</p>
+        </div>
+    `;
 }
+
 
 function renderError(container, message, retryFn) {
-  container.innerHTML = `
-    <div class="loading-spinner">
-      <p style="color:var(--danger);margin-bottom:12px;">
-        <i class="fas fa-triangle-exclamation"></i> ${escapeHtml(message)}
-      </p>
-      <button class="btn-sm primary" id="retryBtn">
-        <i class="fas fa-rotate-right"></i> Retry
-      </button>
-    </div>`;
-  const btn = container.querySelector("#retryBtn");
-  if (btn && retryFn) btn.addEventListener("click", retryFn);
+
+    if (!container) return;
+
+    container.innerHTML = `
+        <div class="loading-spinner">
+            <p style="color:var(--danger);margin-bottom:12px;">
+                <i class="fas fa-triangle-exclamation"></i>
+                ${escapeHtml(message)}
+            </p>
+
+            <button class="btn-sm primary" id="retryBtn">
+                <i class="fas fa-rotate-right"></i>
+                Retry
+            </button>
+        </div>
+    `;
+
+    const btn = container.querySelector("#retryBtn");
+
+    if (btn && retryFn) {
+        btn.addEventListener("click", retryFn);
+    }
 }
+
 
 function renderEmpty(container, message) {
-  container.innerHTML = `
-    <div class="loading-spinner">
-      <p style="color:var(--text-light);">${escapeHtml(message)}</p>
-    </div>`;
+
+    if (!container) return;
+
+    container.innerHTML = `
+        <div class="loading-spinner">
+            <p style="color:var(--text-light);">
+                ${escapeHtml(message)}
+            </p>
+        </div>
+    `;
 }
 
-// ------------------------------------------------------------
-// Stat cards (via get_dashboard_stats RPC)
-// ------------------------------------------------------------
+
+// ============================================================
+// DASHBOARD STATS
+// ============================================================
 
 async function loadStats() {
-  try {
-    const { data, error } = await supabaseClient.rpc("get_dashboard_stats");
-    if (error) throw error;
 
-    document.getElementById("totalMembers").textContent = (data.total_members ?? 0).toLocaleString();
-    document.getElementById("totalAgents").textContent = (data.total_agents ?? 0).toLocaleString();
-    document.getElementById("activeAgents").textContent = (data.active_agents ?? 0).toLocaleString();
-    document.getElementById("totalRevenue").textContent = formatKES(data.total_revenue);
+    try {
 
-    const badge = document.getElementById("pendingAgentsBadge");
-    if (badge) badge.textContent = data.total_agents ?? 0;
+        // ------------------------------------------------------
+        // MEMBERS
+        // ------------------------------------------------------
 
-    const memberBadge = document.getElementById("memberCountBadge");
-    if (memberBadge) memberBadge.textContent = data.total_members ?? 0;
-  } catch (err) {
-    console.error("Failed to load stats:", err);
-    ["totalMembers", "totalAgents", "activeAgents", "totalRevenue"].forEach((id) => {
-      const el = document.getElementById(id);
-      if (el) el.textContent = "—";
-    });
-  }
+        const membersResult = await supabaseClient
+            .from("members")
+            .select("id", {
+                count: "exact",
+                head: true
+            });
+
+        if (membersResult.error) {
+            throw new Error(
+                "Members query failed: " +
+                membersResult.error.message
+            );
+        }
+
+        const totalMembers = membersResult.count || 0;
+
+
+        // ------------------------------------------------------
+        // SALES AGENTS
+        // ------------------------------------------------------
+
+        const agentsResult = await supabaseClient
+            .from("staff")
+            .select(
+                `
+                id,
+                status,
+                role_id,
+                roles!inner(
+                    role_code
+                )
+                `,
+                {
+                    count: "exact"
+                }
+            )
+            .eq("roles.role_code", "SALES_AGENT");
+
+        if (agentsResult.error) {
+            throw new Error(
+                "Sales agents query failed: " +
+                agentsResult.error.message
+            );
+        }
+
+        const agents = agentsResult.data || [];
+
+        const totalAgents = agents.length;
+
+        const activeAgents = agents.filter(agent => {
+
+            const status = String(agent.status || "")
+                .trim()
+                .toUpperCase();
+
+            return status === "ACTIVE";
+
+        }).length;
+
+
+        // ------------------------------------------------------
+        // REVENUE
+        // ------------------------------------------------------
+
+        const paymentsResult = await supabaseClient
+            .from("payments")
+            .select(`
+                amount,
+                payment_status,
+                status,
+                verified_at,
+                created_at
+            `)
+            .limit(20000);
+
+        if (paymentsResult.error) {
+            throw new Error(
+                "Payments query failed: " +
+                paymentsResult.error.message
+            );
+        }
+
+        const payments = paymentsResult.data || [];
+
+        const successfulPayments = payments.filter(payment => {
+
+            const paymentStatus = String(
+                payment.payment_status || ""
+            )
+                .trim()
+                .toUpperCase();
+
+            const status = String(
+                payment.status || ""
+            )
+                .trim()
+                .toUpperCase();
+
+            return (
+                paymentStatus === "SUCCESSFUL" ||
+                paymentStatus === "SUCCESS" ||
+                paymentStatus === "COMPLETED" ||
+                paymentStatus === "COMPLETE" ||
+                paymentStatus === "PAID" ||
+                paymentStatus === "VERIFIED" ||
+                paymentStatus === "CONFIRMED" ||
+
+                status === "SUCCESSFUL" ||
+                status === "SUCCESS" ||
+                status === "COMPLETED" ||
+                status === "COMPLETE" ||
+                status === "PAID" ||
+                status === "VERIFIED" ||
+                status === "CONFIRMED"
+            );
+        });
+
+
+        const totalRevenue = successfulPayments.reduce(
+            (sum, payment) => {
+                return sum + (Number(payment.amount) || 0);
+            },
+            0
+        );
+
+
+        // ------------------------------------------------------
+        // TODAY / MONTH REVENUE
+        // ------------------------------------------------------
+
+        const now = new Date();
+
+        const today = now.toLocaleDateString("en-CA", {
+            timeZone: "Africa/Nairobi"
+        });
+
+        const month = today.substring(0, 7);
+
+
+        let todayRevenue = 0;
+        let todayCount = 0;
+
+        let monthRevenue = 0;
+        let monthCount = 0;
+
+
+        successfulPayments.forEach(payment => {
+
+            if (!payment.created_at) return;
+
+            const paymentDate = new Date(payment.created_at);
+
+            const localDate = paymentDate.toLocaleDateString(
+                "en-CA",
+                {
+                    timeZone: "Africa/Nairobi"
+                }
+            );
+
+            const localMonth = localDate.substring(0, 7);
+
+            const amount = Number(payment.amount) || 0;
+
+
+            if (localDate === today) {
+
+                todayRevenue += amount;
+                todayCount++;
+
+            }
+
+
+            if (localMonth === month) {
+
+                monthRevenue += amount;
+                monthCount++;
+
+            }
+
+        });
+
+
+        // ------------------------------------------------------
+        // RENDER
+        // ------------------------------------------------------
+
+        const totalMembersEl =
+            document.getElementById("totalMembers");
+
+        const totalAgentsEl =
+            document.getElementById("totalAgents");
+
+        const activeAgentsEl =
+            document.getElementById("activeAgents");
+
+        const totalRevenueEl =
+            document.getElementById("totalRevenue");
+
+
+        if (totalMembersEl) {
+            totalMembersEl.textContent =
+                totalMembers.toLocaleString();
+        }
+
+        if (totalAgentsEl) {
+            totalAgentsEl.textContent =
+                totalAgents.toLocaleString();
+        }
+
+        if (activeAgentsEl) {
+            activeAgentsEl.textContent =
+                activeAgents.toLocaleString();
+        }
+
+        if (totalRevenueEl) {
+            totalRevenueEl.textContent =
+                formatKES(totalRevenue);
+        }
+
+
+        // ------------------------------------------------------
+        // TODAY
+        // ------------------------------------------------------
+
+        const dailyRevenueEl =
+            document.getElementById("dailyRevenue");
+
+        const dailyRevenueCountEl =
+            document.getElementById("dailyRevenueCount");
+
+        if (dailyRevenueEl) {
+            dailyRevenueEl.textContent =
+                formatKES(todayRevenue);
+        }
+
+        if (dailyRevenueCountEl) {
+            dailyRevenueCountEl.textContent =
+                `${todayCount} payment${todayCount === 1 ? "" : "s"}`;
+        }
+
+
+        // ------------------------------------------------------
+        // MONTH
+        // ------------------------------------------------------
+
+        const monthRevenueEl =
+            document.getElementById("monthRevenue");
+
+        const monthRevenueCountEl =
+            document.getElementById("monthRevenueCount");
+
+        const monthRevenueLabelEl =
+            document.getElementById("monthRevenueLabel");
+
+
+        const monthName = now.toLocaleString("en-KE", {
+            month: "long",
+            timeZone: "Africa/Nairobi"
+        });
+
+
+        if (monthRevenueLabelEl) {
+            monthRevenueLabelEl.textContent =
+                `${monthName} Revenue`;
+        }
+
+        if (monthRevenueEl) {
+            monthRevenueEl.textContent =
+                formatKES(monthRevenue);
+        }
+
+        if (monthRevenueCountEl) {
+            monthRevenueCountEl.textContent =
+                `${monthCount} payment${monthCount === 1 ? "" : "s"}`;
+        }
+
+
+        // ------------------------------------------------------
+        // BADGES
+        // ------------------------------------------------------
+
+        const pendingAgentsBadge =
+            document.getElementById("pendingAgentsBadge");
+
+        if (pendingAgentsBadge) {
+            pendingAgentsBadge.textContent = totalAgents;
+        }
+
+
+        const memberCountBadge =
+            document.getElementById("memberCountBadge");
+
+        if (memberCountBadge) {
+            memberCountBadge.textContent = totalMembers;
+        }
+
+
+        console.log("Dashboard statistics loaded:", {
+            totalMembers,
+            totalAgents,
+            activeAgents,
+            todayRevenue,
+            monthRevenue,
+            totalRevenue,
+            successfulPayments: successfulPayments.length
+        });
+
+
+    } catch (err) {
+
+        console.error(
+            "Failed to load dashboard statistics:",
+            err
+        );
+
+
+        [
+            "totalMembers",
+            "totalAgents",
+            "activeAgents"
+        ].forEach(id => {
+
+            const el = document.getElementById(id);
+
+            if (el) {
+                el.textContent = "—";
+            }
+
+        });
+
+
+        console.error(
+            "Dashboard statistics error:",
+            err.message
+        );
+    }
 }
 
-// ------------------------------------------------------------
-// Recent Registrations
-// ------------------------------------------------------------
+
+// ============================================================
+// RECENT MEMBERS
+// ============================================================
 
 async function loadRecentRegistrations() {
-  const container = document.getElementById("recentMembers");
-  if (!container) return;
-  renderLoading(container);
 
-  try {
-    const { data, error } = await supabaseClient
-      .from("members")
-      .select("id, full_name, membership_number, member_status, registration_date, created_at")
-      .order("created_at", { ascending: false })
-      .limit(5);
+    const container =
+        document.getElementById("recentMembers");
 
-    if (error) throw error;
-    if (!data || data.length === 0) {
-      renderEmpty(container, "No members registered yet.");
-      return;
+    if (!container) return;
+
+    renderLoading(container);
+
+
+    try {
+
+        const { data, error } =
+            await supabaseClient
+                .from("members")
+                .select(`
+                    id,
+                    full_name,
+                    membership_number,
+                    member_number,
+                    member_status,
+                    registration_date,
+                    created_at
+                `)
+                .order("created_at", {
+                    ascending: false
+                })
+                .limit(5);
+
+
+        if (error) throw error;
+
+
+        if (!data || data.length === 0) {
+
+            renderEmpty(
+                container,
+                "No members registered yet."
+            );
+
+            return;
+        }
+
+
+        container.innerHTML = `
+            <div class="table-wrapper">
+
+                <table>
+
+                    <thead>
+                        <tr>
+                            <th>Member</th>
+                            <th>Membership #</th>
+                            <th>Status</th>
+                            <th>Registered</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+
+                    <tbody>
+
+                        ${data.map(member => `
+
+                            <tr data-member-row="${escapeHtml(member.id)}">
+
+                                <td>
+                                    ${escapeHtml(member.full_name)}
+                                </td>
+
+                                <td>
+                                    ${escapeHtml(
+                                        member.membership_number ||
+                                        member.member_number ||
+                                        "—"
+                                    )}
+                                </td>
+
+                                <td>
+                                    <span class="status-badge ${statusBadgeClass(member.member_status)}">
+                                        ${escapeHtml(
+                                            member.member_status || "—"
+                                        )}
+                                    </span>
+                                </td>
+
+                                <td>
+                                    ${formatDate(
+                                        member.registration_date ||
+                                        member.created_at
+                                    )}
+                                </td>
+
+                                <td>
+
+                                    <button
+                                        class="btn-sm danger delete-member-btn"
+                                        data-id="${escapeHtml(member.id)}"
+                                        data-name="${escapeHtml(member.full_name)}"
+                                        title="Delete member"
+                                    >
+                                        <i class="fas fa-trash"></i>
+                                    </button>
+
+                                </td>
+
+                            </tr>
+
+                        `).join("")}
+
+                    </tbody>
+
+                </table>
+
+            </div>
+        `;
+
+
+        container
+            .querySelectorAll(".delete-member-btn")
+            .forEach(btn => {
+
+                btn.addEventListener("click", () => {
+
+                    const id =
+                        btn.getAttribute("data-id");
+
+                    const name =
+                        btn.getAttribute("data-name");
+
+                    deleteMember(id, name, btn);
+
+                });
+
+            });
+
+
+    } catch (err) {
+
+        console.error(
+            "Failed to load recent registrations:",
+            err
+        );
+
+        renderError(
+            container,
+            "Couldn't load recent registrations.",
+            loadRecentRegistrations
+        );
     }
-
-    container.innerHTML = `
-      <div class="table-wrapper">
-        <table>
-          <thead>
-            <tr>
-              <th>Member</th>
-              <th>Membership #</th>
-              <th>Status</th>
-              <th>Registered</th>
-              <th>Actions</th>
-            </tr>
-          </thead>
-          <tbody>
-            ${data
-              .map(
-                (m) => `
-              <tr data-member-row="${escapeHtml(m.id)}">
-                <td>${escapeHtml(m.full_name)}</td>
-                <td>${escapeHtml(m.membership_number || "—")}</td>
-                <td><span class="status-badge ${statusBadgeClass(m.member_status)}">${escapeHtml(m.member_status)}</span></td>
-                <td>${formatDate(m.registration_date || m.created_at)}</td>
-                <td>
-                  <button
-                    class="btn-sm danger delete-member-btn"
-                    data-id="${escapeHtml(m.id)}"
-                    data-name="${escapeHtml(m.full_name)}"
-                    title="Delete member"
-                  >
-                    <i class="fas fa-trash"></i>
-                  </button>
-                </td>
-              </tr>`
-              )
-              .join("")}
-          </tbody>
-        </table>
-      </div>`;
-
-    // Wire up delete buttons for this render.
-    container.querySelectorAll(".delete-member-btn").forEach((btn) => {
-      btn.addEventListener("click", () => {
-        const id = btn.getAttribute("data-id");
-        const name = btn.getAttribute("data-name");
-        deleteMember(id, name, btn);
-      });
-    });
-  } catch (err) {
-    console.error("Failed to load recent registrations:", err);
-    renderError(container, "Couldn't load recent registrations.", loadRecentRegistrations);
-  }
 }
 
-// ------------------------------------------------------------
-// Delete a member
-// ------------------------------------------------------------
-// Confirms with the admin, disables the triggering button while
-// the request is in flight, deletes the row from Supabase, then
-// refreshes the registrations list and the stat cards so the
-// dashboard stays in sync.
-//
-// NOTE: This only succeeds if your Supabase Row Level Security
-// policy on `members` allows DELETE for the signed-in admin/staff
-// role. The anon key alone does not grant delete rights — RLS is
-// what actually enforces (or blocks) this.
-// ------------------------------------------------------------
+
+// ============================================================
+// DELETE MEMBER
+// ============================================================
 
 async function deleteMember(id, name, triggerBtn) {
-  if (!id) return;
 
-  const confirmed = window.confirm(
-    `Delete ${name || "this member"}? This cannot be undone.`
-  );
-  if (!confirmed) return;
+    if (!id) return;
 
-  if (triggerBtn) {
-    triggerBtn.disabled = true;
-    triggerBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
-  }
 
-  try {
-    const { error } = await supabaseClient
-      .from("members")
-      .delete()
-      .eq("id", id);
-
-    if (error) throw error;
-
-    // Refresh the list and the stat cards so counts stay accurate.
-    await Promise.all([loadRecentRegistrations(), loadStats()]);
-  } catch (err) {
-    console.error("Failed to delete member:", err);
-    alert(
-      "Couldn't delete this member. " +
-        (err?.message || "Please check your permissions and try again.")
+    const confirmed = window.confirm(
+        `Delete ${name || "this member"}? This cannot be undone.`
     );
+
+
+    if (!confirmed) return;
+
+
     if (triggerBtn) {
-      triggerBtn.disabled = false;
-      triggerBtn.innerHTML = '<i class="fas fa-trash"></i>';
+
+        triggerBtn.disabled = true;
+
+        triggerBtn.innerHTML =
+            '<i class="fas fa-spinner fa-spin"></i>';
     }
-  }
+
+
+    try {
+
+        const { error } =
+            await supabaseClient
+                .from("members")
+                .delete()
+                .eq("id", id);
+
+
+        if (error) throw error;
+
+
+        await Promise.all([
+            loadRecentRegistrations(),
+            loadStats()
+        ]);
+
+
+    } catch (err) {
+
+        console.error(
+            "Failed to delete member:",
+            err
+        );
+
+
+        alert(
+            "Couldn't delete this member. " +
+            (err?.message ||
+                "Please check your permissions and try again.")
+        );
+
+
+        if (triggerBtn) {
+
+            triggerBtn.disabled = false;
+
+            triggerBtn.innerHTML =
+                '<i class="fas fa-trash"></i>';
+        }
+    }
 }
 
-// Exposed in case you want to trigger it from elsewhere (e.g. a
-// future admin-members.html page reusing the same logic).
+
 window.deleteMember = deleteMember;
 
-// ------------------------------------------------------------
-// Recently Added Agents
-// ------------------------------------------------------------
+
+// ============================================================
+// RECENT SALES AGENTS
+// ============================================================
 
 async function loadRecentAgents() {
-  const container = document.getElementById("pendingAgents");
-  if (!container) return;
-  renderLoading(container);
 
-  try {
-    const { data, error } = await supabaseClient
-      .from("staff")
-      .select("id, full_name, employee_number, status, created_at, roles!inner(role_code), branches(branch_name)")
-      .eq("roles.role_code", "SALES_AGENT")
-      .order("created_at", { ascending: false })
-      .limit(5);
+    const container =
+        document.getElementById("pendingAgents");
 
-    if (error) throw error;
-    if (!data || data.length === 0) {
-      renderEmpty(container, "No sales agents added yet.");
-      return;
+    if (!container) return;
+
+    renderLoading(container);
+
+
+    try {
+
+        const { data, error } =
+            await supabaseClient
+                .from("staff")
+                .select(`
+                    id,
+                    full_name,
+                    employee_number,
+                    status,
+                    sales_code,
+                    created_at,
+                    roles!inner(
+                        role_code
+                    ),
+                    branches(
+                        branch_name
+                    )
+                `)
+                .eq("roles.role_code", "SALES_AGENT")
+                .order("created_at", {
+                    ascending: false
+                })
+                .limit(5);
+
+
+        if (error) throw error;
+
+
+        if (!data || data.length === 0) {
+
+            renderEmpty(
+                container,
+                "No sales agents added yet."
+            );
+
+            return;
+        }
+
+
+        container.innerHTML = `
+            <div class="table-wrapper">
+
+                <table>
+
+                    <thead>
+
+                        <tr>
+                            <th>Agent</th>
+                            <th>Sales Code</th>
+                            <th>Branch</th>
+                            <th>Status</th>
+                            <th>Added</th>
+                        </tr>
+
+                    </thead>
+
+                    <tbody>
+
+                        ${data.map(agent => `
+
+                            <tr>
+
+                                <td>
+                                    ${escapeHtml(agent.full_name)}
+                                </td>
+
+                                <td>
+                                    ${escapeHtml(
+                                        agent.sales_code ||
+                                        agent.employee_number ||
+                                        "—"
+                                    )}
+                                </td>
+
+                                <td>
+                                    ${escapeHtml(
+                                        agent.branches?.branch_name ||
+                                        "—"
+                                    )}
+                                </td>
+
+                                <td>
+
+                                    <span class="status-badge ${statusBadgeClass(agent.status)}">
+                                        ${escapeHtml(
+                                            agent.status || "—"
+                                        )}
+                                    </span>
+
+                                </td>
+
+                                <td>
+                                    ${timeAgo(agent.created_at)}
+                                </td>
+
+                            </tr>
+
+                        `).join("")}
+
+                    </tbody>
+
+                </table>
+
+            </div>
+        `;
+
+
+    } catch (err) {
+
+        console.error(
+            "Failed to load recent agents:",
+            err
+        );
+
+        renderError(
+            container,
+            "Couldn't load recent agents.",
+            loadRecentAgents
+        );
     }
-
-    container.innerHTML = `
-      <div class="table-wrapper">
-        <table>
-          <thead>
-            <tr>
-              <th>Agent</th>
-              <th>Employee #</th>
-              <th>Branch</th>
-              <th>Status</th>
-              <th>Added</th>
-            </tr>
-          </thead>
-          <tbody>
-            ${data
-              .map(
-                (a) => `
-              <tr>
-                <td>${escapeHtml(a.full_name)}</td>
-                <td>${escapeHtml(a.employee_number || "—")}</td>
-                <td>${escapeHtml(a.branches?.branch_name || "—")}</td>
-                <td><span class="status-badge ${statusBadgeClass(a.status)}">${escapeHtml(a.status)}</span></td>
-                <td>${timeAgo(a.created_at)}</td>
-              </tr>`
-              )
-              .join("")}
-          </tbody>
-        </table>
-      </div>`;
-  } catch (err) {
-    console.error("Failed to load recent agents:", err);
-    renderError(container, "Couldn't load recent agents.", loadRecentAgents);
-  }
 }
 
-// ------------------------------------------------------------
-// Recent Payments
-// ------------------------------------------------------------
+
+// ============================================================
+// RECENT PAYMENTS
+// ============================================================
 
 async function loadRecentPayments() {
-  const container = document.getElementById("recentPayments");
-  if (!container) return;
-  renderLoading(container);
 
-  try {
-    const { data, error } = await supabaseClient
-      .from("payments")
-      .select("id, amount, payment_status, created_at, members(full_name, membership_number)")
-      .order("created_at", { ascending: false })
-      .limit(5);
+    const container =
+        document.getElementById("recentPayments");
 
-    if (error) throw error;
-    if (!data || data.length === 0) {
-      renderEmpty(container, "No payments recorded yet.");
-      return;
+    if (!container) return;
+
+    renderLoading(container);
+
+
+    try {
+
+        const { data, error } =
+            await supabaseClient
+                .from("payments")
+                .select(`
+                    id,
+                    amount,
+                    payment_status,
+                    status,
+                    created_at,
+                    members(
+                        full_name,
+                        membership_number,
+                        member_number
+                    )
+                `)
+                .order("created_at", {
+                    ascending: false
+                })
+                .limit(5);
+
+
+        if (error) throw error;
+
+
+        if (!data || data.length === 0) {
+
+            renderEmpty(
+                container,
+                "No payments recorded yet."
+            );
+
+            return;
+        }
+
+
+        container.innerHTML = `
+            <div class="table-wrapper">
+
+                <table>
+
+                    <thead>
+
+                        <tr>
+                            <th>Member</th>
+                            <th>Amount</th>
+                            <th>Status</th>
+                            <th>Date</th>
+                        </tr>
+
+                    </thead>
+
+                    <tbody>
+
+                        ${data.map(payment => {
+
+                            const status =
+                                payment.payment_status ||
+                                payment.status ||
+                                "—";
+
+
+                            const member =
+                                payment.members?.full_name ||
+                                "—";
+
+
+                            return `
+
+                                <tr>
+
+                                    <td>
+                                        ${escapeHtml(member)}
+                                    </td>
+
+                                    <td>
+                                        ${formatKES(payment.amount)}
+                                    </td>
+
+                                    <td>
+
+                                        <span class="status-badge ${statusBadgeClass(status)}">
+                                            ${escapeHtml(status)}
+                                        </span>
+
+                                    </td>
+
+                                    <td>
+                                        ${timeAgo(payment.created_at)}
+                                    </td>
+
+                                </tr>
+
+                            `;
+
+                        }).join("")}
+
+                    </tbody>
+
+                </table>
+
+            </div>
+        `;
+
+
+    } catch (err) {
+
+        console.error(
+            "Failed to load recent payments:",
+            err
+        );
+
+        renderError(
+            container,
+            "Couldn't load recent payments.",
+            loadRecentPayments
+        );
     }
-
-    container.innerHTML = `
-      <div class="table-wrapper">
-        <table>
-          <thead>
-            <tr>
-              <th>Member</th>
-              <th>Amount</th>
-              <th>Status</th>
-              <th>Date</th>
-            </tr>
-          </thead>
-          <tbody>
-            ${data
-              .map(
-                (p) => `
-              <tr>
-                <td>${escapeHtml(p.members?.full_name || "—")}</td>
-                <td>${formatKES(p.amount)}</td>
-                <td><span class="status-badge ${statusBadgeClass(p.payment_status)}">${escapeHtml(p.payment_status)}</span></td>
-                <td>${timeAgo(p.created_at)}</td>
-              </tr>`
-              )
-              .join("")}
-          </tbody>
-        </table>
-      </div>`;
-  } catch (err) {
-    console.error("Failed to load recent payments:", err);
-    renderError(container, "Couldn't load recent payments.", loadRecentPayments);
-  }
 }
 
-// ------------------------------------------------------------
-// Exposed for the "Refresh" button in admin-dashboard.html.
-// NOTE: named loadDashboardData (not refreshData / toggleSidebar /
-// handleLogout) so it doesn't collide with the sidebar-toggle and
-// logout functions owned by admin-dashboard.html and admin-auth.js.
-// ------------------------------------------------------------
 
-function loadDashboardData() {
-  return Promise.all([
-    loadStats(),
-    loadRecentRegistrations(),
-    loadRecentAgents(),
-    loadRecentPayments(),
-  ]);
+// ============================================================
+// MASTER DASHBOARD LOADER
+// ============================================================
+
+async function loadDashboardData() {
+
+    await Promise.all([
+        loadStats(),
+        loadRecentRegistrations(),
+        loadRecentAgents(),
+        loadRecentPayments()
+    ]);
 }
+
 
 window.loadDashboardData = loadDashboardData;
