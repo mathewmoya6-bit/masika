@@ -1,1071 +1,1711 @@
+```javascript
 // ============================================================
 // MASIKA BENEVOLENT — ADMIN DASHBOARD
 // ============================================================
-// Loads dashboard statistics directly from the actual database.
 //
-// MEMBERS:
+// Loads dashboard data directly from the actual database.
+//
+// DATABASE
+// ------------------------------------------------------------
+// MEMBERS
 //   public.members
 //
-// SALES AGENTS:
+// SALES AGENTS
 //   public.staff
-//   public.roles.role_code = SALES_AGENT
+//   public.roles
+//   roles.role_code = SALES_AGENT
 //
-// REVENUE:
+// REVENUE
 //   public.payments
-//   payment_status = SUCCESSFUL
 //
-// This version does NOT depend on get_dashboard_stats().
+// MEMBERSHIP NUMBER
+//   members.membership_number
+//
+// IMPORTANT
+// ------------------------------------------------------------
+// The old `member_number` column has been permanently removed.
+//
+// DO NOT reference:
+//     member_number
+//
+// Use ONLY:
+//     membership_number
+//
 // ============================================================
 
-document.addEventListener("admin:authorized", () => {
-    updateDateTime();
-    setInterval(updateDateTime, 60 * 1000);
+(function () {
 
-    loadDashboardData();
-});
+    "use strict";
 
+    // ========================================================
+    // CONFIGURATION
+    // ========================================================
 
-// ============================================================
-// DATE / TIME
-// ============================================================
+    const CONFIG = {
 
-function updateDateTime() {
-    const el = document.getElementById("currentDateTime");
-    if (!el) return;
+        timezone: "Africa/Nairobi",
 
-    const now = new Date();
+        membersTable: "members",
 
-    el.textContent = now.toLocaleString("en-KE", {
-        weekday: "short",
-        year: "numeric",
-        month: "short",
-        day: "numeric",
-        hour: "2-digit",
-        minute: "2-digit",
-        timeZone: "Africa/Nairobi"
-    });
-}
+        staffTable: "staff",
 
+        paymentsTable: "payments",
 
-// ============================================================
-// FORMATTING
-// ============================================================
+        members: {
+            id: "id",
+            fullName: "full_name",
+            membershipNumber: "membership_number",
+            status: "member_status",
+            registrationDate: "registration_date",
+            createdAt: "created_at"
+        },
 
-function formatKES(amount) {
-    const n = Number(amount) || 0;
+        staff: {
+            id: "id",
+            fullName: "full_name",
+            employeeNumber: "employee_number",
+            status: "status",
+            salesCode: "sales_code",
+            roleId: "role_id",
+            createdAt: "created_at"
+        },
 
-    return "KES " + n.toLocaleString("en-KE", {
-        maximumFractionDigits: 0
-    });
-}
+        payments: {
+            id: "id",
+            amount: "amount",
+            paymentStatus: "payment_status",
+            status: "status",
+            createdAt: "created_at",
+            verifiedAt: "verified_at",
+            memberId: "member_id"
+        },
 
+        maxPayments: 20000,
 
-function formatDate(dateStr) {
-    if (!dateStr) return "—";
+        recentLimit: 5,
 
-    const d = new Date(dateStr);
+        dateRefreshMs: 60 * 1000,
 
-    return d.toLocaleDateString("en-KE", {
-        day: "numeric",
-        month: "short",
-        year: "numeric",
-        timeZone: "Africa/Nairobi"
-    });
-}
-
-
-function timeAgo(dateStr) {
-    if (!dateStr) return "—";
-
-    const diffMs = Date.now() - new Date(dateStr).getTime();
-
-    const mins = Math.floor(diffMs / 60000);
-
-    if (mins < 1) return "just now";
-    if (mins < 60) return `${mins}m ago`;
-
-    const hrs = Math.floor(mins / 60);
-
-    if (hrs < 24) return `${hrs}h ago`;
-
-    const days = Math.floor(hrs / 24);
-
-    if (days < 30) return `${days}d ago`;
-
-    return formatDate(dateStr);
-}
-
-
-function statusBadgeClass(status) {
-
-    const value = String(status || "")
-        .trim()
-        .toUpperCase();
-
-    const map = {
-        ACTIVE: "active",
-        INACTIVE: "inactive",
-        SUSPENDED: "inactive",
-        DORMANT: "pending",
-        CANCELLED: "rejected",
-        PENDING: "pending",
-
-        SUCCESSFUL: "paid",
-        SUCCESS: "paid",
-        COMPLETED: "paid",
-        COMPLETE: "paid",
-        PAID: "paid",
-        VERIFIED: "paid",
-        CONFIRMED: "paid",
-
-        FAILED: "rejected",
-        REVERSED: "rejected",
-        PARTIAL: "pending"
+        dashboardRefreshMs: 60 * 1000
     };
 
-    return map[value] || "pending";
-}
+
+    // ========================================================
+    // STATE
+    // ========================================================
+
+    let dateTimer = null;
+
+    let dashboardTimer = null;
+
+    let initialized = false;
+
+    let loading = false;
 
 
-function escapeHtml(str) {
+    // ========================================================
+    // SUCCESSFUL PAYMENT STATUSES
+    // ========================================================
 
-    if (str === null || str === undefined) {
-        return "";
+    const SUCCESS_STATUSES = new Set([
+        "SUCCESS",
+        "SUCCESSFUL",
+        "COMPLETED",
+        "COMPLETE",
+        "PAID",
+        "VERIFIED",
+        "CONFIRMED"
+    ]);
+
+
+    // ========================================================
+    // INITIALIZATION
+    // ========================================================
+
+    document.addEventListener(
+        "admin:authorized",
+        initializeDashboard
+    );
+
+
+    async function initializeDashboard() {
+
+        if (initialized) {
+            return;
+        }
+
+        initialized = true;
+
+        updateDateTime();
+
+        if (!dateTimer) {
+
+            dateTimer = setInterval(
+                updateDateTime,
+                CONFIG.dateRefreshMs
+            );
+
+        }
+
+        await loadDashboardData();
+
+        if (!dashboardTimer) {
+
+            dashboardTimer = setInterval(
+                loadDashboardData,
+                CONFIG.dashboardRefreshMs
+            );
+
+        }
+
     }
 
-    return String(str)
-        .replace(/&/g, "&amp;")
-        .replace(/</g, "&lt;")
-        .replace(/>/g, "&gt;")
-        .replace(/"/g, "&quot;")
-        .replace(/'/g, "&#039;");
-}
 
+    // ========================================================
+    // DATE / TIME
+    // ========================================================
 
-// ============================================================
-// UI HELPERS
-// ============================================================
+    function updateDateTime() {
 
-function renderLoading(container) {
+        const el =
+            document.getElementById(
+                "currentDateTime"
+            );
 
-    if (!container) return;
+        if (!el) {
+            return;
+        }
 
-    container.innerHTML = `
-        <div class="loading-spinner">
-            <div class="spinner"></div>
-            <p>Loading...</p>
-        </div>
-    `;
-}
+        const now = new Date();
 
-
-function renderError(container, message, retryFn) {
-
-    if (!container) return;
-
-    container.innerHTML = `
-        <div class="loading-spinner">
-            <p style="color:var(--danger);margin-bottom:12px;">
-                <i class="fas fa-triangle-exclamation"></i>
-                ${escapeHtml(message)}
-            </p>
-
-            <button class="btn-sm primary" id="retryBtn">
-                <i class="fas fa-rotate-right"></i>
-                Retry
-            </button>
-        </div>
-    `;
-
-    const btn = container.querySelector("#retryBtn");
-
-    if (btn && retryFn) {
-        btn.addEventListener("click", retryFn);
+        el.textContent =
+            now.toLocaleString(
+                "en-KE",
+                {
+                    weekday: "short",
+                    year: "numeric",
+                    month: "short",
+                    day: "numeric",
+                    hour: "2-digit",
+                    minute: "2-digit",
+                    timeZone: CONFIG.timezone
+                }
+            );
     }
-}
 
 
-function renderEmpty(container, message) {
+    // ========================================================
+    // FORMATTING
+    // ========================================================
 
-    if (!container) return;
+    function formatKES(amount) {
 
-    container.innerHTML = `
-        <div class="loading-spinner">
-            <p style="color:var(--text-light);">
-                ${escapeHtml(message)}
-            </p>
-        </div>
-    `;
-}
+        const value =
+            Number(amount) || 0;
+
+        return (
+            "KES " +
+            value.toLocaleString(
+                "en-KE",
+                {
+                    maximumFractionDigits: 0
+                }
+            )
+        );
+    }
 
 
-// ============================================================
-// DASHBOARD STATS
-// ============================================================
+    function formatDate(dateStr) {
 
-async function loadStats() {
+        if (!dateStr) {
+            return "—";
+        }
 
-    try {
+        const date =
+            new Date(dateStr);
 
-        // ------------------------------------------------------
+        if (Number.isNaN(date.getTime())) {
+            return "—";
+        }
+
+        return date.toLocaleDateString(
+            "en-KE",
+            {
+                day: "numeric",
+                month: "short",
+                year: "numeric",
+                timeZone: CONFIG.timezone
+            }
+        );
+    }
+
+
+    function timeAgo(dateStr) {
+
+        if (!dateStr) {
+            return "—";
+        }
+
+        const date =
+            new Date(dateStr);
+
+        if (Number.isNaN(date.getTime())) {
+            return "—";
+        }
+
+        const diffMs =
+            Date.now() -
+            date.getTime();
+
+        const mins =
+            Math.floor(
+                diffMs / 60000
+            );
+
+        if (mins < 1) {
+            return "just now";
+        }
+
+        if (mins < 60) {
+            return `${mins}m ago`;
+        }
+
+        const hours =
+            Math.floor(
+                mins / 60
+            );
+
+        if (hours < 24) {
+            return `${hours}h ago`;
+        }
+
+        const days =
+            Math.floor(
+                hours / 24
+            );
+
+        if (days < 30) {
+            return `${days}d ago`;
+        }
+
+        return formatDate(dateStr);
+    }
+
+
+    // ========================================================
+    // PAYMENT STATUS
+    // ========================================================
+
+    function normalizeStatus(value) {
+
+        return String(value || "")
+            .trim()
+            .toUpperCase();
+
+    }
+
+
+    function isSuccessfulPayment(payment) {
+
+        const paymentStatus =
+            normalizeStatus(
+                payment?.payment_status
+            );
+
+        const status =
+            normalizeStatus(
+                payment?.status
+            );
+
+        return (
+            SUCCESS_STATUSES.has(
+                paymentStatus
+            ) ||
+            SUCCESS_STATUSES.has(
+                status
+            )
+        );
+    }
+
+
+    function statusBadgeClass(status) {
+
+        const value =
+            normalizeStatus(status);
+
+        const map = {
+
+            ACTIVE: "active",
+
+            INACTIVE: "inactive",
+
+            SUSPENDED: "inactive",
+
+            DORMANT: "pending",
+
+            CANCELLED: "rejected",
+
+            PENDING: "pending",
+
+            SUCCESSFUL: "paid",
+
+            SUCCESS: "paid",
+
+            COMPLETED: "paid",
+
+            COMPLETE: "paid",
+
+            PAID: "paid",
+
+            VERIFIED: "paid",
+
+            CONFIRMED: "paid",
+
+            FAILED: "rejected",
+
+            REVERSED: "rejected",
+
+            PARTIAL: "pending"
+
+        };
+
+        return (
+            map[value] ||
+            "pending"
+        );
+    }
+
+
+    // ========================================================
+    // SECURITY / HTML
+    // ========================================================
+
+    function escapeHtml(value) {
+
+        if (
+            value === null ||
+            value === undefined
+        ) {
+            return "";
+        }
+
+        return String(value)
+            .replace(
+                /&/g,
+                "&amp;"
+            )
+            .replace(
+                /</g,
+                "&lt;"
+            )
+            .replace(
+                />/g,
+                "&gt;"
+            )
+            .replace(
+                /"/g,
+                "&quot;"
+            )
+            .replace(
+                /'/g,
+                "&#039;"
+            );
+    }
+
+
+    // ========================================================
+    // UI HELPERS
+    // ========================================================
+
+    function renderLoading(container) {
+
+        if (!container) {
+            return;
+        }
+
+        container.innerHTML = `
+            <div class="loading-spinner">
+                <div class="spinner"></div>
+                <p>Loading...</p>
+            </div>
+        `;
+    }
+
+
+    function renderEmpty(
+        container,
+        message
+    ) {
+
+        if (!container) {
+            return;
+        }
+
+        container.innerHTML = `
+            <div class="loading-spinner">
+                <p style="color:var(--text-light);">
+                    ${escapeHtml(message)}
+                </p>
+            </div>
+        `;
+    }
+
+
+    function renderError(
+        container,
+        message,
+        retryFn
+    ) {
+
+        if (!container) {
+            return;
+        }
+
+        container.innerHTML = `
+            <div class="loading-spinner">
+
+                <p
+                    style="
+                        color:var(--danger);
+                        margin-bottom:12px;
+                    "
+                >
+                    <i class="fas fa-triangle-exclamation"></i>
+                    ${escapeHtml(message)}
+                </p>
+
+                <button
+                    class="btn-sm primary"
+                    id="retryBtn"
+                    type="button"
+                >
+                    <i class="fas fa-rotate-right"></i>
+                    Retry
+                </button>
+
+            </div>
+        `;
+
+        const btn =
+            container.querySelector(
+                "#retryBtn"
+            );
+
+        if (btn && retryFn) {
+
+            btn.addEventListener(
+                "click",
+                retryFn
+            );
+
+        }
+    }
+
+
+    // ========================================================
+    // DASHBOARD STATISTICS
+    // ========================================================
+
+    async function loadStats() {
+
+        // ----------------------------------------------------
         // MEMBERS
-        // ------------------------------------------------------
+        // ----------------------------------------------------
 
-        const membersResult = await supabaseClient
-            .from("members")
-            .select("id", {
-                count: "exact",
-                head: true
-            });
+        const membersResult =
+            await supabaseClient
+                .from(
+                    CONFIG.membersTable
+                )
+                .select(
+                    "id",
+                    {
+                        count: "exact",
+                        head: true
+                    }
+                );
 
         if (membersResult.error) {
+
             throw new Error(
                 "Members query failed: " +
                 membersResult.error.message
             );
         }
 
-        const totalMembers = membersResult.count || 0;
+        const totalMembers =
+            Number(
+                membersResult.count
+            ) || 0;
 
 
-        // ------------------------------------------------------
+        // ----------------------------------------------------
         // SALES AGENTS
-        // ------------------------------------------------------
+        // ----------------------------------------------------
 
-        const agentsResult = await supabaseClient
-            .from("staff")
-            .select(
-                `
-                id,
-                status,
-                role_id,
-                roles!inner(
-                    role_code
+        const agentsResult =
+            await supabaseClient
+                .from(
+                    CONFIG.staffTable
                 )
-                `,
-                {
-                    count: "exact"
-                }
-            )
-            .eq("roles.role_code", "SALES_AGENT");
+                .select(
+                    `
+                        id,
+                        full_name,
+                        status,
+                        sales_code,
+                        employee_number,
+                        role_id,
+                        roles!inner(
+                            role_code
+                        )
+                    `,
+                    {
+                        count: "exact"
+                    }
+                )
+                .eq(
+                    "roles.role_code",
+                    "SALES_AGENT"
+                );
 
         if (agentsResult.error) {
+
             throw new Error(
                 "Sales agents query failed: " +
                 agentsResult.error.message
             );
         }
 
-        const agents = agentsResult.data || [];
+        const agents =
+            agentsResult.data || [];
 
-        const totalAgents = agents.length;
+        const totalAgents =
+            agents.length;
 
-        const activeAgents = agents.filter(agent => {
-
-            const status = String(agent.status || "")
-                .trim()
-                .toUpperCase();
-
-            return status === "ACTIVE";
-
-        }).length;
+        const activeAgents =
+            agents.filter(
+                agent =>
+                    normalizeStatus(
+                        agent.status
+                    ) === "ACTIVE"
+            ).length;
 
 
-        // ------------------------------------------------------
-        // REVENUE
-        // ------------------------------------------------------
+        // ----------------------------------------------------
+        // PAYMENTS
+        // ----------------------------------------------------
 
-        const paymentsResult = await supabaseClient
-            .from("payments")
-            .select(`
-                amount,
-                payment_status,
-                status,
-                verified_at,
-                created_at
-            `)
-            .limit(20000);
+        const paymentsResult =
+            await supabaseClient
+                .from(
+                    CONFIG.paymentsTable
+                )
+                .select(
+                    `
+                        id,
+                        amount,
+                        payment_status,
+                        status,
+                        created_at,
+                        verified_at,
+                        member_id
+                    `
+                )
+                .order(
+                    "created_at",
+                    {
+                        ascending: false
+                    }
+                )
+                .limit(
+                    CONFIG.maxPayments
+                );
 
         if (paymentsResult.error) {
+
             throw new Error(
                 "Payments query failed: " +
                 paymentsResult.error.message
             );
         }
 
-        const payments = paymentsResult.data || [];
+        const payments =
+            paymentsResult.data || [];
 
-        const successfulPayments = payments.filter(payment => {
 
-            const paymentStatus = String(
-                payment.payment_status || ""
-            )
-                .trim()
-                .toUpperCase();
+        // ----------------------------------------------------
+        // SUCCESSFUL PAYMENTS
+        // ----------------------------------------------------
 
-            const status = String(
-                payment.status || ""
-            )
-                .trim()
-                .toUpperCase();
-
-            return (
-                paymentStatus === "SUCCESSFUL" ||
-                paymentStatus === "SUCCESS" ||
-                paymentStatus === "COMPLETED" ||
-                paymentStatus === "COMPLETE" ||
-                paymentStatus === "PAID" ||
-                paymentStatus === "VERIFIED" ||
-                paymentStatus === "CONFIRMED" ||
-
-                status === "SUCCESSFUL" ||
-                status === "SUCCESS" ||
-                status === "COMPLETED" ||
-                status === "COMPLETE" ||
-                status === "PAID" ||
-                status === "VERIFIED" ||
-                status === "CONFIRMED"
+        const successfulPayments =
+            payments.filter(
+                isSuccessfulPayment
             );
-        });
 
 
-        const totalRevenue = successfulPayments.reduce(
-            (sum, payment) => {
-                return sum + (Number(payment.amount) || 0);
-            },
-            0
-        );
+        // ----------------------------------------------------
+        // TOTAL REVENUE
+        // ----------------------------------------------------
+
+        let totalRevenue = 0;
+
+        for (
+            const payment
+            of successfulPayments
+        ) {
+
+            totalRevenue +=
+                Number(
+                    payment.amount
+                ) || 0;
+
+        }
 
 
-        // ------------------------------------------------------
-        // TODAY / MONTH REVENUE
-        // ------------------------------------------------------
+        // ----------------------------------------------------
+        // CURRENT KENYA DATE
+        // ----------------------------------------------------
 
-        const now = new Date();
+        const now =
+            new Date();
 
-        const today = now.toLocaleDateString("en-CA", {
-            timeZone: "Africa/Nairobi"
-        });
-
-        const month = today.substring(0, 7);
-
-
-        let todayRevenue = 0;
-        let todayCount = 0;
-
-        let monthRevenue = 0;
-        let monthCount = 0;
-
-
-        successfulPayments.forEach(payment => {
-
-            if (!payment.created_at) return;
-
-            const paymentDate = new Date(payment.created_at);
-
-            const localDate = paymentDate.toLocaleDateString(
+        const today =
+            now.toLocaleDateString(
                 "en-CA",
                 {
-                    timeZone: "Africa/Nairobi"
+                    timeZone:
+                        CONFIG.timezone
                 }
             );
 
-            const localMonth = localDate.substring(0, 7);
+        const currentMonth =
+            today.substring(
+                0,
+                7
+            );
 
-            const amount = Number(payment.amount) || 0;
+
+        // ----------------------------------------------------
+        // TODAY / MONTH
+        // ----------------------------------------------------
+
+        let todayRevenue = 0;
+
+        let todayCount = 0;
+
+        let monthRevenue = 0;
+
+        let monthCount = 0;
 
 
-            if (localDate === today) {
+        for (
+            const payment
+            of successfulPayments
+        ) {
 
-                todayRevenue += amount;
+            if (
+                !payment.created_at
+            ) {
+                continue;
+            }
+
+            const paymentDate =
+                new Date(
+                    payment.created_at
+                );
+
+            if (
+                Number.isNaN(
+                    paymentDate.getTime()
+                )
+            ) {
+                continue;
+            }
+
+            const localDate =
+                paymentDate.toLocaleDateString(
+                    "en-CA",
+                    {
+                        timeZone:
+                            CONFIG.timezone
+                    }
+                );
+
+            const localMonth =
+                localDate.substring(
+                    0,
+                    7
+                );
+
+            const amount =
+                Number(
+                    payment.amount
+                ) || 0;
+
+
+            if (
+                localDate ===
+                today
+            ) {
+
+                todayRevenue +=
+                    amount;
+
                 todayCount++;
 
             }
 
 
-            if (localMonth === month) {
+            if (
+                localMonth ===
+                currentMonth
+            ) {
 
-                monthRevenue += amount;
+                monthRevenue +=
+                    amount;
+
                 monthCount++;
 
             }
 
-        });
+        }
 
 
-        // ------------------------------------------------------
+        // ----------------------------------------------------
         // RENDER
-        // ------------------------------------------------------
+        // ----------------------------------------------------
 
-        const totalMembersEl =
-            document.getElementById("totalMembers");
-
-        const totalAgentsEl =
-            document.getElementById("totalAgents");
-
-        const activeAgentsEl =
-            document.getElementById("activeAgents");
-
-        const totalRevenueEl =
-            document.getElementById("totalRevenue");
-
-
-        if (totalMembersEl) {
-            totalMembersEl.textContent =
-                totalMembers.toLocaleString();
-        }
-
-        if (totalAgentsEl) {
-            totalAgentsEl.textContent =
-                totalAgents.toLocaleString();
-        }
-
-        if (activeAgentsEl) {
-            activeAgentsEl.textContent =
-                activeAgents.toLocaleString();
-        }
-
-        if (totalRevenueEl) {
-            totalRevenueEl.textContent =
-                formatKES(totalRevenue);
-        }
-
-
-        // ------------------------------------------------------
-        // TODAY
-        // ------------------------------------------------------
-
-        const dailyRevenueEl =
-            document.getElementById("dailyRevenue");
-
-        const dailyRevenueCountEl =
-            document.getElementById("dailyRevenueCount");
-
-        if (dailyRevenueEl) {
-            dailyRevenueEl.textContent =
-                formatKES(todayRevenue);
-        }
-
-        if (dailyRevenueCountEl) {
-            dailyRevenueCountEl.textContent =
-                `${todayCount} payment${todayCount === 1 ? "" : "s"}`;
-        }
-
-
-        // ------------------------------------------------------
-        // MONTH
-        // ------------------------------------------------------
-
-        const monthRevenueEl =
-            document.getElementById("monthRevenue");
-
-        const monthRevenueCountEl =
-            document.getElementById("monthRevenueCount");
-
-        const monthRevenueLabelEl =
-            document.getElementById("monthRevenueLabel");
-
-
-        const monthName = now.toLocaleString("en-KE", {
-            month: "long",
-            timeZone: "Africa/Nairobi"
-        });
-
-
-        if (monthRevenueLabelEl) {
-            monthRevenueLabelEl.textContent =
-                `${monthName} Revenue`;
-        }
-
-        if (monthRevenueEl) {
-            monthRevenueEl.textContent =
-                formatKES(monthRevenue);
-        }
-
-        if (monthRevenueCountEl) {
-            monthRevenueCountEl.textContent =
-                `${monthCount} payment${monthCount === 1 ? "" : "s"}`;
-        }
-
-
-        // ------------------------------------------------------
-        // BADGES
-        // ------------------------------------------------------
-
-        const pendingAgentsBadge =
-            document.getElementById("pendingAgentsBadge");
-
-        if (pendingAgentsBadge) {
-            pendingAgentsBadge.textContent = totalAgents;
-        }
-
-
-        const memberCountBadge =
-            document.getElementById("memberCountBadge");
-
-        if (memberCountBadge) {
-            memberCountBadge.textContent = totalMembers;
-        }
-
-
-        console.log("Dashboard statistics loaded:", {
-            totalMembers,
-            totalAgents,
-            activeAgents,
-            todayRevenue,
-            monthRevenue,
-            totalRevenue,
-            successfulPayments: successfulPayments.length
-        });
-
-
-    } catch (err) {
-
-        console.error(
-            "Failed to load dashboard statistics:",
-            err
-        );
-
-
-        [
+        setText(
             "totalMembers",
-            "totalAgents",
-            "activeAgents"
-        ].forEach(id => {
-
-            const el = document.getElementById(id);
-
-            if (el) {
-                el.textContent = "—";
-            }
-
-        });
-
-
-        console.error(
-            "Dashboard statistics error:",
-            err.message
+            totalMembers.toLocaleString()
         );
-    }
-}
+
+        setText(
+            "totalAgents",
+            totalAgents.toLocaleString()
+        );
+
+        setText(
+            "activeAgents",
+            activeAgents.toLocaleString()
+        );
+
+        setText(
+            "totalRevenue",
+            formatKES(
+                totalRevenue
+            )
+        );
 
 
-// ============================================================
-// RECENT MEMBERS
-// ============================================================
+        // ----------------------------------------------------
+        // TODAY
+        // ----------------------------------------------------
 
-async function loadRecentRegistrations() {
+        setText(
+            "dailyRevenue",
+            formatKES(
+                todayRevenue
+            )
+        );
 
-    const container =
-        document.getElementById("recentMembers");
-
-    if (!container) return;
-
-    renderLoading(container);
-
-
-    try {
-
-        const { data, error } =
-            await supabaseClient
-                .from("members")
-                .select(`
-                    id,
-                    full_name,
-                    membership_number,
-                    member_number,
-                    member_status,
-                    registration_date,
-                    created_at
-                `)
-                .order("created_at", {
-                    ascending: false
-                })
-                .limit(5);
+        setText(
+            "dailyRevenueCount",
+            `${todayCount} payment${
+                todayCount === 1
+                    ? ""
+                    : "s"
+            }`
+        );
 
 
-        if (error) throw error;
+        // ----------------------------------------------------
+        // MONTH
+        // ----------------------------------------------------
 
-
-        if (!data || data.length === 0) {
-
-            renderEmpty(
-                container,
-                "No members registered yet."
+        const monthName =
+            now.toLocaleString(
+                "en-KE",
+                {
+                    month: "long",
+                    timeZone:
+                        CONFIG.timezone
+                }
             );
 
+        setText(
+            "monthRevenueLabel",
+            `${monthName} Revenue`
+        );
+
+        setText(
+            "monthRevenue",
+            formatKES(
+                monthRevenue
+            )
+        );
+
+        setText(
+            "monthRevenueCount",
+            `${monthCount} payment${
+                monthCount === 1
+                    ? ""
+                    : "s"
+            }`
+        );
+
+
+        // ----------------------------------------------------
+        // SIDEBAR BADGES
+        // ----------------------------------------------------
+
+        setText(
+            "pendingAgentsBadge",
+            totalAgents.toLocaleString()
+        );
+
+        setText(
+            "memberCountBadge",
+            totalMembers.toLocaleString()
+        );
+
+
+        console.log(
+            "Masika dashboard statistics:",
+            {
+                totalMembers,
+                totalAgents,
+                activeAgents,
+                todayRevenue,
+                todayCount,
+                monthRevenue,
+                monthCount,
+                totalRevenue,
+                successfulPayments:
+                    successfulPayments.length
+            }
+        );
+
+    }
+
+
+    // ========================================================
+    // RECENT MEMBERS
+    // ========================================================
+
+    async function loadRecentRegistrations() {
+
+        const container =
+            document.getElementById(
+                "recentMembers"
+            );
+
+        if (!container) {
+            return;
+        }
+
+        renderLoading(
+            container
+        );
+
+
+        try {
+
+            const {
+                data,
+                error
+            } =
+                await supabaseClient
+                    .from(
+                        CONFIG.membersTable
+                    )
+                    .select(
+                        `
+                            id,
+                            full_name,
+                            membership_number,
+                            member_status,
+                            registration_date,
+                            created_at
+                        `
+                    )
+                    .order(
+                        "created_at",
+                        {
+                            ascending: false
+                        }
+                    )
+                    .limit(
+                        CONFIG.recentLimit
+                    );
+
+
+            if (error) {
+                throw error;
+            }
+
+
+            if (
+                !data ||
+                data.length === 0
+            ) {
+
+                renderEmpty(
+                    container,
+                    "No members registered yet."
+                );
+
+                return;
+            }
+
+
+            container.innerHTML = `
+                <div class="table-wrapper">
+
+                    <table>
+
+                        <thead>
+
+                            <tr>
+                                <th>Member</th>
+                                <th>Membership #</th>
+                                <th>Status</th>
+                                <th>Registered</th>
+                                <th>Actions</th>
+                            </tr>
+
+                        </thead>
+
+                        <tbody>
+
+                            ${data.map(
+                                member => {
+
+                                    const memberId =
+                                        escapeHtml(
+                                            member.id
+                                        );
+
+                                    const memberName =
+                                        escapeHtml(
+                                            member.full_name ||
+                                            "—"
+                                        );
+
+                                    const membershipNumber =
+                                        escapeHtml(
+                                            member.membership_number ||
+                                            "—"
+                                        );
+
+                                    const status =
+                                        member.member_status ||
+                                        "—";
+
+                                    return `
+
+                                        <tr
+                                            data-member-row="${memberId}"
+                                        >
+
+                                            <td>
+                                                ${memberName}
+                                            </td>
+
+                                            <td>
+                                                <strong>
+                                                    ${membershipNumber}
+                                                </strong>
+                                            </td>
+
+                                            <td>
+
+                                                <span
+                                                    class="status-badge ${statusBadgeClass(status)}"
+                                                >
+                                                    ${escapeHtml(status)}
+                                                </span>
+
+                                            </td>
+
+                                            <td>
+                                                ${formatDate(
+                                                    member.registration_date ||
+                                                    member.created_at
+                                                )}
+                                            </td>
+
+                                            <td>
+
+                                                <button
+                                                    type="button"
+                                                    class="btn-sm danger delete-member-btn"
+                                                    data-id="${memberId}"
+                                                    data-name="${memberName}"
+                                                    title="Delete member"
+                                                >
+                                                    <i class="fas fa-trash"></i>
+                                                </button>
+
+                                            </td>
+
+                                        </tr>
+
+                                    `;
+
+                                }
+                            ).join("")}
+
+                        </tbody>
+
+                    </table>
+
+                </div>
+            `;
+
+
+            container
+                .querySelectorAll(
+                    ".delete-member-btn"
+                )
+                .forEach(
+                    btn => {
+
+                        btn.addEventListener(
+                            "click",
+                            () => {
+
+                                const id =
+                                    btn.getAttribute(
+                                        "data-id"
+                                    );
+
+                                const name =
+                                    btn.getAttribute(
+                                        "data-name"
+                                    );
+
+                                deleteMember(
+                                    id,
+                                    name,
+                                    btn
+                                );
+
+                            }
+                        );
+
+                    }
+                );
+
+
+        } catch (error) {
+
+            console.error(
+                "Failed to load recent registrations:",
+                error
+            );
+
+            renderError(
+                container,
+                "Couldn't load recent registrations.",
+                loadRecentRegistrations
+            );
+
+        }
+
+    }
+
+
+    // ========================================================
+    // DELETE MEMBER
+    // ========================================================
+    //
+    // IMPORTANT:
+    // --------------------------------------------------------
+    // payments.member_id -> members.id currently uses RESTRICT.
+    //
+    // Therefore a direct:
+    //
+    //     .from("members").delete()
+    //
+    // can fail when payments exist.
+    //
+    // The permanent solution is the protected
+    // SUPER_ADMIN delete_member() RPC/function that you
+    // previously requested.
+    //
+    // We therefore attempt the RPC first.
+    //
+    // ========================================================
+
+    async function deleteMember(
+        id,
+        name,
+        triggerBtn
+    ) {
+
+        if (!id) {
             return;
         }
 
 
-        container.innerHTML = `
-            <div class="table-wrapper">
-
-                <table>
-
-                    <thead>
-                        <tr>
-                            <th>Member</th>
-                            <th>Membership #</th>
-                            <th>Status</th>
-                            <th>Registered</th>
-                            <th>Actions</th>
-                        </tr>
-                    </thead>
-
-                    <tbody>
-
-                        ${data.map(member => `
-
-                            <tr data-member-row="${escapeHtml(member.id)}">
-
-                                <td>
-                                    ${escapeHtml(member.full_name)}
-                                </td>
-
-                                <td>
-                                    ${escapeHtml(
-                                        member.membership_number ||
-                                        member.member_number ||
-                                        "—"
-                                    )}
-                                </td>
-
-                                <td>
-                                    <span class="status-badge ${statusBadgeClass(member.member_status)}">
-                                        ${escapeHtml(
-                                            member.member_status || "—"
-                                        )}
-                                    </span>
-                                </td>
-
-                                <td>
-                                    ${formatDate(
-                                        member.registration_date ||
-                                        member.created_at
-                                    )}
-                                </td>
-
-                                <td>
-
-                                    <button
-                                        class="btn-sm danger delete-member-btn"
-                                        data-id="${escapeHtml(member.id)}"
-                                        data-name="${escapeHtml(member.full_name)}"
-                                        title="Delete member"
-                                    >
-                                        <i class="fas fa-trash"></i>
-                                    </button>
-
-                                </td>
-
-                            </tr>
-
-                        `).join("")}
-
-                    </tbody>
-
-                </table>
-
-            </div>
-        `;
+        const confirmed =
+            window.confirm(
+                `Delete ${
+                    name ||
+                    "this member"
+                }?\n\n` +
+                `This action cannot be undone.`
+            );
 
 
-        container
-            .querySelectorAll(".delete-member-btn")
-            .forEach(btn => {
-
-                btn.addEventListener("click", () => {
-
-                    const id =
-                        btn.getAttribute("data-id");
-
-                    const name =
-                        btn.getAttribute("data-name");
-
-                    deleteMember(id, name, btn);
-
-                });
-
-            });
-
-
-    } catch (err) {
-
-        console.error(
-            "Failed to load recent registrations:",
-            err
-        );
-
-        renderError(
-            container,
-            "Couldn't load recent registrations.",
-            loadRecentRegistrations
-        );
-    }
-}
-
-
-// ============================================================
-// DELETE MEMBER
-// ============================================================
-
-async function deleteMember(id, name, triggerBtn) {
-
-    if (!id) return;
-
-
-    const confirmed = window.confirm(
-        `Delete ${name || "this member"}? This cannot be undone.`
-    );
-
-
-    if (!confirmed) return;
-
-
-    if (triggerBtn) {
-
-        triggerBtn.disabled = true;
-
-        triggerBtn.innerHTML =
-            '<i class="fas fa-spinner fa-spin"></i>';
-    }
-
-
-    try {
-
-        const { error } =
-            await supabaseClient
-                .from("members")
-                .delete()
-                .eq("id", id);
-
-
-        if (error) throw error;
-
-
-        await Promise.all([
-            loadRecentRegistrations(),
-            loadStats()
-        ]);
-
-
-    } catch (err) {
-
-        console.error(
-            "Failed to delete member:",
-            err
-        );
-
-
-        alert(
-            "Couldn't delete this member. " +
-            (err?.message ||
-                "Please check your permissions and try again.")
-        );
+        if (!confirmed) {
+            return;
+        }
 
 
         if (triggerBtn) {
 
-            triggerBtn.disabled = false;
+            triggerBtn.disabled = true;
 
             triggerBtn.innerHTML =
-                '<i class="fas fa-trash"></i>';
+                '<i class="fas fa-spinner fa-spin"></i>';
+
         }
-    }
-}
 
 
-window.deleteMember = deleteMember;
+        try {
+
+            // ------------------------------------------------
+            // USE THE DATABASE FUNCTION
+            // ------------------------------------------------
+
+            const {
+                error
+            } =
+                await supabaseClient
+                    .rpc(
+                        "delete_member",
+                        {
+                            p_member_id: id
+                        }
+                    );
 
 
-// ============================================================
-// RECENT SALES AGENTS
-// ============================================================
-
-async function loadRecentAgents() {
-
-    const container =
-        document.getElementById("pendingAgents");
-
-    if (!container) return;
-
-    renderLoading(container);
+            if (error) {
+                throw error;
+            }
 
 
-    try {
-
-        const { data, error } =
-            await supabaseClient
-                .from("staff")
-                .select(`
-                    id,
-                    full_name,
-                    employee_number,
-                    status,
-                    sales_code,
-                    created_at,
-                    roles!inner(
-                        role_code
-                    ),
-                    branches(
-                        branch_name
-                    )
-                `)
-                .eq("roles.role_code", "SALES_AGENT")
-                .order("created_at", {
-                    ascending: false
-                })
-                .limit(5);
+            await Promise.all([
+                loadRecentRegistrations(),
+                loadStats()
+            ]);
 
 
-        if (error) throw error;
-
-
-        if (!data || data.length === 0) {
-
-            renderEmpty(
-                container,
-                "No sales agents added yet."
+            alert(
+                "Member deleted successfully."
             );
 
+
+        } catch (error) {
+
+            console.error(
+                "Failed to delete member:",
+                error
+            );
+
+
+            alert(
+                "Couldn't delete this member.\n\n" +
+                (
+                    error?.message ||
+                    "Please check your permissions."
+                )
+            );
+
+
+            if (triggerBtn) {
+
+                triggerBtn.disabled =
+                    false;
+
+                triggerBtn.innerHTML =
+                    '<i class="fas fa-trash"></i>';
+
+            }
+
+        }
+
+    }
+
+
+    window.deleteMember =
+        deleteMember;
+
+
+    // ========================================================
+    // RECENT SALES AGENTS
+    // ========================================================
+
+    async function loadRecentAgents() {
+
+        const container =
+            document.getElementById(
+                "pendingAgents"
+            );
+
+        if (!container) {
             return;
         }
 
+        renderLoading(
+            container
+        );
 
-        container.innerHTML = `
-            <div class="table-wrapper">
 
-                <table>
+        try {
 
-                    <thead>
+            const {
+                data,
+                error
+            } =
+                await supabaseClient
+                    .from(
+                        CONFIG.staffTable
+                    )
+                    .select(
+                        `
+                            id,
+                            full_name,
+                            employee_number,
+                            status,
+                            sales_code,
+                            created_at,
+                            roles!inner(
+                                role_code
+                            ),
+                            branches(
+                                branch_name
+                            )
+                        `
+                    )
+                    .eq(
+                        "roles.role_code",
+                        "SALES_AGENT"
+                    )
+                    .order(
+                        "created_at",
+                        {
+                            ascending: false
+                        }
+                    )
+                    .limit(
+                        CONFIG.recentLimit
+                    );
 
-                        <tr>
-                            <th>Agent</th>
-                            <th>Sales Code</th>
-                            <th>Branch</th>
-                            <th>Status</th>
-                            <th>Added</th>
-                        </tr>
 
-                    </thead>
+            if (error) {
+                throw error;
+            }
 
-                    <tbody>
 
-                        ${data.map(agent => `
+            if (
+                !data ||
+                data.length === 0
+            ) {
+
+                renderEmpty(
+                    container,
+                    "No sales agents added yet."
+                );
+
+                return;
+            }
+
+
+            container.innerHTML = `
+                <div class="table-wrapper">
+
+                    <table>
+
+                        <thead>
 
                             <tr>
-
-                                <td>
-                                    ${escapeHtml(agent.full_name)}
-                                </td>
-
-                                <td>
-                                    ${escapeHtml(
-                                        agent.sales_code ||
-                                        agent.employee_number ||
-                                        "—"
-                                    )}
-                                </td>
-
-                                <td>
-                                    ${escapeHtml(
-                                        agent.branches?.branch_name ||
-                                        "—"
-                                    )}
-                                </td>
-
-                                <td>
-
-                                    <span class="status-badge ${statusBadgeClass(agent.status)}">
-                                        ${escapeHtml(
-                                            agent.status || "—"
-                                        )}
-                                    </span>
-
-                                </td>
-
-                                <td>
-                                    ${timeAgo(agent.created_at)}
-                                </td>
-
+                                <th>Agent</th>
+                                <th>Sales Code</th>
+                                <th>Branch</th>
+                                <th>Status</th>
+                                <th>Added</th>
                             </tr>
 
-                        `).join("")}
+                        </thead>
 
-                    </tbody>
+                        <tbody>
 
-                </table>
+                            ${data.map(
+                                agent => {
 
-            </div>
-        `;
+                                    const branch =
+                                        Array.isArray(
+                                            agent.branches
+                                        )
+                                            ? agent.branches[0]
+                                            : agent.branches;
+
+                                    return `
+
+                                        <tr>
+
+                                            <td>
+                                                ${escapeHtml(
+                                                    agent.full_name ||
+                                                    "—"
+                                                )}
+                                            </td>
+
+                                            <td>
+                                                <strong>
+                                                    ${escapeHtml(
+                                                        agent.sales_code ||
+                                                        agent.employee_number ||
+                                                        "—"
+                                                    )}
+                                                </strong>
+                                            </td>
+
+                                            <td>
+                                                ${escapeHtml(
+                                                    branch?.branch_name ||
+                                                    "—"
+                                                )}
+                                            </td>
+
+                                            <td>
+
+                                                <span
+                                                    class="status-badge ${statusBadgeClass(agent.status)}"
+                                                >
+                                                    ${escapeHtml(
+                                                        agent.status ||
+                                                        "—"
+                                                    )}
+                                                </span>
+
+                                            </td>
+
+                                            <td>
+                                                ${timeAgo(
+                                                    agent.created_at
+                                                )}
+                                            </td>
+
+                                        </tr>
+
+                                    `;
+
+                                }
+                            ).join("")}
+
+                        </tbody>
+
+                    </table>
+
+                </div>
+            `;
 
 
-    } catch (err) {
+        } catch (error) {
 
-        console.error(
-            "Failed to load recent agents:",
-            err
-        );
-
-        renderError(
-            container,
-            "Couldn't load recent agents.",
-            loadRecentAgents
-        );
-    }
-}
-
-
-// ============================================================
-// RECENT PAYMENTS
-// ============================================================
-
-async function loadRecentPayments() {
-
-    const container =
-        document.getElementById("recentPayments");
-
-    if (!container) return;
-
-    renderLoading(container);
-
-
-    try {
-
-        const { data, error } =
-            await supabaseClient
-                .from("payments")
-                .select(`
-                    id,
-                    amount,
-                    payment_status,
-                    status,
-                    created_at,
-                    members(
-                        full_name,
-                        membership_number,
-                        member_number
-                    )
-                `)
-                .order("created_at", {
-                    ascending: false
-                })
-                .limit(5);
-
-
-        if (error) throw error;
-
-
-        if (!data || data.length === 0) {
-
-            renderEmpty(
-                container,
-                "No payments recorded yet."
+            console.error(
+                "Failed to load recent agents:",
+                error
             );
+
+            renderError(
+                container,
+                "Couldn't load recent agents.",
+                loadRecentAgents
+            );
+
+        }
+
+    }
+
+
+    // ========================================================
+    // RECENT PAYMENTS
+    // ========================================================
+
+    async function loadRecentPayments() {
+
+        const container =
+            document.getElementById(
+                "recentPayments"
+            );
+
+        if (!container) {
+            return;
+        }
+
+        renderLoading(
+            container
+        );
+
+
+        try {
+
+            const {
+                data,
+                error
+            } =
+                await supabaseClient
+                    .from(
+                        CONFIG.paymentsTable
+                    )
+                    .select(
+                        `
+                            id,
+                            amount,
+                            payment_status,
+                            status,
+                            created_at,
+                            members(
+                                full_name,
+                                membership_number
+                            )
+                        `
+                    )
+                    .order(
+                        "created_at",
+                        {
+                            ascending: false
+                        }
+                    )
+                    .limit(
+                        CONFIG.recentLimit
+                    );
+
+
+            if (error) {
+                throw error;
+            }
+
+
+            if (
+                !data ||
+                data.length === 0
+            ) {
+
+                renderEmpty(
+                    container,
+                    "No payments recorded yet."
+                );
+
+                return;
+            }
+
+
+            container.innerHTML = `
+                <div class="table-wrapper">
+
+                    <table>
+
+                        <thead>
+
+                            <tr>
+                                <th>Member</th>
+                                <th>Membership #</th>
+                                <th>Amount</th>
+                                <th>Status</th>
+                                <th>Date</th>
+                            </tr>
+
+                        </thead>
+
+                        <tbody>
+
+                            ${data.map(
+                                payment => {
+
+                                    const status =
+                                        payment.payment_status ||
+                                        payment.status ||
+                                        "—";
+
+                                    const member =
+                                        payment.members?.full_name ||
+                                        "Unassigned";
+
+                                    const membershipNumber =
+                                        payment.members?.membership_number ||
+                                        "—";
+
+                                    return `
+
+                                        <tr>
+
+                                            <td>
+                                                ${escapeHtml(
+                                                    member
+                                                )}
+                                            </td>
+
+                                            <td>
+                                                ${escapeHtml(
+                                                    membershipNumber
+                                                )}
+                                            </td>
+
+                                            <td>
+                                                <strong>
+                                                    ${formatKES(
+                                                        payment.amount
+                                                    )}
+                                                </strong>
+                                            </td>
+
+                                            <td>
+
+                                                <span
+                                                    class="status-badge ${statusBadgeClass(status)}"
+                                                >
+                                                    ${escapeHtml(
+                                                        status
+                                                    )}
+                                                </span>
+
+                                            </td>
+
+                                            <td>
+                                                ${timeAgo(
+                                                    payment.created_at
+                                                )}
+                                            </td>
+
+                                        </tr>
+
+                                    `;
+
+                                }
+                            ).join("")}
+
+                        </tbody>
+
+                    </table>
+
+                </div>
+            `;
+
+
+        } catch (error) {
+
+            console.error(
+                "Failed to load recent payments:",
+                error
+            );
+
+            renderError(
+                container,
+                "Couldn't load recent payments.",
+                loadRecentPayments
+            );
+
+        }
+
+    }
+
+
+    // ========================================================
+    // SMALL DOM HELPER
+    // ========================================================
+
+    function setText(
+        id,
+        value
+    ) {
+
+        const element =
+            document.getElementById(id);
+
+        if (element) {
+            element.textContent =
+                value;
+        }
+
+    }
+
+
+    // ========================================================
+    // MASTER DASHBOARD LOADER
+    // ========================================================
+
+    async function loadDashboardData() {
+
+        if (
+            loading ||
+            typeof supabaseClient ===
+            "undefined" ||
+            !supabaseClient
+        ) {
 
             return;
         }
 
 
-        container.innerHTML = `
-            <div class="table-wrapper">
-
-                <table>
-
-                    <thead>
-
-                        <tr>
-                            <th>Member</th>
-                            <th>Amount</th>
-                            <th>Status</th>
-                            <th>Date</th>
-                        </tr>
-
-                    </thead>
-
-                    <tbody>
-
-                        ${data.map(payment => {
-
-                            const status =
-                                payment.payment_status ||
-                                payment.status ||
-                                "—";
+        loading = true;
 
 
-                            const member =
-                                payment.members?.full_name ||
-                                "—";
+        try {
+
+            await Promise.all([
+                loadStats(),
+                loadRecentRegistrations(),
+                loadRecentAgents(),
+                loadRecentPayments()
+            ]);
 
 
-                            return `
-
-                                <tr>
-
-                                    <td>
-                                        ${escapeHtml(member)}
-                                    </td>
-
-                                    <td>
-                                        ${formatKES(payment.amount)}
-                                    </td>
-
-                                    <td>
-
-                                        <span class="status-badge ${statusBadgeClass(status)}">
-                                            ${escapeHtml(status)}
-                                        </span>
-
-                                    </td>
-
-                                    <td>
-                                        ${timeAgo(payment.created_at)}
-                                    </td>
-
-                                </tr>
-
-                            `;
-
-                        }).join("")}
-
-                    </tbody>
-
-                </table>
-
-            </div>
-        `;
+            console.log(
+                "Masika dashboard loaded successfully."
+            );
 
 
-    } catch (err) {
+        } catch (error) {
 
-        console.error(
-            "Failed to load recent payments:",
-            err
-        );
+            console.error(
+                "Dashboard loading failed:",
+                error
+            );
 
-        renderError(
-            container,
-            "Couldn't load recent payments.",
-            loadRecentPayments
-        );
+        } finally {
+
+            loading = false;
+
+        }
+
     }
-}
 
 
-// ============================================================
-// MASTER DASHBOARD LOADER
-// ============================================================
+    // ========================================================
+    // PUBLIC API
+    // ========================================================
 
-async function loadDashboardData() {
-
-    await Promise.all([
-        loadStats(),
-        loadRecentRegistrations(),
-        loadRecentAgents(),
-        loadRecentPayments()
-    ]);
-}
+    window.loadDashboardData =
+        loadDashboardData;
 
 
-window.loadDashboardData = loadDashboardData;
+    window.MasikaAdminDashboard = {
+
+        refresh:
+            loadDashboardData,
+
+        updateDateTime:
+            updateDateTime
+
+    };
+
+
+})();
+```
