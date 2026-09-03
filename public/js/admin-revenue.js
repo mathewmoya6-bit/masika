@@ -1,4 +1,3 @@
-```javascript
 /**
  * ================================================================
  * MASIKA BENEVOLENT — ADMIN REVENUE
@@ -12,9 +11,12 @@
  *   • Realtime payment updates
  *   • Payment-to-member assignment
  *
- * DATABASE:
+ * ================================================================
+ * DATABASE
+ * ================================================================
  *
  * payments
+ * ├── id
  * ├── amount
  * ├── payment_status
  * ├── status
@@ -27,18 +29,19 @@
  *
  * members
  * ├── id
- * ├── membership_number
- * └── member_number
+ * └── membership_number
  *
  * IMPORTANT:
- * Revenue is based primarily on payment_status/status being
- * SUCCESSFUL/COMPLETED/PAID/etc.
  *
- * We intentionally DO NOT require verified_at to be non-null,
- * because your actual successful payment currently has:
+ * membership_number is the ONLY membership-number field.
  *
- * payment_status = SUCCESSFUL
- * status         = NULL
+ * The old member_number column has been permanently removed.
+ *
+ * DO NOT reference:
+ *
+ *     member_number
+ *
+ * anywhere in this file.
  *
  * ================================================================
  */
@@ -82,16 +85,43 @@
 
         },
 
+
+        /*
+         * SINGLE SOURCE OF TRUTH
+         *
+         * members.membership_number
+         */
         memberNumberColumn: "membership_number",
 
+
+        /*
+         * Kenya timezone
+         */
         timezone: "Africa/Nairobi",
 
+
+        /*
+         * Realtime debounce
+         */
         realtimeDebounceMs: 600,
 
+
+        /*
+         * Safety refresh
+         */
         refreshIntervalMs: 60000,
 
+
+        /*
+         * Maximum successful payment rows
+         * fetched for revenue calculations
+         */
         maxRevenueRows: 20000,
 
+
+        /*
+         * Maximum unassigned payments displayed
+         */
         maxUnassignedRows: 200
 
     };
@@ -104,6 +134,8 @@
     let supabase = null;
 
     let refreshTimer = null;
+
+    let refreshIntervalTimer = null;
 
     let realtimeChannel = null;
 
@@ -139,11 +171,17 @@
 
     function formatKES(value) {
 
-        const amount = Number(value) || 0;
+        const amount =
+            Number(value) || 0;
 
-        return "KES " + amount.toLocaleString("en-KE", {
-            maximumFractionDigits: 0
-        });
+
+        return "KES " +
+            amount.toLocaleString(
+                "en-KE",
+                {
+                    maximumFractionDigits: 0
+                }
+            );
 
     }
 
@@ -154,10 +192,15 @@
 
     function setText(id, text) {
 
-        const element = document.getElementById(id);
+        const element =
+            document.getElementById(id);
+
 
         if (element) {
-            element.textContent = text;
+
+            element.textContent =
+                text;
+
         }
 
     }
@@ -169,15 +212,32 @@
 
     function flashCard(id) {
 
-        const element = document.getElementById(id);
+        const element =
+            document.getElementById(id);
 
-        if (!element) return;
 
-        element.classList.remove("flash");
+        if (!element) {
 
+            return;
+
+        }
+
+
+        element.classList.remove(
+            "flash"
+        );
+
+
+        /*
+         * Force browser reflow so the
+         * animation can restart.
+         */
         void element.offsetWidth;
 
-        element.classList.add("flash");
+
+        element.classList.add(
+            "flash"
+        );
 
     }
 
@@ -186,41 +246,67 @@
     // LIVE INDICATOR
     // ============================================================
 
-    function setLiveIndicator(state, label) {
+    function setLiveIndicator(
+        state,
+        label
+    ) {
 
         const element =
-            document.getElementById("liveIndicator");
+            document.getElementById(
+                "liveIndicator"
+            );
+
 
         const labelElement =
-            document.getElementById("liveIndicatorLabel");
+            document.getElementById(
+                "liveIndicatorLabel"
+            );
 
 
-        if (!element) return;
+        if (!element) {
 
-
-        element.classList.remove(
-            "connected",
-            "error"
-        );
-
-
-        if (state === "connected") {
-
-            element.classList.add("connected");
+            return;
 
         }
 
 
-        if (state === "error") {
+        element.classList.remove(
 
-            element.classList.add("error");
+            "connected",
+
+            "error"
+
+        );
+
+
+        if (
+            state ===
+            "connected"
+        ) {
+
+            element.classList.add(
+                "connected"
+            );
+
+        }
+
+
+        if (
+            state ===
+            "error"
+        ) {
+
+            element.classList.add(
+                "error"
+            );
 
         }
 
 
         if (labelElement) {
 
-            labelElement.textContent = label;
+            labelElement.textContent =
+                label;
 
         }
 
@@ -234,15 +320,22 @@
     function escapeHtml(value) {
 
         if (
+
             value === null ||
+
             value === undefined
+
         ) {
+
             return "";
+
         }
 
 
         const div =
-            document.createElement("div");
+            document.createElement(
+                "div"
+            );
 
 
         div.textContent =
@@ -267,13 +360,19 @@
 
 
         while (
-            typeof window.supabaseClient === "undefined" ||
+
+            typeof window.supabaseClient ===
+                "undefined" ||
+
             !window.supabaseClient
+
         ) {
 
             if (
+
                 Date.now() - start >
                 timeoutMs
+
             ) {
 
                 throw new Error(
@@ -283,8 +382,12 @@
             }
 
 
-            await new Promise(resolve =>
-                setTimeout(resolve, 100)
+            await new Promise(
+                resolve =>
+                    setTimeout(
+                        resolve,
+                        100
+                    )
             );
 
         }
@@ -301,7 +404,9 @@
 
     function normalizeStatus(value) {
 
-        return String(value || "")
+        return String(
+            value || ""
+        )
             .trim()
             .toUpperCase();
 
@@ -316,26 +421,43 @@
 
         const paymentStatus =
             normalizeStatus(
-                row[CONFIG.columns.paymentStatus]
+
+                row[
+                    CONFIG.columns.paymentStatus
+                ]
+
             );
 
 
         const status =
             normalizeStatus(
-                row[CONFIG.columns.status]
+
+                row[
+                    CONFIG.columns.status
+                ]
+
             );
 
 
         return (
-            SUCCESS_STATUSES.has(paymentStatus) ||
-            SUCCESS_STATUSES.has(status)
+
+            SUCCESS_STATUSES.has(
+                paymentStatus
+            )
+
+            ||
+
+            SUCCESS_STATUSES.has(
+                status
+            )
+
         );
 
     }
 
 
     // ============================================================
-    // GET KENYA TIME BOUNDS
+    // GET EAST AFRICA TIME BOUNDS
     // ============================================================
 
     function getEATBounds() {
@@ -344,10 +466,16 @@
             new Date();
 
 
+        /*
+         * Kenya is UTC+3.
+         */
         const eatNow =
             new Date(
+
                 now.getTime() +
+
                 3 * 60 * 60 * 1000
+
             );
 
 
@@ -363,31 +491,63 @@
             eatNow.getUTCDate();
 
 
+        /*
+         * Start of today in Kenya,
+         * converted back to UTC.
+         */
         const startOfTodayUTC =
             new Date(
+
                 Date.UTC(
+
                     year,
+
                     month,
+
                     day,
+
                     0,
+
                     0,
+
                     0
-                ) -
+
+                )
+
+                -
+
                 3 * 60 * 60 * 1000
+
             );
 
 
+        /*
+         * Start of current month in Kenya,
+         * converted back to UTC.
+         */
         const startOfMonthUTC =
             new Date(
+
                 Date.UTC(
+
                     year,
+
                     month,
+
                     1,
+
                     0,
+
                     0,
+
                     0
-                ) -
+
+                )
+
+                -
+
                 3 * 60 * 60 * 1000
+
             );
 
 
@@ -414,26 +574,49 @@
             CONFIG.columns;
 
 
-        const { data, error } =
-            await supabase
-                .from(CONFIG.table)
-                .select(`
-                    ${c.amount},
-                    ${c.paymentStatus},
-                    ${c.status},
-                    ${c.verifiedAt},
-                    ${c.createdAt},
-                    ${c.memberId}
-                `)
-                .order(
-                    c.createdAt,
-                    {
-                        ascending: false
-                    }
-                )
-                .limit(
-                    CONFIG.maxRevenueRows
-                );
+        const {
+
+            data,
+
+            error
+
+        } = await supabase
+
+            .from(
+                CONFIG.table
+            )
+
+            .select(`
+
+                ${c.amount},
+
+                ${c.paymentStatus},
+
+                ${c.status},
+
+                ${c.verifiedAt},
+
+                ${c.createdAt},
+
+                ${c.memberId}
+
+            `)
+
+            .order(
+
+                c.createdAt,
+
+                {
+                    ascending: false
+                }
+
+            )
+
+            .limit(
+
+                CONFIG.maxRevenueRows
+
+            );
 
 
         if (error) {
@@ -443,8 +626,15 @@
         }
 
 
-        return (data || [])
-            .filter(isSuccessfulPayment);
+        return (
+
+            data || []
+
+        ).filter(
+
+            isSuccessfulPayment
+
+        );
 
     }
 
@@ -459,34 +649,65 @@
             CONFIG.columns;
 
 
-        const { data, error } =
-            await supabase
-                .from(CONFIG.table)
-                .select(`
-                    ${c.id},
-                    ${c.amount},
-                    ${c.paymentStatus},
-                    ${c.status},
-                    ${c.verifiedAt},
-                    ${c.createdAt},
-                    ${c.memberId},
-                    ${c.accountRef},
-                    ${c.phone},
-                    ${c.mpesaCode}
-                `)
-                .is(
-                    c.memberId,
-                    null
-                )
-                .order(
-                    c.createdAt,
-                    {
-                        ascending: false
-                    }
-                )
-                .limit(
-                    CONFIG.maxUnassignedRows
-                );
+        const {
+
+            data,
+
+            error
+
+        } = await supabase
+
+            .from(
+                CONFIG.table
+            )
+
+            .select(`
+
+                ${c.id},
+
+                ${c.amount},
+
+                ${c.paymentStatus},
+
+                ${c.status},
+
+                ${c.verifiedAt},
+
+                ${c.createdAt},
+
+                ${c.memberId},
+
+                ${c.accountRef},
+
+                ${c.phone},
+
+                ${c.mpesaCode}
+
+            `)
+
+            .is(
+
+                c.memberId,
+
+                null
+
+            )
+
+            .order(
+
+                c.createdAt,
+
+                {
+                    ascending: false
+                }
+
+            )
+
+            .limit(
+
+                CONFIG.maxUnassignedRows
+
+            );
 
 
         if (error) {
@@ -496,8 +717,15 @@
         }
 
 
-        return (data || [])
-            .filter(isSuccessfulPayment);
+        return (
+
+            data || []
+
+        ).filter(
+
+            isSuccessfulPayment
+
+        );
 
     }
 
@@ -513,10 +741,12 @@
 
 
         const {
+
             startOfToday,
+
             startOfMonth
-        } =
-            getEATBounds();
+
+        } = getEATBounds();
 
 
         let dailyTotal = 0;
@@ -532,7 +762,9 @@
         let allCount = 0;
 
 
-        for (const row of rows) {
+        for (
+            const row of rows
+        ) {
 
             const amount =
                 Number(
@@ -544,34 +776,51 @@
                 row[c.createdAt];
 
 
+            /*
+             * All-time revenue
+             */
             allTotal += amount;
 
             allCount++;
 
 
             if (!createdAt) {
+
                 continue;
+
             }
 
 
+            /*
+             * Current month
+             */
             if (
+
                 createdAt >=
                 startOfMonth
+
             ) {
 
-                monthTotal += amount;
+                monthTotal +=
+                    amount;
 
                 monthCount++;
 
             }
 
 
+            /*
+             * Today
+             */
             if (
+
                 createdAt >=
                 startOfToday
+
             ) {
 
-                dailyTotal += amount;
+                dailyTotal +=
+                    amount;
 
                 dailyCount++;
 
@@ -605,77 +854,117 @@
 
     function renderRevenue(stats) {
 
+        /*
+         * TODAY
+         */
         setText(
+
             "dailyRevenue",
+
             formatKES(
                 stats.dailyTotal
             )
+
         );
 
 
         setText(
+
             "dailyRevenueCount",
+
             `${stats.dailyCount} payment${
                 stats.dailyCount === 1
                     ? ""
                     : "s"
             }`
+
         );
 
 
+        /*
+         * MONTH
+         */
         const monthLabel =
             new Date().toLocaleString(
+
                 "en-KE",
+
                 {
-                    month: "long",
+
+                    month:
+                        "long",
+
                     timeZone:
                         CONFIG.timezone
+
                 }
+
             );
 
 
         setText(
+
             "monthRevenueLabel",
+
             `${monthLabel} Revenue`
+
         );
 
 
         setText(
+
             "monthRevenue",
+
             formatKES(
                 stats.monthTotal
             )
+
         );
 
 
         setText(
+
             "monthRevenueCount",
+
             `${stats.monthCount} payment${
                 stats.monthCount === 1
                     ? ""
                     : "s"
             }`
+
         );
 
 
+        /*
+         * ALL TIME
+         */
         setText(
+
             "totalRevenue",
+
             formatKES(
                 stats.allTotal
             )
+
         );
 
 
         setText(
+
             "totalRevenueCount",
+
             `${stats.allCount} payment${
                 stats.allCount === 1
                     ? ""
                     : "s"
             } all-time`
+
         );
 
 
+        /*
+         * Visual update
+         */
         flashCard(
             "dailyRevenueCard"
         );
@@ -727,19 +1016,38 @@
             );
 
 
+        /*
+         * Calculate unmatched amount.
+         */
         const total =
             rows.reduce(
-                (sum, row) =>
-                    sum +
-                    (
-                        Number(
-                            row[c.amount]
-                        ) || 0
-                    ),
+
+                (sum, row) => {
+
+                    return (
+
+                        sum +
+
+                        (
+
+                            Number(
+                                row[c.amount]
+                            ) || 0
+
+                        )
+
+                    );
+
+                },
+
                 0
+
             );
 
 
+        /*
+         * Badge
+         */
         if (badge) {
 
             badge.textContent =
@@ -748,6 +1056,9 @@
         }
 
 
+        /*
+         * Count
+         */
         if (countEl) {
 
             countEl.textContent =
@@ -756,6 +1067,9 @@
         }
 
 
+        /*
+         * Amount
+         */
         if (amountEl) {
 
             amountEl.textContent =
@@ -770,13 +1084,21 @@
 
 
         if (!container) {
+
             return;
+
         }
 
 
-        if (rows.length === 0) {
+        /*
+         * No unmatched payments.
+         */
+        if (
+            rows.length === 0
+        ) {
 
             container.innerHTML = `
+
                 <div class="empty-state">
 
                     <i
@@ -788,12 +1110,15 @@
                     ></i>
 
                     <p style="margin-top:8px;">
+
                         No unassigned payments —
                         every successful payment
                         is matched to a member.
+
                     </p>
 
                 </div>
+
             `;
 
             return;
@@ -801,61 +1126,124 @@
         }
 
 
+        /*
+         * Build table.
+         */
         const tableRows =
+
             rows.map(row => {
 
+                /*
+                 * Date
+                 */
                 const date =
+
                     row[c.createdAt]
+
                         ? new Date(
+
                             row[c.createdAt]
+
                         ).toLocaleString(
+
                             "en-KE",
+
                             {
-                                day: "2-digit",
-                                month: "short",
-                                year: "numeric",
-                                hour: "2-digit",
-                                minute: "2-digit",
+
+                                day:
+                                    "2-digit",
+
+                                month:
+                                    "short",
+
+                                year:
+                                    "numeric",
+
+                                hour:
+                                    "2-digit",
+
+                                minute:
+                                    "2-digit",
+
                                 timeZone:
                                     CONFIG.timezone
+
                             }
+
                         )
+
                         : "—";
 
 
+                /*
+                 * Account reference
+                 */
                 const reference =
+
                     row[c.accountRef]
+
                         ? escapeHtml(
+
                             String(
                                 row[c.accountRef]
                             )
+
                         )
+
                         : "<em>blank</em>";
 
 
+                /*
+                 * Phone
+                 */
                 const phone =
+
                     row[c.phone]
+
                         ? escapeHtml(
+
                             String(
                                 row[c.phone]
                             )
+
                         )
+
                         : "—";
 
 
+                /*
+                 * M-Pesa receipt
+                 */
                 const mpesaCode =
+
                     row[c.mpesaCode]
+
                         ? escapeHtml(
+
                             String(
                                 row[c.mpesaCode]
                             )
+
                         )
+
                         : "—";
 
 
+                /*
+                 * Amount
+                 */
                 const amount =
                     formatKES(
                         row[c.amount]
+                    );
+
+
+                /*
+                 * Payment ID
+                 */
+                const paymentId =
+                    escapeHtml(
+                        row[c.id]
                     );
 
 
@@ -863,9 +1251,7 @@
 
                     <tr
                         class="row-mismatch"
-                        id="unassigned-row-${escapeHtml(
-                            row[c.id]
-                        )}"
+                        id="unassigned-row-${paymentId}"
                     >
 
                         <td>
@@ -891,10 +1277,9 @@
                         <td>
 
                             <button
+                                type="button"
                                 class="btn-sm gold"
-                                onclick="AdminRevenue.assignPayment('${escapeHtml(
-                                    row[c.id]
-                                )}')"
+                                onclick="AdminRevenue.assignPayment('${paymentId}')"
                             >
 
                                 <i class="fas fa-link"></i>
@@ -910,9 +1295,13 @@
                 `;
 
             })
+
             .join("");
 
 
+        /*
+         * Render table.
+         */
         container.innerHTML = `
 
             <div class="table-wrapper">
@@ -931,11 +1320,17 @@
                                 Reference Entered
                             </th>
 
-                            <th>Phone</th>
+                            <th>
+                                Phone
+                            </th>
 
-                            <th>M-Pesa Code</th>
+                            <th>
+                                M-Pesa Code
+                            </th>
 
-                            <th>Action</th>
+                            <th>
+                                Action
+                            </th>
 
                         </tr>
 
@@ -965,27 +1360,39 @@
     ) {
 
         if (!paymentId) {
+
             return;
+
         }
 
 
+        /*
+         * Ask administrator for the
+         * authoritative membership number.
+         */
         const input =
             window.prompt(
+
                 "Enter the correct membership number:"
+
             );
 
 
         if (!input) {
+
             return;
+
         }
 
 
-        const memberNumber =
+        const membershipNumber =
             input.trim();
 
 
-        if (!memberNumber) {
+        if (!membershipNumber) {
+
             return;
+
         }
 
 
@@ -996,22 +1403,34 @@
             // ----------------------------------------------------
 
             const {
+
                 data: member,
+
                 error: lookupError
-            } =
-                await supabase
-                    .from(
-                        CONFIG.membersTable
-                    )
-                    .select(`
-                        id,
-                        membership_number,
-                        member_number
-                    `)
-                    .or(
-                        `membership_number.eq.${memberNumber},member_number.eq.${memberNumber}`
-                    )
-                    .maybeSingle();
+
+            } = await supabase
+
+                .from(
+                    CONFIG.membersTable
+                )
+
+                .select(`
+
+                    id,
+
+                    membership_number
+
+                `)
+
+                .eq(
+
+                    CONFIG.memberNumberColumn,
+
+                    membershipNumber
+
+                )
+
+                .maybeSingle();
 
 
             if (lookupError) {
@@ -1021,10 +1440,15 @@
             }
 
 
+            /*
+             * Membership number does not exist.
+             */
             if (!member) {
 
                 alert(
-                    `No member found with number "${memberNumber}".`
+
+                    `No member found with membership number "${membershipNumber}".`
+
                 );
 
                 return;
@@ -1037,22 +1461,29 @@
             // ----------------------------------------------------
 
             const {
+
                 error: updateError
-            } =
-                await supabase
-                    .from(
-                        CONFIG.table
-                    )
-                    .update({
 
-                        [CONFIG.columns.memberId]:
-                            member.id
+            } = await supabase
 
-                    })
-                    .eq(
-                        CONFIG.columns.id,
-                        paymentId
-                    );
+                .from(
+                    CONFIG.table
+                )
+
+                .update({
+
+                    [CONFIG.columns.memberId]:
+                        member.id
+
+                })
+
+                .eq(
+
+                    CONFIG.columns.id,
+
+                    paymentId
+
+                );
 
 
             if (updateError) {
@@ -1068,7 +1499,9 @@
 
             const row =
                 document.getElementById(
+
                     `unassigned-row-${paymentId}`
+
                 );
 
 
@@ -1086,29 +1519,40 @@
             await refreshAll();
 
 
+            // ----------------------------------------------------
+            // SUCCESS
+            // ----------------------------------------------------
+
             alert(
-                `Payment successfully assigned to ${
-                    member.membership_number ||
-                    member.member_number ||
-                    memberNumber
-                }.`
+
+                `Payment successfully assigned to ${member.membership_number}.`
+
             );
 
 
         } catch (error) {
 
             console.error(
+
                 "assignPayment failed:",
+
                 error
+
             );
 
 
             alert(
+
                 "Could not assign this payment.\n\n" +
+
                 (
+
                     error?.message ||
+
                     "Please check your permissions and try again."
+
                 )
+
             );
 
         }
@@ -1123,23 +1567,27 @@
     async function refreshAll() {
 
         if (!supabase) {
+
             return;
+
         }
 
 
         try {
 
             const [
+
                 revenueRows,
+
                 unassignedRows
-            ] =
-                await Promise.all([
 
-                    fetchAllRevenueRows(),
+            ] = await Promise.all([
 
-                    fetchUnassignedRows()
+                fetchAllRevenueRows(),
 
-                ]);
+                fetchUnassignedRows()
+
+            ]);
 
 
             const stats =
@@ -1159,14 +1607,20 @@
 
 
             setLiveIndicator(
+
                 "connected",
+
                 "Live"
+
             );
 
 
             console.log(
+
                 "Masika revenue refreshed:",
+
                 {
+
                     successfulPayments:
                         revenueRows.length,
 
@@ -1181,21 +1635,29 @@
 
                     unassignedPayments:
                         unassignedRows.length
+
                 }
+
             );
 
 
         } catch (error) {
 
             console.error(
+
                 "AdminRevenue refresh failed:",
+
                 error
+
             );
 
 
             setLiveIndicator(
+
                 "error",
+
                 "Data error"
+
             );
 
         }
@@ -1215,9 +1677,13 @@
 
 
         refreshTimer =
+
             setTimeout(
+
                 refreshAll,
+
                 CONFIG.realtimeDebounceMs
+
             );
 
     }
@@ -1230,10 +1696,15 @@
     function setupRealtime() {
 
         if (!supabase) {
+
             return;
+
         }
 
 
+        /*
+         * Remove previous channel if one exists.
+         */
         if (realtimeChannel) {
 
             try {
@@ -1245,8 +1716,11 @@
             } catch (error) {
 
                 console.warn(
+
                     "Could not remove old realtime channel:",
+
                     error
+
                 );
 
             }
@@ -1254,91 +1728,145 @@
         }
 
 
+        /*
+         * Create payment realtime channel.
+         */
         realtimeChannel =
+
             supabase
+
                 .channel(
                     "masika-admin-dashboard-payments"
                 )
+
                 .on(
+
                     "postgres_changes",
 
                     {
+
                         event: "*",
+
                         schema: "public",
-                        table: CONFIG.table
+
+                        table:
+                            CONFIG.table
+
                     },
 
                     payload => {
 
                         console.log(
+
                             "Payment database change:",
+
                             payload.eventType
+
                         );
 
 
                         scheduleRefresh();
 
                     }
+
                 )
+
                 .subscribe(
+
                     status => {
 
                         console.log(
+
                             "Payment realtime status:",
+
                             status
+
                         );
 
 
                         if (
+
                             status ===
                             "SUBSCRIBED"
+
                         ) {
 
                             setLiveIndicator(
+
                                 "connected",
+
                                 "Live"
+
                             );
 
                         }
 
 
                         else if (
+
                             status ===
-                            "CHANNEL_ERROR" ||
+                                "CHANNEL_ERROR"
+
+                            ||
+
                             status ===
-                            "TIMED_OUT"
+                                "TIMED_OUT"
+
                         ) {
 
                             setLiveIndicator(
+
                                 "error",
+
                                 "Reconnecting…"
+
                             );
 
                         }
 
 
                         else if (
+
                             status ===
                             "CLOSED"
+
                         ) {
 
                             setLiveIndicator(
+
                                 "error",
+
                                 "Disconnected"
+
                             );
 
                         }
 
                     }
+
                 );
 
 
-        // Safety refresh every minute.
+        /*
+         * Safety refresh every minute.
+         *
+         * Prevent duplicate intervals.
+         */
+        if (
+            !refreshIntervalTimer
+        ) {
 
-        setInterval(
-            refreshAll,
-            CONFIG.refreshIntervalMs
-        );
+            refreshIntervalTimer =
+
+                setInterval(
+
+                    refreshAll,
+
+                    CONFIG.refreshIntervalMs
+
+                );
+
+        }
 
     }
 
@@ -1350,7 +1878,9 @@
     async function init() {
 
         if (initialized) {
+
             return;
+
         }
 
 
@@ -1359,32 +1889,50 @@
 
         try {
 
+            /*
+             * Wait for Supabase.
+             */
             supabase =
+
                 await waitForSupabaseClient();
 
 
             console.log(
+
                 "Masika AdminRevenue initialized."
+
             );
 
 
+            /*
+             * Initial load.
+             */
             await refreshAll();
 
 
+            /*
+             * Enable realtime.
+             */
             setupRealtime();
 
 
         } catch (error) {
 
             console.error(
+
                 "AdminRevenue initialization failed:",
+
                 error
+
             );
 
 
             setLiveIndicator(
+
                 "error",
+
                 "Offline"
+
             );
 
         }
@@ -1412,16 +1960,23 @@
     // ============================================================
 
     if (
+
         document.readyState ===
         "loading"
+
     ) {
 
         document.addEventListener(
+
             "DOMContentLoaded",
+
             init
+
         );
 
-    } else {
+    }
+
+    else {
 
         init();
 
@@ -1429,4 +1984,3 @@
 
 
 })();
-```
