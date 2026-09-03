@@ -25,23 +25,21 @@
  * ├── member_id
  * ├── account_reference
  * ├── phone_number
- * └── mpesa_receipt
+ * ├── mpesa_receipt
+ * └── mpesa_receipt_number
  *
  * members
  * ├── id
- * └── membership_number
+ * └── member_number
  *
  * IMPORTANT:
  *
- * membership_number is the ONLY membership-number field.
+ * member_number is the ONE AND ONLY membership-number field.
  *
- * The old member_number column has been permanently removed.
+ * member_id is the UUID foreign key linking payments.member_id
+ * to members.id.
  *
- * DO NOT reference:
- *
- *     member_number
- *
- * anywhere in this file.
+ * DO NOT use membership_number anywhere in this file.
  *
  * ================================================================
  */
@@ -81,17 +79,27 @@
 
             phone: "phone_number",
 
-            mpesaCode: "mpesa_receipt"
+            /*
+             * Original M-Pesa receipt field.
+             */
+            mpesaCode: "mpesa_receipt",
+
+            /*
+             * New / additional M-Pesa receipt field.
+             */
+            mpesaReceiptNumber: "mpesa_receipt_number"
 
         },
 
 
         /*
+         * ========================================================
          * SINGLE SOURCE OF TRUTH
+         * ========================================================
          *
-         * members.membership_number
+         * members.member_number
          */
-        memberNumberColumn: "membership_number",
+        memberNumberColumn: "member_number",
 
 
         /*
@@ -113,14 +121,14 @@
 
 
         /*
-         * Maximum successful payment rows
-         * fetched for revenue calculations
+         * Maximum successful payment rows fetched
+         * for revenue calculations.
          */
         maxRevenueRows: 20000,
 
 
         /*
-         * Maximum unassigned payments displayed
+         * Maximum unassigned payments displayed.
          */
         maxUnassignedRows: 200
 
@@ -457,7 +465,16 @@
 
 
     // ============================================================
-    // GET EAST AFRICA TIME BOUNDS
+    // GET KENYA TIME BOUNDS
+    // ============================================================
+    //
+    // Kenya uses UTC+3 and does not observe DST.
+    //
+    // Returns:
+    //   startOfToday
+    //   startOfMonth
+    //
+    // Both are ISO UTC timestamps.
     // ============================================================
 
     function getEATBounds() {
@@ -560,6 +577,35 @@
                 startOfMonthUTC.toISOString()
 
         };
+
+    }
+
+
+    // ============================================================
+    // GET TRANSACTION DATE
+    // ============================================================
+    //
+    // Prefer verified_at because it represents the time the
+    // payment was verified successfully.
+    //
+    // Fall back to created_at for older records.
+    // ============================================================
+
+    function getTransactionDate(row) {
+
+        const c =
+            CONFIG.columns;
+
+
+        return (
+
+            row[c.verifiedAt] ||
+
+            row[c.createdAt] ||
+
+            null
+
+        );
 
     }
 
@@ -681,7 +727,9 @@
 
                 ${c.phone},
 
-                ${c.mpesaCode}
+                ${c.mpesaCode},
+
+                ${c.mpesaReceiptNumber}
 
             `)
 
@@ -772,31 +820,40 @@
                 ) || 0;
 
 
-            const createdAt =
-                row[c.createdAt];
-
-
             /*
-             * All-time revenue
+             * Prefer verified_at.
+             *
+             * Fall back to created_at.
              */
+            const transactionDate =
+                getTransactionDate(
+                    row
+                );
+
+
+            // ----------------------------------------------------
+            // ALL-TIME REVENUE
+            // ----------------------------------------------------
+
             allTotal += amount;
 
             allCount++;
 
 
-            if (!createdAt) {
+            if (!transactionDate) {
 
                 continue;
 
             }
 
 
-            /*
-             * Current month
-             */
+            // ----------------------------------------------------
+            // CURRENT MONTH
+            // ----------------------------------------------------
+
             if (
 
-                createdAt >=
+                transactionDate >=
                 startOfMonth
 
             ) {
@@ -809,12 +866,13 @@
             }
 
 
-            /*
-             * Today
-             */
+            // ----------------------------------------------------
+            // TODAY
+            // ----------------------------------------------------
+
             if (
 
-                createdAt >=
+                transactionDate >=
                 startOfToday
 
             ) {
@@ -854,9 +912,10 @@
 
     function renderRevenue(stats) {
 
-        /*
-         * TODAY
-         */
+        // --------------------------------------------------------
+        // TODAY
+        // --------------------------------------------------------
+
         setText(
 
             "dailyRevenue",
@@ -881,9 +940,10 @@
         );
 
 
-        /*
-         * MONTH
-         */
+        // --------------------------------------------------------
+        // MONTH
+        // --------------------------------------------------------
+
         const monthLabel =
             new Date().toLocaleString(
 
@@ -935,9 +995,10 @@
         );
 
 
-        /*
-         * ALL TIME
-         */
+        // --------------------------------------------------------
+        // ALL TIME
+        // --------------------------------------------------------
+
         setText(
 
             "totalRevenue",
@@ -962,9 +1023,10 @@
         );
 
 
-        /*
-         * Visual update
-         */
+        // --------------------------------------------------------
+        // VISUAL UPDATE
+        // --------------------------------------------------------
+
         flashCard(
             "dailyRevenueCard"
         );
@@ -1016,9 +1078,10 @@
             );
 
 
-        /*
-         * Calculate unmatched amount.
-         */
+        // --------------------------------------------------------
+        // CALCULATE UNMATCHED AMOUNT
+        // --------------------------------------------------------
+
         const total =
             rows.reduce(
 
@@ -1045,9 +1108,10 @@
             );
 
 
-        /*
-         * Badge
-         */
+        // --------------------------------------------------------
+        // BADGE
+        // --------------------------------------------------------
+
         if (badge) {
 
             badge.textContent =
@@ -1056,9 +1120,10 @@
         }
 
 
-        /*
-         * Count
-         */
+        // --------------------------------------------------------
+        // COUNT
+        // --------------------------------------------------------
+
         if (countEl) {
 
             countEl.textContent =
@@ -1067,9 +1132,10 @@
         }
 
 
-        /*
-         * Amount
-         */
+        // --------------------------------------------------------
+        // AMOUNT
+        // --------------------------------------------------------
+
         if (amountEl) {
 
             amountEl.textContent =
@@ -1090,9 +1156,10 @@
         }
 
 
-        /*
-         * No unmatched payments.
-         */
+        // --------------------------------------------------------
+        // NO UNMATCHED PAYMENTS
+        // --------------------------------------------------------
+
         if (
             rows.length === 0
         ) {
@@ -1126,23 +1193,31 @@
         }
 
 
-        /*
-         * Build table.
-         */
+        // --------------------------------------------------------
+        // BUILD TABLE ROWS
+        // --------------------------------------------------------
+
         const tableRows =
 
             rows.map(row => {
 
-                /*
-                 * Date
-                 */
+                // ------------------------------------------------
+                // DATE
+                // ------------------------------------------------
+
+                const transactionDate =
+                    getTransactionDate(
+                        row
+                    );
+
+
                 const date =
 
-                    row[c.createdAt]
+                    transactionDate
 
                         ? new Date(
 
-                            row[c.createdAt]
+                            transactionDate
 
                         ).toLocaleString(
 
@@ -1175,9 +1250,10 @@
                         : "—";
 
 
-                /*
-                 * Account reference
-                 */
+                // ------------------------------------------------
+                // ACCOUNT REFERENCE
+                // ------------------------------------------------
+
                 const reference =
 
                     row[c.accountRef]
@@ -1193,9 +1269,10 @@
                         : "<em>blank</em>";
 
 
-                /*
-                 * Phone
-                 */
+                // ------------------------------------------------
+                // PHONE
+                // ------------------------------------------------
+
                 const phone =
 
                     row[c.phone]
@@ -1211,17 +1288,31 @@
                         : "—";
 
 
-                /*
-                 * M-Pesa receipt
-                 */
+                // ------------------------------------------------
+                // M-PESA RECEIPT
+                // ------------------------------------------------
+                //
+                // Prefer mpesa_receipt_number.
+                // Fall back to mpesa_receipt.
+                // ------------------------------------------------
+
+                const rawMpesaCode =
+
+                    row[c.mpesaReceiptNumber] ||
+
+                    row[c.mpesaCode] ||
+
+                    null;
+
+
                 const mpesaCode =
 
-                    row[c.mpesaCode]
+                    rawMpesaCode
 
                         ? escapeHtml(
 
                             String(
-                                row[c.mpesaCode]
+                                rawMpesaCode
                             )
 
                         )
@@ -1229,18 +1320,20 @@
                         : "—";
 
 
-                /*
-                 * Amount
-                 */
+                // ------------------------------------------------
+                // AMOUNT
+                // ------------------------------------------------
+
                 const amount =
                     formatKES(
                         row[c.amount]
                     );
 
 
-                /*
-                 * Payment ID
-                 */
+                // ------------------------------------------------
+                // PAYMENT ID
+                // ------------------------------------------------
+
                 const paymentId =
                     escapeHtml(
                         row[c.id]
@@ -1299,9 +1392,10 @@
             .join("");
 
 
-        /*
-         * Render table.
-         */
+        // --------------------------------------------------------
+        // RENDER TABLE
+        // --------------------------------------------------------
+
         container.innerHTML = `
 
             <div class="table-wrapper">
@@ -1366,14 +1460,14 @@
         }
 
 
-        /*
-         * Ask administrator for the
-         * authoritative membership number.
-         */
+        // --------------------------------------------------------
+        // ASK FOR MEMBER NUMBER
+        // --------------------------------------------------------
+
         const input =
             window.prompt(
 
-                "Enter the correct membership number:"
+                "Enter the correct member number:"
 
             );
 
@@ -1385,11 +1479,11 @@
         }
 
 
-        const membershipNumber =
+        const memberNumber =
             input.trim();
 
 
-        if (!membershipNumber) {
+        if (!memberNumber) {
 
             return;
 
@@ -1418,7 +1512,7 @@
 
                     id,
 
-                    membership_number
+                    member_number
 
                 `)
 
@@ -1426,7 +1520,7 @@
 
                     CONFIG.memberNumberColumn,
 
-                    membershipNumber
+                    memberNumber
 
                 )
 
@@ -1440,14 +1534,15 @@
             }
 
 
-            /*
-             * Membership number does not exist.
-             */
+            // ----------------------------------------------------
+            // MEMBER NOT FOUND
+            // ----------------------------------------------------
+
             if (!member) {
 
                 alert(
 
-                    `No member found with membership number "${membershipNumber}".`
+                    `No member found with member number "${memberNumber}".`
 
                 );
 
@@ -1525,7 +1620,7 @@
 
             alert(
 
-                `Payment successfully assigned to ${member.membership_number}.`
+                `Payment successfully assigned to ${member.member_number}.`
 
             );
 
@@ -1590,11 +1685,19 @@
             ]);
 
 
+            // ----------------------------------------------------
+            // CALCULATE REVENUE
+            // ----------------------------------------------------
+
             const stats =
                 computeRevenue(
                     revenueRows
                 );
 
+
+            // ----------------------------------------------------
+            // RENDER
+            // ----------------------------------------------------
 
             renderRevenue(
                 stats
@@ -1606,6 +1709,10 @@
             );
 
 
+            // ----------------------------------------------------
+            // LIVE STATUS
+            // ----------------------------------------------------
+
             setLiveIndicator(
 
                 "connected",
@@ -1614,6 +1721,10 @@
 
             );
 
+
+            // ----------------------------------------------------
+            // DEBUG LOG
+            // ----------------------------------------------------
 
             console.log(
 
@@ -1702,9 +1813,10 @@
         }
 
 
-        /*
-         * Remove previous channel if one exists.
-         */
+        // --------------------------------------------------------
+        // REMOVE PREVIOUS CHANNEL
+        // --------------------------------------------------------
+
         if (realtimeChannel) {
 
             try {
@@ -1728,9 +1840,10 @@
         }
 
 
-        /*
-         * Create payment realtime channel.
-         */
+        // --------------------------------------------------------
+        // CREATE PAYMENT REALTIME CHANNEL
+        // --------------------------------------------------------
+
         realtimeChannel =
 
             supabase
@@ -1784,6 +1897,10 @@
                         );
 
 
+                        // ----------------------------------------
+                        // CONNECTED
+                        // ----------------------------------------
+
                         if (
 
                             status ===
@@ -1801,6 +1918,10 @@
 
                         }
 
+
+                        // ----------------------------------------
+                        // ERROR / TIMEOUT
+                        // ----------------------------------------
 
                         else if (
 
@@ -1825,6 +1946,10 @@
                         }
 
 
+                        // ----------------------------------------
+                        // CLOSED
+                        // ----------------------------------------
+
                         else if (
 
                             status ===
@@ -1847,11 +1972,13 @@
                 );
 
 
-        /*
-         * Safety refresh every minute.
-         *
-         * Prevent duplicate intervals.
-         */
+        // --------------------------------------------------------
+        // SAFETY REFRESH
+        // --------------------------------------------------------
+        //
+        // Prevent duplicate intervals.
+        // --------------------------------------------------------
+
         if (
             !refreshIntervalTimer
         ) {
@@ -1889,9 +2016,10 @@
 
         try {
 
-            /*
-             * Wait for Supabase.
-             */
+            // ----------------------------------------------------
+            // WAIT FOR SUPABASE
+            // ----------------------------------------------------
+
             supabase =
 
                 await waitForSupabaseClient();
@@ -1904,15 +2032,17 @@
             );
 
 
-            /*
-             * Initial load.
-             */
+            // ----------------------------------------------------
+            // INITIAL LOAD
+            // ----------------------------------------------------
+
             await refreshAll();
 
 
-            /*
-             * Enable realtime.
-             */
+            // ----------------------------------------------------
+            // ENABLE REALTIME
+            // ----------------------------------------------------
+
             setupRealtime();
 
 
