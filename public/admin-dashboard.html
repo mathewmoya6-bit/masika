@@ -777,9 +777,22 @@
                         <a href="admin-members.html" style="color:var(--primary);text-decoration:none;font-size:14px;font-weight:600;">View All →</a>
                     </div>
                     <div id="recentMembers">
-                        <div class="loading-spinner">
-                            <div class="spinner"></div>
-                            <p>Loading...</p>
+                        <div class="table-wrapper">
+                            <table id="recentMembersTable">
+                                <thead>
+                                    <tr>
+                                        <th>Name</th>
+                                        <th>Phone</th>
+                                        <th>Date Registered</th>
+                                        <th>Status</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="recentMembersBody">
+                                    <tr>
+                                        <td colspan="4" class="empty-state">Loading…</td>
+                                    </tr>
+                                </tbody>
+                            </table>
                         </div>
                     </div>
                 </div>
@@ -790,9 +803,22 @@
                         <a href="admin-agents.html" style="color:var(--primary);text-decoration:none;font-size:14px;font-weight:600;">View All →</a>
                     </div>
                     <div id="pendingAgents">
-                        <div class="loading-spinner">
-                            <div class="spinner"></div>
-                            <p>Loading...</p>
+                        <div class="table-wrapper">
+                            <table id="pendingAgentsTable">
+                                <thead>
+                                    <tr>
+                                        <th>Name</th>
+                                        <th>Phone</th>
+                                        <th>Date Added</th>
+                                        <th>Status</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="pendingAgentsBody">
+                                    <tr>
+                                        <td colspan="4" class="empty-state">Loading…</td>
+                                    </tr>
+                                </tbody>
+                            </table>
                         </div>
                     </div>
                 </div>
@@ -805,9 +831,23 @@
                     <a href="admin-payments.html" style="color:var(--primary);text-decoration:none;font-size:14px;font-weight:600;">View All →</a>
                 </div>
                 <div id="recentPayments">
-                    <div class="loading-spinner">
-                        <div class="spinner"></div>
-                        <p>Loading...</p>
+                    <div class="table-wrapper">
+                        <table id="recentPaymentsTable">
+                            <thead>
+                                <tr>
+                                    <th>Member</th>
+                                    <th>Amount</th>
+                                    <th>M-Pesa Code</th>
+                                    <th>Date</th>
+                                    <th>Status</th>
+                                </tr>
+                            </thead>
+                            <tbody id="recentPaymentsBody">
+                                <tr>
+                                    <td colspan="5" class="empty-state">Loading…</td>
+                                </tr>
+                            </tbody>
+                        </table>
                     </div>
                 </div>
             </div>
