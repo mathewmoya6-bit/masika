@@ -3,56 +3,97 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Register Member | Masika Benevolent</title>
-    <meta name="description" content="Register a new Masika Benevolent member and calculate membership registration payment.">
+
+    <title>Register | Masika Benevolent</title>
+
+    <meta
+        name="description"
+        content="Register for Masika Benevolent family protection and benevolent support."
+    >
+
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+
+    <link
+        href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap"
+        rel="stylesheet"
+    >
 
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-    <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.3/papaparse.min.js"></script>
+
     <script src="js/supabase-config.js"></script>
 
     <style>
         :root {
-            --primary: #0b5d3b;
-            --primary-dark: #06452c;
-            --secondary: #d9a441;
-            --danger: #dc3545;
-            --success: #198754;
-            --light: #f5f7f8;
-            --border: #dfe4e7;
-            --text: #1f2933;
-            --muted: #6b7280;
+            --primary: #173f35;
+            --primary-dark: #0e2c25;
+            --gold: #c99a3e;
+            --gold-dark: #a77b27;
+            --cream: #f8f5ee;
             --white: #ffffff;
+            --text: #17211f;
+            --muted: #66736f;
+            --border: #dfe5e2;
+            --success: #198754;
+            --danger: #c0392b;
+            --warning: #b7791f;
+            --shadow: 0 15px 45px rgba(20, 45, 38, 0.10);
+            --radius: 16px;
         }
 
         * {
             box-sizing: border-box;
         }
 
+        html {
+            scroll-behavior: smooth;
+        }
+
         body {
             margin: 0;
-            font-family: Arial, Helvetica, sans-serif;
-            background: var(--light);
+            font-family: "Inter", Arial, sans-serif;
+            background: var(--cream);
             color: var(--text);
+            line-height: 1.6;
         }
 
-        .page-wrapper {
-            min-height: 100vh;
+        a {
+            color: inherit;
+            text-decoration: none;
         }
 
-        .hidden { display: none !important; }
+        button,
+        input,
+        select,
+        textarea {
+            font: inherit;
+        }
 
-        /* HEADER */
-        .topbar {
+        .container {
+            width: min(1180px, calc(100% - 32px));
+            margin: 0 auto;
+        }
+
+        /* =========================
+           HEADER
+        ========================= */
+
+        .site-header {
             background: var(--primary);
             color: white;
-            min-height: 68px;
+            position: sticky;
+            top: 0;
+            z-index: 1000;
+            box-shadow: 0 5px 20px rgba(0,0,0,.10);
+        }
+
+        .header-inner {
+            min-height: 74px;
             display: flex;
             align-items: center;
             justify-content: space-between;
-            padding: 0 28px;
-            box-shadow: 0 2px 8px rgba(0,0,0,.12);
-            flex-wrap: wrap;
-            gap: 10px;
+            gap: 20px;
         }
 
         .brand {
@@ -61,231 +102,241 @@
             gap: 12px;
         }
 
-        .brand-logo {
-            width: 42px;
-            height: 42px;
+        .brand-mark {
+            width: 44px;
+            height: 44px;
             border-radius: 50%;
-            background: white;
-            color: var(--primary);
-            display: flex;
-            align-items: center;
-            justify-content: center;
+            background: var(--gold);
+            color: white;
+            display: grid;
+            place-items: center;
+            font-size: 22px;
             font-weight: 800;
-            font-size: 17px;
+        }
+
+        .brand-text {
+            line-height: 1.1;
         }
 
         .brand-text strong {
             display: block;
-            font-size: 18px;
+            font-size: 17px;
+            letter-spacing: .08em;
         }
 
-        .brand-text span {
-            display: block;
+        .brand-text small {
+            color: #ead9b3;
+            font-size: 11px;
+            letter-spacing: .12em;
+            text-transform: uppercase;
+        }
+
+        .nav {
+            display: flex;
+            align-items: center;
+            gap: 22px;
+        }
+
+        .nav a {
+            color: rgba(255,255,255,.9);
+            font-size: 14px;
+            font-weight: 600;
+        }
+
+        .nav a:hover {
+            color: white;
+        }
+
+        .nav-register {
+            background: var(--gold);
+            padding: 10px 17px;
+            border-radius: 9px;
+        }
+
+        /* =========================
+           HERO
+        ========================= */
+
+        .hero {
+            background:
+                linear-gradient(
+                    135deg,
+                    rgba(23,63,53,.98),
+                    rgba(14,44,37,.94)
+                );
+            color: white;
+            padding: 65px 0 85px;
+        }
+
+        .hero-grid {
+            display: grid;
+            grid-template-columns: 1.2fr .8fr;
+            gap: 45px;
+            align-items: center;
+        }
+
+        .eyebrow {
+            color: #e8c56d;
+            text-transform: uppercase;
+            letter-spacing: .15em;
             font-size: 12px;
-            opacity: .85;
+            font-weight: 800;
+            margin-bottom: 12px;
         }
 
-        .top-actions {
+        .hero h1 {
+            margin: 0 0 18px;
+            font-size: clamp(34px, 5vw, 58px);
+            line-height: 1.08;
+        }
+
+        .hero p {
+            max-width: 680px;
+            color: rgba(255,255,255,.82);
+            font-size: 17px;
+            margin: 0;
+        }
+
+        .hero-card {
+            background: rgba(255,255,255,.08);
+            border: 1px solid rgba(255,255,255,.15);
+            border-radius: 22px;
+            padding: 28px;
+            backdrop-filter: blur(8px);
+        }
+
+        .hero-card h3 {
+            margin-top: 0;
+            color: #fff;
+        }
+
+        .hero-card ul {
+            padding-left: 20px;
+            margin-bottom: 0;
+            color: rgba(255,255,255,.85);
+        }
+
+        /* =========================
+           MAIN
+        ========================= */
+
+        .main {
+            padding: 50px 0 80px;
+        }
+
+        .registration-layout {
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) 340px;
+            gap: 30px;
+            align-items: start;
+        }
+
+        .card {
+            background: var(--white);
+            border-radius: var(--radius);
+            box-shadow: var(--shadow);
+            border: 1px solid var(--border);
+        }
+
+        .form-card {
+            padding: 32px;
+        }
+
+        .side-card {
+            padding: 25px;
+            position: sticky;
+            top: 100px;
+        }
+
+        .section-heading {
+            margin-bottom: 24px;
+        }
+
+        .section-heading h2 {
+            margin: 0 0 7px;
+            font-size: 24px;
+        }
+
+        .section-heading p {
+            margin: 0;
+            color: var(--muted);
+            font-size: 14px;
+        }
+
+        /* =========================
+           MODE SWITCH
+        ========================= */
+
+        .mode-switch {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+            background: #f1f4f2;
+            border-radius: 13px;
+            padding: 6px;
+            margin-bottom: 30px;
+        }
+
+        .mode-button {
+            border: 0;
+            background: transparent;
+            border-radius: 9px;
+            padding: 13px;
+            cursor: pointer;
+            font-weight: 700;
+            color: var(--muted);
+        }
+
+        .mode-button.active {
+            background: var(--primary);
+            color: white;
+            box-shadow: 0 5px 15px rgba(23,63,53,.18);
+        }
+
+        /* =========================
+           FORMS
+        ========================= */
+
+        .form-section {
+            margin-bottom: 35px;
+        }
+
+        .form-section-title {
             display: flex;
             align-items: center;
             gap: 10px;
-            flex-wrap: wrap;
-        }
-
-        .btn {
-            border: 0;
-            border-radius: 7px;
-            padding: 11px 17px;
-            font-weight: 600;
-            cursor: pointer;
-            text-decoration: none;
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-            gap: 7px;
-            font-size: 14px;
-            transition: all 0.2s;
-        }
-
-        .btn:hover {
-            transform: translateY(-1px);
-            box-shadow: 0 2px 8px rgba(0,0,0,0.15);
-        }
-
-        .btn-light {
-            background: white;
-            color: var(--primary);
-        }
-
-        .btn-primary {
-            background: var(--primary);
-            color: white;
-        }
-
-        .btn-secondary {
-            background: #eef1f2;
-            color: #374151;
-        }
-
-        .btn-success {
-            background: var(--success);
-            color: white;
-        }
-
-        .btn-outline-light {
-            background: transparent;
-            color: white;
-            border: 2px solid rgba(255,255,255,0.3);
-        }
-
-        .btn-outline-light:hover {
-            background: rgba(255,255,255,0.1);
-            border-color: white;
-        }
-
-        .btn:disabled {
-            opacity: .55;
-            cursor: not-allowed;
-            transform: none !important;
-        }
-
-        /* SERVER STATUS BADGE */
-        .server-status {
-            display: inline-flex;
-            align-items: center;
-            gap: 6px;
-            font-size: 12px;
-            padding: 6px 10px;
-            border-radius: 20px;
-            background: rgba(255,255,255,0.15);
-            color: white;
-        }
-
-        .server-status .dot {
-            width: 8px;
-            height: 8px;
-            border-radius: 50%;
-            background: var(--secondary);
-            animation: pulse 1.4s infinite ease-in-out;
-        }
-
-        .server-status.online .dot {
-            background: #7ee6a3;
-            animation: none;
-        }
-
-        .server-status.offline .dot {
-            background: #f28b8b;
-            animation: none;
-        }
-
-        @keyframes pulse {
-            0%, 100% { opacity: 1; }
-            50% { opacity: .35; }
-        }
-
-        /* CONTENT */
-        .container {
-            width: min(1180px, calc(100% - 32px));
-            margin: 30px auto 60px;
-        }
-
-        .page-title {
-            margin-bottom: 22px;
-        }
-
-        .page-title h1 {
-            margin: 0 0 7px;
-            font-size: 29px;
-        }
-
-        .page-title p {
-            margin: 0;
-            color: var(--muted);
-        }
-
-        /* PROGRESS */
-        .progress {
-            background: white;
-            border: 1px solid var(--border);
-            border-radius: 10px;
-            padding: 16px;
-            margin-bottom: 20px;
-            display: flex;
-            gap: 8px;
-            overflow-x: auto;
-        }
-
-        .step {
-            flex: 1;
-            min-width: 150px;
-            text-align: center;
-            padding: 10px;
-            border-radius: 7px;
-            color: var(--muted);
-            font-size: 13px;
-            font-weight: 600;
-        }
-
-        .step.active {
-            background: var(--primary);
-            color: white;
+            margin-bottom: 18px;
+            padding-bottom: 10px;
+            border-bottom: 1px solid var(--border);
         }
 
         .step-number {
-            display: inline-flex;
-            width: 25px;
-            height: 25px;
+            width: 28px;
+            height: 28px;
             border-radius: 50%;
-            align-items: center;
-            justify-content: center;
-            margin-right: 5px;
-            background: #e9edef;
-            color: #374151;
+            background: var(--primary);
+            color: white;
+            display: grid;
+            place-items: center;
+            font-size: 12px;
+            font-weight: 800;
         }
 
-        .step.active .step-number {
-            background: white;
-            color: var(--primary);
-        }
-
-        /* CARD */
-        .card {
-            background: white;
-            border: 1px solid var(--border);
-            border-radius: 12px;
-            padding: 25px;
-            margin-bottom: 20px;
-            box-shadow: 0 2px 7px rgba(0,0,0,.04);
-        }
-
-        .card-header {
-            border-bottom: 1px solid var(--border);
-            margin-bottom: 22px;
-            padding-bottom: 14px;
-        }
-
-        .card-header h2 {
-            margin: 0 0 5px;
-            font-size: 20px;
-        }
-
-        .card-header p {
+        .form-section-title h3 {
             margin: 0;
-            color: var(--muted);
-            font-size: 14px;
+            font-size: 17px;
         }
 
-        /* FORM */
         .form-grid {
             display: grid;
-            grid-template-columns: repeat(2, 1fr);
-            gap: 18px;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 17px;
         }
 
         .form-group {
             display: flex;
             flex-direction: column;
+            gap: 7px;
         }
 
         .form-group.full {
@@ -295,10 +346,10 @@
         label {
             font-size: 13px;
             font-weight: 700;
-            margin-bottom: 7px;
+            color: #34423e;
         }
 
-        .required {
+        label .required {
             color: var(--danger);
         }
 
@@ -306,250 +357,449 @@
         select,
         textarea {
             width: 100%;
-            border: 1px solid #cfd6da;
-            border-radius: 7px;
-            padding: 12px 13px;
-            font-size: 14px;
-            outline: none;
+            border: 1px solid var(--border);
             background: white;
+            border-radius: 9px;
+            padding: 12px 13px;
+            outline: none;
             color: var(--text);
-            transition: border-color 0.2s;
-        }
-
-        textarea {
-            min-height: 95px;
-            resize: vertical;
+            transition: .2s;
         }
 
         input:focus,
         select:focus,
         textarea:focus {
-            border-color: var(--primary);
-            box-shadow: 0 0 0 3px rgba(11,93,59,.08);
+            border-color: var(--gold);
+            box-shadow: 0 0 0 3px rgba(201,154,62,.12);
         }
 
-        input.error,
-        select.error {
-            border-color: var(--danger);
+        textarea {
+            min-height: 90px;
+            resize: vertical;
         }
 
         .help-text {
-            color: var(--muted);
             font-size: 12px;
-            margin-top: 5px;
+            color: var(--muted);
         }
 
-        /* PLAN CARDS */
-        .plans {
+        /* =========================
+           PLAN CARDS
+        ========================= */
+
+        .plans-grid {
             display: grid;
             grid-template-columns: repeat(3, 1fr);
-            gap: 15px;
+            gap: 12px;
         }
 
-        .plan {
+        .plan-option {
             position: relative;
-            border: 2px solid var(--border);
-            border-radius: 10px;
-            padding: 20px;
-            cursor: pointer;
-            transition: .2s;
         }
 
-        .plan:hover {
-            border-color: var(--primary);
-        }
-
-        .plan.selected {
-            border-color: var(--primary);
-            background: #f2faf6;
-        }
-
-        .plan input {
+        .plan-option input {
             position: absolute;
             opacity: 0;
             pointer-events: none;
         }
 
+        .plan-label {
+            display: block;
+            border: 2px solid var(--border);
+            border-radius: 13px;
+            padding: 17px;
+            cursor: pointer;
+            height: 100%;
+            transition: .2s;
+        }
+
+        .plan-label:hover {
+            border-color: #c9d1ce;
+        }
+
+        .plan-option input:checked + .plan-label {
+            border-color: var(--gold);
+            background: #fffaf0;
+            box-shadow: 0 7px 20px rgba(201,154,62,.12);
+        }
+
         .plan-name {
-            font-size: 18px;
             font-weight: 800;
-            color: var(--primary);
+            font-size: 16px;
             margin-bottom: 5px;
         }
 
         .plan-description {
             color: var(--muted);
-            font-size: 13px;
-            min-height: 40px;
+            font-size: 12px;
+            min-height: 38px;
         }
 
         .plan-price {
-            font-size: 21px;
-            font-weight: 800;
-            margin-top: 15px;
+            margin-top: 12px;
             color: var(--primary);
+            font-weight: 800;
         }
 
-        /* DEPENDANTS */
-        .dependants-header {
+        .plan-price small {
+            font-weight: 500;
+            color: var(--muted);
+        }
+
+        /* =========================
+           DEPENDANTS
+        ========================= */
+
+        .dependant-list {
+            display: grid;
+            gap: 15px;
+        }
+
+        .dependant-card {
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 18px;
+            background: #fbfcfb;
+        }
+
+        .dependant-header {
             display: flex;
             justify-content: space-between;
             align-items: center;
-            margin-bottom: 15px;
-            flex-wrap: wrap;
-            gap: 10px;
+            margin-bottom: 14px;
         }
 
-        .dependant-row {
-            display: grid;
-            grid-template-columns: 1.4fr 1fr 1fr auto;
-            gap: 10px;
-            padding: 12px;
-            border: 1px solid var(--border);
-            border-radius: 8px;
-            margin-bottom: 10px;
-            align-items: center;
+        .dependant-header strong {
+            font-size: 14px;
         }
 
-        .dependant-row input,
-        .dependant-row select {
-            margin: 0;
-        }
-
-        .remove-btn {
+        .remove-dependant {
             border: 0;
-            background: #fff0f0;
+            background: #fbe9e7;
             color: var(--danger);
             border-radius: 7px;
-            padding: 10px 12px;
+            padding: 7px 10px;
+            cursor: pointer;
+            font-size: 12px;
+            font-weight: 700;
+        }
+
+        .add-button {
+            margin-top: 14px;
+            border: 1px dashed #aebbb6;
+            background: white;
+            color: var(--primary);
+            border-radius: 9px;
+            padding: 11px 15px;
             cursor: pointer;
             font-weight: 700;
-            transition: 0.2s;
         }
 
-        .remove-btn:hover {
-            background: #fdd;
+        .add-button:hover {
+            border-color: var(--primary);
         }
 
-        /* SUMMARY */
+        /* =========================
+           SUMMARY
+        ========================= */
+
         .summary {
-            background: #f7faf8;
-            border: 1px solid #dbe9e2;
-            border-radius: 10px;
+            background: #f6f8f6;
+            border-radius: 13px;
             padding: 20px;
         }
 
         .summary-row {
             display: flex;
             justify-content: space-between;
-            padding: 9px 0;
-            border-bottom: 1px solid #e2e9e5;
+            gap: 15px;
+            padding: 8px 0;
+            font-size: 14px;
         }
 
-        .summary-row:last-child {
-            border-bottom: 0;
-        }
-
-        .summary-total {
-            font-size: 21px;
+        .summary-row.total {
+            border-top: 1px solid var(--border);
+            margin-top: 10px;
+            padding-top: 15px;
+            font-size: 18px;
             font-weight: 800;
             color: var(--primary);
         }
 
-        /* ALERT */
+        /* =========================
+           BUTTONS
+        ========================= */
+
+        .button-row {
+            display: flex;
+            justify-content: flex-end;
+            gap: 12px;
+            margin-top: 28px;
+        }
+
+        .btn {
+            border: 0;
+            border-radius: 9px;
+            padding: 13px 20px;
+            cursor: pointer;
+            font-weight: 800;
+            transition: .2s;
+        }
+
+        .btn-primary {
+            background: var(--primary);
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background: var(--primary-dark);
+        }
+
+        .btn-gold {
+            background: var(--gold);
+            color: white;
+        }
+
+        .btn-gold:hover {
+            background: var(--gold-dark);
+        }
+
+        .btn-secondary {
+            background: #eef2f0;
+            color: var(--primary);
+        }
+
+        .btn:disabled {
+            opacity: .55;
+            cursor: not-allowed;
+        }
+
+        /* =========================
+           ALERTS
+        ========================= */
+
         .alert {
             display: none;
+            border-radius: 10px;
             padding: 13px 15px;
-            border-radius: 7px;
-            margin-bottom: 18px;
+            margin-bottom: 20px;
             font-size: 14px;
+            font-weight: 600;
         }
 
         .alert.show {
             display: block;
         }
 
-        .alert.error {
-            background: #fff0f0;
-            border: 1px solid #f1b5b5;
-            color: #9f1239;
+        .alert.success {
+            background: #eaf7ef;
+            color: #17683d;
+            border: 1px solid #bce5cc;
         }
 
-        .alert.success {
-            background: #effaf3;
-            border: 1px solid #b9dfc7;
-            color: #166534;
+        .alert.error {
+            background: #fcebea;
+            color: #922b21;
+            border: 1px solid #f0c4bf;
+        }
+
+        .alert.warning {
+            background: #fff7df;
+            color: #8a6116;
+            border: 1px solid #ead49a;
         }
 
         .alert.info {
-            background: #eef6fb;
-            border: 1px solid #bcdcf0;
-            color: #1c5a85;
+            background: #edf5fa;
+            color: #245b79;
+            border: 1px solid #c5deec;
         }
+
+        /* =========================
+           LOADING
+        ========================= */
 
         .loading {
             display: none;
-            margin-left: 7px;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+            color: var(--primary);
+            font-weight: 700;
+            padding: 10px;
         }
 
-        /* CHAMA */
-        .official-block {
+        .loading.show {
+            display: flex;
+        }
+
+        .spinner {
+            width: 19px;
+            height: 19px;
+            border: 3px solid #dce4e0;
+            border-top-color: var(--primary);
+            border-radius: 50%;
+            animation: spin .8s linear infinite;
+        }
+
+        @keyframes spin {
+            to {
+                transform: rotate(360deg);
+            }
+        }
+
+        /* =========================
+           CHAMA
+        ========================= */
+
+        .chama-only {
+            display: none;
+        }
+
+        .chama-only.show {
+            display: block;
+        }
+
+        .csv-box {
+            border: 2px dashed #bbc8c3;
+            border-radius: 13px;
+            padding: 25px;
+            text-align: center;
+            background: #fafcfb;
+        }
+
+        .csv-box input {
+            border: 0;
+            padding: 0;
+            max-width: 350px;
+            margin-top: 12px;
+        }
+
+        .csv-preview {
+            display: none;
+            margin-top: 18px;
+            overflow-x: auto;
             border: 1px solid var(--border);
             border-radius: 10px;
-            padding: 16px;
-            margin-bottom: 14px;
-            background: #fbfcfc;
         }
 
-        .official-block h4 {
-            margin: 0 0 12px;
-            font-size: 14px;
-            color: var(--primary);
+        .csv-preview.show {
+            display: block;
         }
 
-        .upload-box {
-            border: 2px dashed var(--border);
-            border-radius: 10px;
-            padding: 22px;
-            text-align: center;
-            background: #fbfcfc;
-        }
-
-        .upload-box input[type="file"] {
-            margin: 10px auto 0;
-        }
-
-        .chama-preview {
-            margin-top: 12px;
-            font-size: 13px;
-            font-weight: 600;
-        }
-
-        .template-link {
+        .csv-preview table {
+            width: 100%;
+            border-collapse: collapse;
             font-size: 12px;
-            color: var(--primary);
-            text-decoration: underline;
-            cursor: pointer;
-            font-weight: 600;
+            background: white;
         }
 
-        /* FOOTER ACTIONS */
-        .form-actions {
+        .csv-preview th,
+        .csv-preview td {
+            padding: 9px;
+            border-bottom: 1px solid var(--border);
+            text-align: left;
+            white-space: nowrap;
+        }
+
+        .csv-preview th {
+            background: #f4f7f5;
+        }
+
+        .csv-count {
+            margin-top: 10px;
+            font-size: 13px;
+            font-weight: 700;
+        }
+
+        /* =========================
+           SIDEBAR
+        ========================= */
+
+        .side-card h3 {
+            margin-top: 0;
+            color: var(--primary);
+        }
+
+        .side-item {
+            display: flex;
+            gap: 12px;
+            padding: 13px 0;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .side-item:last-child {
+            border-bottom: 0;
+        }
+
+        .side-icon {
+            width: 35px;
+            height: 35px;
+            border-radius: 50%;
+            background: #edf3ef;
+            display: grid;
+            place-items: center;
+            color: var(--primary);
+            font-weight: 800;
+            flex-shrink: 0;
+        }
+
+        .side-item strong {
+            display: block;
+            font-size: 13px;
+        }
+
+        .side-item span {
+            color: var(--muted);
+            font-size: 12px;
+        }
+
+        /* =========================
+           FOOTER
+        ========================= */
+
+        footer {
+            background: var(--primary-dark);
+            color: rgba(255,255,255,.8);
+            padding: 35px 0;
+        }
+
+        .footer-inner {
             display: flex;
             justify-content: space-between;
-            gap: 12px;
-            margin-top: 20px;
-            flex-wrap: wrap;
+            gap: 20px;
+            align-items: center;
+            font-size: 13px;
         }
 
-        .right-actions {
-            display: flex;
-            gap: 10px;
-            flex-wrap: wrap;
+        /* =========================
+           RESPONSIVE
+        ========================= */
+
+        @media (max-width: 900px) {
+            .hero-grid,
+            .registration-layout {
+                grid-template-columns: 1fr;
+            }
+
+            .side-card {
+                position: static;
+            }
+
+            .plans-grid {
+                grid-template-columns: 1fr;
+            }
         }
 
-        /* RESPONSIVE */
-        @media (max-width: 800px) {
+        @media (max-width: 650px) {
+            .nav {
+                display: none;
+            }
+
+            .form-card {
+                padding: 20px;
+            }
+
             .form-grid {
                 grid-template-columns: 1fr;
             }
@@ -558,65 +808,21 @@
                 grid-column: auto;
             }
 
-            .plans {
-                grid-template-columns: 1fr;
+            .hero {
+                padding: 45px 0 55px;
             }
 
-            .dependant-row {
-                grid-template-columns: 1fr;
-            }
-
-            .topbar {
-                padding: 12px 15px;
-                flex-direction: column;
-                align-items: stretch;
-            }
-
-            .brand {
-                justify-content: center;
-            }
-
-            .top-actions {
-                justify-content: center;
-            }
-
-            .brand-text span {
-                display: none;
-            }
-
-            .container {
-                width: min(100% - 20px, 1180px);
-                margin-top: 20px;
-            }
-
-            .card {
-                padding: 18px;
-            }
-
-            .form-actions {
+            .button-row {
                 flex-direction: column;
             }
 
-            .right-actions {
-                width: 100%;
-                flex-direction: column;
-            }
-
-            .right-actions .btn {
+            .button-row .btn {
                 width: 100%;
             }
-        }
 
-        @media (max-width: 480px) {
-            .progress {
+            .footer-inner {
                 flex-direction: column;
-                gap: 4px;
-            }
-
-            .step {
-                min-width: auto;
-                text-align: left;
-                padding: 8px 12px;
+                text-align: center;
             }
         }
     </style>
@@ -624,1199 +830,3757 @@
 
 <body>
 
-<div class="page-wrapper">
+<header class="site-header">
+    <div class="container header-inner">
 
-    <!-- HEADER -->
-    <header class="topbar">
-        <div class="brand">
-            <div class="brand-logo">MB</div>
-            <div class="brand-text">
-                <strong>Masika Benevolent</strong>
-                <span>Membership Management System</span>
-            </div>
-        </div>
+        <a href="index.html" class="brand">
+            <span class="brand-mark">M</span>
 
-        <div class="top-actions">
-            <span id="serverStatus" class="server-status">
-                <span class="dot"></span>
-                <span id="serverStatusText">Connecting…</span>
+            <span class="brand-text">
+                <strong>MASIKA</strong>
+                <small>Benevolent</small>
             </span>
-            <a href="index.html" class="btn btn-outline-light">
-                ← Home
-            </a>
-            <a href="login.html" class="btn btn-light">
-                Login
-            </a>
+        </a>
+
+        <nav class="nav">
+            <a href="index.html">Home</a>
+            <a href="plans.html">Plans</a>
+            <a href="login.html">Staff Login</a>
+            <a href="register.html" class="nav-register">Register</a>
+        </nav>
+
+    </div>
+</header>
+
+
+<section class="hero">
+
+    <div class="container hero-grid">
+
+        <div>
+            <div class="eyebrow">
+                Masika Benevolent
+            </div>
+
+            <h1>
+                Protect your family with dignity and peace of mind.
+            </h1>
+
+            <p>
+                Complete your registration below. Your registration will remain
+                pending until the required payment is successfully completed.
+            </p>
         </div>
-    </header>
 
-    <main class="container">
+        <div class="hero-card">
 
-        <div class="page-title">
-            <h1>Register New Member</h1>
-            <p>Create a new member record and calculate the required registration payment.</p>
+            <h3>How registration works</h3>
+
+            <ul>
+                <li>Complete the registration form.</li>
+                <li>Submit your details.</li>
+                <li>Proceed to secure M-Pesa payment.</li>
+                <li>Payment is verified automatically.</li>
+                <li>Your membership is then finalized.</li>
+                <li>Your membership number, receipt and membership identity
+                    card can then be generated.</li>
+            </ul>
+
         </div>
 
-        <!-- PROGRESS -->
-        <div class="progress">
-            <div class="step active" id="step1">
-                <span class="step-number">1</span> Member Details
-            </div>
-            <div class="step" id="step2">
-                <span class="step-number">2</span> Membership Plan
-            </div>
-            <div class="step" id="step3">
-                <span class="step-number">3</span> Dependants
-            </div>
-            <div class="step" id="step4">
-                <span class="step-number">4</span> Review & Payment
-            </div>
-        </div>
+    </div>
 
-        <div id="alertBox" class="alert"></div>
+</section>
 
-        <!-- MEMBER DETAILS -->
-        <section class="card" id="memberDetailsCard">
-            <div class="card-header">
-                <h2>1. Member Information</h2>
-                <p>Enter the principal member's personal and contact details.</p>
-            </div>
 
-            <div class="form-grid">
-                <div class="form-group">
-                    <label>First Name <span class="required">*</span></label>
-                    <input type="text" id="firstName" placeholder="Enter first name" autocomplete="given-name" required>
+<main class="main">
+
+    <div class="container">
+
+        <div class="registration-layout">
+
+            <section class="card form-card">
+
+                <div id="alertBox" class="alert"></div>
+
+                <div id="loadingBox" class="loading">
+                    <span class="spinner"></span>
+                    <span id="loadingText">Processing...</span>
                 </div>
 
-                <div class="form-group">
-                    <label>Last Name <span class="required">*</span></label>
-                    <input type="text" id="lastName" placeholder="Enter last name" autocomplete="family-name" required>
-                </div>
 
-                <div class="form-group">
-                    <label>Other Name</label>
-                    <input type="text" id="otherName" placeholder="Middle/other name">
-                </div>
+                <!-- MODE -->
 
-                <div class="form-group">
-                    <label>National ID / Passport <span class="required">*</span></label>
-                    <input type="text" id="idNumber" placeholder="ID or passport number" required>
-                </div>
+                <div class="mode-switch">
 
-                <div class="form-group">
-                    <label>Gender <span class="required">*</span></label>
-                    <select id="gender" required>
-                        <option value="">Select gender</option>
-                        <option value="MALE">Male</option>
-                        <option value="FEMALE">Female</option>
-                        <option value="OTHER">Other</option>
-                    </select>
-                </div>
-
-                <div class="form-group">
-                    <label>Date of Birth <span class="required">*</span></label>
-                    <input type="date" id="dateOfBirth" required>
-                </div>
-
-                <div class="form-group">
-                    <label>Phone Number <span class="required">*</span></label>
-                    <input type="tel" id="phone" placeholder="e.g. 0712345678" autocomplete="tel" required>
-                    <span class="help-text">Use the member's active mobile number.</span>
-                </div>
-
-                <div class="form-group">
-                    <label>Email Address</label>
-                    <input type="email" id="email" placeholder="member@example.com" autocomplete="email">
-                </div>
-
-                <div class="form-group">
-                    <label>County <span class="required">*</span></label>
-                    <select id="county" required>
-                        <option value="">Select county</option>
-                        <option>Nairobi</option><option>Mombasa</option><option>Kisumu</option>
-                        <option>Nakuru</option><option>Kiambu</option><option>Machakos</option>
-                        <option>Kajiado</option><option>Uasin Gishu</option><option>Kericho</option>
-                        <option>Bomet</option><option>Nyeri</option><option>Murang'a</option>
-                        <option>Kirinyaga</option><option>Embu</option><option>Meru</option>
-                        <option>Tharaka-Nithi</option><option>Isiolo</option><option>Laikipia</option>
-                        <option>Samburu</option><option>Trans Nzoia</option><option>Nandi</option>
-                        <option>Baringo</option><option>Elgeyo-Marakwet</option><option>West Pokot</option>
-                        <option>Kakamega</option><option>Vihiga</option><option>Bungoma</option>
-                        <option>Busia</option><option>Siaya</option><option>Homa Bay</option>
-                        <option>Migori</option><option>Kisii</option><option>Nyamira</option>
-                        <option>Nyandarua</option><option>Kitui</option><option>Makueni</option>
-                        <option>Garissa</option><option>Wajir</option><option>Mandera</option>
-                        <option>Tana River</option><option>Lamu</option><option>Taita-Taveta</option>
-                        <option>Kwale</option><option>Turkana</option><option>Marsabit</option>
-                        <option>Voi</option><option>Other</option>
-                    </select>
-                </div>
-
-                <div class="form-group">
-                    <label>Town / Location</label>
-                    <input type="text" id="location" placeholder="Town or location">
-                </div>
-
-                <div class="form-group">
-                    <label>Agent Sales Code</label>
-                    <select id="salesCode">
-                        <option value="">No agent / not applicable</option>
-                    </select>
-                    <span class="help-text">Optional — select the referring agent, if any.</span>
-                </div>
-
-                <div class="form-group full">
-                    <label>Physical Address</label>
-                    <textarea id="address" placeholder="Enter physical address"></textarea>
-                </div>
-            </div>
-        </section>
-
-        <!-- MEMBERSHIP PLAN -->
-        <section class="card">
-            <div class="card-header">
-                <h2>2. Select Membership Plan</h2>
-                <p>Choose the appropriate Masika Benevolent membership plan.</p>
-            </div>
-
-            <div class="form-group">
-                <label>Membership Plan <span class="required">*</span></label>
-                <select id="planSelect" required>
-                    <option value="">Select a plan</option>
-                    <!-- Populated live from Supabase `plans` table by loadPlans() -->
-                </select>
-                <span class="help-text" id="planDescription">&nbsp;</span>
-            </div>
-        </section>
-
-        <!-- CHAMA GROUP DETAILS (shown only when plan = Chama) -->
-        <section class="card hidden" id="chamaCard">
-            <div class="card-header">
-                <h2>Chama Group Details</h2>
-                <p>Chama registration requires the three group officials and a list of at least 30 principal members.</p>
-            </div>
-
-            <div class="form-grid" style="margin-bottom: 18px;">
-                <div class="form-group">
-                    <label>Group Name <span class="required">*</span></label>
-                    <input type="text" id="chamaGroupName" placeholder="e.g. Umoja Chama Group" required>
-                </div>
-                <div class="form-group">
-                    <label>Registration Number</label>
-                    <input type="text" id="chamaRegNumber" placeholder="Group registration number, if any">
-                </div>
-                <div class="form-group">
-                    <label>County</label>
-                    <select id="chamaCounty">
-                        <option value="">Select county</option>
-                        <option>Nairobi</option><option>Mombasa</option><option>Kisumu</option>
-                        <option>Nakuru</option><option>Kiambu</option><option>Machakos</option>
-                        <option>Kajiado</option><option>Uasin Gishu</option><option>Kericho</option>
-                        <option>Bomet</option><option>Nyeri</option><option>Murang'a</option>
-                        <option>Kirinyaga</option><option>Embu</option><option>Meru</option>
-                        <option>Tharaka-Nithi</option><option>Isiolo</option><option>Laikipia</option>
-                        <option>Samburu</option><option>Trans Nzoia</option><option>Nandi</option>
-                        <option>Baringo</option><option>Elgeyo-Marakwet</option><option>West Pokot</option>
-                        <option>Kakamega</option><option>Vihiga</option><option>Bungoma</option>
-                        <option>Busia</option><option>Siaya</option><option>Homa Bay</option>
-                        <option>Migori</option><option>Kisii</option><option>Nyamira</option>
-                        <option>Nyandarua</option><option>Kitui</option><option>Makueni</option>
-                        <option>Garissa</option><option>Wajir</option><option>Mandera</option>
-                        <option>Tana River</option><option>Lamu</option><option>Taita-Taveta</option>
-                        <option>Kwale</option><option>Turkana</option><option>Marsabit</option>
-                        <option>Voi</option><option>Other</option>
-                    </select>
-                </div>
-            </div>
-
-            <div class="official-block">
-                <h4>Chairperson <span class="required">*</span></h4>
-                <div class="form-grid">
-                    <div class="form-group"><label>Full Name</label><input type="text" id="chairName" placeholder="Full name" required></div>
-                    <div class="form-group"><label>Phone Number</label><input type="tel" id="chairPhone" placeholder="e.g. 0712345678" required></div>
-                    <div class="form-group"><label>National ID</label><input type="text" id="chairId" placeholder="ID number" required></div>
-                </div>
-            </div>
-
-            <div class="official-block">
-                <h4>Treasurer <span class="required">*</span></h4>
-                <div class="form-grid">
-                    <div class="form-group"><label>Full Name</label><input type="text" id="treasurerName" placeholder="Full name" required></div>
-                    <div class="form-group"><label>Phone Number</label><input type="tel" id="treasurerPhone" placeholder="e.g. 0712345678" required></div>
-                    <div class="form-group"><label>National ID</label><input type="text" id="treasurerId" placeholder="ID number" required></div>
-                </div>
-            </div>
-
-            <div class="official-block">
-                <h4>Secretary <span class="required">*</span></h4>
-                <div class="form-grid">
-                    <div class="form-group"><label>Full Name</label><input type="text" id="secretaryName" placeholder="Full name" required></div>
-                    <div class="form-group"><label>Phone Number</label><input type="tel" id="secretaryPhone" placeholder="e.g. 0712345678" required></div>
-                    <div class="form-group"><label>National ID</label><input type="text" id="secretaryId" placeholder="ID number" required></div>
-                </div>
-            </div>
-
-            <div class="upload-box">
-                <strong>Upload Members List (CSV)</strong>
-                <p class="help-text">
-                    Required columns: first_name, last_name, phone, id_number, date_of_birth (YYYY-MM-DD), gender.
-                    Minimum 30 principal members.
-                    <br>
-                    <a class="template-link" id="downloadChamaTemplate" href="#">Download CSV template</a>
-                </p>
-                <input type="file" id="chamaMembersFile" accept=".csv">
-                <div class="chama-preview" id="chamaPreview"></div>
-            </div>
-        </section>
-
-        <!-- DEPENDANTS -->
-        <section class="card" id="dependantsCardSection">
-            <div class="card-header">
-                <h2>3. Dependants</h2>
-                <p>Add family members who will be covered under this membership.</p>
-            </div>
-
-            <div class="dependants-header">
-                <strong id="dependantCount">0 Dependants</strong>
-                <button type="button" id="addDependantBtn" class="btn btn-secondary">+ Add Dependant</button>
-            </div>
-
-            <div id="dependantsContainer"></div>
-        </section>
-
-        <!-- REVIEW -->
-        <section class="card">
-            <div class="card-header">
-                <h2>4. Registration Summary</h2>
-                <p>Review the registration details before creating the member.</p>
-            </div>
-
-            <div class="summary">
-                <div class="summary-row">
-                    <span>Member</span>
-                    <strong id="summaryName">—</strong>
-                </div>
-                <div class="summary-row">
-                    <span>Plan</span>
-                    <strong id="summaryPlan">—</strong>
-                </div>
-                <div class="summary-row">
-                    <span>Dependants</span>
-                    <strong id="summaryDependants">0</strong>
-                </div>
-                <div class="summary-row">
-                    <span>Registration Fee</span>
-                    <strong id="summaryRegistration">KES 0</strong>
-                </div>
-                <div class="summary-row">
-                    <span>Total Payable</span>
-                    <strong class="summary-total" id="summaryTotal">KES 0</strong>
-                </div>
-            </div>
-
-            <div class="form-actions">
-                <button type="button" id="resetBtn" class="btn btn-secondary">Reset Form</button>
-                <div class="right-actions">
-                    <button type="button" id="calculateBtn" class="btn btn-primary">Calculate Registration</button>
-                    <button type="button" id="registerBtn" class="btn btn-success" disabled>
-                        Register Member
-                        <span id="loading" class="loading">...</span>
+                    <button
+                        type="button"
+                        id="individualModeBtn"
+                        class="mode-button active"
+                    >
+                        Individual / Family
                     </button>
-                </div>
-            </div>
-        </section>
 
-    </main>
-</div>
+                    <button
+                        type="button"
+                        id="chamaModeBtn"
+                        class="mode-button"
+                    >
+                        Chama / Group
+                    </button>
+
+                </div>
+
+
+                <!-- =========================
+                     INDIVIDUAL REGISTRATION
+                ========================== -->
+
+                <form id="registrationForm" novalidate>
+
+                    <!-- MEMBER DETAILS -->
+
+                    <div class="form-section">
+
+                        <div class="form-section-title">
+                            <span class="step-number">1</span>
+
+                            <h3>Principal Member Details</h3>
+                        </div>
+
+
+                        <div class="form-grid">
+
+                            <div class="form-group">
+                                <label for="firstName">
+                                    First Name
+                                    <span class="required">*</span>
+                                </label>
+
+                                <input
+                                    type="text"
+                                    id="firstName"
+                                    name="first_name"
+                                    autocomplete="given-name"
+                                    required
+                                >
+                            </div>
+
+
+                            <div class="form-group">
+                                <label for="lastName">
+                                    Last Name
+                                    <span class="required">*</span>
+                                </label>
+
+                                <input
+                                    type="text"
+                                    id="lastName"
+                                    name="last_name"
+                                    autocomplete="family-name"
+                                    required
+                                >
+                            </div>
+
+
+                            <div class="form-group">
+                                <label for="otherName">
+                                    Other Name
+                                </label>
+
+                                <input
+                                    type="text"
+                                    id="otherName"
+                                    name="other_name"
+                                    autocomplete="additional-name"
+                                >
+                            </div>
+
+
+                            <div class="form-group">
+                                <label for="idNumber">
+                                    National ID / Passport
+                                    <span class="required">*</span>
+                                </label>
+
+                                <input
+                                    type="text"
+                                    id="idNumber"
+                                    name="id_number"
+                                    required
+                                >
+                            </div>
+
+
+                            <div class="form-group">
+                                <label for="dateOfBirth">
+                                    Date of Birth
+                                    <span class="required">*</span>
+                                </label>
+
+                                <input
+                                    type="date"
+                                    id="dateOfBirth"
+                                    name="date_of_birth"
+                                    required
+                                >
+                            </div>
+
+
+                            <div class="form-group">
+                                <label for="gender">
+                                    Gender
+                                    <span class="required">*</span>
+                                </label>
+
+                                <select
+                                    id="gender"
+                                    name="gender"
+                                    required
+                                >
+                                    <option value="">Select gender</option>
+                                    <option value="MALE">Male</option>
+                                    <option value="FEMALE">Female</option>
+                                </select>
+                            </div>
+
+
+                            <div class="form-group">
+                                <label for="phone">
+                                    Phone Number
+                                    <span class="required">*</span>
+                                </label>
+
+                                <input
+                                    type="tel"
+                                    id="phone"
+                                    name="phone"
+                                    placeholder="07XXXXXXXX or 2547XXXXXXXX"
+                                    autocomplete="tel"
+                                    required
+                                >
+                            </div>
+
+
+                            <div class="form-group">
+                                <label for="alternativePhone">
+                                    Alternative Phone
+                                </label>
+
+                                <input
+                                    type="tel"
+                                    id="alternativePhone"
+                                    name="alternative_phone"
+                                >
+                            </div>
+
+
+                            <div class="form-group">
+                                <label for="email">
+                                    Email Address
+                                </label>
+
+                                <input
+                                    type="email"
+                                    id="email"
+                                    name="email"
+                                    autocomplete="email"
+                                >
+                            </div>
+
+
+                            <div class="form-group">
+                                <label for="county">
+                                    County
+                                </label>
+
+                                <input
+                                    type="text"
+                                    id="county"
+                                    name="county"
+                                >
+                            </div>
+
+
+                            <div class="form-group">
+                                <label for="location">
+                                    Location / Area
+                                </label>
+
+                                <input
+                                    type="text"
+                                    id="location"
+                                    name="location"
+                                >
+                            </div>
+
+
+                            <div class="form-group">
+                                <label for="town">
+                                    Town
+                                </label>
+
+                                <input
+                                    type="text"
+                                    id="town"
+                                    name="town"
+                                >
+                            </div>
+
+
+                            <div class="form-group full">
+                                <label for="address">
+                                    Physical / Postal Address
+                                </label>
+
+                                <textarea
+                                    id="address"
+                                    name="address"
+                                ></textarea>
+                            </div>
+
+                        </div>
+
+                    </div>
+
+
+                    <!-- PLAN -->
+
+                    <div class="form-section">
+
+                        <div class="form-section-title">
+                            <span class="step-number">2</span>
+
+                            <h3>Select Membership Plan</h3>
+                        </div>
+
+
+                        <div
+                            id="plansContainer"
+                            class="plans-grid"
+                        >
+                            <div class="help-text">
+                                Loading available plans...
+                            </div>
+                        </div>
+
+
+                        <div
+                            id="planHelp"
+                            class="help-text"
+                            style="margin-top:12px;"
+                        >
+                            Select a plan to continue.
+                        </div>
+
+                    </div>
+
+
+                    <!-- SALES AGENT -->
+
+                    <div class="form-section">
+
+                        <div class="form-section-title">
+                            <span class="step-number">3</span>
+
+                            <h3>Registration Source</h3>
+                        </div>
+
+
+                        <div class="form-grid">
+
+                            <div class="form-group">
+                                <label for="salesCode">
+                                    Sales Agent Code
+                                </label>
+
+                                <select
+                                    id="salesCode"
+                                    name="sales_code"
+                                >
+                                    <option value="">
+                                        Select sales agent
+                                    </option>
+                                </select>
+
+                                <span class="help-text">
+                                    Select the agent who assisted with your registration.
+                                </span>
+                            </div>
+
+
+                            <div class="form-group">
+                                <label for="benefitOption">
+                                    Benefit Option
+                                </label>
+
+                                <input
+                                    type="text"
+                                    id="benefitOption"
+                                    name="benefit_option"
+                                    placeholder="Optional"
+                                >
+                            </div>
+
+                        </div>
+
+                    </div>
+
+
+                    <!-- DEPENDANTS -->
+
+                    <div class="form-section">
+
+                        <div class="form-section-title">
+                            <span class="step-number">4</span>
+
+                            <h3>Dependants</h3>
+                        </div>
+
+                        <p class="help-text">
+                            You may add eligible spouse, children or parents
+                            according to the selected plan.
+                        </p>
+
+
+                        <div
+                            id="dependantsContainer"
+                            class="dependant-list"
+                        ></div>
+
+
+                        <button
+                            type="button"
+                            id="addDependantBtn"
+                            class="add-button"
+                        >
+                            + Add Dependant
+                        </button>
+
+                    </div>
+
+
+                    <!-- SUMMARY -->
+
+                    <div class="form-section">
+
+                        <div class="form-section-title">
+                            <span class="step-number">5</span>
+
+                            <h3>Registration Summary</h3>
+                        </div>
+
+
+                        <div class="summary">
+
+                            <div class="summary-row">
+                                <span>Plan</span>
+                                <strong id="summaryPlan">—</strong>
+                            </div>
+
+                            <div class="summary-row">
+                                <span>Principal registration</span>
+                                <strong id="summaryPrincipal">KES 0</strong>
+                            </div>
+
+                            <div class="summary-row">
+                                <span>Dependant registration</span>
+                                <strong id="summaryDependants">KES 0</strong>
+                            </div>
+
+                            <div class="summary-row total">
+                                <span>Amount to pay now</span>
+                                <strong id="summaryTotal">KES 0</strong>
+                            </div>
+
+                        </div>
+
+                    </div>
+
+
+                    <div class="button-row">
+
+                        <button
+                            type="button"
+                            id="resetBtn"
+                            class="btn btn-secondary"
+                        >
+                            Reset
+                        </button>
+
+                        <button
+                            type="submit"
+                            id="submitBtn"
+                            class="btn btn-primary"
+                        >
+                            Continue to Payment
+                        </button>
+
+                    </div>
+
+                </form>
+
+
+                <!-- =========================
+                     CHAMA REGISTRATION
+                ========================== -->
+
+                <section
+                    id="chamaSection"
+                    class="chama-only"
+                >
+
+                    <div class="section-heading">
+
+                        <h2>Chama / Group Registration</h2>
+
+                        <p>
+                            Upload a CSV containing the members of your
+                            chama/group. A minimum of 30 members is required.
+                        </p>
+
+                    </div>
+
+
+                    <form id="chamaForm" novalidate>
+
+                        <div class="form-section">
+
+                            <div class="form-section-title">
+                                <span class="step-number">1</span>
+                                <h3>Group Details</h3>
+                            </div>
+
+
+                            <div class="form-grid">
+
+                                <div class="form-group">
+                                    <label for="chamaName">
+                                        Chama / Group Name
+                                        <span class="required">*</span>
+                                    </label>
+
+                                    <input
+                                        type="text"
+                                        id="chamaName"
+                                        required
+                                    >
+                                </div>
+
+
+                                <div class="form-group">
+                                    <label for="chamaPhone">
+                                        Group Contact Phone
+                                        <span class="required">*</span>
+                                    </label>
+
+                                    <input
+                                        type="tel"
+                                        id="chamaPhone"
+                                        placeholder="07XXXXXXXX"
+                                        required
+                                    >
+                                </div>
+
+                            </div>
+
+                        </div>
+
+
+                        <div class="form-section">
+
+                            <div class="form-section-title">
+                                <span class="step-number">2</span>
+                                <h3>Group Officials</h3>
+                            </div>
+
+
+                            <div class="form-grid">
+
+                                <div class="form-group">
+                                    <label for="chairpersonName">
+                                        Chairperson Name
+                                        <span class="required">*</span>
+                                    </label>
+
+                                    <input
+                                        type="text"
+                                        id="chairpersonName"
+                                        required
+                                    >
+                                </div>
+
+
+                                <div class="form-group">
+                                    <label for="chairpersonPhone">
+                                        Chairperson Phone
+                                        <span class="required">*</span>
+                                    </label>
+
+                                    <input
+                                        type="tel"
+                                        id="chairpersonPhone"
+                                        required
+                                    >
+                                </div>
+
+
+                                <div class="form-group">
+                                    <label for="chairpersonId">
+                                        Chairperson ID
+                                        <span class="required">*</span>
+                                    </label>
+
+                                    <input
+                                        type="text"
+                                        id="chairpersonId"
+                                        required
+                                    >
+                                </div>
+
+
+                                <div class="form-group">
+                                    <label for="treasurerName">
+                                        Treasurer Name
+                                        <span class="required">*</span>
+                                    </label>
+
+                                    <input
+                                        type="text"
+                                        id="treasurerName"
+                                        required
+                                    >
+                                </div>
+
+
+                                <div class="form-group">
+                                    <label for="treasurerPhone">
+                                        Treasurer Phone
+                                        <span class="required">*</span>
+                                    </label>
+
+                                    <input
+                                        type="tel"
+                                        id="treasurerPhone"
+                                        required
+                                    >
+                                </div>
+
+
+                                <div class="form-group">
+                                    <label for="treasurerId">
+                                        Treasurer ID
+                                        <span class="required">*</span>
+                                    </label>
+
+                                    <input
+                                        type="text"
+                                        id="treasurerId"
+                                        required
+                                    >
+                                </div>
+
+
+                                <div class="form-group">
+                                    <label for="secretaryName">
+                                        Secretary Name
+                                        <span class="required">*</span>
+                                    </label>
+
+                                    <input
+                                        type="text"
+                                        id="secretaryName"
+                                        required
+                                    >
+                                </div>
+
+
+                                <div class="form-group">
+                                    <label for="secretaryPhone">
+                                        Secretary Phone
+                                        <span class="required">*</span>
+                                    </label>
+
+                                    <input
+                                        type="tel"
+                                        id="secretaryPhone"
+                                        required
+                                    >
+                                </div>
+
+
+                                <div class="form-group">
+                                    <label for="secretaryId">
+                                        Secretary ID
+                                        <span class="required">*</span>
+                                    </label>
+
+                                    <input
+                                        type="text"
+                                        id="secretaryId"
+                                        required
+                                    >
+                                </div>
+
+                            </div>
+
+                        </div>
+
+
+                        <div class="form-section">
+
+                            <div class="form-section-title">
+                                <span class="step-number">3</span>
+                                <h3>Upload Members CSV</h3>
+                            </div>
+
+
+                            <div class="csv-box">
+
+                                <strong>
+                                    Upload your chama member list
+                                </strong>
+
+                                <p class="help-text">
+                                    Required columns:
+                                    first_name, last_name, phone,
+                                    id_number, date_of_birth, gender
+                                </p>
+
+                                <input
+                                    type="file"
+                                    id="chamaCsv"
+                                    accept=".csv,text/csv"
+                                >
+
+                            </div>
+
+
+                            <div
+                                id="csvCount"
+                                class="csv-count"
+                            ></div>
+
+
+                            <div
+                                id="csvPreview"
+                                class="csv-preview"
+                            ></div>
+
+                        </div>
+
+
+                        <div class="form-section">
+
+                            <div class="summary">
+
+                                <div class="summary-row">
+                                    <span>Members</span>
+                                    <strong id="chamaMemberCount">0</strong>
+                                </div>
+
+                                <div class="summary-row">
+                                    <span>Registration rate</span>
+                                    <strong>KES 100 per member</strong>
+                                </div>
+
+                                <div class="summary-row total">
+                                    <span>Amount to pay</span>
+                                    <strong id="chamaTotal">KES 0</strong>
+                                </div>
+
+                            </div>
+
+                        </div>
+
+
+                        <div class="button-row">
+
+                            <button
+                                type="button"
+                                id="chamaResetBtn"
+                                class="btn btn-secondary"
+                            >
+                                Reset
+                            </button>
+
+                            <button
+                                type="submit"
+                                id="chamaSubmitBtn"
+                                class="btn btn-primary"
+                            >
+                                Continue to Payment
+                            </button>
+
+                        </div>
+
+                    </form>
+
+                </section>
+
+            </section>
+
+
+            <!-- =========================
+                 SIDEBAR
+            ========================== -->
+
+            <aside class="card side-card">
+
+                <h3>Registration Information</h3>
+
+
+                <div class="side-item">
+
+                    <div class="side-icon">1</div>
+
+                    <div>
+                        <strong>Registration first</strong>
+                        <span>
+                            Your details are created as a pending registration.
+                        </span>
+                    </div>
+
+                </div>
+
+
+                <div class="side-item">
+
+                    <div class="side-icon">2</div>
+
+                    <div>
+                        <strong>Pay securely</strong>
+                        <span>
+                            You will proceed to the M-Pesa payment page.
+                        </span>
+                    </div>
+
+                </div>
+
+
+                <div class="side-item">
+
+                    <div class="side-icon">3</div>
+
+                    <div>
+                        <strong>Automatic verification</strong>
+                        <span>
+                            M-Pesa callback confirms the transaction.
+                        </span>
+                    </div>
+
+                </div>
+
+
+                <div class="side-item">
+
+                    <div class="side-icon">4</div>
+
+                    <div>
+                        <strong>Membership finalized</strong>
+                        <span>
+                            The backend activates the membership after successful payment.
+                        </span>
+                    </div>
+
+                </div>
+
+
+                <div class="side-item">
+
+                    <div class="side-icon">5</div>
+
+                    <div>
+                        <strong>Membership number</strong>
+                        <span>
+                            The final member number is generated during finalization.
+                        </span>
+                    </div>
+
+                </div>
+
+
+                <div class="side-item">
+
+                    <div class="side-icon">✓</div>
+
+                    <div>
+                        <strong>Receipt & ID card</strong>
+                        <span>
+                            Your finalized membership can be used for receipt and
+                            identity-card generation.
+                        </span>
+                    </div>
+
+                </div>
+
+            </aside>
+
+        </div>
+
+    </div>
+
+</main>
+
+
+<footer>
+
+    <div class="container footer-inner">
+
+        <div>
+            © <span id="year"></span> Masika Benevolent.
+            All rights reserved.
+        </div>
+
+        <div>
+            Dignity. Support. Together.
+        </div>
+
+    </div>
+
+</footer>
+
 
 <script>
+"use strict";
+
 /* ============================================================
-   API CONFIGURATION
+   MASIKA BENEVOLENT — PUBLIC REGISTRATION
+   ============================================================
+
+   IMPORTANT DATABASE CONTRACT
+
+   members:
+       id
+       member_number        <-- ONLY membership number field
+       full_name
+       ...
+
+   payments:
+       member_id            <-- UUID FK to members.id
+
+   Registration flow:
+
+       register.html
+           ↓
+       /api/public/register
+           ↓
+       pending member
+           ↓
+       payment.html?member_id=UUID
+           ↓
+       M-Pesa STK Push
+           ↓
+       M-Pesa callback
+           ↓
+       backend finalization
+           ↓
+       activate member
+           ↓
+       generate member_number
+           ↓
+       receipt / membership card
+
+   Chama:
+
+       register.html
+           ↓
+       /api/public/register/chama
+           ↓
+       pending group/members
+           ↓
+       payment.html?group_id=UUID
+           ↓
+       M-Pesa
+           ↓
+       callback
+           ↓
+       finalize group members
    ============================================================ */
 
-const API_BASE_URL = 'https://masika-c921.onrender.com';
 
-// The backend creates PENDING member records (status = 'pending')
-// and returns member_id/group_id + registration amount.
-// Final membership numbers are generated AFTER payment confirmation
-// via M-Pesa callback, NOT at registration time.
-//
-// The flow is:
-// 1. register.html collects info and calls POST /api/public/register
-// 2. Backend creates PENDING member (status = 'pending')
-// 3. Returns member_id + registration_amount
-// 4. Redirect to payment.html?member_id=XXXX
-// 5. payment.html handles M-Pesa STK Push
-// 6. M-Pesa callback confirms payment, then backend:
-//    - Sets status = 'active'
-//    - Generates final membership_number
-//    - Generates receipt
-//    - Generates ID card
-//
-// IMPORTANT: The member is NOT active until payment is confirmed.
-// No final membership number is generated before payment.
+/* ============================================================
+   CONFIGURATION
+============================================================ */
 
-const WAKEUP_PATH = '/api/health';
-const MAX_RETRIES = 4;
-const RETRY_DELAYS_MS = [1500, 3000, 6000, 10000];
+const API_BASE_URL = "https://masika-c921.onrender.com";
+
+const CONFIG = {
+
+    API: API_BASE_URL,
+
+    MIN_CHAMA_MEMBERS: 30,
+
+    CHAMA_REGISTRATION_RATE: 100,
+
+    REQUEST_TIMEOUT: 60000,
+
+    MAX_DEPENDANTS: 10,
+
+    FALLBACK_PLANS: [
+
+        {
+            plan_code: "Comfort",
+            plan_name: "Comfort",
+            description:
+                "Basic membership protection for individuals and families.",
+            principal_registration_fee: 200,
+            dependant_registration_fee: 0,
+            principal_monthly_premium: 300
+        },
+
+        {
+            plan_code: "Dignity",
+            plan_name: "Dignity",
+            description:
+                "Enhanced family protection and benevolent support.",
+            principal_registration_fee: 500,
+            dependant_registration_fee: 0,
+            principal_monthly_premium: 1000
+        },
+
+        {
+            plan_code: "Wazazi",
+            plan_name: "Wazazi",
+            description:
+                "Comprehensive parent and family protection.",
+            principal_registration_fee: 200,
+            dependant_registration_fee: 100,
+            principal_monthly_premium: 650
+        },
+
+        {
+            plan_code: "Chama",
+            plan_name: "Chama",
+            description:
+                "Group membership for communities and organizations.",
+            principal_registration_fee: 100,
+            dependant_registration_fee: 0,
+            principal_monthly_premium: 0
+        }
+
+    ]
+
+};
+
 
 /* ============================================================
    STATE
-   ============================================================ */
+============================================================ */
 
-let calculatedRegistration = null;
-let dependantIndex = 0;
-let serverIsAwake = false;
-let isChamaMode = false;
-let parsedChamaMembers = [];
+const state = {
 
-/* ============================================================
-   DOM REFERENCES
-   ============================================================ */
+    plans: [],
 
-const alertBox = document.getElementById("alertBox");
+    selectedPlan: null,
 
-const firstName = document.getElementById("firstName");
-const lastName = document.getElementById("lastName");
-const otherName = document.getElementById("otherName");
-const idNumber = document.getElementById("idNumber");
-const gender = document.getElementById("gender");
-const dateOfBirth = document.getElementById("dateOfBirth");
-const phone = document.getElementById("phone");
-const email = document.getElementById("email");
-const county = document.getElementById("county");
-const locationField = document.getElementById("location");
-const address = document.getElementById("address");
-const salesCode = document.getElementById("salesCode");
+    dependantIndex: 0,
 
-const dependantsContainer = document.getElementById("dependantsContainer");
-const dependantCount = document.getElementById("dependantCount");
-const addDependantBtn = document.getElementById("addDependantBtn");
-const calculateBtn = document.getElementById("calculateBtn");
-const registerBtn = document.getElementById("registerBtn");
-const resetBtn = document.getElementById("resetBtn");
+    dependants: [],
 
-const serverStatusEl = document.getElementById("serverStatus");
-const serverStatusText = document.getElementById("serverStatusText");
+    isChamaMode: false,
 
-const memberDetailsCard = document.getElementById("memberDetailsCard");
-const dependantsCardSection = document.getElementById("dependantsCardSection");
-const chamaCard = document.getElementById("chamaCard");
-const chamaFileInput = document.getElementById("chamaMembersFile");
-const chamaPreview = document.getElementById("chamaPreview");
+    parsedChamaMembers: [],
+
+    submitting: false,
+
+    serverIsAwake: false
+
+};
+
 
 /* ============================================================
-   ALERT FUNCTIONS
-   ============================================================ */
+   DOM HELPERS
+============================================================ */
 
-function showAlert(message, type = "error") {
-    alertBox.textContent = message;
-    alertBox.className = "alert show " + type;
-    window.scrollTo({ top: 0, behavior: "smooth" });
+const $ = id => document.getElementById(id);
+
+
+const elements = {
+
+    registrationForm: $("registrationForm"),
+
+    chamaForm: $("chamaForm"),
+
+    individualModeBtn: $("individualModeBtn"),
+
+    chamaModeBtn: $("chamaModeBtn"),
+
+    chamaSection: $("chamaSection"),
+
+    plansContainer: $("plansContainer"),
+
+    planHelp: $("planHelp"),
+
+    salesCode: $("salesCode"),
+
+    dependantsContainer: $("dependantsContainer"),
+
+    addDependantBtn: $("addDependantBtn"),
+
+    submitBtn: $("submitBtn"),
+
+    resetBtn: $("resetBtn"),
+
+    chamaSubmitBtn: $("chamaSubmitBtn"),
+
+    chamaResetBtn: $("chamaResetBtn"),
+
+    chamaCsv: $("chamaCsv"),
+
+    csvPreview: $("csvPreview"),
+
+    csvCount: $("csvCount"),
+
+    chamaMemberCount: $("chamaMemberCount"),
+
+    chamaTotal: $("chamaTotal"),
+
+    summaryPlan: $("summaryPlan"),
+
+    summaryPrincipal: $("summaryPrincipal"),
+
+    summaryDependants: $("summaryDependants"),
+
+    summaryTotal: $("summaryTotal"),
+
+    alertBox: $("alertBox"),
+
+    loadingBox: $("loadingBox"),
+
+    loadingText: $("loadingText")
+
+};
+
+
+/* ============================================================
+   INITIALIZATION
+============================================================ */
+
+document.addEventListener("DOMContentLoaded", async () => {
+
+    $("year").textContent = new Date().getFullYear();
+
+    bindEvents();
+
+    renderDependants();
+
+    await Promise.allSettled([
+        loadPlans(),
+        loadSalesCodes()
+    ]);
+
+    updateSummary();
+
+});
+
+
+/* ============================================================
+   EVENTS
+============================================================ */
+
+function bindEvents() {
+
+    elements.individualModeBtn.addEventListener(
+        "click",
+        () => setMode(false)
+    );
+
+
+    elements.chamaModeBtn.addEventListener(
+        "click",
+        () => setMode(true)
+    );
+
+
+    elements.registrationForm.addEventListener(
+        "submit",
+        registerMember
+    );
+
+
+    elements.chamaForm.addEventListener(
+        "submit",
+        registerChamaGroup
+    );
+
+
+    elements.addDependantBtn.addEventListener(
+        "click",
+        addDependant
+    );
+
+
+    elements.resetBtn.addEventListener(
+        "click",
+        resetIndividualForm
+    );
+
+
+    elements.chamaResetBtn.addEventListener(
+        "click",
+        resetChamaForm
+    );
+
+
+    elements.chamaCsv.addEventListener(
+        "change",
+        handleChamaCsv
+    );
+
 }
+
+
+/* ============================================================
+   MODE
+============================================================ */
+
+function setMode(chamaMode) {
+
+    state.isChamaMode = chamaMode;
+
+    if (chamaMode) {
+
+        elements.individualModeBtn.classList.remove("active");
+
+        elements.chamaModeBtn.classList.add("active");
+
+        elements.registrationForm.style.display = "none";
+
+        elements.chamaSection.classList.add("show");
+
+    } else {
+
+        elements.chamaModeBtn.classList.remove("active");
+
+        elements.individualModeBtn.classList.add("active");
+
+        elements.chamaSection.classList.remove("show");
+
+        elements.registrationForm.style.display = "block";
+
+    }
+
+    clearAlert();
+
+}
+
+
+/* ============================================================
+   ALERTS
+============================================================ */
+
+function showAlert(message, type = "info") {
+
+    elements.alertBox.textContent = message;
+
+    elements.alertBox.className =
+        `alert ${type} show`;
+
+}
+
 
 function clearAlert() {
-    alertBox.textContent = "";
-    alertBox.className = "alert";
+
+    elements.alertBox.textContent = "";
+
+    elements.alertBox.className = "alert";
+
 }
+
 
 /* ============================================================
-   SERVER WAKE-UP / STATUS INDICATOR
-   ============================================================ */
+   LOADING
+============================================================ */
 
-function setServerStatus(state, text) {
-    serverStatusEl.className = "server-status " + (state === "connecting" ? "" : state);
-    serverStatusText.textContent = text;
+function setLoading(isLoading, message = "Processing...") {
+
+    elements.loadingText.textContent = message;
+
+    elements.loadingBox.classList.toggle(
+        "show",
+        isLoading
+    );
+
+    elements.submitBtn.disabled = isLoading;
+
+    elements.chamaSubmitBtn.disabled = isLoading;
+
 }
 
-async function pingServer(timeoutMs = 8000) {
+
+/* ============================================================
+   FETCH WITH TIMEOUT
+============================================================ */
+
+async function fetchWithTimeout(
+    url,
+    options = {},
+    timeout = CONFIG.REQUEST_TIMEOUT
+) {
+
     const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), timeoutMs);
+
+    const timer = setTimeout(
+        () => controller.abort(),
+        timeout
+    );
+
     try {
-        const response = await fetch(`${API_BASE_URL}${WAKEUP_PATH}`, {
-            method: "GET",
-            signal: controller.signal
-        });
-        clearTimeout(timer);
-        return response.ok;
-    } catch (err) {
-        clearTimeout(timer);
-        return false;
-    }
-}
 
-async function warmUpServer() {
-    setServerStatus("connecting", "Connecting to server…");
+        const response = await fetch(
+            url,
+            {
+                ...options,
+                signal: controller.signal
+            }
+        );
 
-    for (let attempt = 0; attempt < 6; attempt++) {
-        const ok = await pingServer();
-        if (ok) {
-            serverIsAwake = true;
-            setServerStatus("online", "Server ready");
-            return;
+        return response;
+
+    } catch (error) {
+
+        if (error.name === "AbortError") {
+
+            throw new Error(
+                "The server took too long to respond. Please try again."
+            );
+
         }
-        setServerStatus("connecting", attempt === 0
-            ? "Waking up server…"
-            : "Still waking up server…");
-        await sleep(4000);
+
+        throw error;
+
+    } finally {
+
+        clearTimeout(timer);
+
     }
 
-    setServerStatus("offline", "Server slow to respond");
 }
 
-function sleep(ms) {
-    return new Promise(resolve => setTimeout(resolve, ms));
-}
 
 /* ============================================================
-   PLAN SELECTION
-   ============================================================ */
+   JSON API
+============================================================ */
 
-const planSelect = document.getElementById("planSelect");
-const planDescription = document.getElementById("planDescription");
+async function apiRequest(
+    endpoint,
+    options = {}
+) {
 
-let planPricing = {};
-
-const FALLBACK_PLANS = [
-    { plan_code: "Comfort", plan_name: "Comfort", description: "Basic membership protection for individuals and families.", principal_registration_fee: 200, dependant_registration_fee: 50 },
-    { plan_code: "Dignity", plan_name: "Dignity", description: "Enhanced family protection and benevolent support.", principal_registration_fee: 500, dependant_registration_fee: 100 },
-    { plan_code: "Wazazi", plan_name: "Wazazi", description: "Comprehensive parent and family protection.", principal_registration_fee: 100, dependant_registration_fee: 100 },
-    { plan_code: "Chama", plan_name: "Chama", description: "Group/chama membership for communities and organizations.", principal_registration_fee: 100, dependant_registration_fee: 0 }
-];
-
-function applyPlanRows(rows) {
-    planPricing = {};
-    planSelect.querySelectorAll("option[value]:not([value=''])").forEach(o => o.remove());
-
-    rows.forEach(row => {
-        if (!row.plan_code) return;
-        planPricing[row.plan_code] = row;
-
-        const option = document.createElement("option");
-        option.value = row.plan_code;
-        const feeText = (row.principal_registration_fee || row.principal_registration_fee === 0)
-            ? ` — KES ${Number(row.principal_registration_fee).toLocaleString("en-KE")} registration`
-            : "";
-        option.textContent = `${row.plan_code}${feeText}`;
-        planSelect.appendChild(option);
-    });
-
-    // Ensure Chama is always available
-    if (!planPricing["Chama"]) {
-        const chamaPlan = FALLBACK_PLANS.find(p => p.plan_code === "Chama");
-        if (chamaPlan) {
-            planPricing["Chama"] = chamaPlan;
-            const option = document.createElement("option");
-            option.value = "Chama";
-            option.textContent = "Chama — KES 100 per member registration";
-            planSelect.appendChild(option);
+    const response = await fetchWithTimeout(
+        `${CONFIG.API}${endpoint}`,
+        {
+            headers: {
+                "Content-Type": "application/json",
+                ...(options.headers || {})
+            },
+            ...options
         }
+    );
+
+
+    let result = null;
+
+    try {
+
+        result = await response.json();
+
+    } catch {
+
+        result = null;
+
     }
+
+
+    if (!response.ok) {
+
+        const message =
+            result?.error ||
+            result?.message ||
+            `Server returned HTTP ${response.status}.`;
+
+        throw new Error(message);
+
+    }
+
+
+    return result;
+
 }
+
+
+/* ============================================================
+   NORMALIZE PHONE
+============================================================ */
+
+function normalizePhone(phone) {
+
+    let value = String(phone || "")
+        .trim()
+        .replace(/\s+/g, "")
+        .replace(/-/g, "");
+
+
+    if (value.startsWith("+254")) {
+
+        value = value.substring(1);
+
+    }
+
+
+    if (value.startsWith("07")) {
+
+        value = "254" + value.substring(1);
+
+    }
+
+    if (value.startsWith("01")) {
+
+        value = "254" + value.substring(1);
+
+    }
+
+
+    return value;
+
+}
+
+
+/* ============================================================
+   LOAD PLANS
+============================================================ */
 
 async function loadPlans() {
-    try {
-        if (!window.supabaseClient) {
-            throw new Error("Supabase client not initialized.");
-        }
 
-        const { data, error } = await window.supabaseClient
-            .from("plans")
-            .select("plan_code, plan_name, description, principal_registration_fee, dependant_registration_fee, principal_monthly_premium")
-            .eq("is_active", true)
-            .order("principal_monthly_premium", { ascending: true });
+    let plans = [];
 
-        if (error) throw error;
-        if (!data || data.length === 0) throw new Error("No active plans returned.");
-
-        applyPlanRows(data);
-    } catch (error) {
-        console.warn("Could not load live plan pricing, using fallback values:", error.message);
-        applyPlanRows(FALLBACK_PLANS);
-    }
-}
-
-planSelect.addEventListener("change", () => {
-    calculatedRegistration = null;
-    registerBtn.disabled = true;
-    const plan = planPricing[planSelect.value];
-    planDescription.textContent = (plan && plan.description) ? plan.description : "\u00A0";
-
-    isChamaMode = planSelect.value === "Chama";
-    memberDetailsCard.classList.toggle("hidden", isChamaMode);
-    dependantsCardSection.classList.toggle("hidden", isChamaMode);
-    chamaCard.classList.toggle("hidden", !isChamaMode);
-
-    updateSummary();
-});
-
-/* ============================================================
-   CHAMA — OFFICIALS + CSV ROSTER
-   ============================================================ */
-
-const CHAMA_REQUIRED_COLUMNS = ["first_name", "last_name", "phone", "id_number", "date_of_birth", "gender"];
-const CHAMA_MIN_MEMBERS = 30;
-
-function getChamaOfficials() {
-    return {
-        Chairperson: {
-            name: document.getElementById("chairName").value.trim(),
-            phone: document.getElementById("chairPhone").value.trim(),
-            id_number: document.getElementById("chairId").value.trim()
-        },
-        Treasurer: {
-            name: document.getElementById("treasurerName").value.trim(),
-            phone: document.getElementById("treasurerPhone").value.trim(),
-            id_number: document.getElementById("treasurerId").value.trim()
-        },
-        Secretary: {
-            name: document.getElementById("secretaryName").value.trim(),
-            phone: document.getElementById("secretaryPhone").value.trim(),
-            id_number: document.getElementById("secretaryId").value.trim()
-        }
-    };
-}
-
-document.getElementById("downloadChamaTemplate").addEventListener("click", (e) => {
-    e.preventDefault();
-    const header = CHAMA_REQUIRED_COLUMNS.join(",") + "\n";
-    const example = "Jane,Wanjiru,0712345678,12345678,1990-05-14,FEMALE\n";
-    const blob = new Blob([header + example], { type: "text/csv" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = "chama_members_template.csv";
-    document.body.appendChild(a);
-    a.click();
-    a.remove();
-    URL.revokeObjectURL(url);
-});
-
-chamaFileInput.addEventListener("change", (e) => {
-    const file = e.target.files[0];
-    parsedChamaMembers = [];
-    calculatedRegistration = null;
-    registerBtn.disabled = true;
-
-    if (!file) {
-        chamaPreview.textContent = "";
-        return;
-    }
-
-    Papa.parse(file, {
-        header: true,
-        skipEmptyLines: true,
-        transformHeader: (h) => h.trim().toLowerCase().replace(/\s+/g, "_"),
-        complete: (results) => {
-            const rows = results.data;
-            const firstRow = rows[0] || {};
-            const missingCols = CHAMA_REQUIRED_COLUMNS.filter(col => !(col in firstRow));
-
-            if (missingCols.length > 0) {
-                chamaPreview.innerHTML = `<span style="color:var(--danger)">Missing required column(s): ${missingCols.join(", ")}. Expected headers: ${CHAMA_REQUIRED_COLUMNS.join(", ")}</span>`;
-                return;
-            }
-
-            parsedChamaMembers = rows
-                .map(r => ({
-                    first_name: (r.first_name || "").trim(),
-                    last_name: (r.last_name || "").trim(),
-                    phone: (r.phone || "").trim(),
-                    id_number: (r.id_number || "").trim(),
-                    date_of_birth: (r.date_of_birth || "").trim(),
-                    gender: (r.gender || "").trim().toUpperCase()
-                }))
-                .filter(r => r.first_name && r.phone);
-
-            if (parsedChamaMembers.length < CHAMA_MIN_MEMBERS) {
-                chamaPreview.innerHTML = `<span style="color:var(--danger)">Only ${parsedChamaMembers.length} valid row(s) found — a chama group needs at least ${CHAMA_MIN_MEMBERS} principal members.</span>`;
-                return;
-            }
-
-            chamaPreview.innerHTML = `<span style="color:var(--success)">✓ ${parsedChamaMembers.length} members parsed and ready.</span>`;
-        },
-        error: (err) => {
-            chamaPreview.innerHTML = `<span style="color:var(--danger)">Could not read file: ${err.message}</span>`;
-        }
-    });
-});
-
-async function calculateChamaRegistrationPayment() {
-    clearAlert();
-
-    const groupName = document.getElementById("chamaGroupName").value.trim();
-    if (!groupName) {
-        showAlert("Group name is required.");
-        return;
-    }
-
-    const officials = getChamaOfficials();
-    for (const [role, official] of Object.entries(officials)) {
-        if (!official.name || !official.phone || !official.id_number) {
-            showAlert(`Please complete all ${role} details.`);
-            return;
-        }
-    }
-
-    if (parsedChamaMembers.length < CHAMA_MIN_MEMBERS) {
-        showAlert(`Please upload a members CSV with at least ${CHAMA_MIN_MEMBERS} valid rows.`);
-        return;
-    }
-
-    const plan = planPricing["Chama"] || {};
-    const feePerMember = Number(plan.principal_registration_fee) || 100;
-    const totalFee = feePerMember * parsedChamaMembers.length;
-
-    calculatedRegistration = { total_amount: totalFee };
-
-    document.getElementById("summaryRegistration").textContent = formatCurrency(totalFee);
-    document.getElementById("summaryTotal").textContent = formatCurrency(totalFee);
-    registerBtn.disabled = false;
-
-    showAlert(`Estimated registration payment: ${formatCurrency(totalFee)} for ${parsedChamaMembers.length} members. The exact amount is confirmed when you register.`, "success");
-}
-
-async function registerChamaGroup() {
-    if (!calculatedRegistration) {
-        showAlert("Please calculate the registration payment before registering the group.");
-        return;
-    }
-
-    registerBtn.disabled = true;
-    document.getElementById("loading").style.display = "inline";
 
     try {
-        const officials = getChamaOfficials();
-        const payload = {
-            group_name: document.getElementById("chamaGroupName").value.trim(),
-            registration_number: document.getElementById("chamaRegNumber").value.trim() || null,
-            county: document.getElementById("chamaCounty").value.trim() || null,
-            chairperson: officials.Chairperson,
-            treasurer: officials.Treasurer,
-            secretary: officials.Secretary,
-            members: parsedChamaMembers
-        };
 
-        const result = await apiRequest('/api/public/register/chama', {
-            method: 'POST',
-            body: JSON.stringify(payload)
-        });
+        if (
+            typeof supabaseClient !== "undefined" &&
+            supabaseClient
+        ) {
 
-        if (!result || !result.success) {
-            throw new Error((result && result.message) || "Failed to register chama group.");
-        }
-
-        let successMessage = `✅ Chama group "${payload.group_name}" registered with ${result.member_count} member(s).`;
-        if (result.skipped && result.skipped.length > 0) {
-            successMessage += ` ${result.skipped.length} row(s) were skipped (duplicate phone or invalid data) — see admin panel to fix and add them separately.`;
-        }
-        showAlert(successMessage, "success");
-
-        // IMPORTANT: Store pending registration info for payment.html
-        // Payment will confirm and activate all members at once
-        sessionStorage.setItem('newChamaGroupId', result.group_id);
-        sessionStorage.setItem('newChamaGroupName', payload.group_name);
-        sessionStorage.setItem('newChamaMemberCount', result.member_count);
-        sessionStorage.setItem('newChamaPhone', payload.chairperson.phone);
-        sessionStorage.setItem('registrationAmount', result.registration_amount);
-        sessionStorage.setItem('isChamaRegistration', 'true');
-
-        // Redirect to payment with group_id
-        setTimeout(() => {
-            window.location.href = `payment.html?group_id=${encodeURIComponent(result.group_id)}`;
-        }, 2000);
-
-    } catch (error) {
-        console.error("Chama registration error:", error);
-        showAlert(error.message || "Unable to register chama group.");
-        registerBtn.disabled = false;
-    } finally {
-        document.getElementById("loading").style.display = "none";
-    }
-}
-
-/* ============================================================
-   DEPENDANT MANAGEMENT
-   ============================================================ */
-
-addDependantBtn.addEventListener("click", addDependant);
-
-function addDependant() {
-    dependantIndex++;
-    const row = document.createElement("div");
-    row.className = "dependant-row";
-    row.dataset.index = dependantIndex;
-    row.innerHTML = `
-        <input type="text" class="dependant-name" placeholder="Full name" required>
-        <select class="dependant-relation" required>
-            <option value="">Relationship</option>
-            <option value="SPOUSE">Spouse</option>
-            <option value="CHILD">Child</option>
-            <option value="PARENT">Parent</option>
-            <option value="SIBLING">Sibling</option>
-            <option value="OTHER">Other</option>
-        </select>
-        <input type="date" class="dependant-dob" title="Date of birth">
-        <button type="button" class="remove-btn" onclick="removeDependant(this)">✕ Remove</button>
-    `;
-    dependantsContainer.appendChild(row);
-    updateDependantCount();
-    calculatedRegistration = null;
-    registerBtn.disabled = true;
-    updateSummary();
-}
-
-function removeDependant(button) {
-    const row = button.closest(".dependant-row");
-    if (row) row.remove();
-    updateDependantCount();
-    calculatedRegistration = null;
-    registerBtn.disabled = true;
-    updateSummary();
-}
-
-function updateDependantCount() {
-    const count = document.querySelectorAll(".dependant-row").length;
-    dependantCount.textContent = count === 1 ? "1 Dependant" : `${count} Dependants`;
-    document.getElementById("summaryDependants").textContent = count;
-}
-
-function getDependants() {
-    const rows = document.querySelectorAll(".dependant-row");
-    return Array.from(rows).map(row => ({
-        name: row.querySelector(".dependant-name").value.trim(),
-        relationship: row.querySelector(".dependant-relation").value,
-        date_of_birth: row.querySelector(".dependant-dob").value || null
-    }));
-}
-
-/* ============================================================
-   GET SELECTED PLAN
-   ============================================================ */
-
-function getSelectedPlan() {
-    return planSelect.value || null;
-}
-
-/* ============================================================
-   VALIDATION
-   ============================================================ */
-
-function validateForm() {
-    clearAlert();
-
-    const requiredFields = [
-        { field: firstName, name: "First name" },
-        { field: lastName, name: "Last name" },
-        { field: idNumber, name: "National ID / Passport" },
-        { field: gender, name: "Gender" },
-        { field: dateOfBirth, name: "Date of birth" },
-        { field: phone, name: "Phone number" },
-        { field: county, name: "County" }
-    ];
-
-    for (const item of requiredFields) {
-        if (!item.field.value.trim()) {
-            showAlert(`${item.name} is required.`);
-            item.field.focus();
-            item.field.classList.add("error");
-            return false;
-        }
-        item.field.classList.remove("error");
-    }
-
-    const plan = getSelectedPlan();
-    if (!plan) {
-        showAlert("Please select a membership plan.");
-        return false;
-    }
-
-    const dependants = getDependants();
-    for (const dependant of dependants) {
-        if (!dependant.name || !dependant.relationship) {
-            showAlert("Please complete all dependant details.");
-            return false;
-        }
-    }
-
-    return true;
-}
-
-/* ============================================================
-   MEMBER PAYLOAD (matches FastAPI RegistrationRequest schema)
-   ============================================================ */
-
-function getMemberPayload() {
-    return {
-        first_name: firstName.value.trim(),
-        last_name: lastName.value.trim(),
-        other_name: otherName.value.trim() || null,
-        phone: phone.value.trim(),
-        email: email.value.trim() || null,
-        id_number: idNumber.value.trim(),
-        date_of_birth: dateOfBirth.value,
-        gender: gender.value,
-        county: county.value,
-        location: locationField.value.trim() || null,
-        address: address.value.trim() || null,
-        sales_code: salesCode.value || null,
-        plan: getSelectedPlan(),
-        benefit_option: 'service',
-        dependants: getDependants().map(dep => ({
-            first_name: dep.name.split(' ')[0] || dep.name,
-            last_name: dep.name.split(' ').slice(1).join(' ') || 'Unknown',
-            date_of_birth: dep.date_of_birth,
-            relationship: dep.relationship
-        }))
-    };
-}
-
-/* ============================================================
-   API HELPER (with retry-with-backoff for network/cold-start errors)
-   ============================================================ */
-
-function isRetryableNetworkError(err) {
-    return err instanceof TypeError;
-}
-
-async function apiRequest(path, options = {}, { onRetry } = {}) {
-    let lastError = null;
-
-    for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
-        let response;
-        try {
-            response = await fetch(`${API_BASE_URL}${path}`, {
-                headers: { 'Content-Type': 'application/json' },
-                ...options
-            });
-        } catch (networkError) {
-            lastError = networkError;
-            console.error(`Network error calling API (attempt ${attempt + 1}/${MAX_RETRIES + 1}):`, networkError);
-
-            if (isRetryableNetworkError(networkError) && attempt < MAX_RETRIES) {
-                const delay = RETRY_DELAYS_MS[Math.min(attempt, RETRY_DELAYS_MS.length - 1)];
-                if (onRetry) onRetry(attempt + 1, delay);
-                await sleep(delay);
-                continue;
-            }
-
-            throw new Error("Unable to reach the server. Please check your connection and try again.");
-        }
-
-        let body = null;
-        try {
-            body = await response.json();
-        } catch (parseError) {
-            // Non-JSON response body; fall through with body = null
-        }
-
-        if (!response.ok) {
-            const detail = body && body.detail;
-            const message =
-                (typeof detail === "string" && detail) ||
-                (detail && detail.message) ||
-                (body && body.message) ||
-                `Request failed (HTTP ${response.status}).`;
-            throw new Error(message);
-        }
-
-        return body;
-    }
-
-    throw lastError || new Error("Unable to reach the server. Please check your connection and try again.");
-}
-
-/* ============================================================
-   CALCULATE REGISTRATION (client-side estimate only)
-   ============================================================ */
-
-calculateBtn.addEventListener("click", () => {
-    if (isChamaMode) {
-        calculateChamaRegistrationPayment();
-    } else {
-        calculateRegistrationPayment();
-    }
-});
-
-async function calculateRegistrationPayment() {
-    if (!validateForm()) return;
-
-    calculateBtn.disabled = true;
-    calculateBtn.textContent = "Calculating...";
-
-    try {
-        const payload = getMemberPayload();
-
-        // NOTE: This is a client-side ESTIMATE shown for the user's convenience
-        // only. The authoritative fee is calculated by the backend inside
-        // POST /api/public/register at the moment the member is actually created.
-        // Both read pricing from the same place — the `plans` table.
-        const selectedPlan = planPricing[payload.plan] || {};
-        const principalFee = Number(selectedPlan.principal_registration_fee) || 0;
-        const perDependantFee = Number(selectedPlan.dependant_registration_fee) || 0;
-
-        let totalFee = principalFee + (perDependantFee * payload.dependants.length);
-
-        calculatedRegistration = {
-            total_amount: totalFee,
-            registration_fee: principalFee,
-            dependant_fees: totalFee - principalFee
-        };
-
-        document.getElementById("summaryRegistration").textContent = formatCurrency(totalFee);
-        document.getElementById("summaryTotal").textContent = formatCurrency(totalFee);
-
-        registerBtn.disabled = false;
-
-        showAlert(`Estimated registration payment: ${formatCurrency(totalFee)}. The exact amount is confirmed when you register.`, "success");
-
-    } catch (error) {
-        console.error(error);
-        showAlert(error.message || "Unable to calculate registration payment.");
-        registerBtn.disabled = true;
-    } finally {
-        calculateBtn.disabled = false;
-        calculateBtn.textContent = "Calculate Registration";
-    }
-}
-
-/* ============================================================
-   SUMMARY UPDATE
-   ============================================================ */
-
-function updateSummary() {
-    if (isChamaMode) {
-        const groupName = document.getElementById("chamaGroupName")?.value.trim();
-        document.getElementById("summaryName").textContent = groupName || "—";
-        document.getElementById("summaryPlan").textContent = "Chama";
-        document.getElementById("summaryDependants").textContent = parsedChamaMembers.length + " members";
-    } else {
-        const name = [firstName.value.trim(), lastName.value.trim()].filter(Boolean).join(" ");
-        document.getElementById("summaryName").textContent = name || "—";
-
-        const plan = getSelectedPlan();
-        document.getElementById("summaryPlan").textContent = plan || "—";
-
-        updateDependantCount();
-    }
-
-    if (!calculatedRegistration) {
-        document.getElementById("summaryRegistration").textContent = "KES 0";
-        document.getElementById("summaryTotal").textContent = "KES 0";
-    }
-}
-
-/* ============================================================
-   FORMAT CURRENCY
-   ============================================================ */
-
-function formatCurrency(value) {
-    const amount = Number(value) || 0;
-    return "KES " + amount.toLocaleString("en-KE", {
-        minimumFractionDigits: 0,
-        maximumFractionDigits: 0
-    });
-}
-
-/* ============================================================
-   REGISTER MEMBER — goes through the FastAPI backend, which
-   re-validates everything, computes the authoritative fee
-   server-side, checks for duplicate phone/email, and creates
-   a PENDING member record.
-
-   IMPORTANT: The member is NOT active yet. No final membership
-   number is generated here — that happens after payment
-   confirmation via M-Pesa callback.
-
-   The registration returns member_id which is used to redirect
-   to payment.html for M-Pesa STK Push.
-   ============================================================ */
-
-registerBtn.addEventListener("click", () => {
-    if (isChamaMode) {
-        registerChamaGroup();
-    } else {
-        registerMember();
-    }
-});
-
-async function registerMember() {
-    if (!validateForm()) return;
-
-    if (!calculatedRegistration) {
-        showAlert("Please calculate the registration payment before registering the member.");
-        return;
-    }
-
-    registerBtn.disabled = true;
-    document.getElementById("loading").style.display = "inline";
-
-    try {
-        const payload = getMemberPayload();
-
-        const result = await apiRequest('/api/public/register', {
-            method: 'POST',
-            body: JSON.stringify(payload)
-        }, {
-            onRetry: (attemptNumber, delayMs) => {
-                showAlert(
-                    `Server is waking up — retrying (attempt ${attemptNumber} of ${MAX_RETRIES})…`,
-                    "info"
+            const {
+                data,
+                error
+            } = await supabaseClient
+                .from("plans")
+                .select(`
+                    plan_code,
+                    plan_name,
+                    description,
+                    principal_registration_fee,
+                    dependant_registration_fee,
+                    principal_monthly_premium
+                `)
+                .eq("is_active", true)
+                .order(
+                    "principal_monthly_premium",
+                    {
+                        ascending: true
+                    }
                 );
+
+
+            if (!error && Array.isArray(data)) {
+
+                plans = data;
+
+            } else if (error) {
+
+                console.warn(
+                    "Unable to load plans from Supabase:",
+                    error
+                );
+
             }
-        });
 
-        if (!result || !result.success) {
-            throw new Error((result && result.message) || "Failed to register member.");
         }
-
-        // IMPORTANT: The member is PENDING at this point.
-        // The member_number returned is a temporary identifier,
-        // not the final membership number.
-        // The final membership number is generated after payment.
-        let successMessage = `✅ Member "${payload.first_name} ${payload.last_name}" registered pending payment.`;
-        if (payload.sales_code && result.sales_code_applied === false) {
-            successMessage += ` (Note: the agent sales code "${payload.sales_code}" could not be applied.)`;
-        }
-        successMessage += ` Complete payment to activate membership.`;
-        showAlert(successMessage, "success");
-
-        // Store pending registration info for payment.html
-        sessionStorage.setItem('newMemberId', result.member_id);
-        sessionStorage.setItem('newMemberNumber', result.member_number);
-        sessionStorage.setItem('newMemberName', `${payload.first_name} ${payload.last_name}`);
-        sessionStorage.setItem('newMemberPhone', payload.phone);
-        sessionStorage.setItem('registrationAmount', result.registration_amount);
-        sessionStorage.setItem('isChamaRegistration', 'false');
-
-        // Redirect to payment.html with member_id
-        // payment.html will handle M-Pesa STK Push and confirmation
-        setTimeout(() => {
-            window.location.href = `payment.html?member_id=${encodeURIComponent(result.member_id)}`;
-        }, 1500);
 
     } catch (error) {
-        console.error("Member registration error:", error);
-        showAlert(error.message || "Unable to register member.");
-        registerBtn.disabled = false;
-    } finally {
-        document.getElementById("loading").style.display = "none";
+
+        console.warn(
+            "Plan loading failed:",
+            error
+        );
+
     }
+
+
+    if (!plans.length) {
+
+        plans = CONFIG.FALLBACK_PLANS;
+
+    }
+
+
+    state.plans = plans.filter(
+        plan =>
+            String(plan.plan_code || "").toLowerCase() !==
+            "chama"
+    );
+
+
+    renderPlans();
+
 }
 
+
 /* ============================================================
-   RESET FORM
-   ============================================================ */
+   RENDER PLANS
+============================================================ */
 
-resetBtn.addEventListener("click", () => {
-    if (!confirm("Are you sure you want to clear this registration?")) return;
+function renderPlans() {
 
-    document.querySelectorAll("input, select, textarea").forEach(element => {
-        if (element.type === "radio" || element.type === "checkbox") {
-            element.checked = false;
-        } else if (element.type !== "file") {
-            element.value = "";
+    if (!state.plans.length) {
+
+        elements.plansContainer.innerHTML = `
+            <div class="help-text">
+                No active plans are currently available.
+            </div>
+        `;
+
+        return;
+
+    }
+
+
+    elements.plansContainer.innerHTML =
+        state.plans.map((plan, index) => {
+
+            const code = escapeHtml(
+                plan.plan_code || ""
+            );
+
+            const name = escapeHtml(
+                plan.plan_name ||
+                plan.plan_code ||
+                "Plan"
+            );
+
+            const description = escapeHtml(
+                plan.description || ""
+            );
+
+            const registrationFee =
+                money(plan.principal_registration_fee);
+
+            const monthly =
+                money(plan.principal_monthly_premium);
+
+
+            return `
+
+                <div class="plan-option">
+
+                    <input
+                        type="radio"
+                        id="plan_${index}"
+                        name="plan"
+                        value="${code}"
+                        data-index="${index}"
+                    >
+
+                    <label
+                        for="plan_${index}"
+                        class="plan-label"
+                    >
+
+                        <div class="plan-name">
+                            ${name}
+                        </div>
+
+                        <div class="plan-description">
+                            ${description}
+                        </div>
+
+                        <div class="plan-price">
+                            KES ${registrationFee}
+                            <small>registration</small>
+                        </div>
+
+                        <div
+                            class="help-text"
+                            style="margin-top:4px;"
+                        >
+                            KES ${monthly}/month
+                        </div>
+
+                    </label>
+
+                </div>
+
+            `;
+
+        }).join("");
+
+
+    document
+        .querySelectorAll('input[name="plan"]')
+        .forEach(input => {
+
+            input.addEventListener(
+                "change",
+                handlePlanChange
+            );
+
+        });
+
+
+    const defaultPlan =
+        state.plans.find(
+            p =>
+                String(p.plan_code).toLowerCase() ===
+                "comfort"
+        ) ||
+        state.plans[0];
+
+
+    if (defaultPlan) {
+
+        const index =
+            state.plans.indexOf(defaultPlan);
+
+        const input =
+            document.querySelector(
+                `input[name="plan"][data-index="${index}"]`
+            );
+
+        if (input) {
+
+            input.checked = true;
+
+            handlePlanChange();
+
         }
-        element.classList.remove("error");
-    });
 
-    document.querySelectorAll(".plan").forEach(plan => plan.classList.remove("selected"));
-    dependantsContainer.innerHTML = "";
-    dependantIndex = 0;
-    calculatedRegistration = null;
-    registerBtn.disabled = true;
+    }
 
-    isChamaMode = false;
-    parsedChamaMembers = [];
-    chamaPreview.textContent = "";
-    memberDetailsCard.classList.remove("hidden");
-    dependantsCardSection.classList.remove("hidden");
-    chamaCard.classList.add("hidden");
+}
 
-    updateDependantCount();
+
+/* ============================================================
+   PLAN CHANGE
+============================================================ */
+
+function handlePlanChange() {
+
+    const selected =
+        document.querySelector(
+            'input[name="plan"]:checked'
+        );
+
+
+    if (!selected) {
+
+        state.selectedPlan = null;
+
+        updateSummary();
+
+        return;
+
+    }
+
+
+    const index =
+        Number(selected.dataset.index);
+
+
+    state.selectedPlan =
+        state.plans[index] || null;
+
+
+    if (
+        state.selectedPlan &&
+        String(state.selectedPlan.plan_code).toLowerCase()
+            === "wazazi"
+    ) {
+
+        elements.planHelp.textContent =
+            "Wazazi requires at least 1 parent and allows a maximum of 4 parents.";
+
+    } else {
+
+        elements.planHelp.textContent =
+            "Add eligible dependants if required.";
+
+    }
+
+
+    validateDependantsForPlan();
+
     updateSummary();
-    clearAlert();
-});
+
+}
+
 
 /* ============================================================
-   LIVE SUMMARY
-   ============================================================ */
-
-[firstName, lastName].forEach(field => {
-    field.addEventListener("input", updateSummary);
-});
-
-document.getElementById("chamaGroupName").addEventListener("input", updateSummary);
-
-/* ============================================================
-   KEYBOARD SHORTCUTS
-   ============================================================ */
-
-document.addEventListener('keydown', function(e) {
-    if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
-        e.preventDefault();
-        calculateBtn.click();
-    }
-    if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key === 'Enter') {
-        e.preventDefault();
-        if (!registerBtn.disabled) registerBtn.click();
-    }
-});
-
-/* ============================================================
-   LOAD AGENT SALES CODES
-   ============================================================ */
+   SALES CODES
+============================================================ */
 
 async function loadSalesCodes() {
+
+    if (
+        typeof supabaseClient === "undefined" ||
+        !supabaseClient
+    ) {
+
+        return;
+
+    }
+
+
     try {
-        if (!window.supabaseClient) {
-            throw new Error("Supabase client not initialized — check that js/supabase-config.js loaded correctly.");
+
+        const {
+            data,
+            error
+        } = await supabaseClient
+            .from("public_agent_codes")
+            .select("code, agent_name")
+            .order(
+                "agent_name",
+                {
+                    ascending: true
+                }
+            );
+
+
+        if (error) {
+
+            console.warn(
+                "Sales code loading failed:",
+                error
+            );
+
+            return;
+
         }
 
-        const { data, error } = await window.supabaseClient
-            .from('public_agent_codes')
-            .select('code, agent_name')
-            .order('agent_name', { ascending: true });
 
-        if (error) throw error;
+        elements.salesCode.innerHTML = `
+            <option value="">
+                Select sales agent
+            </option>
+        `;
 
-        (data || []).forEach(entry => {
-            if (!entry.code) return;
-            const option = document.createElement("option");
-            option.value = entry.code;
-            option.textContent = entry.agent_name
-                ? `${entry.agent_name} (${entry.code})`
-                : entry.code;
-            salesCode.appendChild(option);
+
+        (data || []).forEach(agent => {
+
+            const option =
+                document.createElement("option");
+
+            option.value =
+                agent.code || "";
+
+            option.textContent =
+                agent.agent_name
+                    ? `${agent.agent_name} (${agent.code})`
+                    : agent.code || "Agent";
+
+            elements.salesCode.appendChild(option);
+
         });
+
+
     } catch (error) {
-        console.warn("Could not load agent sales codes:", error.message);
+
+        console.warn(
+            "Sales code error:",
+            error
+        );
+
     }
+
 }
+
 
 /* ============================================================
-   INITIALIZE
-   ============================================================ */
+   DEPENDANTS
+============================================================ */
 
-function init() {
+function addDependant() {
+
+    if (
+        state.dependants.length >=
+        CONFIG.MAX_DEPENDANTS
+    ) {
+
+        showAlert(
+            `A maximum of ${CONFIG.MAX_DEPENDANTS} dependants can be entered on this form.`,
+            "warning"
+        );
+
+        return;
+
+    }
+
+
+    state.dependants.push({
+        index: state.dependantIndex++,
+        type: "CHILD"
+    });
+
+
+    renderDependants();
+
     updateSummary();
 
-    const defaultDate = new Date();
-    defaultDate.setFullYear(defaultDate.getFullYear() - 18);
-    dateOfBirth.value = defaultDate.toISOString().split('T')[0];
-
-    warmUpServer();
-    loadPlans();
-    loadSalesCodes();
 }
 
-init();
 
-console.log('🆓 Masika Benevolent - Public Registration');
-console.log('📋 Anyone can register without logging in');
-console.log('🔗 API:', API_BASE_URL);
-console.log('💳 Registration creates PENDING member. Payment required for activation.');
-console.log('🏷️ Final membership number generated AFTER payment confirmation.');
+function removeDependant(index) {
+
+    state.dependants =
+        state.dependants.filter(
+            dependant =>
+                dependant.index !== index
+        );
+
+
+    renderDependants();
+
+    updateSummary();
+
+}
+
+
+function renderDependants() {
+
+    if (!state.dependants.length) {
+
+        elements.dependantsContainer.innerHTML = `
+            <div class="help-text">
+                No dependants added.
+            </div>
+        `;
+
+        return;
+
+    }
+
+
+    elements.dependantsContainer.innerHTML =
+        state.dependants.map(
+            dependant => {
+
+                const i = dependant.index;
+
+                return `
+
+                    <div
+                        class="dependant-card"
+                        data-dependant="${i}"
+                    >
+
+                        <div class="dependant-header">
+
+                            <strong>
+                                Dependant ${state.dependants.indexOf(dependant) + 1}
+                            </strong>
+
+                            <button
+                                type="button"
+                                class="remove-dependant"
+                                data-remove="${i}"
+                            >
+                                Remove
+                            </button>
+
+                        </div>
+
+
+                        <div class="form-grid">
+
+                            <div class="form-group">
+
+                                <label>
+                                    Relationship
+                                    <span class="required">*</span>
+                                </label>
+
+                                <select
+                                    class="dependant-field"
+                                    data-field="relationship"
+                                    data-index="${i}"
+                                >
+
+                                    <option value="">
+                                        Select relationship
+                                    </option>
+
+                                    <option value="SPOUSE">
+                                        Spouse
+                                    </option>
+
+                                    <option value="CHILD">
+                                        Child
+                                    </option>
+
+                                    <option value="PARENT">
+                                        Parent
+                                    </option>
+
+                                </select>
+
+                            </div>
+
+
+                            <div class="form-group">
+
+                                <label>
+                                    Gender
+                                    <span class="required">*</span>
+                                </label>
+
+                                <select
+                                    class="dependant-field"
+                                    data-field="gender"
+                                    data-index="${i}"
+                                >
+
+                                    <option value="">
+                                        Select gender
+                                    </option>
+
+                                    <option value="MALE">
+                                        Male
+                                    </option>
+
+                                    <option value="FEMALE">
+                                        Female
+                                    </option>
+
+                                </select>
+
+                            </div>
+
+
+                            <div class="form-group">
+
+                                <label>
+                                    First Name
+                                    <span class="required">*</span>
+                                </label>
+
+                                <input
+                                    type="text"
+                                    class="dependant-field"
+                                    data-field="first_name"
+                                    data-index="${i}"
+                                >
+
+                            </div>
+
+
+                            <div class="form-group">
+
+                                <label>
+                                    Last Name
+                                    <span class="required">*</span>
+                                </label>
+
+                                <input
+                                    type="text"
+                                    class="dependant-field"
+                                    data-field="last_name"
+                                    data-index="${i}"
+                                >
+
+                            </div>
+
+
+                            <div class="form-group">
+
+                                <label>
+                                    ID / Passport
+                                </label>
+
+                                <input
+                                    type="text"
+                                    class="dependant-field"
+                                    data-field="id_number"
+                                    data-index="${i}"
+                                >
+
+                            </div>
+
+
+                            <div class="form-group">
+
+                                <label>
+                                    Date of Birth
+                                    <span class="required">*</span>
+                                </label>
+
+                                <input
+                                    type="date"
+                                    class="dependant-field"
+                                    data-field="date_of_birth"
+                                    data-index="${i}"
+                                >
+
+                            </div>
+
+
+                            <div class="form-group">
+
+                                <label>
+                                    Phone
+                                </label>
+
+                                <input
+                                    type="tel"
+                                    class="dependant-field"
+                                    data-field="phone"
+                                    data-index="${i}"
+                                >
+
+                            </div>
+
+                        </div>
+
+                    </div>
+
+                `;
+
+            }
+        ).join("");
+
+
+    document
+        .querySelectorAll(".remove-dependant")
+        .forEach(button => {
+
+            button.addEventListener(
+                "click",
+                () => {
+                    removeDependant(
+                        Number(button.dataset.remove)
+                    );
+                }
+            );
+
+        });
+
+
+    document
+        .querySelectorAll(".dependant-field")
+        .forEach(field => {
+
+            field.addEventListener(
+                "change",
+                syncDependantState
+            );
+
+            field.addEventListener(
+                "input",
+                syncDependantState
+            );
+
+        });
+
+
+    syncAllDependantState();
+
+}
+
+
+/* ============================================================
+   DEPENDANT STATE
+============================================================ */
+
+function syncDependantState(event) {
+
+    const field =
+        event.target;
+
+    const index =
+        Number(field.dataset.index);
+
+    const key =
+        field.dataset.field;
+
+
+    const dependant =
+        state.dependants.find(
+            item =>
+                item.index === index
+        );
+
+
+    if (!dependant) {
+
+        return;
+
+    }
+
+
+    dependant[key] =
+        field.value;
+
+
+    if (key === "relationship") {
+
+        updateSummary();
+
+    }
+
+}
+
+
+function syncAllDependantState() {
+
+    document
+        .querySelectorAll(".dependant-field")
+        .forEach(field => {
+
+            const index =
+                Number(field.dataset.index);
+
+            const key =
+                field.dataset.field;
+
+            const dependant =
+                state.dependants.find(
+                    item =>
+                        item.index === index
+                );
+
+            if (dependant) {
+
+                field.value =
+                    dependant[key] || "";
+
+            }
+
+        });
+
+}
+
+
+/* ============================================================
+   VALIDATE DEPENDANTS
+============================================================ */
+
+function validateDependantsForPlan() {
+
+    if (!state.selectedPlan) {
+
+        return;
+
+    }
+
+
+    const plan =
+        String(
+            state.selectedPlan.plan_code || ""
+        ).toLowerCase();
+
+
+    if (plan !== "wazazi") {
+
+        const parents =
+            state.dependants.filter(
+                dependant =>
+                    String(
+                        dependant.relationship || ""
+                    ).toUpperCase() === "PARENT"
+            );
+
+
+        if (parents.length) {
+
+            showAlert(
+                "Parent dependants are only applicable to the Wazazi plan.",
+                "warning"
+            );
+
+        }
+
+    }
+
+}
+
+
+/* ============================================================
+   BUILD MEMBER PAYLOAD
+============================================================ */
+
+function getMemberPayload() {
+
+    syncAllDependantState();
+
+
+    const dependants =
+        state.dependants.map(
+            dependant => ({
+                first_name:
+                    clean(dependant.first_name),
+
+                last_name:
+                    clean(dependant.last_name),
+
+                relationship:
+                    clean(dependant.relationship),
+
+                id_number:
+                    clean(dependant.id_number),
+
+                date_of_birth:
+                    dependant.date_of_birth || null,
+
+                gender:
+                    clean(dependant.gender),
+
+                phone:
+                    normalizePhone(dependant.phone)
+            })
+        );
+
+
+    return {
+
+        first_name:
+            clean($("firstName").value),
+
+        last_name:
+            clean($("lastName").value),
+
+        other_name:
+            clean($("otherName").value),
+
+        phone:
+            normalizePhone($("phone").value),
+
+        alternative_phone:
+            normalizePhone(
+                $("alternativePhone").value
+            ),
+
+        email:
+            clean($("email").value),
+
+        id_number:
+            clean($("idNumber").value),
+
+        date_of_birth:
+            $("dateOfBirth").value || null,
+
+        gender:
+            clean($("gender").value),
+
+        county:
+            clean($("county").value),
+
+        location:
+            clean($("location").value),
+
+        town:
+            clean($("town").value),
+
+        address:
+            clean($("address").value),
+
+        sales_code:
+            clean($("salesCode").value),
+
+        plan:
+            state.selectedPlan
+                ? state.selectedPlan.plan_code
+                : "",
+
+        benefit_option:
+            clean($("benefitOption").value),
+
+        dependants
+
+    };
+
+}
+
+
+/* ============================================================
+   VALIDATE MEMBER FORM
+============================================================ */
+
+function validateMemberPayload(payload) {
+
+    if (!payload.first_name) {
+
+        return "Please enter the first name.";
+
+    }
+
+
+    if (!payload.last_name) {
+
+        return "Please enter the last name.";
+
+    }
+
+
+    if (!payload.id_number) {
+
+        return "Please enter the National ID or passport number.";
+
+    }
+
+
+    if (!payload.date_of_birth) {
+
+        return "Please enter the date of birth.";
+
+    }
+
+
+    if (!payload.gender) {
+
+        return "Please select gender.";
+
+    }
+
+
+    if (!payload.phone) {
+
+        return "Please enter a phone number.";
+
+    }
+
+
+    if (!/^254\d{9}$/.test(payload.phone)) {
+
+        return "Please enter a valid Kenyan phone number.";
+
+    }
+
+
+    if (!state.selectedPlan) {
+
+        return "Please select a membership plan.";
+
+    }
+
+
+    const plan =
+        String(
+            state.selectedPlan.plan_code || ""
+        ).toLowerCase();
+
+
+    const parents =
+        payload.dependants.filter(
+            dependant =>
+                String(
+                    dependant.relationship || ""
+                ).toUpperCase() === "PARENT"
+        );
+
+
+    const spouses =
+        payload.dependants.filter(
+            dependant =>
+                String(
+                    dependant.relationship || ""
+                ).toUpperCase() === "SPOUSE"
+        );
+
+
+    const children =
+        payload.dependants.filter(
+            dependant =>
+                String(
+                    dependant.relationship || ""
+                ).toUpperCase() === "CHILD"
+        );
+
+
+    if (spouses.length > 1) {
+
+        return "Only one spouse can be registered.";
+
+    }
+
+
+    if (children.length > 4) {
+
+        return "A maximum of four children can be registered.";
+
+    }
+
+
+    if (plan === "wazazi") {
+
+        if (parents.length < 1) {
+
+            return "Wazazi requires at least one parent.";
+
+        }
+
+
+        if (parents.length > 4) {
+
+            return "Wazazi allows a maximum of four parents.";
+
+        }
+
+    } else if (parents.length > 0) {
+
+        return "Parent dependants require the Wazazi plan.";
+
+    }
+
+
+    for (const dependant of payload.dependants) {
+
+        if (!dependant.first_name) {
+
+            return "Every dependant must have a first name.";
+
+        }
+
+
+        if (!dependant.last_name) {
+
+            return "Every dependant must have a last name.";
+
+        }
+
+
+        if (!dependant.relationship) {
+
+            return "Please select the relationship for every dependant.";
+
+        }
+
+
+        if (!dependant.gender) {
+
+            return "Please select the gender for every dependant.";
+
+        }
+
+
+        if (!dependant.date_of_birth) {
+
+            return "Please enter the date of birth for every dependant.";
+
+        }
+
+    }
+
+
+    return null;
+
+}
+
+
+/* ============================================================
+   REGISTER MEMBER
+============================================================ */
+
+async function registerMember(event) {
+
+    event.preventDefault();
+
+
+    if (state.submitting) {
+
+        return;
+
+    }
+
+
+    clearAlert();
+
+
+    const payload =
+        getMemberPayload();
+
+
+    const validationError =
+        validateMemberPayload(payload);
+
+
+    if (validationError) {
+
+        showAlert(
+            validationError,
+            "error"
+        );
+
+        return;
+
+    }
+
+
+    state.submitting = true;
+
+    setLoading(
+        true,
+        "Creating your registration..."
+    );
+
+
+    try {
+
+        /*
+         * IMPORTANT:
+         *
+         * The backend should create the member as PENDING.
+         *
+         * Do NOT generate or store the final member_number here.
+         *
+         * The payment callback/finalization process is responsible
+         * for generating the final members.member_number.
+         */
+
+        const result =
+            await apiRequest(
+                "/api/public/register",
+                {
+                    method: "POST",
+                    body: JSON.stringify(payload)
+                }
+            );
+
+
+        if (!result?.success) {
+
+            throw new Error(
+                result?.error ||
+                result?.message ||
+                "Registration could not be completed."
+            );
+
+        }
+
+
+        const memberId =
+            result.member_id ||
+            result.id;
+
+
+        if (!memberId) {
+
+            throw new Error(
+                "Registration succeeded but no member ID was returned by the server."
+            );
+
+        }
+
+
+        /*
+         * The amount returned by the backend is authoritative.
+         *
+         * We do not calculate the payment amount independently
+         * for the payment page.
+         */
+
+        const registrationAmount =
+            Number(
+                result.registration_amount ??
+                result.amount ??
+                calculateRegistrationAmount()
+            );
+
+
+        /*
+         * Clean up any stale registration session.
+         */
+
+        sessionStorage.removeItem(
+            "newMemberNumber"
+        );
+
+
+        sessionStorage.setItem(
+            "newMemberId",
+            String(memberId)
+        );
+
+
+        sessionStorage.setItem(
+            "newMemberName",
+            `${payload.first_name} ${payload.last_name}`.trim()
+        );
+
+
+        sessionStorage.setItem(
+            "newMemberPhone",
+            payload.phone
+        );
+
+
+        sessionStorage.setItem(
+            "registrationAmount",
+            String(registrationAmount)
+        );
+
+
+        sessionStorage.setItem(
+            "isChamaRegistration",
+            "false"
+        );
+
+
+        /*
+         * Do NOT store result.member_number here.
+         *
+         * The final member_number is generated after successful
+         * payment/finalization.
+         */
+
+
+        showAlert(
+            "Registration created successfully. Redirecting to payment...",
+            "success"
+        );
+
+
+        await sleep(700);
+
+
+        window.location.href =
+            `payment.html?member_id=${encodeURIComponent(memberId)}`;
+
+
+    } catch (error) {
+
+        console.error(
+            "Member registration failed:",
+            error
+        );
+
+
+        showAlert(
+            friendlyError(error),
+            "error"
+        );
+
+
+    } finally {
+
+        state.submitting = false;
+
+        setLoading(false);
+
+    }
+
+}
+
+
+/* ============================================================
+   REGISTRATION AMOUNT — UI ESTIMATE ONLY
+============================================================ */
+
+function calculateRegistrationAmount() {
+
+    if (!state.selectedPlan) {
+
+        return 0;
+
+    }
+
+
+    const principal =
+        Number(
+            state.selectedPlan
+                .principal_registration_fee || 0
+        );
+
+
+    const dependantFee =
+        Number(
+            state.selectedPlan
+                .dependant_registration_fee || 0
+        );
+
+
+    const plan =
+        String(
+            state.selectedPlan.plan_code || ""
+        ).toLowerCase();
+
+
+    let chargeableDependants =
+        state.dependants.length;
+
+
+    /*
+     * Wazazi charges KES 100 per parent.
+     *
+     * The established business rule does not charge
+     * children as dependant registration fees.
+     *
+     * The backend remains authoritative.
+     */
+
+    if (plan === "wazazi") {
+
+        chargeableDependants =
+            state.dependants.filter(
+                dependant =>
+                    String(
+                        dependant.relationship || ""
+                    ).toUpperCase() === "PARENT"
+            ).length;
+
+    }
+
+
+    return (
+        principal +
+        dependantFee * chargeableDependants
+    );
+
+}
+
+
+/* ============================================================
+   SUMMARY
+============================================================ */
+
+function updateSummary() {
+
+    const plan =
+        state.selectedPlan;
+
+
+    if (!plan) {
+
+        elements.summaryPlan.textContent = "—";
+
+        elements.summaryPrincipal.textContent =
+            "KES 0";
+
+        elements.summaryDependants.textContent =
+            "KES 0";
+
+        elements.summaryTotal.textContent =
+            "KES 0";
+
+        return;
+
+    }
+
+
+    const principal =
+        Number(
+            plan.principal_registration_fee || 0
+        );
+
+
+    const dependantFee =
+        Number(
+            plan.dependant_registration_fee || 0
+        );
+
+
+    const planCode =
+        String(
+            plan.plan_code || ""
+        ).toLowerCase();
+
+
+    let chargeableDependants =
+        state.dependants.length;
+
+
+    if (planCode === "wazazi") {
+
+        chargeableDependants =
+            state.dependants.filter(
+                dependant =>
+                    String(
+                        dependant.relationship || ""
+                    ).toUpperCase() === "PARENT"
+            ).length;
+
+    }
+
+
+    const dependantTotal =
+        dependantFee *
+        chargeableDependants;
+
+
+    const total =
+        principal +
+        dependantTotal;
+
+
+    elements.summaryPlan.textContent =
+        plan.plan_name ||
+        plan.plan_code;
+
+
+    elements.summaryPrincipal.textContent =
+        `KES ${money(principal)}`;
+
+
+    elements.summaryDependants.textContent =
+        `KES ${money(dependantTotal)}`;
+
+
+    elements.summaryTotal.textContent =
+        `KES ${money(total)}`;
+
+}
+
+
+/* ============================================================
+   CHAMA CSV
+============================================================ */
+
+function handleChamaCsv(event) {
+
+    const file =
+        event.target.files?.[0];
+
+
+    if (!file) {
+
+        state.parsedChamaMembers = [];
+
+        renderChamaPreview();
+
+        return;
+
+    }
+
+
+    clearAlert();
+
+
+    Papa.parse(
+        file,
+        {
+            header: true,
+            skipEmptyLines: true,
+            transformHeader: header =>
+                String(header || "")
+                    .trim()
+                    .toLowerCase()
+                    .replace(/\s+/g, "_"),
+
+            complete: results => {
+
+                if (results.errors?.length) {
+
+                    console.warn(
+                        "CSV parse warnings:",
+                        results.errors
+                    );
+
+                }
+
+
+                try {
+
+                    const members =
+                        normalizeChamaMembers(
+                            results.data || []
+                        );
+
+
+                    state.parsedChamaMembers =
+                        members;
+
+
+                    renderChamaPreview();
+
+
+                } catch (error) {
+
+                    state.parsedChamaMembers = [];
+
+                    renderChamaPreview();
+
+                    showAlert(
+                        error.message,
+                        "error"
+                    );
+
+                }
+
+            },
+
+            error: error => {
+
+                state.parsedChamaMembers = [];
+
+                renderChamaPreview();
+
+                showAlert(
+                    `Unable to read CSV: ${error.message}`,
+                    "error"
+                );
+
+            }
+
+        }
+    );
+
+}
+
+
+/* ============================================================
+   NORMALIZE CHAMA MEMBERS
+============================================================ */
+
+function normalizeChamaMembers(rows) {
+
+    const requiredColumns = [
+        "first_name",
+        "last_name",
+        "phone",
+        "id_number",
+        "date_of_birth",
+        "gender"
+    ];
+
+
+    if (!rows.length) {
+
+        throw new Error(
+            "The CSV file contains no member records."
+        );
+
+    }
+
+
+    const firstRow =
+        rows[0];
+
+
+    for (const column of requiredColumns) {
+
+        if (
+            !Object.prototype.hasOwnProperty.call(
+                firstRow,
+                column
+            )
+        ) {
+
+            throw new Error(
+                `CSV is missing required column: ${column}`
+            );
+
+        }
+
+    }
+
+
+    const members =
+        rows.map(
+            (row, index) => {
+
+                const member = {
+
+                    first_name:
+                        clean(row.first_name),
+
+                    last_name:
+                        clean(row.last_name),
+
+                    phone:
+                        normalizePhone(row.phone),
+
+                    id_number:
+                        clean(row.id_number),
+
+                    date_of_birth:
+                        clean(row.date_of_birth),
+
+                    gender:
+                        clean(row.gender).toUpperCase()
+
+                };
+
+
+                if (!member.first_name) {
+
+                    throw new Error(
+                        `Row ${index + 2}: first_name is required.`
+                    );
+
+                }
+
+
+                if (!member.last_name) {
+
+                    throw new Error(
+                        `Row ${index + 2}: last_name is required.`
+                    );
+
+                }
+
+
+                if (!member.phone) {
+
+                    throw new Error(
+                        `Row ${index + 2}: phone is required.`
+                    );
+
+                }
+
+
+                if (!/^254\d{9}$/.test(member.phone)) {
+
+                    throw new Error(
+                        `Row ${index + 2}: invalid Kenyan phone number.`
+                    );
+
+                }
+
+
+                if (!member.id_number) {
+
+                    throw new Error(
+                        `Row ${index + 2}: id_number is required.`
+                    );
+
+                }
+
+
+                if (!member.date_of_birth) {
+
+                    throw new Error(
+                        `Row ${index + 2}: date_of_birth is required.`
+                    );
+
+                }
+
+
+                if (
+                    !["MALE", "FEMALE"].includes(
+                        member.gender
+                    )
+                ) {
+
+                    throw new Error(
+                        `Row ${index + 2}: gender must be MALE or FEMALE.`
+                    );
+
+                }
+
+
+                return member;
+
+            }
+        );
+
+
+    if (
+        members.length <
+        CONFIG.MIN_CHAMA_MEMBERS
+    ) {
+
+        throw new Error(
+            `A minimum of ${CONFIG.MIN_CHAMA_MEMBERS} members is required. Your file contains ${members.length}.`
+        );
+
+    }
+
+
+    return members;
+
+}
+
+
+/* ============================================================
+   CHAMA PREVIEW
+============================================================ */
+
+function renderChamaPreview() {
+
+    const members =
+        state.parsedChamaMembers;
+
+
+    elements.chamaMemberCount.textContent =
+        members.length;
+
+
+    const total =
+        members.length *
+        CONFIG.CHAMA_REGISTRATION_RATE;
+
+
+    elements.chamaTotal.textContent =
+        `KES ${money(total)}`;
+
+
+    if (!members.length) {
+
+        elements.csvCount.textContent =
+            "";
+
+        elements.csvPreview.classList.remove(
+            "show"
+        );
+
+        elements.csvPreview.innerHTML =
+            "";
+
+        return;
+
+    }
+
+
+    elements.csvCount.textContent =
+        `${members.length} member(s) loaded.`;
+
+
+    const previewRows =
+        members
+            .slice(0, 10)
+            .map(
+                member => `
+                    <tr>
+                        <td>${escapeHtml(member.first_name)}</td>
+                        <td>${escapeHtml(member.last_name)}</td>
+                        <td>${escapeHtml(member.phone)}</td>
+                        <td>${escapeHtml(member.id_number)}</td>
+                        <td>${escapeHtml(member.date_of_birth)}</td>
+                        <td>${escapeHtml(member.gender)}</td>
+                    </tr>
+                `
+            )
+            .join("");
+
+
+    elements.csvPreview.innerHTML = `
+
+        <table>
+
+            <thead>
+                <tr>
+                    <th>First Name</th>
+                    <th>Last Name</th>
+                    <th>Phone</th>
+                    <th>ID</th>
+                    <th>Date of Birth</th>
+                    <th>Gender</th>
+                </tr>
+            </thead>
+
+            <tbody>
+                ${previewRows}
+            </tbody>
+
+        </table>
+
+        ${
+            members.length > 10
+                ? `
+                    <div
+                        style="
+                            padding:10px;
+                            font-size:12px;
+                            color:#66736f;
+                        "
+                    >
+                        Showing first 10 of ${members.length} members.
+                    </div>
+                `
+                : ""
+        }
+
+    `;
+
+
+    elements.csvPreview.classList.add(
+        "show"
+    );
+
+}
+
+
+/* ============================================================
+   CHAMA PAYLOAD
+============================================================ */
+
+function getChamaPayload() {
+
+    return {
+
+        group_name:
+            clean($("chamaName").value),
+
+        phone:
+            normalizePhone(
+                $("chamaPhone").value
+            ),
+
+        chairperson: {
+
+            name:
+                clean(
+                    $("chairpersonName").value
+                ),
+
+            phone:
+                normalizePhone(
+                    $("chairpersonPhone").value
+                ),
+
+            id_number:
+                clean(
+                    $("chairpersonId").value
+                )
+
+        },
+
+        treasurer: {
+
+            name:
+                clean(
+                    $("treasurerName").value
+                ),
+
+            phone:
+                normalizePhone(
+                    $("treasurerPhone").value
+                ),
+
+            id_number:
+                clean(
+                    $("treasurerId").value
+                )
+
+        },
+
+        secretary: {
+
+            name:
+                clean(
+                    $("secretaryName").value
+                ),
+
+            phone:
+                normalizePhone(
+                    $("secretaryPhone").value
+                ),
+
+            id_number:
+                clean(
+                    $("secretaryId").value
+                )
+
+        },
+
+        members:
+            state.parsedChamaMembers
+
+    };
+
+}
+
+
+/* ============================================================
+   VALIDATE CHAMA
+============================================================ */
+
+function validateChamaPayload(payload) {
+
+    if (!payload.group_name) {
+
+        return "Please enter the chama/group name.";
+
+    }
+
+
+    if (!payload.phone) {
+
+        return "Please enter the group contact phone.";
+
+    }
+
+
+    if (!/^254\d{9}$/.test(payload.phone)) {
+
+        return "Please enter a valid group contact phone.";
+
+    }
+
+
+    const officials = [
+        ["Chairperson", payload.chairperson],
+        ["Treasurer", payload.treasurer],
+        ["Secretary", payload.secretary]
+    ];
+
+
+    for (const [label, official] of officials) {
+
+        if (!official.name) {
+
+            return `${label} name is required.`;
+
+        }
+
+
+        if (!official.phone) {
+
+            return `${label} phone is required.`;
+
+        }
+
+
+        if (!/^254\d{9}$/.test(official.phone)) {
+
+            return `${label} phone number is invalid.`;
+
+        }
+
+
+        if (!official.id_number) {
+
+            return `${label} ID is required.`;
+
+        }
+
+    }
+
+
+    if (
+        payload.members.length <
+        CONFIG.MIN_CHAMA_MEMBERS
+    ) {
+
+        return (
+            `At least ${CONFIG.MIN_CHAMA_MEMBERS} ` +
+            `members are required.`
+        );
+
+    }
+
+
+    return null;
+
+}
+
+
+/* ============================================================
+   REGISTER CHAMA
+============================================================ */
+
+async function registerChamaGroup(event) {
+
+    event.preventDefault();
+
+
+    if (state.submitting) {
+
+        return;
+
+    }
+
+
+    clearAlert();
+
+
+    const payload =
+        getChamaPayload();
+
+
+    const validationError =
+        validateChamaPayload(payload);
+
+
+    if (validationError) {
+
+        showAlert(
+            validationError,
+            "error"
+        );
+
+        return;
+
+    }
+
+
+    state.submitting = true;
+
+    setLoading(
+        true,
+        "Creating chama registration..."
+    );
+
+
+    try {
+
+        /*
+         * Backend remains authoritative for:
+         *
+         * - group creation
+         * - member creation
+         * - registration amount
+         * - pending status
+         */
+
+        const result =
+            await apiRequest(
+                "/api/public/register/chama",
+                {
+                    method: "POST",
+                    body: JSON.stringify(payload)
+                }
+            );
+
+
+        if (!result?.success) {
+
+            throw new Error(
+                result?.error ||
+                result?.message ||
+                "Chama registration could not be completed."
+            );
+
+        }
+
+
+        const groupId =
+            result.group_id ||
+            result.chama_group_id ||
+            result.id;
+
+
+        if (!groupId) {
+
+            throw new Error(
+                "Chama registration succeeded but no group ID was returned."
+            );
+
+        }
+
+
+        const registrationAmount =
+            Number(
+                result.registration_amount ??
+                result.amount ??
+                (
+                    payload.members.length *
+                    CONFIG.CHAMA_REGISTRATION_RATE
+                )
+            );
+
+
+        const groupName =
+            payload.group_name;
+
+
+        const groupPhone =
+            payload.phone;
+
+
+        /*
+         * Clean stale individual registration data.
+         */
+
+        sessionStorage.removeItem(
+            "newMemberId"
+        );
+
+        sessionStorage.removeItem(
+            "newMemberNumber"
+        );
+
+
+        sessionStorage.setItem(
+            "newChamaGroupId",
+            String(groupId)
+        );
+
+
+        sessionStorage.setItem(
+            "newChamaGroupName",
+            groupName
+        );
+
+
+        sessionStorage.setItem(
+            "newChamaMemberCount",
+            String(payload.members.length)
+        );
+
+
+        sessionStorage.setItem(
+            "newChamaPhone",
+            groupPhone
+        );
+
+
+        sessionStorage.setItem(
+            "registrationAmount",
+            String(registrationAmount)
+        );
+
+
+        sessionStorage.setItem(
+            "isChamaRegistration",
+            "true"
+        );
+
+
+        showAlert(
+            "Chama registration created successfully. Redirecting to payment...",
+            "success"
+        );
+
+
+        await sleep(700);
+
+
+        window.location.href =
+            `payment.html?group_id=${encodeURIComponent(groupId)}`;
+
+
+    } catch (error) {
+
+        console.error(
+            "Chama registration failed:",
+            error
+        );
+
+
+        showAlert(
+            friendlyError(error),
+            "error"
+        );
+
+
+    } finally {
+
+        state.submitting = false;
+
+        setLoading(false);
+
+    }
+
+}
+
+
+/* ============================================================
+   RESET INDIVIDUAL FORM
+============================================================ */
+
+function resetIndividualForm() {
+
+    if (
+        !confirm(
+            "Reset this registration form?"
+        )
+    ) {
+
+        return;
+
+    }
+
+
+    elements.registrationForm.reset();
+
+
+    state.dependants = [];
+
+    state.dependantIndex = 0;
+
+    state.selectedPlan = null;
+
+
+    renderDependants();
+
+
+    if (state.plans.length) {
+
+        const defaultPlan =
+            state.plans.find(
+                plan =>
+                    String(
+                        plan.plan_code
+                    ).toLowerCase() === "comfort"
+            ) ||
+            state.plans[0];
+
+
+        const index =
+            state.plans.indexOf(
+                defaultPlan
+            );
+
+
+        const input =
+            document.querySelector(
+                `input[name="plan"][data-index="${index}"]`
+            );
+
+
+        if (input) {
+
+            input.checked = true;
+
+            handlePlanChange();
+
+        }
+
+    }
+
+
+    clearAlert();
+
+    updateSummary();
+
+}
+
+
+/* ============================================================
+   RESET CHAMA
+============================================================ */
+
+function resetChamaForm() {
+
+    if (
+        !confirm(
+            "Reset this chama registration?"
+        )
+    ) {
+
+        return;
+
+    }
+
+
+    elements.chamaForm.reset();
+
+
+    state.parsedChamaMembers = [];
+
+
+    renderChamaPreview();
+
+
+    clearAlert();
+
+}
+
+
+/* ============================================================
+   UTILITIES
+============================================================ */
+
+function clean(value) {
+
+    return String(value ?? "")
+        .trim();
+
+}
+
+
+function money(value) {
+
+    const number =
+        Number(value || 0);
+
+
+    return number.toLocaleString(
+        "en-KE",
+        {
+            minimumFractionDigits: 0,
+            maximumFractionDigits: 2
+        }
+    );
+
+}
+
+
+function sleep(ms) {
+
+    return new Promise(
+        resolve =>
+            setTimeout(resolve, ms)
+    );
+
+}
+
+
+function escapeHtml(value) {
+
+    return String(value ?? "")
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#039;");
+
+}
+
+
+function friendlyError(error) {
+
+    const message =
+        error?.message ||
+        String(error) ||
+        "An unexpected error occurred.";
+
+
+    if (
+        message.toLowerCase().includes(
+            "failed to fetch"
+        )
+    ) {
+
+        return (
+            "Unable to connect to the Masika registration server. " +
+            "The server may be waking up. Please wait a few seconds and try again."
+        );
+
+    }
+
+
+    if (
+        message.toLowerCase().includes(
+            "timed out"
+        )
+    ) {
+
+        return (
+            "The registration server took too long to respond. " +
+            "Please try again."
+        );
+
+    }
+
+
+    return message;
+
+}
+
+
+/* ============================================================
+   PREVENT ACCIDENTAL DOUBLE SUBMISSION
+============================================================ */
+
+window.addEventListener(
+    "beforeunload",
+    event => {
+
+        if (state.submitting) {
+
+            event.preventDefault();
+
+            event.returnValue =
+                "Registration is being processed.";
+
+        }
+
+    }
+);
+
 </script>
 
 </body>
