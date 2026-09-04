@@ -1,0 +1,231 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Collect Payment | Masika Benevolent</title>
+    <link rel="icon" type="image/png" href="../assets/favicon-32x32.png">
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        * { margin:0; padding:0; box-sizing:border-box; }
+        :root {
+            --primary:#0b5d3b; --primary-dark:#06452c; --gold:#d4a843;
+            --danger:#dc3545; --success:#198754; --info:#0dcaf0; --warning:#ffc107;
+            --text:#1f2933; --text-light:#6b7280;
+            --gray-100:#f3f4f6; --gray-200:#e5e7eb; --gray-300:#d1d5db;
+            --shadow:0 2px 12px rgba(0,0,0,0.08);
+            --radius:12px; --transition:all 0.3s ease;
+        }
+        body { font-family:'Segoe UI',Arial,sans-serif; background:#f0f4f2; color:var(--text); min-height:100vh; }
+        .admin-layout { display:flex; min-height:100vh; }
+
+        /* Sidebar */
+        .sidebar { width:260px; background:var(--primary); color:white; padding:24px 0; position:fixed; height:100vh; overflow-y:auto; z-index:100; }
+        .sidebar-brand { padding:0 24px 24px; border-bottom:1px solid rgba(255,255,255,0.1); margin-bottom:20px; }
+        .sidebar-brand .logo { display:flex; align-items:center; gap:12px; text-decoration:none; color:white; }
+        .sidebar-brand .logo-icon { width:40px; height:40px; background:white; border-radius:50%; display:flex; align-items:center; justify-content:center; font-weight:900; color:var(--primary); font-size:18px; }
+        .sidebar-brand .logo-text { font-weight:700; font-size:18px; }
+        .sidebar-brand .logo-sub { font-size:11px; opacity:0.7; display:block; }
+        .sidebar-nav { list-style:none; padding:0 12px; }
+        .sidebar-nav li { margin-bottom:2px; }
+        .sidebar-nav a { display:flex; align-items:center; gap:12px; padding:12px 16px; border-radius:8px; color:rgba(255,255,255,0.7); text-decoration:none; font-size:14px; font-weight:500; }
+        .sidebar-nav a:hover { background:rgba(255,255,255,0.1); color:white; }
+        .sidebar-nav a.active { background:rgba(255,255,255,0.15); color:white; }
+        .sidebar-nav a i { width:20px; text-align:center; }
+        .sidebar-nav .badge { margin-left:auto; background:var(--gold); color:white; padding:2px 10px; border-radius:12px; font-size:11px; font-weight:600; }
+        .sidebar-footer { padding:20px 24px; border-top:1px solid rgba(255,255,255,0.1); margin-top:20px; }
+        .sidebar-footer .user-info { display:flex; align-items:center; gap:12px; }
+        .sidebar-footer .user-avatar { width:36px; height:36px; border-radius:50%; background:var(--gold); display:flex; align-items:center; justify-content:center; font-weight:700; font-size:14px; }
+        .sidebar-footer .user-name { font-weight:600; font-size:14px; }
+        .sidebar-footer .user-role { font-size:12px; opacity:0.6; }
+        .sidebar-footer .logout-btn { display:block; width:100%; margin-top:12px; padding:10px; border:1px solid rgba(255,255,255,0.2); border-radius:8px; background:transparent; color:rgba(255,255,255,0.7); cursor:pointer; font-family:inherit; font-size:14px; font-weight:500; }
+        .sidebar-footer .logout-btn:hover { background:rgba(255,255,255,0.1); color:white; }
+
+        .main-content { margin-left:260px; padding:24px 32px; flex:1; width:calc(100% - 260px); max-width:720px; }
+        .topbar h1 { font-size:26px; font-weight:800; margin-bottom:24px; }
+        .topbar h1 small { font-size:14px; font-weight:400; color:var(--text-light); display:block; }
+
+        .card { background:white; border-radius:var(--radius); padding:24px; box-shadow:var(--shadow); margin-bottom:24px; }
+        .card-header { display:flex; justify-content:space-between; align-items:center; margin-bottom:16px; padding-bottom:12px; border-bottom:1px solid var(--gray-200); }
+        .card-header h3 { font-size:18px; font-weight:700; }
+
+        /* Alert */
+        .alert { display:none; padding:12px 16px; border-radius:8px; font-size:14px; margin-bottom:20px; }
+        .alert.show { display:block; }
+        .alert.error { background:#f8d7da; color:#721c24; }
+        .alert.info { background:#cff4fc; color:#055160; }
+        .alert.success { background:#d1e7dd; color:#0f5132; }
+        .alert.warning { background:#fff3cd; color:#856404; }
+
+        /* Member search */
+        .search-row { display:flex; gap:10px; margin-bottom:12px; }
+        .search-row input { flex:1; padding:10px 14px; border:1px solid var(--gray-200); border-radius:8px; font-family:inherit; font-size:14px; }
+        .search-empty { padding:14px; text-align:center; color:var(--text-light); font-size:13px; }
+        #searchResults { max-height:260px; overflow-y:auto; border:1px solid var(--gray-200); border-radius:8px; margin-bottom:4px; }
+        .search-result-row { display:flex; justify-content:space-between; align-items:center; padding:10px 14px; border-bottom:1px solid var(--gray-200); cursor:pointer; }
+        .search-result-row:last-child { border-bottom:none; }
+        .search-result-row:hover { background:var(--gray-100); }
+        .search-result-row .name { font-weight:600; font-size:14px; }
+        .search-result-row .meta { font-size:12px; color:var(--text-light); }
+
+        .status-badge { display:inline-block; padding:2px 12px; border-radius:20px; font-size:12px; font-weight:600; white-space:nowrap; }
+        .status-badge.active { background:#d4edda; color:#155724; }
+        .status-badge.inactive { background:#f8d7da; color:#721c24; }
+        .status-badge.pending { background:#fff3cd; color:#856404; }
+        .status-badge.rejected { background:#f8d7da; color:#721c24; }
+        .status-badge.paid { background:#d4edda; color:#155724; }
+        .status-badge.confirmed { background:#d4edda; color:#155724; }
+        .status-badge.failed { background:#f8d7da; color:#721c24; }
+
+        /* Selected member */
+        #selectedMember { display:none; align-items:center; justify-content:space-between; background:var(--gray-100); border-radius:8px; padding:12px 16px; margin-bottom:20px; }
+        #selectedMember.show { display:flex; }
+        #selectedMember .name { font-weight:700; }
+        #selectedMember .num { font-size:12px; color:var(--text-light); }
+
+        /* Payment form */
+        .form-group { margin-bottom:16px; }
+        .form-group label { display:block; font-size:13px; font-weight:600; color:var(--text-light); margin-bottom:6px; }
+        .form-group input { width:100%; padding:11px 14px; border:1px solid var(--gray-200); border-radius:8px; font-family:inherit; font-size:15px; }
+        .form-group input:disabled { background:var(--gray-100); cursor:not-allowed; }
+
+        .btn { padding:12px 22px; font-size:15px; font-weight:700; border:none; border-radius:8px; cursor:pointer; font-family:inherit; transition:var(--transition); display:inline-flex; align-items:center; gap:8px; justify-content:center; }
+        .btn:disabled { opacity:0.5; cursor:not-allowed; }
+        .btn.primary { background:var(--primary); color:white; width:100%; }
+        .btn.primary:hover:not(:disabled) { background:var(--primary-dark); }
+        .btn.gray { background:var(--gray-200); color:var(--text); }
+        .btn.loading .btn-label { opacity:0.6; }
+        .btn-sm { padding:8px 16px; font-size:13px; border:none; border-radius:6px; cursor:pointer; font-family:inherit; font-weight:600; }
+        .btn-sm.primary { background:var(--primary); color:white; }
+        .btn-sm.gray { background:var(--gray-200); color:var(--text); }
+
+        /* Payment status */
+        #paymentStatus { display:none; text-align:center; padding:20px 0; }
+        .status-icon { font-size:48px; margin-bottom:12px; }
+        #statusTitle { font-size:18px; font-weight:700; margin-bottom:6px; }
+        #statusMessage { color:var(--text-light); font-size:14px; margin-bottom:16px; }
+        .status-actions { display:flex; gap:10px; justify-content:center; margin-top:16px; }
+
+        /* Success card */
+        #successCard { display:none; }
+        #successCard .check { font-size:56px; color:var(--success); text-align:center; margin-bottom:8px; }
+        #successCard h3 { text-align:center; margin-bottom:20px; }
+        .row { display:flex; justify-content:space-between; padding:8px 0; border-bottom:1px solid var(--gray-200); font-size:14px; }
+        .row .label { color:var(--text-light); }
+        .row .value.highlight { font-weight:700; color:var(--primary); }
+        .success-actions { display:flex; gap:10px; margin-top:20px; }
+
+        @media (max-width:768px) {
+            .sidebar { transform:translateX(-100%); }
+            .sidebar.open { transform:translateX(0); }
+            .main-content { margin-left:0; width:100%; padding:16px; max-width:100%; }
+        }
+    </style>
+</head>
+<body>
+    <div class="admin-layout">
+        <aside class="sidebar" id="sidebar">
+            <div class="sidebar-brand">
+                <a href="admin-dashboard.html" class="logo">
+                    <div class="logo-icon">MB</div>
+                    <div><span class="logo-text">Masika</span><span class="logo-sub">Admin Panel</span></div>
+                </a>
+            </div>
+            <ul class="sidebar-nav">
+                <li><a href="admin-dashboard.html"><i class="fas fa-chart-pie"></i> Dashboard</a></li>
+                <li><a href="admin-agents.html"><i class="fas fa-user-tie"></i> Agents</a></li>
+                <li><a href="admin-members.html"><i class="fas fa-users"></i> Members</a></li>
+                <li><a href="admin-payments.html"><i class="fas fa-credit-card"></i> Payments</a></li>
+                <li><a href="admin-collect-payment.html" class="active"><i class="fas fa-hand-holding-dollar"></i> Collect Payment</a></li>
+                <li><a href="admin-pricing.html"><i class="fas fa-tags"></i> Pricing</a></li>
+                <li><a href="admin-reports.html"><i class="fas fa-file-alt"></i> Reports</a></li>
+                <li><a href="admin-settings.html"><i class="fas fa-cog"></i> Settings</a></li>
+            </ul>
+            <div class="sidebar-footer">
+                <div class="user-info">
+                    <div class="user-avatar" id="adminAvatar">A</div>
+                    <div><div class="user-name" id="adminName">Admin</div><div class="user-role" id="adminRole">Administrator</div></div>
+                </div>
+                <button class="logout-btn" onclick="handleLogout()"><i class="fas fa-sign-out-alt"></i> Logout</button>
+            </div>
+        </aside>
+
+        <main class="main-content">
+            <div class="topbar">
+                <h1>Collect Payment <small>Search a member and send an M-Pesa STK push on their behalf</small></h1>
+            </div>
+
+            <div class="alert" id="alertBox"></div>
+
+            <!-- Payment card: search + form + status -->
+            <div class="card" id="paymentCard">
+                <div class="card-header">
+                    <h3><i class="fas fa-magnifying-glass" style="color:var(--gold);"></i> Find Member</h3>
+                </div>
+
+                <div class="search-row">
+                    <input type="text" id="memberSearchInput" placeholder="Search by name, member #, phone, or ID number...">
+                    <button class="btn-sm primary" id="memberSearchBtn" type="button"><i class="fas fa-search"></i> Search</button>
+                </div>
+
+                <div id="searchResults"></div>
+
+                <div id="selectedMember">
+                    <div>
+                        <div class="name" id="selectedMemberName">—</div>
+                        <div class="num">#<span id="selectedMemberNumber">—</span> · <span id="selectedMemberStatus"></span></div>
+                    </div>
+                    <button class="btn-sm gray" type="button" onclick="clearSelectedMember()"><i class="fas fa-times"></i> Change</button>
+                </div>
+
+                <form id="paymentForm" onsubmit="initiatePayment(event)">
+                    <div class="form-group">
+                        <label for="phoneNumber">M-Pesa Phone Number</label>
+                        <input type="tel" id="phoneNumber" placeholder="07XXXXXXXX" disabled>
+                    </div>
+                    <div class="form-group">
+                        <label for="amountInput">Amount (KES)</label>
+                        <input type="number" id="amountInput" placeholder="0" min="1" disabled>
+                    </div>
+                    <button type="submit" class="btn primary" id="payBtn" disabled>
+                        <i class="fas fa-mobile-screen-button"></i>
+                        <span class="btn-label">Send STK Push</span>
+                    </button>
+                </form>
+
+                <div id="paymentStatus">
+                    <div class="status-icon" id="statusIcon">⏳</div>
+                    <div id="statusTitle">Payment Sent to Phone</div>
+                    <div id="statusMessage">Waiting for the member to enter their M-Pesa PIN.</div>
+                    <span class="status-badge pending" id="statusBadge">Pending</span>
+                    <div class="status-actions">
+                        <button class="btn-sm primary" id="checkStatusBtn" type="button" onclick="checkPaymentStatus()"><i class="fas fa-sync"></i> Check Status</button>
+                        <button class="btn-sm gray" id="retryBtn" type="button" style="display:none;" onclick="resetPayment()"><i class="fas fa-rotate-left"></i> Try Again</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Success card -->
+            <div class="card" id="successCard">
+                <div class="check"><i class="fas fa-circle-check"></i></div>
+                <h3>Payment Confirmed</h3>
+                <div id="successDetails">
+                    <div class="row"><span class="label">Member Name</span><span class="value highlight" id="successName">—</span></div>
+                    <div class="row"><span class="label">Member Number</span><span class="value highlight" id="successNumber">—</span></div>
+                    <div class="row"><span class="label">Amount Paid</span><span class="value highlight" id="successAmount">KES 0</span></div>
+                </div>
+                <div class="success-actions">
+                    <button class="btn-sm primary" type="button" onclick="downloadReceipt()"><i class="fas fa-file-pdf"></i> Download Receipt</button>
+                    <button class="btn-sm gray" type="button" onclick="collectAnotherPayment()"><i class="fas fa-plus"></i> Collect Another</button>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <script src="../js/supabase-config.js"></script>
+    <script src="../js/admin-auth.js"></script>
+    <script src="../js/admin-collectpayments.js"></script>
+</body>
+</html>
