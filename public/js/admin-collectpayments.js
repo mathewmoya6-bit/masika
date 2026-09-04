@@ -77,6 +77,37 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
     });
 
+    // ------------------------------------------------------
+    // Search button — bind by click in addition to Enter.
+    // Previously the only way to trigger a search was pressing
+    // Enter in the input; a "Search" button in the HTML with no
+    // onclick attribute (or one wired to a name that doesn't
+    // exist) would silently do nothing when clicked. This binds
+    // it explicitly if such a button exists, under any of the
+    // common id/data-action patterns, so the button works
+    // regardless of how the HTML wires it.
+    // ------------------------------------------------------
+    const searchBtn =
+        document.getElementById('memberSearchBtn') ||
+        document.getElementById('searchMemberBtn') ||
+        document.getElementById('searchBtn') ||
+        document.querySelector('[data-action="search-member"]');
+
+    if (searchBtn) {
+        searchBtn.addEventListener('click', (e) => {
+            e.preventDefault();
+            searchMembers();
+        });
+    } else {
+        console.warn(
+            'Collect payment: no search button found (checked ' +
+            '#memberSearchBtn, #searchMemberBtn, #searchBtn, ' +
+            '[data-action="search-member"]). Search still works via ' +
+            'Enter in the input; add one of those ids/attributes to ' +
+            'the button in the HTML to make clicking it work too.'
+        );
+    }
+
     memberSearchInput.focus();
 });
 
@@ -258,6 +289,7 @@ async function searchMembers() {
         searchResultsEl.innerHTML = `<div class="search-empty" style="color:var(--danger);">Couldn't search members. ${escapeHtml(err.message || '')}</div>`;
     }
 }
+window.searchMembers = searchMembers;
 
 function selectMember(memberId) {
     const member = searchResultsCache.find((m) => m.id === memberId);
