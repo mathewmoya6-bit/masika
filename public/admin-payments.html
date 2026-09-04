@@ -3,21 +3,23 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Payment | Masika Benevolent</title>
-    <meta name="description" content="Complete your Masika Benevolent membership payment via M-Pesa.">
-    
+    <title>Collect Payment | Masika Benevolent Admin</title>
+
     <link rel="icon" type="image/png" href="assets/favicon-32x32.png">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <!-- jsPDF: used client-side to generate the payment receipt PDF right after
-         M-Pesa confirmation, with zero backend involvement. -->
+    <!-- jsPDF: same client-side receipt generation as the public payment page -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
-    
+
+    <!-- Same Supabase client used by the rest of the admin panel
+         (admin-members.js, admin-dashboard.js, etc). This page only
+         uses it to confirm the signed-in staff member and to search
+         the members table — the STK push itself still goes through
+         the FastAPI backend, same as the public payment page. -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="supabase-config.js"></script>
+
     <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
 
         :root {
             --primary: #0b5d3b;
@@ -32,6 +34,7 @@
             --text: #1f2933;
             --text-light: #6b7280;
             --white: #ffffff;
+            --gray-50: #f8faf9;
             --gray-100: #f3f4f6;
             --gray-200: #e5e7eb;
             --shadow: 0 4px 24px rgba(0,0,0,0.1);
@@ -46,7 +49,8 @@
             min-height: 100vh;
         }
 
-        /* Header */
+        /* Header — same shape as the other admin pages: brand left,
+           staff identity + logout right. */
         .topbar {
             background: var(--primary);
             color: white;
@@ -61,685 +65,268 @@
             z-index: 100;
         }
 
-        .brand {
-            display: flex;
-            align-items: center;
-            gap: 12px;
-            text-decoration: none;
-            color: white;
-        }
-
+        .brand { display: flex; align-items: center; gap: 12px; text-decoration: none; color: white; }
         .brand-logo {
-            width: 40px;
-            height: 40px;
-            background: white;
-            border-radius: 50%;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-weight: 900;
-            color: var(--primary);
-            font-size: 18px;
+            width: 40px; height: 40px; background: white; border-radius: 50%;
+            display: flex; align-items: center; justify-content: center;
+            font-weight: 900; color: var(--primary); font-size: 18px;
         }
+        .brand-text { font-weight: 700; font-size: 18px; }
+        .brand-sub { font-size: 11px; opacity: 0.7; display: block; }
 
-        .brand-text {
-            font-weight: 700;
-            font-size: 18px;
-        }
+        .top-actions { display: flex; gap: 14px; align-items: center; flex-wrap: wrap; }
 
-        .brand-sub {
-            font-size: 11px;
-            opacity: 0.7;
-            display: block;
+        .admin-identity { display: flex; align-items: center; gap: 10px; }
+        .admin-avatar {
+            width: 34px; height: 34px; border-radius: 50%;
+            background: var(--gold); color: white; font-weight: 700;
+            display: flex; align-items: center; justify-content: center; font-size: 14px;
         }
-
-        .top-actions {
-            display: flex;
-            gap: 10px;
-            align-items: center;
-            flex-wrap: wrap;
-        }
+        .admin-meta { line-height: 1.2; text-align: left; }
+        .admin-meta .name { font-weight: 600; font-size: 13px; }
+        .admin-meta .role { font-size: 11px; opacity: 0.75; }
 
         .btn {
-            padding: 10px 20px;
-            border: none;
-            border-radius: 8px;
-            font-weight: 600;
-            cursor: pointer;
-            transition: var(--transition);
-            text-decoration: none;
-            font-family: inherit;
-            font-size: 14px;
-            display: inline-flex;
-            align-items: center;
-            gap: 8px;
+            padding: 10px 20px; border: none; border-radius: 8px; font-weight: 600;
+            cursor: pointer; transition: var(--transition); text-decoration: none;
+            font-family: inherit; font-size: 14px; display: inline-flex; align-items: center; gap: 8px;
         }
+        .btn:hover { transform: translateY(-1px); box-shadow: 0 4px 12px rgba(0,0,0,0.15); }
+        .btn-light { background: white; color: var(--primary); }
+        .btn-light:hover { background: #f0f0f0; }
+        .btn-outline-light { background: transparent; color: white; border: 2px solid rgba(255,255,255,0.3); }
+        .btn-outline-light:hover { background: rgba(255,255,255,0.1); border-color: white; }
+        .btn-primary { background: var(--primary); color: white; }
+        .btn-primary:hover { background: var(--primary-dark); }
+        .btn-gold { background: var(--gold); color: white; }
+        .btn-gold:hover { background: #c4951a; }
+        .btn-secondary { background: #eef1f2; color: #374151; }
+        .btn-secondary:hover { background: #e2e6e8; }
+        .btn-sm { padding: 6px 12px; font-size: 13px; border-radius: 6px; }
+        .btn:disabled { opacity: 0.6; cursor: not-allowed; transform: none !important; }
 
-        .btn:hover {
-            transform: translateY(-1px);
-            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
-        }
+        .container { max-width: 760px; margin: 0 auto; padding: 40px 24px 60px; }
 
-        .btn-light {
-            background: white;
-            color: var(--primary);
-        }
+        .card { background: white; border-radius: var(--radius); padding: 32px; box-shadow: var(--shadow); margin-bottom: 24px; }
+        .card-header { border-bottom: 1px solid var(--gray-200); padding-bottom: 16px; margin-bottom: 24px; }
+        .card-header h2 { font-size: 20px; font-weight: 700; }
+        .card-header p { color: var(--text-light); font-size: 14px; margin-top: 4px; }
 
-        .btn-light:hover {
-            background: #f0f0f0;
+        /* Member search */
+        .search-row { display: flex; gap: 10px; margin-bottom: 14px; }
+        .search-row input {
+            flex: 1; padding: 12px 16px; border: 2px solid var(--gray-200); border-radius: 8px;
+            font-size: 15px; font-family: inherit;
         }
+        .search-row input:focus { outline: none; border-color: var(--primary); box-shadow: 0 0 0 3px rgba(11,93,59,0.1); }
 
-        .btn-outline-light {
-            background: transparent;
-            color: white;
-            border: 2px solid rgba(255,255,255,0.3);
+        .search-results { border: 1px solid var(--gray-200); border-radius: 8px; overflow: hidden; margin-bottom: 8px; }
+        .search-results:empty { display: none; }
+        .search-result-row {
+            display: flex; justify-content: space-between; align-items: center; gap: 12px;
+            padding: 12px 16px; cursor: pointer; border-bottom: 1px solid var(--gray-100);
         }
-
-        .btn-outline-light:hover {
-            background: rgba(255,255,255,0.1);
-            border-color: white;
-        }
-
-        .btn-primary {
-            background: var(--primary);
-            color: white;
-        }
-
-        .btn-primary:hover {
-            background: var(--primary-dark);
-        }
-
-        .btn-gold {
-            background: var(--gold);
-            color: white;
-        }
-
-        .btn-gold:hover {
-            background: #c4951a;
-        }
-
-        .btn-success {
-            background: var(--success);
-            color: white;
-        }
-
-        .btn-success:hover {
-            background: #157347;
-        }
-
-        .btn-danger {
-            background: var(--danger);
-            color: white;
-        }
-
-        .btn-danger:hover {
-            background: #c82333;
-        }
-
-        .btn-secondary {
-            background: #eef1f2;
-            color: #374151;
-        }
-
-        .btn-secondary:hover {
-            background: #e2e6e8;
-        }
-
-        .btn:disabled {
-            opacity: 0.6;
-            cursor: not-allowed;
-            transform: none !important;
-        }
-
-        /* Container */
-        .container {
-            max-width: 700px;
-            margin: 0 auto;
-            padding: 40px 24px 60px;
-        }
-
-        /* Card */
-        .card {
-            background: white;
-            border-radius: var(--radius);
-            padding: 32px;
-            box-shadow: var(--shadow);
-            margin-bottom: 24px;
-        }
-
-        .card-header {
-            border-bottom: 1px solid var(--gray-200);
-            padding-bottom: 16px;
-            margin-bottom: 24px;
-        }
-
-        .card-header h2 {
-            font-size: 20px;
-            font-weight: 700;
-        }
-
-        .card-header p {
-            color: var(--text-light);
-            font-size: 14px;
-            margin-top: 4px;
-        }
-
-        /* Payment Summary */
-        .payment-summary {
-            background: var(--primary-light);
-            border-radius: var(--radius);
-            padding: 24px;
-            text-align: center;
-            margin-bottom: 24px;
-            border: 2px solid #c3e6cb;
-        }
-
-        .payment-summary .label {
-            font-size: 14px;
-            color: var(--text-light);
-        }
-
-        .payment-summary .amount {
-            font-size: 36px;
-            font-weight: 800;
-            color: var(--primary);
-            margin: 4px 0;
-        }
-
-        .payment-summary .member-info {
-            font-size: 14px;
-            color: var(--text);
-            margin-top: 4px;
-        }
-
-        .payment-summary .member-info strong {
-            color: var(--primary);
-        }
-
-        /* Paybill Info */
-        .paybill-info {
-            background: #f8faf9;
-            border-radius: 8px;
-            padding: 20px;
-            text-align: center;
-            border: 2px dashed var(--gold);
-            margin-bottom: 24px;
-        }
-
-        .paybill-info .label {
-            font-size: 13px;
-            color: var(--text-light);
-        }
-
-        .paybill-info .number {
-            font-size: 32px;
-            font-weight: 900;
-            color: var(--gold);
-            letter-spacing: 2px;
-        }
-
-        .paybill-info .account {
-            font-size: 14px;
-            color: var(--text);
-            margin-top: 4px;
-        }
-
-        .paybill-info .account strong {
-            color: var(--primary);
-        }
-
-        /* Form */
-        .form-group {
-            margin-bottom: 18px;
-        }
-
-        .form-group label {
-            display: block;
-            font-weight: 600;
-            font-size: 13px;
-            margin-bottom: 6px;
-            color: var(--text);
-        }
-
-        .form-group label .required {
-            color: var(--danger);
-        }
-
-        .form-group .help-text {
-            font-size: 12px;
-            color: var(--text-light);
-            margin-top: 4px;
-        }
-
-        .form-control {
-            width: 100%;
-            padding: 12px 16px;
-            border: 2px solid var(--gray-200);
-            border-radius: 8px;
-            font-size: 15px;
-            transition: var(--transition);
-            font-family: inherit;
-            background: white;
-            color: var(--text);
-        }
-
-        .form-control:focus {
-            outline: none;
-            border-color: var(--primary);
-            box-shadow: 0 0 0 3px rgba(11,93,59,0.1);
-        }
-
-        .form-control.error {
-            border-color: var(--danger);
-        }
-
-        .form-control:disabled {
-            background: var(--gray-100);
-            cursor: not-allowed;
-        }
-
-        /* Alert */
-        .alert {
-            display: none;
-            padding: 14px 18px;
-            border-radius: 8px;
-            margin-bottom: 20px;
-            font-size: 14px;
-        }
-
-        .alert.show {
-            display: block;
-        }
-
-        .alert.success {
-            background: #ecfdf5;
-            border: 1px solid #a7f3d0;
-            color: #065f46;
-        }
-
-        .alert.error {
-            background: #fef2f2;
-            border: 1px solid #fecaca;
-            color: #991b1b;
-        }
-
-        .alert.info {
-            background: #eff6ff;
-            border: 1px solid #bfdbfe;
-            color: #1e40af;
-        }
-
-        .alert.warning {
-            background: #fffbeb;
-            border: 1px solid #fde68a;
-            color: #92400e;
-        }
-
-        /* Payment Status */
-        #paymentStatus {
-            display: none;
-            text-align: center;
-            padding: 20px;
-        }
-
-        #paymentStatus .status-icon {
-            font-size: 56px;
-            margin-bottom: 12px;
-        }
-
-        #paymentStatus .status-icon.success {
-            color: var(--success);
-        }
-
-        #paymentStatus .status-icon.failed {
-            color: var(--danger);
-        }
-
-        #paymentStatus .status-icon.pending {
-            color: var(--warning);
-        }
-
-        #paymentStatus h3 {
-            font-size: 22px;
-            font-weight: 700;
-            margin-bottom: 4px;
-        }
-
-        #paymentStatus p {
-            color: var(--text-light);
-            font-size: 15px;
-        }
+        .search-result-row:last-child { border-bottom: none; }
+        .search-result-row:hover { background: var(--primary-light); }
+        .search-result-row .name { font-weight: 600; font-size: 14px; }
+        .search-result-row .meta { font-size: 12px; color: var(--text-light); }
+        .search-hint, .search-empty { font-size: 13px; color: var(--text-light); padding: 8px 2px; }
 
         .status-badge {
-            display: inline-block;
-            padding: 4px 16px;
-            border-radius: 20px;
-            font-size: 13px;
-            font-weight: 600;
-            margin-top: 12px;
+            display: inline-block; padding: 2px 10px; border-radius: 20px;
+            font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.3px;
         }
+        .status-badge.active { background: #d4edda; color: #155724; }
+        .status-badge.pending { background: #fff3cd; color: #856404; }
+        .status-badge.inactive { background: #f8d7da; color: #721c24; }
+        .status-badge.rejected { background: #f1f1f1; color: #555; }
 
-        .status-badge.pending {
-            background: #fff3cd;
-            color: #856404;
-        }
-
-        .status-badge.confirmed {
-            background: #d4edda;
-            color: #155724;
-        }
-
-        .status-badge.failed {
-            background: #f8d7da;
-            color: #721c24;
-        }
-
-        /* Steps */
-        .steps {
-            display: flex;
-            gap: 8px;
-            margin: 16px 0;
-            justify-content: center;
-        }
-
-        .step-item {
-            display: flex;
-            align-items: center;
-            gap: 8px;
-            font-size: 13px;
-            color: var(--text-light);
-        }
-
-        .step-item .num {
-            width: 28px;
-            height: 28px;
-            border-radius: 50%;
-            background: var(--gray-200);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-weight: 700;
-            font-size: 12px;
-            color: var(--text-light);
-        }
-
-        .step-item.active .num {
-            background: var(--gold);
-            color: white;
-        }
-
-        .step-item.active {
-            color: var(--text);
-            font-weight: 600;
-        }
-
-        .step-item.done .num {
-            background: var(--success);
-            color: white;
-        }
-
-        /* Spinner */
-        .spinner {
+        /* Selected member */
+        .selected-member {
             display: none;
-            width: 20px;
-            height: 20px;
-            border: 3px solid rgba(255,255,255,0.3);
-            border-top-color: white;
-            border-radius: 50%;
-            animation: spin 0.8s linear infinite;
-        }
-
-        .btn.loading .spinner {
-            display: inline-block;
-        }
-
-        .btn.loading .btn-text {
-            display: none;
-        }
-
-        @keyframes spin {
-            to { transform: rotate(360deg); }
-        }
-
-        /* Confetti (for success) */
-        .confetti-container {
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            pointer-events: none;
-            z-index: 999;
-            overflow: hidden;
-        }
-
-        .confetti {
-            position: absolute;
-            width: 10px;
-            height: 10px;
-            top: -10px;
-            animation: confettiFall linear forwards;
-        }
-
-        @keyframes confettiFall {
-            0% { transform: translateY(0) rotate(0deg); opacity: 1; }
-            100% { transform: translateY(110vh) rotate(720deg); opacity: 0; }
-        }
-
-        /* Success Card */
-        #successCard .member-details {
-            background: var(--gray-50);
-            border-radius: 8px;
-            padding: 12px;
-            margin: 12px 0;
-            text-align: left;
-        }
-
-        #successCard .member-details .row {
-            display: flex;
+            background: var(--primary-light);
+            border: 2px solid #c3e6cb;
+            border-radius: var(--radius);
+            padding: 18px 20px;
+            margin-bottom: 20px;
+            align-items: center;
             justify-content: space-between;
-            padding: 6px 0;
-            border-bottom: 1px solid var(--gray-200);
+            gap: 12px;
         }
+        .selected-member.show { display: flex; }
+        .selected-member .who .name { font-weight: 700; color: var(--primary); font-size: 16px; }
+        .selected-member .who .meta { font-size: 13px; color: var(--text); margin-top: 2px; }
 
-        #successCard .member-details .row:last-child {
-            border-bottom: none;
+        /* Form */
+        .form-group { margin-bottom: 18px; }
+        .form-group label { display: block; font-weight: 600; font-size: 13px; margin-bottom: 6px; color: var(--text); }
+        .form-group label .required { color: var(--danger); }
+        .form-group .help-text { font-size: 12px; color: var(--text-light); margin-top: 4px; }
+        .form-control {
+            width: 100%; padding: 12px 16px; border: 2px solid var(--gray-200); border-radius: 8px;
+            font-size: 15px; transition: var(--transition); font-family: inherit; background: white; color: var(--text);
         }
-
-        #successCard .member-details .label {
-            color: var(--text-light);
-            font-size: 13px;
+        .form-control:focus { outline: none; border-color: var(--primary); box-shadow: 0 0 0 3px rgba(11,93,59,0.1); }
+        .form-control:disabled { background: var(--gray-100); cursor: not-allowed; }
+        .amount-prefix { display: flex; align-items: stretch; }
+        .amount-prefix span {
+            display: flex; align-items: center; padding: 0 14px; background: var(--gray-100);
+            border: 2px solid var(--gray-200); border-right: none; border-radius: 8px 0 0 8px;
+            font-weight: 700; color: var(--text-light); font-size: 14px;
         }
+        .amount-prefix .form-control { border-radius: 0 8px 8px 0; }
 
-        #successCard .member-details .value {
-            font-weight: 600;
-            color: var(--text);
+        /* Alert */
+        .alert { display: none; padding: 14px 18px; border-radius: 8px; margin-bottom: 20px; font-size: 14px; }
+        .alert.show { display: block; }
+        .alert.success { background: #ecfdf5; border: 1px solid #a7f3d0; color: #065f46; }
+        .alert.error { background: #fef2f2; border: 1px solid #fecaca; color: #991b1b; }
+        .alert.info { background: #eff6ff; border: 1px solid #bfdbfe; color: #1e40af; }
+        .alert.warning { background: #fffbeb; border: 1px solid #fde68a; color: #92400e; }
+
+        /* Payment status */
+        #paymentStatus { display: none; text-align: center; padding: 20px; }
+        #paymentStatus .status-icon { font-size: 56px; margin-bottom: 12px; }
+        #paymentStatus .status-icon.success { color: var(--success); }
+        #paymentStatus .status-icon.failed { color: var(--danger); }
+        #paymentStatus .status-icon.pending { color: var(--warning); }
+        #paymentStatus .status-icon.warning { color: var(--warning); }
+        #paymentStatus h3 { font-size: 22px; font-weight: 700; margin-bottom: 4px; }
+        #paymentStatus p { color: var(--text-light); font-size: 15px; }
+        .payment-status-badge {
+            display: inline-block; padding: 4px 16px; border-radius: 20px; font-size: 13px; font-weight: 600; margin-top: 12px;
         }
+        .payment-status-badge.pending { background: #fff3cd; color: #856404; }
+        .payment-status-badge.confirmed { background: #d4edda; color: #155724; }
+        .payment-status-badge.failed { background: #f8d7da; color: #721c24; }
 
-        #successCard .member-details .value.highlight {
-            color: var(--primary);
+        .spinner {
+            display: none; width: 20px; height: 20px; border: 3px solid rgba(255,255,255,0.3);
+            border-top-color: white; border-radius: 50%; animation: spin 0.8s linear infinite;
         }
+        .btn.loading .spinner { display: inline-block; }
+        .btn.loading .btn-text { display: none; }
+        @keyframes spin { to { transform: rotate(360deg); } }
 
-        /* Membership card teaser on the success screen */
-        .card-teaser {
-            background: #f8faf9;
-            border: 2px dashed var(--primary);
-            border-radius: 10px;
-            padding: 16px;
-            margin: 16px 0;
-            text-align: left;
-        }
+        /* Success card */
+        #successCard .member-details { background: var(--gray-50); border-radius: 8px; padding: 12px; margin: 12px 0; text-align: left; }
+        #successCard .member-details .row { display: flex; justify-content: space-between; padding: 6px 0; border-bottom: 1px solid var(--gray-200); }
+        #successCard .member-details .row:last-child { border-bottom: none; }
+        #successCard .member-details .label { color: var(--text-light); font-size: 13px; }
+        #successCard .member-details .value { font-weight: 600; color: var(--text); }
+        #successCard .member-details .value.highlight { color: var(--primary); }
 
-        .card-teaser .teaser-title {
-            font-weight: 700;
-            color: var(--primary);
-            font-size: 14px;
-            margin-bottom: 4px;
-        }
-
-        .card-teaser p {
-            font-size: 13px;
-            color: var(--text-light);
-        }
-
-        /* Responsive */
         @media (max-width: 768px) {
-            .topbar {
-                padding: 12px 16px;
-                flex-direction: column;
-                align-items: stretch;
-                text-align: center;
-            }
-
-            .brand {
-                justify-content: center;
-            }
-
-            .top-actions {
-                justify-content: center;
-            }
-
-            .container {
-                padding: 24px 16px 40px;
-            }
-
-            .card {
-                padding: 20px;
-            }
-
-            .payment-summary .amount {
-                font-size: 28px;
-            }
-
-            .paybill-info .number {
-                font-size: 24px;
-            }
-
-            .steps {
-                flex-direction: column;
-                align-items: center;
-            }
-        }
-
-        @media (max-width: 480px) {
-            .payment-summary .amount {
-                font-size: 24px;
-            }
-
-            .paybill-info .number {
-                font-size: 20px;
-            }
-
-            .card {
-                padding: 16px;
-            }
-
-            .top-actions .btn {
-                font-size: 13px;
-                padding: 8px 14px;
-            }
+            .topbar { padding: 12px 16px; flex-direction: column; align-items: stretch; text-align: center; }
+            .brand { justify-content: center; }
+            .top-actions { justify-content: center; }
+            .container { padding: 24px 16px 40px; }
+            .card { padding: 20px; }
+            .selected-member { flex-direction: column; align-items: flex-start; }
         }
     </style>
 </head>
-
 <body>
 
     <!-- ============================================================
     HEADER
     ============================================================ -->
-
     <header class="topbar">
-        <a href="index.html" class="brand">
+        <a href="admin-dashboard.html" class="brand">
             <div class="brand-logo">MB</div>
             <div>
                 <span class="brand-text">Masika Benevolent</span>
-                <span class="brand-sub">Payment</span>
+                <span class="brand-sub">Admin · Collect Payment</span>
             </div>
         </a>
 
         <div class="top-actions">
-            <a href="index.html" class="btn btn-outline-light">← Home</a>
-            <a href="register.html" class="btn btn-light">Register</a>
+            <div class="admin-identity">
+                <div class="admin-avatar" id="adminAvatar">A</div>
+                <div class="admin-meta">
+                    <div class="name" id="adminName">—</div>
+                    <div class="role" id="adminRole">Administrator</div>
+                </div>
+            </div>
+            <a href="admin-members.html" class="btn btn-outline-light">← Members</a>
+            <button class="btn btn-outline-light" onclick="handleLogout()">
+                <i class="fas fa-sign-out-alt"></i> Logout
+            </button>
         </div>
     </header>
 
     <!-- ============================================================
     MAIN CONTENT
     ============================================================ -->
-
     <main class="container">
 
-        <!-- Alert -->
         <div id="alertBox" class="alert"></div>
 
         <!-- Payment Card -->
         <div class="card" id="paymentCard">
             <div class="card-header">
-                <h2>💳 Complete Your Payment</h2>
-                <p>Pay your registration fee using M-Pesa STK Push</p>
+                <h2>💳 Collect Payment for a Member</h2>
+                <p>Search for a member, confirm the amount and phone number, then send an M-Pesa STK push on their behalf.</p>
             </div>
 
-            <!-- Payment Summary -->
-            <div class="payment-summary" id="paymentSummary">
-                <div class="label">Registration Amount</div>
-                <div class="amount" id="amountDisplay">KES 0</div>
-                <div class="member-info" id="memberInfo">
-                    Member: <strong id="memberNameDisplay">—</strong>
-                    <span style="margin-left:12px;">#<span id="memberNumberDisplay">—</span></span>
+            <!-- Step 1: find the member -->
+            <div class="form-group">
+                <label>Find Member <span class="required">*</span></label>
+                <div class="search-row">
+                    <input type="text" id="memberSearchInput" class="form-control"
+                           placeholder="Search by name, member number, phone or ID number">
+                    <button type="button" class="btn btn-primary" id="memberSearchBtn" onclick="searchMembers()">
+                        <i class="fas fa-search"></i>
+                    </button>
                 </div>
+                <div class="search-results" id="searchResults"></div>
+                <div class="search-hint">Type at least 2 characters and press Enter or search.</div>
             </div>
 
-            <!-- Paybill Info -->
-            <div class="paybill-info">
-                <div class="label">Paybill Number</div>
-                <div class="number">348127</div>
-                <div class="account">
-                    Account: <strong id="accountDisplay">Your Member Number</strong>
-                </div>
-            </div>
-
-            <!-- Steps -->
-            <div style="margin-bottom:20px;">
-                <div class="steps">
-                    <div class="step-item active" id="step1">
-                        <span class="num">1</span> Enter Phone
-                    </div>
-                    <div class="step-item" id="step2">
-                        <span class="num">2</span> Pay
-                    </div>
-                    <div class="step-item" id="step3">
-                        <span class="num">3</span> Confirm
+            <!-- Selected member summary -->
+            <div class="selected-member" id="selectedMember">
+                <div class="who">
+                    <div class="name" id="selectedMemberName">—</div>
+                    <div class="meta">
+                        #<span id="selectedMemberNumber">—</span>
+                        <span style="margin-left:8px;" id="selectedMemberStatus"></span>
                     </div>
                 </div>
+                <button type="button" class="btn btn-sm btn-secondary" onclick="clearSelectedMember()">
+                    <i class="fas fa-times"></i> Change
+                </button>
             </div>
 
-            <!-- Payment Form -->
+            <!-- Step 2: amount + phone, then pay -->
             <form id="paymentForm" onsubmit="initiatePayment(event)">
                 <div class="form-group">
-                    <label>M-Pesa Phone Number <span class="required">*</span></label>
-                    <input type="tel" id="phoneNumber" class="form-control" placeholder="0712345678" required>
-                    <span class="help-text">The Safaricom number registered with M-Pesa</span>
+                    <label>Amount (KES) <span class="required">*</span></label>
+                    <div class="amount-prefix">
+                        <span>KES</span>
+                        <input type="number" id="amountInput" class="form-control" min="1" step="1"
+                               placeholder="e.g. 500" required disabled>
+                    </div>
+                    <span class="help-text">Enter the amount this member is paying now.</span>
                 </div>
 
-                <div style="display:flex;gap:12px;flex-wrap:wrap;">
-                    <button type="submit" class="btn btn-gold" style="flex:1;padding:14px;font-size:16px;" id="payBtn" disabled>
-                        <span class="btn-text"><i class="fas fa-mobile-screen-button"></i> Pay with M-Pesa</span>
-                        <span class="spinner"></span>
-                    </button>
-                    <button type="button" class="btn btn-secondary" onclick="resetPayment()" style="padding:14px 20px;background:#eef1f2;color:#374151;">
-                        <i class="fas fa-undo"></i>
-                    </button>
+                <div class="form-group">
+                    <label>M-Pesa Phone Number <span class="required">*</span></label>
+                    <input type="tel" id="phoneNumber" class="form-control" placeholder="0712345678" required disabled>
+                    <span class="help-text">Defaults to the member's phone on file — edit if they're paying from a different line.</span>
                 </div>
+
+                <button type="submit" class="btn btn-gold" style="width:100%;padding:14px;font-size:16px;" id="payBtn" disabled>
+                    <span class="btn-text"><i class="fas fa-mobile-screen-button"></i> Send STK Push</span>
+                    <span class="spinner"></span>
+                </button>
             </form>
 
             <!-- Payment Status -->
             <div id="paymentStatus">
                 <div class="status-icon" id="statusIcon">⏳</div>
                 <h3 id="statusTitle">Processing Payment</h3>
-                <p id="statusMessage">Please check your phone and enter your M-Pesa PIN.</p>
-                <div>
-                    <span class="status-badge pending" id="statusBadge">Pending</span>
-                </div>
+                <p id="statusMessage">Waiting for the member to enter their M-Pesa PIN.</p>
+                <div><span class="payment-status-badge pending" id="statusBadge">Pending</span></div>
                 <div style="margin-top:16px;display:flex;gap:10px;justify-content:center;flex-wrap:wrap;">
                     <button onclick="checkPaymentStatus()" class="btn btn-primary" id="checkStatusBtn">
                         <i class="fas fa-sync"></i> Check Status
@@ -747,761 +334,43 @@
                     <button onclick="resetPayment()" class="btn btn-secondary" id="retryBtn" style="display:none;">
                         <i class="fas fa-redo"></i> Try Again
                     </button>
+                    <button onclick="resetPayment()" class="btn btn-secondary" id="cancelBtn">
+                        <i class="fas fa-times"></i> Cancel
+                    </button>
                 </div>
             </div>
         </div>
 
-        <!-- Success Card (shown after confirmation) -->
+        <!-- Success Card -->
         <div class="card" id="successCard" style="display:none;border:2px solid var(--success);">
             <div style="text-align:center;padding:20px;">
-                <div style="font-size:64px;margin-bottom:12px;">🎉</div>
-                <h2 style="color:var(--success);font-size:28px;font-weight:800;">Payment Successful!</h2>
-                <p style="color:var(--text-light);font-size:16px;margin:8px 0;">
-                    Your Masika Benevolent membership is now active.
-                </p>
+                <div style="font-size:56px;margin-bottom:12px;">🎉</div>
+                <h2 style="color:var(--success);font-size:24px;font-weight:800;">Payment Confirmed</h2>
+                <p style="color:var(--text-light);font-size:15px;margin:8px 0;">The payment was recorded successfully.</p>
+
                 <div class="member-details" id="successDetails">
-                    <div class="row">
-                        <span class="label">Member Name</span>
-                        <span class="value highlight" id="successName">—</span>
-                    </div>
-                    <div class="row">
-                        <span class="label">Member Number</span>
-                        <span class="value highlight" id="successNumber">—</span>
-                    </div>
-                    <div class="row">
-                        <span class="label">Amount Paid</span>
-                        <span class="value highlight" id="successAmount">KES 0</span>
-                    </div>
+                    <div class="row"><span class="label">Member Name</span><span class="value highlight" id="successName">—</span></div>
+                    <div class="row"><span class="label">Member Number</span><span class="value highlight" id="successNumber">—</span></div>
+                    <div class="row"><span class="label">Amount Paid</span><span class="value highlight" id="successAmount">KES 0</span></div>
                 </div>
 
-                <!-- Receipt download -->
                 <div style="margin:16px 0;">
                     <button class="btn btn-primary" onclick="downloadReceipt()" id="receiptBtn">
                         <i class="fas fa-file-invoice"></i> Download Receipt (PDF)
                     </button>
                 </div>
 
-                <div style="background:var(--primary-light);border-radius:8px;padding:16px;margin:16px 0;text-align:left;">
-                    <p><strong>📋 What's Next?</strong></p>
-                    <ul style="padding-left:20px;color:var(--text-light);">
-                        <li>✅ You will receive a confirmation SMS</li>
-                        <li>📧 A confirmation email has been sent</li>
-                        <li>🎯 Your coverage starts after the waiting period</li>
-                    </ul>
-                </div>
-
-                <!-- Membership card teaser -->
-                <div class="card-teaser">
-                    <div class="teaser-title">🪪 Your Membership Card</div>
-                    <p>Your digital membership card unlocks once you've completed your first month as a paying member. Use the link below any time to check its status or download it.</p>
-                </div>
-
                 <div style="display:flex;gap:12px;justify-content:center;flex-wrap:wrap;">
-                    <a href="index.html" class="btn btn-primary">← Home</a>
-                    <a id="membershipCardLink" href="membership-card.html" class="btn btn-gold">
-                        <i class="fas fa-id-card"></i> View Membership Card
-                    </a>
-                    <a href="register.html" class="btn btn-secondary">Register Another Member</a>
+                    <button class="btn btn-gold" onclick="collectAnotherPayment()">
+                        <i class="fas fa-plus"></i> Collect Another Payment
+                    </button>
+                    <a href="admin-members.html" class="btn btn-secondary">← Back to Members</a>
                 </div>
             </div>
         </div>
 
     </main>
 
-    <!-- ============================================================
-    JAVASCRIPT
-    ============================================================ -->
-
-    <script>
-        // ============================================================
-        // CONFIGURATION
-        // ============================================================
-
-        // Every request in this file goes to the FastAPI backend, never
-        // directly to Supabase. The service-role key that can actually
-        // write to the database lives only on Render; this page never
-        // needs any Supabase key at all.
-        const API_BASE_URL = 'https://masika-c921.onrender.com';
-
-        // ============================================================
-        // STATE
-        // ============================================================
-
-        let registrationData = null;
-        let checkoutRequestId = null;
-        let pollingInterval = null;
-        let pollAttempts = 0;
-        const maxPollAttempts = 60; // 60 * 3 seconds = 3 minutes
-        let isProcessing = false;
-
-        // Filled in by paymentSuccess() and consumed by downloadReceipt().
-        // Kept separate from registrationData because it carries payment-time
-        // facts (receipt number, paid-at timestamp) that don't exist until
-        // M-Pesa actually confirms the transaction.
-        let lastReceiptData = null;
-
-        // ============================================================
-        // DOM REFERENCES
-        // ============================================================
-
-        const alertBox = document.getElementById('alertBox');
-        const paymentCard = document.getElementById('paymentCard');
-        const successCard = document.getElementById('successCard');
-        const paymentForm = document.getElementById('paymentForm');
-        const paymentStatus = document.getElementById('paymentStatus');
-        const payBtn = document.getElementById('payBtn');
-        const checkStatusBtn = document.getElementById('checkStatusBtn');
-        const retryBtn = document.getElementById('retryBtn');
-        const phoneNumber = document.getElementById('phoneNumber');
-        const amountDisplay = document.getElementById('amountDisplay');
-        const memberNameDisplay = document.getElementById('memberNameDisplay');
-        const memberNumberDisplay = document.getElementById('memberNumberDisplay');
-        const accountDisplay = document.getElementById('accountDisplay');
-        const statusIcon = document.getElementById('statusIcon');
-        const statusTitle = document.getElementById('statusTitle');
-        const statusMessage = document.getElementById('statusMessage');
-        const statusBadge = document.getElementById('statusBadge');
-        const successName = document.getElementById('successName');
-        const successNumber = document.getElementById('successNumber');
-        const successAmount = document.getElementById('successAmount');
-        const membershipCardLink = document.getElementById('membershipCardLink');
-
-        // ============================================================
-        // API HELPER
-        // ============================================================
-
-        async function apiRequest(path, options = {}) {
-            let response;
-            try {
-                response = await fetch(`${API_BASE_URL}${path}`, {
-                    headers: { 'Content-Type': 'application/json' },
-                    ...options
-                });
-            } catch (networkError) {
-                console.error("Network error calling API:", networkError);
-                throw new Error("Unable to reach the server. Please check your connection and try again.");
-            }
-
-            let body = null;
-            try {
-                body = await response.json();
-            } catch (parseError) {
-                // Non-JSON response body; fall through with body = null
-            }
-
-            if (!response.ok) {
-                const detail = body && body.detail;
-                const message =
-                    (typeof detail === "string" && detail) ||
-                    (detail && detail.message) ||
-                    (body && body.message) ||
-                    `Request failed (HTTP ${response.status}).`;
-                throw new Error(message);
-            }
-
-            return body;
-        }
-
-        // ============================================================
-        // LOAD PAYMENT DATA
-        // ============================================================
-
-        function loadPaymentData() {
-            // register.html stores these individual keys after a successful
-            // POST /api/public/register call (see registerMember() there) —
-            // NOT a single 'registrationResult' JSON blob, and the values
-            // come from the server's response, not client-side guesses.
-            const memberId = sessionStorage.getItem('newMemberId');
-            const memberNumber = sessionStorage.getItem('newMemberNumber');
-            const memberName = sessionStorage.getItem('newMemberName');
-            const memberPhone = sessionStorage.getItem('newMemberPhone');
-            const memberPlan = sessionStorage.getItem('newMemberPlan');
-            const amount = sessionStorage.getItem('registrationAmount');
-
-            if (memberId && amount) {
-                registrationData = {
-                    id: memberId,
-                    member_number: memberNumber || memberId,
-                    full_name: memberName || 'Member',
-                    plan_name: memberPlan || '',
-                    total_amount: Number(amount)
-                };
-                displayPaymentData(registrationData);
-
-                // Pre-fill the M-Pesa number with the phone they registered
-                // with, since that's almost always the number they'll pay
-                // from. They can still edit it.
-                if (memberPhone) {
-                    phoneNumber.value = memberPhone;
-                }
-                payBtn.disabled = false;
-                return;
-            }
-
-            // Fallback: someone navigated here directly with a link like
-            // payment.html?member_id=...&amount=...&member_number=...&name=...
-            // (e.g. a bookmarked/shared link, or sessionStorage was cleared).
-            // We deliberately do NOT query the database directly from the
-            // browser here — there's no public "look up a member by id"
-            // endpoint, and there shouldn't be one, since that would let
-            // anyone enumerate member records. We only trust what's in the
-            // URL itself.
-            const params = new URLSearchParams(window.location.search);
-            const urlMemberId = params.get('member_id');
-            const urlAmount = params.get('amount');
-
-            if (urlMemberId && urlAmount) {
-                registrationData = {
-                    id: urlMemberId,
-                    member_number: params.get('member_number') || urlMemberId,
-                    full_name: params.get('name') || 'Member',
-                    plan_name: params.get('plan') || '',
-                    total_amount: Number(urlAmount)
-                };
-                displayPaymentData(registrationData);
-                payBtn.disabled = false;
-                return;
-            }
-
-            // Try to load from registrationResult (legacy)
-            const stored = sessionStorage.getItem('registrationResult');
-            if (stored) {
-                try {
-                    const data = JSON.parse(stored);
-                    registrationData = {
-                        id: data.id || data.member_id,
-                        member_number: data.member_number || data.id,
-                        full_name: data.first_name ? `${data.first_name} ${data.last_name || ''}`.trim() : data.full_name || 'Member',
-                        plan_name: data.plan_name || '',
-                        total_amount: data.total_amount || data.registration_amount || data.amount || 0
-                    };
-                    displayPaymentData(registrationData);
-                    payBtn.disabled = false;
-                    return;
-                } catch (e) {
-                    console.log('Invalid session data');
-                }
-            }
-
-            showAlert('No payment data found. Please register first.', 'error');
-            payBtn.disabled = true;
-        }
-
-        function displayPaymentData(data) {
-            const amount = data.total_amount || data.registration_amount || data.amount || 0;
-            const name = data.first_name ? `${data.first_name} ${data.last_name || ''}`.trim() : data.full_name || 'Member';
-            const memberNumber = data.member_number || data.id || 'PENDING';
-
-            amountDisplay.textContent = formatKES(amount);
-            memberNameDisplay.textContent = name || '—';
-            memberNumberDisplay.textContent = memberNumber;
-            accountDisplay.textContent = memberNumber;
-
-            // Store for success card
-            successName.textContent = name || '—';
-            successNumber.textContent = memberNumber;
-            successAmount.textContent = formatKES(amount);
-
-            // Carry the member number over to the membership card page so it
-            // doesn't have to be typed in twice.
-            if (membershipCardLink && memberNumber && memberNumber !== 'PENDING') {
-                membershipCardLink.href = `membership-card.html?member_number=${encodeURIComponent(memberNumber)}`;
-            }
-
-            window.registrationPaymentAmount = amount;
-            window.registrationData = data;
-        }
-
-        // ============================================================
-        // INITIATE PAYMENT
-        // ============================================================
-
-        async function initiatePayment(event) {
-            event.preventDefault();
-
-            if (isProcessing) return;
-
-            const phone = phoneNumber.value.trim();
-            
-            if (!phone || phone.length < 9) {
-                showAlert('Please enter a valid M-Pesa phone number.', 'error');
-                phoneNumber.focus();
-                return;
-            }
-
-            if (!registrationData || !registrationData.id) {
-                showAlert('Member data not found. Please register again.', 'error');
-                return;
-            }
-
-            const amount = window.registrationPaymentAmount || 0;
-            if (amount <= 0) {
-                showAlert('Invalid payment amount.', 'error');
-                return;
-            }
-
-            isProcessing = true;
-            payBtn.classList.add('loading');
-            payBtn.disabled = true;
-
-            try {
-                // Call the API — must be the absolute Render URL, since this
-                // page is served from a different origin (masikabbs.com) than
-                // the API (masika-c921.onrender.com). A relative path here
-                // would silently hit masikabbs.com/api/... and 404.
-                const result = await apiRequest('/api/public/payment/stk-push', {
-                    method: 'POST',
-                    body: JSON.stringify({
-                        member_id: registrationData.id,
-                        phone: phone,
-                        amount: amount,
-                        transaction_desc: 'Membership Registration'
-                    })
-                });
-
-                if (!result.success) {
-                    throw new Error(result.message || 'Payment initiation failed');
-                }
-
-                const data = result.data;
-                checkoutRequestId = data.checkout_request_id;
-
-                // Update UI
-                document.getElementById('step1').classList.remove('active');
-                document.getElementById('step1').classList.add('done');
-                document.getElementById('step2').classList.add('active');
-
-                // Show payment status
-                paymentForm.style.display = 'none';
-                paymentStatus.style.display = 'block';
-                statusIcon.textContent = '⏳';
-                statusIcon.className = 'status-icon pending';
-                statusTitle.textContent = 'Payment Sent to Phone';
-                statusMessage.textContent = 'Please check your phone and enter your M-Pesa PIN to complete payment.';
-                statusBadge.textContent = 'Pending';
-                statusBadge.className = 'status-badge pending';
-                checkStatusBtn.style.display = 'inline-flex';
-                retryBtn.style.display = 'none';
-
-                showAlert('📱 Payment request sent to your phone. Please enter your PIN.', 'info');
-
-                // Start polling
-                startPolling();
-
-            } catch (error) {
-                console.error('Payment error:', error);
-                showAlert(error.message || 'Payment initiation failed. Please try again.', 'error');
-                payBtn.classList.remove('loading');
-                payBtn.disabled = false;
-                isProcessing = false;
-            }
-        }
-
-        // ============================================================
-        // POLL PAYMENT STATUS
-        // ============================================================
-
-        function startPolling() {
-            pollAttempts = 0;
-            if (pollingInterval) {
-                clearInterval(pollingInterval);
-            }
-            pollingInterval = setInterval(checkPaymentStatus, 3000);
-        }
-
-        async function checkPaymentStatus() {
-            if (!checkoutRequestId) {
-                showAlert('No payment request found.', 'error');
-                return;
-            }
-
-            pollAttempts++;
-            checkStatusBtn.disabled = true;
-            checkStatusBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Checking...';
-
-            try {
-                const result = await apiRequest(`/api/public/payment/status/${checkoutRequestId}`);
-
-                if (result.success) {
-                    const data = result.data;
-                    const status = data.status;
-
-                    if (status === 'confirmed') {
-                        // Payment successful
-                        clearInterval(pollingInterval);
-                        paymentSuccess(data);
-                        return;
-                    } else if (status === 'failed') {
-                        // Payment failed
-                        clearInterval(pollingInterval);
-                        paymentFailed(data);
-                        return;
-                    } else if (pollAttempts >= maxPollAttempts) {
-                        // Timeout
-                        clearInterval(pollingInterval);
-                        statusIcon.textContent = '⏰';
-                        statusIcon.className = 'status-icon warning';
-                        statusTitle.textContent = 'Payment Taking Too Long';
-                        statusMessage.textContent = 'Please check your M-Pesa app for the payment status.';
-                        statusBadge.textContent = 'Pending';
-                        statusBadge.className = 'status-badge pending';
-                        checkStatusBtn.style.display = 'none';
-                        retryBtn.style.display = 'inline-flex';
-                        showAlert('Payment confirmation taking longer than expected. Please check your M-Pesa app.', 'warning');
-                    }
-                }
-
-            } catch (error) {
-                console.error('Status check error:', error);
-                if (pollAttempts >= maxPollAttempts) {
-                    clearInterval(pollingInterval);
-                }
-            } finally {
-                checkStatusBtn.disabled = false;
-                checkStatusBtn.innerHTML = '<i class="fas fa-sync"></i> Check Status';
-            }
-        }
-
-        // ============================================================
-        // PAYMENT SUCCESS / FAILED
-        // ============================================================
-
-        function paymentSuccess(data) {
-            document.getElementById('step2').classList.remove('active');
-            document.getElementById('step2').classList.add('done');
-            document.getElementById('step3').classList.add('active');
-
-            statusIcon.textContent = '✅';
-            statusIcon.className = 'status-icon success';
-            statusTitle.textContent = 'Payment Successful!';
-            statusMessage.textContent = 'Your registration is now complete.';
-            statusBadge.textContent = 'Confirmed';
-            statusBadge.className = 'status-badge confirmed';
-            checkStatusBtn.style.display = 'none';
-            retryBtn.style.display = 'none';
-
-            // Update success details with actual payment data
-            if (data.receipt) {
-                // Add receipt to success card
-                const details = document.getElementById('successDetails');
-                const receiptRow = document.createElement('div');
-                receiptRow.className = 'row';
-                receiptRow.innerHTML = `
-                    <span class="label">M-Pesa Receipt</span>
-                    <span class="value highlight">${data.receipt}</span>
-                `;
-                details.appendChild(receiptRow);
-            }
-
-            // Snapshot everything downloadReceipt() will need. data.paid_at
-            // is used when the backend sends it (the actual M-Pesa
-            // transaction time); otherwise we fall back to "now" — close
-            // enough since confirmation and receipt download happen within
-            // the same session.
-            lastReceiptData = {
-                memberName: registrationData ? (registrationData.full_name || successName.textContent) : successName.textContent,
-                memberNumber: registrationData ? (registrationData.member_number || successNumber.textContent) : successNumber.textContent,
-                planName: (registrationData && registrationData.plan_name) || 'Masika Benevolent Membership',
-                amount: window.registrationPaymentAmount || 0,
-                mpesaReceipt: data.receipt || '—',
-                phone: phoneNumber.value.trim(),
-                paidAt: data.paid_at ? new Date(data.paid_at) : new Date(),
-                checkoutRequestId: checkoutRequestId
-            };
-
-            showAlert('🎉 Payment confirmed successfully!', 'success');
-
-            // Show success card after delay
-            setTimeout(() => {
-                paymentCard.style.display = 'none';
-                successCard.style.display = 'block';
-                launchConfetti();
-            }, 1500);
-        }
-
-        function paymentFailed(data) {
-            document.getElementById('step2').classList.remove('active');
-
-            statusIcon.textContent = '❌';
-            statusIcon.className = 'status-icon failed';
-            statusTitle.textContent = 'Payment Failed';
-            // Backend's query_stk_status() returns the failure reason under
-            // "message" (e.g. {"status": "failed", "message": "..."}), not
-            // "result_desc" — using the wrong key here silently showed the
-            // generic fallback text for every failure instead of the real
-            // M-Pesa reason (insufficient funds, cancelled, timeout, etc.).
-            statusMessage.textContent = data.message || 'Payment was not completed. Please try again.';
-            statusBadge.textContent = 'Failed';
-            statusBadge.className = 'status-badge failed';
-            checkStatusBtn.style.display = 'none';
-            retryBtn.style.display = 'inline-flex';
-
-            showAlert('Payment failed. Please try again.', 'error');
-            isProcessing = false;
-            
-            // Re-enable payment form
-            setTimeout(() => {
-                paymentForm.style.display = 'block';
-                paymentStatus.style.display = 'none';
-                payBtn.classList.remove('loading');
-                payBtn.disabled = false;
-                document.getElementById('step1').classList.add('active');
-                document.getElementById('step1').classList.remove('done');
-                document.getElementById('step2').classList.remove('active', 'done');
-                document.getElementById('step3').classList.remove('active');
-                clearAlert();
-            }, 3000);
-        }
-
-        // ============================================================
-        // RECEIPT GENERATION (client-side PDF, no backend round trip)
-        // ============================================================
-
-        function downloadReceipt() {
-            if (!lastReceiptData) {
-                showAlert('Receipt data not available yet.', 'error');
-                return;
-            }
-            if (!window.jspdf) {
-                showAlert('Could not load the PDF library. Check your connection and try again.', 'error');
-                return;
-            }
-
-            const { jsPDF } = window.jspdf;
-            const doc = new jsPDF({ unit: 'mm', format: 'a4' });
-            const pageWidth = doc.internal.pageSize.getWidth();
-            const green = [11, 93, 59];   // --primary
-            const gold = [212, 168, 67];  // --gold
-            const grayText = [107, 114, 128];
-
-            // Header band
-            doc.setFillColor(...green);
-            doc.rect(0, 0, pageWidth, 32, 'F');
-            doc.setTextColor(255, 255, 255);
-            doc.setFont('helvetica', 'bold');
-            doc.setFontSize(18);
-            doc.text('MASIKA BENEVOLENT', 15, 15);
-            doc.setFont('helvetica', 'normal');
-            doc.setFontSize(10);
-            doc.text('Last Expense Benevolent Fund', 15, 22);
-
-            doc.setFontSize(14);
-            doc.setFont('helvetica', 'bold');
-            doc.text('PAYMENT RECEIPT', pageWidth - 15, 18, { align: 'right' });
-
-            // Gold accent rule
-            doc.setDrawColor(...gold);
-            doc.setLineWidth(1.2);
-            doc.line(15, 36, pageWidth - 15, 36);
-
-            let y = 48;
-            doc.setTextColor(31, 41, 51);
-
-            const receiptNo = lastReceiptData.mpesaReceipt !== '—'
-                ? lastReceiptData.mpesaReceipt
-                : (lastReceiptData.checkoutRequestId || 'N/A');
-
-            doc.setFontSize(10);
-            doc.setTextColor(...grayText);
-            doc.text('Receipt No.', 15, y);
-            doc.text('Date Issued', pageWidth - 15, y, { align: 'right' });
-
-            y += 6;
-            doc.setFontSize(12);
-            doc.setFont('helvetica', 'bold');
-            doc.setTextColor(31, 41, 51);
-            doc.text(String(receiptNo), 15, y);
-            doc.text(
-                lastReceiptData.paidAt.toLocaleString('en-KE', {
-                    dateStyle: 'medium',
-                    timeStyle: 'short'
-                }),
-                pageWidth - 15, y, { align: 'right' }
-            );
-
-            y += 14;
-            doc.setDrawColor(229, 231, 235);
-            doc.setLineWidth(0.3);
-            doc.line(15, y, pageWidth - 15, y);
-            y += 10;
-
-            const row = (label, value, bold = false) => {
-                doc.setFont('helvetica', 'normal');
-                doc.setFontSize(11);
-                doc.setTextColor(...grayText);
-                doc.text(label, 15, y);
-                doc.setFont('helvetica', bold ? 'bold' : 'normal');
-                doc.setTextColor(31, 41, 51);
-                doc.text(String(value), pageWidth - 15, y, { align: 'right' });
-                y += 9;
-            };
-
-            row('Member Name', lastReceiptData.memberName);
-            row('Member Number', lastReceiptData.memberNumber);
-            row('Plan', lastReceiptData.planName);
-            row('Paid From (M-Pesa No.)', lastReceiptData.phone || 'N/A');
-            row('Payment Method', 'M-Pesa (Paybill 348127)');
-
-            y += 4;
-            doc.setDrawColor(229, 231, 235);
-            doc.line(15, y, pageWidth - 15, y);
-            y += 14;
-
-            // Amount block
-            doc.setFillColor(232, 245, 238); // --primary-light
-            doc.roundedRect(15, y - 8, pageWidth - 30, 20, 3, 3, 'F');
-            doc.setFont('helvetica', 'normal');
-            doc.setFontSize(11);
-            doc.setTextColor(...grayText);
-            doc.text('AMOUNT PAID', 22, y + 3);
-            doc.setFont('helvetica', 'bold');
-            doc.setFontSize(16);
-            doc.setTextColor(...green);
-            doc.text(formatKES(lastReceiptData.amount), pageWidth - 22, y + 4, { align: 'right' });
-
-            y += 30;
-            doc.setFont('helvetica', 'italic');
-            doc.setFontSize(9);
-            doc.setTextColor(...grayText);
-            doc.text(
-                'This receipt confirms membership payment only. Coverage begins after the applicable waiting period.',
-                15, y, { maxWidth: pageWidth - 30 }
-            );
-
-            // Footer
-            const pageHeight = doc.internal.pageSize.getHeight();
-            doc.setDrawColor(...gold);
-            doc.setLineWidth(0.8);
-            doc.line(15, pageHeight - 20, pageWidth - 15, pageHeight - 20);
-            doc.setFontSize(8);
-            doc.setTextColor(...grayText);
-            doc.text('Masika Benevolent · Paybill 348127 · Generated automatically at payment confirmation', 15, pageHeight - 14);
-
-            const filenameSafeNumber = String(lastReceiptData.memberNumber).replace(/[^a-zA-Z0-9]/g, '');
-            doc.save(`Masika-Receipt-${filenameSafeNumber || 'member'}.pdf`);
-        }
-
-        // ============================================================
-        // RESET PAYMENT
-        // ============================================================
-
-        function resetPayment() {
-            if (pollingInterval) {
-                clearInterval(pollingInterval);
-            }
-            
-            checkoutRequestId = null;
-            pollAttempts = 0;
-            isProcessing = false;
-
-            paymentForm.style.display = 'block';
-            paymentStatus.style.display = 'none';
-            payBtn.classList.remove('loading');
-            payBtn.disabled = false;
-            phoneNumber.value = '';
-
-            document.getElementById('step1').classList.add('active');
-            document.getElementById('step1').classList.remove('done');
-            document.getElementById('step2').classList.remove('active', 'done');
-            document.getElementById('step3').classList.remove('active');
-
-            clearAlert();
-        }
-
-        // ============================================================
-        // CONFETTI
-        // ============================================================
-
-        function launchConfetti() {
-            const container = document.createElement('div');
-            container.className = 'confetti-container';
-            document.body.appendChild(container);
-
-            const colors = ['#0b5d3b', '#d4a843', '#198754', '#ffc107', '#dc3545', '#0dcaf0', '#6f42c1'];
-            
-            for (let i = 0; i < 120; i++) {
-                const confetti = document.createElement('div');
-                confetti.className = 'confetti';
-                confetti.style.left = Math.random() * 100 + '%';
-                confetti.style.background = colors[Math.floor(Math.random() * colors.length)];
-                confetti.style.width = Math.random() * 10 + 4 + 'px';
-                confetti.style.height = Math.random() * 10 + 4 + 'px';
-                confetti.style.borderRadius = Math.random() > 0.5 ? '50%' : '2px';
-                confetti.style.animationDuration = Math.random() * 2.5 + 1.5 + 's';
-                confetti.style.animationDelay = Math.random() * 1.5 + 's';
-                container.appendChild(confetti);
-            }
-
-            setTimeout(() => {
-                container.remove();
-            }, 5000);
-        }
-
-        // ============================================================
-        // UTILITY FUNCTIONS
-        // ============================================================
-
-        function showAlert(message, type = 'error') {
-            alertBox.textContent = message;
-            alertBox.className = `alert show ${type}`;
-            window.scrollTo({ top: 0, behavior: 'smooth' });
-        }
-
-        function clearAlert() {
-            alertBox.className = 'alert';
-        }
-
-        function formatKES(amount) {
-            return new Intl.NumberFormat('en-KE', {
-                style: 'currency',
-                currency: 'KES',
-                minimumFractionDigits: 0
-            }).format(Number(amount) || 0);
-        }
-
-        // ============================================================
-        // KEYBOARD SHORTCUTS
-        // ============================================================
-
-        document.addEventListener('keydown', function(e) {
-            // Ctrl+Enter to submit payment
-            if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
-                e.preventDefault();
-                if (!payBtn.disabled) {
-                    document.getElementById('payBtn').click();
-                }
-            }
-            // Escape to reset
-            if (e.key === 'Escape') {
-                resetPayment();
-            }
-        });
-
-        // ============================================================
-        // INIT
-        // ============================================================
-
-        document.addEventListener('DOMContentLoaded', function() {
-            loadPaymentData();
-            
-            // Focus on phone number if available, otherwise on the field
-            if (phoneNumber.value) {
-                phoneNumber.select();
-            } else {
-                phoneNumber.focus();
-            }
-
-            // Enter key to submit
-            phoneNumber.addEventListener('keydown', function(e) {
-                if (e.key === 'Enter') {
-                    e.preventDefault();
-                    if (!payBtn.disabled) {
-                        document.getElementById('payBtn').click();
-                    }
-                }
-            });
-        });
-    </script>
-
+    <script src="admin-payment.js"></script>
 </body>
 </html>
