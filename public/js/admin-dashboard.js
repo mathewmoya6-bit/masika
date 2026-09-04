@@ -48,13 +48,14 @@
 
         membersTable: "members",
 
-        staffTable: "staff",
-
-        rolesTable: "roles",
+        // Agents live in their own dedicated table — NOT `staff`
+        // (staff is for internal admin/branch-manager accounts only,
+        // e.g. Mathew's SUPER_ADMIN row). Confirmed columns: id,
+        // auth_user_id, sales_code, full_name, email, phone,
+        // branch_id, status, created_at, updated_at, national_id.
+        salesAgentsTable: "sales_agents",
 
         paymentsTable: "payments",
-
-        salesAgentRoleCode: "SALES_AGENT",
 
         members: {
             id: "id",
@@ -118,6 +119,10 @@
     let initialized = false;
 
     let loading = false;
+
+    // Toggled by the "Show all agents" button in the Recently Added
+    // Agents card. false = only the CONFIG.recentLimit most recent.
+    let showAllAgents = false;
 
 
     // ========================================================
@@ -656,62 +661,6 @@
 
 
     // ========================================================
-    // ROLE LOOKUP (resilient to missing FK / schema-cache issues)
-    // ------------------------------------------------------------
-    // The original code always used an embedded/inner join:
-    //     .select('..., roles!inner(role_code)')
-    //     .eq('roles.role_code', 'SALES_AGENT')
-    //
-    // PostgREST can only do that embed if there's a real foreign
-    // key from staff.role_id -> roles.id that it has picked up in
-    // its schema cache. If that FK is missing, was added after the
-    // cache last refreshed, or is named/pointed differently than
-    // expected, this query throws an error on every call — which,
-    // inside loadStats()/loadRecentAgents(), silently aborted the
-    // whole dashboard render.
-    //
-    // getSalesAgentRoleId() resolves the role id for SALES_AGENT
-    // as a separate, simple query first. All staff queries then
-    // filter on staff.role_id directly (a plain column, no embed
-    // required), and role_code strings are attached in JS. This
-    // works whether or not the FK relationship exists.
-    // ========================================================
-
-    let cachedSalesAgentRoleId = null;
-
-    async function getSalesAgentRoleId() {
-
-        if (cachedSalesAgentRoleId) {
-            return cachedSalesAgentRoleId;
-        }
-
-        const { data, error } =
-            await supabaseClient
-                .from(CONFIG.rolesTable)
-                .select("id, role_code")
-                .eq("role_code", CONFIG.salesAgentRoleCode)
-                .maybeSingle();
-
-        if (error) {
-            throw new Error(
-                "Roles lookup failed: " + error.message
-            );
-        }
-
-        if (!data) {
-            throw new Error(
-                `No role found with role_code = "${CONFIG.salesAgentRoleCode}". ` +
-                "Check the roles table."
-            );
-        }
-
-        cachedSalesAgentRoleId = data.id;
-
-        return cachedSalesAgentRoleId;
-    }
-
-
-    // ========================================================
     // DASHBOARD STATISTICS
     // ========================================================
 
@@ -749,23 +698,17 @@
 
 
         // ----------------------------------------------------
-        // SALES AGENTS (no embedded join — see getSalesAgentRoleId)
+        // SALES AGENTS (public.sales_agents — a dedicated table,
+        // NOT staff. staff is for internal admin accounts only.)
         // ----------------------------------------------------
-
-        const salesAgentRoleId =
-            await getSalesAgentRoleId();
 
         const agentsResult =
             await supabaseClient
                 .from(
-                    CONFIG.staffTable
+                    CONFIG.salesAgentsTable
                 )
                 .select(
-                    "id, full_name, status, sales_code, employee_number, role_id"
-                )
-                .eq(
-                    "role_id",
-                    salesAgentRoleId
+                    "id, full_name, status, sales_code, created_at"
                 );
 
         if (agentsResult.error) {
@@ -1444,7 +1387,7 @@
 
 
     // ========================================================
-    // RECENT SALES AGENTS (no embedded join — see getSalesAgentRoleId)
+    // RECENT SALES AGENTS (public.sales_agents)
     // ========================================================
 
     async function loadRecentAgents() {
@@ -1465,44 +1408,42 @@
 
         try {
 
-            const salesAgentRoleId =
-                await getSalesAgentRoleId();
-
-            const {
-                data,
-                error
-            } =
-                await supabaseClient
+            let agentsQuery =
+                supabaseClient
                     .from(
-                        CONFIG.staffTable
+                        CONFIG.salesAgentsTable
                     )
                     .select(
                         `
                             id,
                             full_name,
-                            employee_number,
-                            status,
                             sales_code,
+                            status,
                             created_at,
-                            role_id,
                             branches(
                                 branch_name
                             )
                         `
-                    )
-                    .eq(
-                        "role_id",
-                        salesAgentRoleId
                     )
                     .order(
                         "created_at",
                         {
                             ascending: false
                         }
-                    )
-                    .limit(
+                    );
+
+            if (!showAllAgents) {
+                agentsQuery =
+                    agentsQuery.limit(
                         CONFIG.recentLimit
                     );
+            }
+
+            const {
+                data,
+                error
+            } =
+                await agentsQuery;
 
 
             if (error) {
@@ -1525,7 +1466,17 @@
 
 
             container.innerHTML = `
-                <div class="table-wrapper">
+                <div style="display:flex;justify-content:flex-end;margin-bottom:8px;">
+                    <button
+                        type="button"
+                        class="btn-sm gray"
+                        id="toggleAllAgentsBtn"
+                    >
+                        <i class="fas ${showAllAgents ? 'fa-compress' : 'fa-list'}"></i>
+                        ${showAllAgents ? 'Show recent only' : 'Show all agents'}
+                    </button>
+                </div>
+                <div class="table-wrapper" ${showAllAgents ? 'style="max-height:420px;overflow-y:auto;"' : ''}>
 
                     <table>
 
@@ -1568,7 +1519,6 @@
                                                 <strong>
                                                     ${escapeHtml(
                                                         agent.sales_code ||
-                                                        agent.employee_number ||
                                                         "—"
                                                     )}
                                                 </strong>
@@ -1613,6 +1563,21 @@
 
                 </div>
             `;
+
+            const toggleBtn =
+                document.getElementById(
+                    "toggleAllAgentsBtn"
+                );
+
+            if (toggleBtn) {
+                toggleBtn.addEventListener(
+                    "click",
+                    () => {
+                        showAllAgents = !showAllAgents;
+                        loadRecentAgents();
+                    }
+                );
+            }
 
 
         } catch (error) {
