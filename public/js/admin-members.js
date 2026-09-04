@@ -103,7 +103,7 @@ async function loadMembers() {
     let query = window.supabaseClient
       .from("members")
       .select(
-        "id, full_name, membership_number, member_number, phone, id_number, member_status, plan, registration_date, created_at",
+        "id, full_name, member_number, phone, id_number, member_status, plan, registration_date, created_at",
         { count: "exact" }
       )
       .is("deleted_at", null); // hide soft-deleted members from the default list
@@ -115,7 +115,7 @@ async function loadMembers() {
     if (currentSearch) {
       const term = `%${currentSearch}%`;
       query = query.or(
-        `full_name.ilike.${term},membership_number.ilike.${term},member_number.ilike.${term},phone.ilike.${term},id_number.ilike.${term}`
+        `full_name.ilike.${term},member_number.ilike.${term},phone.ilike.${term},id_number.ilike.${term}`
       );
     }
 
@@ -141,13 +141,13 @@ async function loadMembers() {
       <div class="table-wrapper">
         <table>
           <thead>
-            <tr><th>Name</th><th>Membership #</th><th>Phone</th><th>Plan</th><th>Status</th><th>Registered</th><th>Actions</th></tr>
+            <tr><th>Name</th><th>Member #</th><th>Phone</th><th>Plan</th><th>Status</th><th>Registered</th><th>Actions</th></tr>
           </thead>
           <tbody>
             ${membersCache.map((m) => `
               <tr data-member-row="${escapeHtml(m.id)}" onclick="openMemberModal('${m.id}')">
                 <td>${escapeHtml(m.full_name)}</td>
-                <td>${escapeHtml(m.membership_number || m.member_number || "—")}</td>
+                <td>${escapeHtml(m.member_number || "—")}</td>
                 <td>${escapeHtml(m.phone || "—")}</td>
                 <td>${escapeHtml(m.plan || "—")}</td>
                 <td><span class="status-badge ${statusBadgeClass(m.member_status)}">${escapeHtml(m.member_status)}</span></td>
@@ -310,7 +310,7 @@ async function openMemberModal(memberId) {
     ]);
 
     document.getElementById("memberMembershipInfo").innerHTML = detailRow([
-      ["Membership #", m.membership_number || m.member_number],
+      ["Member #", m.member_number],
       ["Plan", m.plan],
       ["Benefit Option", m.benefit_option],
       ["Registration Date", formatDate(m.registration_date)],
