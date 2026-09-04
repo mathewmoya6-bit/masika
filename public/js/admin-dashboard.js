@@ -32,6 +32,15 @@
 //
 // `member_id` remains the UUID foreign key used by payments.
 //
+// SOFT DELETE
+// ------------------------------------------------------------
+// admin-members.js soft-deletes members by setting `deleted_at`
+// instead of removing the row (payments reference members via
+// payments.member_id, RESTRICT). Every query here that counts or
+// lists members MUST filter `.is("deleted_at", null)` or deleted
+// members will keep showing up / keep being counted here even
+// though admin-members.js already hides them.
+//
 // ============================================================
 
 (function () {
@@ -668,6 +677,8 @@
 
         // ----------------------------------------------------
         // MEMBERS
+        // (excludes soft-deleted rows — see SOFT DELETE note
+        // at the top of this file)
         // ----------------------------------------------------
 
         const membersResult =
@@ -681,7 +692,8 @@
                         count: "exact",
                         head: true
                     }
-                );
+                )
+                .is("deleted_at", null);
 
         if (membersResult.error) {
 
@@ -1086,6 +1098,7 @@
                             created_at
                         `
                     )
+                    .is("deleted_at", null)
                     .order(
                         "created_at",
                         {
@@ -1275,13 +1288,18 @@
 
 
     // ========================================================
-    // DELETE MEMBER
-    // ========================================================
+    // DELETE MEMBER (soft delete — sets deleted_at)
+    // ------------------------------------------------------------
+    // Matches admin-members.js: members can have payment records
+    // referencing them (payments.member_id -> members.id, RESTRICT),
+    // so we never hard-delete from here. Setting deleted_at keeps
+    // payment history intact and is what loadStats() /
+    // loadRecentRegistrations() now filter on.
     //
-    // payments.member_id -> members.id uses RESTRICT.
-    //
-    // Therefore we use the protected database RPC.
-    //
+    // Previously this called a `delete_member` RPC that hard-deleted
+    // the row. That was inconsistent with admin-members.js's soft
+    // delete and is why counts/lists could disagree between the two
+    // pages. Now both pages agree on one mechanism.
     // ========================================================
 
     async function deleteMember(
@@ -1300,8 +1318,8 @@
                 `Delete ${
                     name ||
                     "this member"
-                }?\n\n` +
-                `This action cannot be undone.`
+                }? They'll be removed from the list, but their ` +
+                `payment history is kept.`
             );
 
 
@@ -1326,11 +1344,15 @@
                 error
             } =
                 await supabaseClient
-                    .rpc(
-                        "delete_member",
-                        {
-                            p_member_id: id
-                        }
+                    .from(
+                        CONFIG.membersTable
+                    )
+                    .update({
+                        deleted_at: new Date().toISOString()
+                    })
+                    .eq(
+                        "id",
+                        id
                     );
 
 
@@ -1343,11 +1365,6 @@
                 loadRecentRegistrations(),
                 loadStats()
             ]);
-
-
-            alert(
-                "Member deleted successfully."
-            );
 
 
         } catch (error) {
