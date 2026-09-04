@@ -170,6 +170,16 @@
 
         const startedAt = Date.now();
 
+        // Give AdminAuth a short head start to populate .profile (used
+        // elsewhere for the sidebar name/avatar), but don't block the
+        // dashboard's own data queries on it — those are already
+        // protected by Supabase RLS on the authenticated session, and
+        // AdminAuth.profile not being set (e.g. a different property
+        // name, or it populating slightly later) was previously enough
+        // to stall every stat card and table at 0/"Loading..." forever
+        // with no visible error.
+        const profileGraceMs = 2000;
+
         const poll = setInterval(() => {
 
             if (initialized) {
@@ -184,13 +194,27 @@
             const hasProfile =
                 !!(window.AdminAuth && window.AdminAuth.profile);
 
-            if (hasClient && hasProfile) {
+            const elapsed = Date.now() - startedAt;
+
+            if (hasClient && (hasProfile || elapsed > profileGraceMs)) {
                 clearInterval(poll);
+
+                if (hasClient && !hasProfile) {
+                    console.warn(
+                        "Masika dashboard: proceeding without " +
+                        "window.AdminAuth.profile (not set after " +
+                        profileGraceMs + "ms). Data queries still run " +
+                        "under the authenticated session; only " +
+                        "profile-dependent UI (name/avatar) may be " +
+                        "affected."
+                    );
+                }
+
                 initializeDashboard();
                 return;
             }
 
-            if (Date.now() - startedAt > CONFIG.bootTimeoutMs) {
+            if (elapsed > CONFIG.bootTimeoutMs) {
 
                 clearInterval(poll);
 
@@ -198,7 +222,7 @@
 
                     console.error(
                         "Masika dashboard: gave up waiting for " +
-                        "supabaseClient/AdminAuth after " +
+                        "supabaseClient after " +
                         CONFIG.bootTimeoutMs + "ms.",
                         {
                             hasSupabaseClient: hasClient,
@@ -1028,6 +1052,20 @@
                     ? ""
                     : "s"
             }`
+        );
+
+
+        // ----------------------------------------------------
+        // TOTAL REVENUE COUNT (shown under the Total Revenue card)
+        // ----------------------------------------------------
+
+        setText(
+            "totalRevenueCount",
+            `${successfulPayments.length} payment${
+                successfulPayments.length === 1
+                    ? ""
+                    : "s"
+            } all-time`
         );
 
 
