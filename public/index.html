@@ -1602,6 +1602,96 @@
         }
 
         /* =========================================================
+           TERMS SECTION (NEW)
+           ========================================================= */
+        .terms-section {
+            padding: 80px 0;
+            background: var(--white);
+        }
+
+        .terms-section .section-header h2 .highlight {
+            color: var(--primary-500);
+        }
+
+        .terms-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+            gap: 32px;
+        }
+
+        .terms-card {
+            background: var(--bg-light);
+            border-radius: var(--radius-lg);
+            padding: 28px 24px;
+            border: 1px solid #e6ddc9;
+            transition: var(--transition);
+        }
+
+        .terms-card:hover {
+            transform: translateY(-4px);
+            box-shadow: var(--shadow);
+            border-color: var(--primary-300);
+        }
+
+        .terms-card h3 {
+            font-size: 22px;
+            font-weight: 700;
+            margin-bottom: 16px;
+            color: var(--primary-700);
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .terms-card h3 i {
+            color: var(--gold-500);
+            font-size: 24px;
+        }
+
+        .terms-card ul {
+            list-style: none;
+            padding: 0;
+        }
+
+        .terms-card ul li {
+            padding: 8px 0;
+            border-bottom: 1px solid #e6ddc9;
+            font-size: 15px;
+            color: var(--text-dark);
+            display: flex;
+            gap: 12px;
+            align-items: flex-start;
+        }
+
+        .terms-card ul li:last-child {
+            border-bottom: none;
+        }
+
+        .terms-card ul li i {
+            color: var(--primary-500);
+            margin-top: 4px;
+            flex-shrink: 0;
+        }
+
+        .terms-card .terms-highlight {
+            background: var(--white);
+            border-radius: 10px;
+            padding: 16px;
+            margin-top: 16px;
+            border-left: 4px solid var(--gold-500);
+        }
+
+        .terms-card .terms-highlight p {
+            font-size: 14px;
+            color: var(--text-gray);
+            margin: 0;
+        }
+
+        .terms-card .terms-highlight strong {
+            color: var(--primary-700);
+        }
+
+        /* =========================================================
            FOOTER
            ========================================================= */
 
@@ -1753,6 +1843,10 @@
             .notes-grid {
                 grid-template-columns: 1fr;
             }
+
+            .terms-grid {
+                grid-template-columns: 1fr 1fr;
+            }
         }
 
         @media (max-width: 768px) {
@@ -1872,6 +1966,10 @@
             .branches-list {
                 justify-content: flex-start;
             }
+
+            .terms-grid {
+                grid-template-columns: 1fr;
+            }
         }
 
         @media (max-width: 480px) {
@@ -1961,6 +2059,7 @@
                 <a href="#coverage">Coverage</a>
                 <a href="#how-it-works">How It Works</a>
                 <a href="#payments">Payments</a>
+                <a href="#terms">Terms</a>
                 <a href="privacy.html">Privacy</a>
 
                 <!-- Dropdown: More -->
@@ -3194,6 +3293,105 @@
         </section>
 
         <!-- =====================================================
+             TERMS & CONDITIONS (NEW)
+             ===================================================== -->
+
+        <section id="terms" class="terms-section">
+
+            <div class="container">
+
+                <div class="section-header">
+
+                    <span class="section-badge">
+                        <i class="fas fa-file-contract"></i>
+                        Terms & Conditions
+                    </span>
+
+                    <h2>
+                        Masika BBS
+                        <span class="highlight">
+                            Comprehensive Terms
+                        </span>
+                    </h2>
+
+                    <p class="section-subtitle">
+                        Key highlights of our membership terms, fees, waiting periods, and exclusions.
+                        Full terms are available in the official <strong>Masika BBS Terms & Conditions</strong> document.
+                    </p>
+
+                </div>
+
+                <div class="terms-grid">
+
+                    <!-- Card 1: Membership & Fees -->
+                    <div class="terms-card">
+                        <h3><i class="fas fa-user-check"></i> Membership & Fees</h3>
+                        <ul>
+                            <li><i class="fas fa-check-circle"></i> <strong>Registration Fee:</strong> one-off payment (Comfort KES 200, Dignity KES 500, Wazazi KES 100/parent).</li>
+                            <li><i class="fas fa-check-circle"></i> <strong>Monthly Subscription:</strong> due on or before the <strong>5th of every month</strong>.</li>
+                            <li><i class="fas fa-check-circle"></i> <strong>Late payment:</strong> may result in suspension or loss of benefits.</li>
+                            <li><i class="fas fa-check-circle"></i> <strong>No retrospective eligibility:</strong> paying after an event does not create coverage.</li>
+                            <li><i class="fas fa-check-circle"></i> <strong>Official payment channel:</strong> M-Pesa Paybill <strong>348127</strong>, account = Membership Number.</li>
+                        </ul>
+                        <div class="terms-highlight">
+                            <p><strong>Important:</strong> Registration Fee and Monthly Subscription are separate payments. Paying the Registration Fee does not cover future Monthly Subscriptions.</p>
+                        </div>
+                    </div>
+
+                    <!-- Card 2: Benefits & Waiting Periods -->
+                    <div class="terms-card">
+                        <h3><i class="fas fa-gift"></i> Benefits & Waiting Periods</h3>
+                        <ul>
+                            <li><i class="fas fa-check-circle"></i> <strong>Comfort Plan:</strong> waiting period <strong>4 months</strong>.</li>
+                            <li><i class="fas fa-check-circle"></i> <strong>Dignity Plan:</strong> waiting period <strong>6 months</strong>.</li>
+                            <li><i class="fas fa-check-circle"></i> <strong>Wazazi Plan:</strong> waiting period <strong>6 months</strong>.</li>
+                            <li><i class="fas fa-check-circle"></i> Benefits include hearse, mortuary storage, tents & chairs, gazebo, flowers, PA system, memorial portrait, coffin/casket.</li>
+                            <li><i class="fas fa-check-circle"></i> <strong>Cash Benefit option:</strong> up to KES 110,000 per adult (Comfort Plan) or KES 50,000 per child.</li>
+                            <li><i class="fas fa-check-circle"></i> All benefits subject to limits, eligibility, and exclusions.</li>
+                        </ul>
+                        <div class="terms-highlight">
+                            <p><strong>Note:</strong> Completion of a waiting period does not automatically guarantee payment. Membership must be active and all conditions satisfied.</p>
+                        </div>
+                    </div>
+
+                    <!-- Card 3: Exclusions & Fraud -->
+                    <div class="terms-card">
+                        <h3><i class="fas fa-ban"></i> Exclusions & Fraud</h3>
+                        <ul>
+                            <li><i class="fas fa-check-circle"></i> <strong>Exclusions:</strong> suicide, terrorism, acts against Kenyan law, pre-existing conditions (where applicable).</li>
+                            <li><i class="fas fa-check-circle"></i> <strong>Fraud:</strong> false claims, falsified documents, impersonation, or concealment of material information.</li>
+                            <li><i class="fas fa-check-circle"></i> Consequences: claim rejection, membership termination, recovery of benefits, and reporting to authorities.</li>
+                            <li><i class="fas fa-check-circle"></i> Membership is personal and non-transferable.</li>
+                            <li><i class="fas fa-check-circle"></i> Masika BBS reserves the right to suspend or terminate membership for non-payment or breach of terms.</li>
+                        </ul>
+                        <div class="terms-highlight">
+                            <p><strong>Important:</strong> Claims arising from fraud or misrepresentation will be rejected and may result in legal action.</p>
+                        </div>
+                    </div>
+
+                    <!-- Card 4: Member Responsibilities & Governing Law -->
+                    <div class="terms-card">
+                        <h3><i class="fas fa-gavel"></i> Responsibilities & Law</h3>
+                        <ul>
+                            <li><i class="fas fa-check-circle"></i> Members must provide accurate information and update changes promptly.</li>
+                            <li><i class="fas fa-check-circle"></i> Members must pay fees on time and use official payment channels.</li>
+                            <li><i class="fas fa-check-circle"></i> Members must cooperate with claim verification and provide genuine documents.</li>
+                            <li><i class="fas fa-check-circle"></i> <strong>Governing Law:</strong> These Terms are governed by the laws of the <strong>Republic of Kenya</strong>.</li>
+                            <li><i class="fas fa-check-circle"></i> Disputes shall first be resolved through the Company's complaints process.</li>
+                            <li><i class="fas fa-check-circle"></i> Masika BBS may revise fees, benefits, and terms with notice to members.</li>
+                        </ul>
+                        <div class="terms-highlight">
+                            <p><strong>Full Terms:</strong> The complete Masika BBS Terms & Conditions document is available on request or via the official website.</p>
+                        </div>
+                    </div>
+
+                </div>
+
+            </div>
+
+        </section>
+
+        <!-- =====================================================
              IMPORTANT NOTES
              ===================================================== -->
 
@@ -3342,6 +3540,7 @@
                     <a href="#coverage">Coverage</a>
                     <a href="#how-it-works">How It Works</a>
                     <a href="#payments">Payments</a>
+                    <a href="#terms">Terms</a>
                     <a href="register.html">Become a Member</a>
                     <a href="agent-apply.html">Become an Agent</a>
                     <a href="privacy.html">Privacy Policy</a>
