@@ -1,45 +1,44 @@
+```javascript
 // ============================================================
-// PAYMENTS
+// MASIKA BENEvolent - PAYMENTS
 // ============================================================
-// Handles:
-// - Payment amount
-// - M-Pesa phone number
-// - Payment request
-// - Payment status
+//
+// Frontend payment flow:
+//
+// Browser
+//   ↓
+// FastAPI POST /api/public/payment/stk-push
+//   ↓
+// Safaricom Daraja STK Push
+//   ↓
+// FastAPI receives/processes callback
+//   ↓
+// Browser polls:
+// /api/public/payment/status/{checkout_request_id}
 //
 // IMPORTANT:
-// Actual Daraja credentials must NEVER be placed in this file.
-// STK Push goes through the FastAPI backend
-// (POST /api/public/payment/stk-push), which holds the Daraja
-// credentials server-side and talks to Safaricom directly.
+// ------------------------------------------------------------
+// NEVER put Daraja consumer key, consumer secret, passkey,
+// shortcode, or other Safaricom credentials in this file.
 //
-// HISTORY:
-// This file previously called a Supabase Edge Function
-// "mpesa-stk-push" via supabaseClient.functions.invoke(). That
-// function didn't exist, so every payment attempt failed silently
-// and fell through to a local recordPendingPayment() that wrote a
-// "pending" row directly to Supabase and redirected to
-// confirmation.html WITHOUT ever calling Safaricom. That's already
-// fixed -- this file only ever talks to the FastAPI backend now.
+// All Safaricom communication MUST happen through FastAPI.
 //
-// THIS REVISION adds a client-side double-submit guard. The backend
-// (initiate_stk_push) now also de-duplicates server-side -- if a
-// PENDING payment with a real checkout_request_id already exists for
-// this member within the last few minutes, it's reused instead of a
-// new row/STK prompt being created (response includes
-// data.reused === true). This file's guard exists so a user mashing
-// "Pay Now" doesn't even get multiple in-flight requests, which is a
-// tighter, faster line of defense than waiting on the server check.
 // ============================================================
 
-const API_BASE_URL = 'https://masika-c921.onrender.com';
+const API_BASE_URL = "https://masika-c921.onrender.com";
 
-// True while a payment request is in flight or being monitored, so a
-// second click/submit can't start a second attempt.
+// Prevent duplicate submissions while payment is being started
+// or monitored.
 let paymentInProgress = false;
 
-document.addEventListener("DOMContentLoaded", () => {
+// Current polling timer.
+let paymentMonitorTimer = null;
 
+// ============================================================
+// INITIALIZATION
+// ============================================================
+
+document.addEventListener("DOMContentLoaded", () => {
     initializePaymentForm();
     loadRegistrationPayment();
 });
@@ -53,7 +52,10 @@ function initializePaymentForm() {
 
     const form = document.getElementById("paymentForm");
 
-    if (!form) return;
+    if (!form) {
+        console.warn("Payment form #paymentForm was not found.");
+        return;
+    }
 
     form.addEventListener("submit", handlePayment);
 }
@@ -65,34 +67,67 @@ function initializePaymentForm() {
 
 function loadRegistrationPayment() {
 
-    const stored = sessionStorage.getItem("registrationResult");
+    const registration = getStoredRegistration();
 
-    if (!stored) return;
+    if (!registration) {
+        console.warn("No registrationResult found in sessionStorage.");
+        return;
+    }
 
-    try {
-        const registration = JSON.parse(stored);
-        const amount = registration.amount ?? registration.total_amount ?? registration.registration_amount;
+    // Support the different names that may exist in the
+    // registration response.
+    const amount =
+        registration.amount ??
+        registration.total_amount ??
+        registration.registration_amount;
 
-        if (amount !== undefined) {
-            window.registrationPaymentAmount = Number(amount);
-            updatePaymentAmount(window.registrationPaymentAmount);
+    if (amount !== undefined && amount !== null) {
+
+        const numericAmount = Number(amount);
+
+        if (Number.isFinite(numericAmount) && numericAmount > 0) {
+
+            window.registrationPaymentAmount = numericAmount;
+
+            updatePaymentAmount(numericAmount);
         }
+    }
 
-        // Also display member name if available
-        const name = registration.first_name ? `${registration.first_name} ${registration.last_name || ''}` : registration.full_name;
-        if (name) {
-            const nameElement = document.getElementById("memberName");
-            if (nameElement) nameElement.textContent = name;
+    // --------------------------------------------------------
+    // MEMBER NAME
+    // --------------------------------------------------------
+
+    const name =
+        registration.full_name ||
+        [
+            registration.first_name,
+            registration.last_name
+        ]
+            .filter(Boolean)
+            .join(" ");
+
+    if (name) {
+
+        const nameElement = document.getElementById("memberName");
+
+        if (nameElement) {
+            nameElement.textContent = name;
         }
+    }
 
-        const memberNumber = registration.member_number;
-        if (memberNumber) {
-            const numberElement = document.getElementById("memberNumber");
-            if (numberElement) numberElement.textContent = memberNumber;
+    // --------------------------------------------------------
+    // MEMBER NUMBER
+    // --------------------------------------------------------
+
+    if (registration.member_number) {
+
+        const numberElement =
+            document.getElementById("memberNumber");
+
+        if (numberElement) {
+            numberElement.textContent =
+                registration.member_number;
         }
-
-    } catch (error) {
-        console.error("Could not load registration payment:", error);
     }
 }
 
@@ -110,9 +145,11 @@ function updatePaymentAmount(amount) {
     ];
 
     elements.forEach(element => {
+
         if (element) {
             element.textContent = formatKES(amount);
         }
+
     });
 }
 
@@ -125,114 +162,258 @@ async function handlePayment(event) {
 
     event.preventDefault();
 
-    // Client-side double-submit guard. Blocks a second click while
-    // the first request is still in flight or being monitored --
-    // separate from, and faster than, the backend's own de-dup check.
+    // --------------------------------------------------------
+    // DOUBLE SUBMIT PROTECTION
+    // --------------------------------------------------------
+
     if (paymentInProgress) {
-        console.warn("Payment already in progress; ignoring extra submit.");
+
+        console.warn(
+            "Payment already in progress. Duplicate submission ignored."
+        );
+
         return;
     }
 
     const form = event.currentTarget;
-    const phone = form.querySelector('[name="phone"], #mpesaPhone')?.value?.trim();
-    const amount = window.registrationPaymentAmount;
+
+    const phoneInput =
+        form.querySelector('[name="phone"], #mpesaPhone');
+
+    const rawPhone =
+        phoneInput?.value?.trim() || "";
+
+    const amount =
+        Number(window.registrationPaymentAmount);
+
+    // --------------------------------------------------------
+    // VALIDATE PHONE
+    // --------------------------------------------------------
+
+    const phone = normalizeKenyanPhone(rawPhone);
 
     if (!phone) {
-        showPaymentError("Please enter the M-Pesa phone number.");
+
+        showPaymentError(
+            "Please enter a valid Kenyan M-Pesa phone number."
+        );
+
         return;
     }
 
-    if (!amount || amount <= 0) {
-        showPaymentError("The payment amount is not available.");
+    // --------------------------------------------------------
+    // VALIDATE AMOUNT
+    // --------------------------------------------------------
+
+    if (
+        !Number.isFinite(amount) ||
+        amount <= 0
+    ) {
+
+        showPaymentError(
+            "The registration payment amount is not available."
+        );
+
         return;
     }
 
-    const registrationResult = getStoredRegistration();
-    const memberId = registrationResult?.member_id || registrationResult?.id;
+    // --------------------------------------------------------
+    // GET REGISTRATION
+    // --------------------------------------------------------
+
+    const registrationResult =
+        getStoredRegistration();
+
+    if (!registrationResult) {
+
+        showPaymentError(
+            "Could not find your registration. Please restart registration."
+        );
+
+        return;
+    }
+
+    const memberId =
+        registrationResult.member_id ||
+        registrationResult.id;
 
     if (!memberId) {
-        showPaymentError("Could not find your registration. Please restart registration.");
+
+        showPaymentError(
+            "Your registration does not have a valid member ID. Please contact support."
+        );
+
         return;
     }
 
-    const button = form.querySelector('[type="submit"]');
+    // --------------------------------------------------------
+    // LOCK PAYMENT
+    // --------------------------------------------------------
+
+    const button =
+        form.querySelector('[type="submit"]');
+
     paymentInProgress = true;
+
     setPaymentLoading(button, true);
+
     clearPaymentMessages();
 
+    // --------------------------------------------------------
+    // PAYLOAD
+    // --------------------------------------------------------
+
+    const payload = {
+        member_id: memberId,
+        phone: phone,
+        amount: amount,
+        transaction_desc: "Membership Registration"
+    };
+
+    console.log("Starting Masika payment:", {
+        member_id: memberId,
+        phone: phone,
+        amount: amount
+    });
+
     try {
-        const payload = {
-            member_id: memberId,
-            phone: phone,
-            amount: amount,
-            transaction_desc: "Membership Registration"
-        };
 
-        console.log("Starting payment:", payload);
+        // ----------------------------------------------------
+        // START STK PUSH
+        // ----------------------------------------------------
 
-        const response = await fetch(`${API_BASE_URL}/api/public/payment/stk-push`, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify(payload)
-        });
+        const response = await fetch(
+            `${API_BASE_URL}/api/public/payment/stk-push`,
+            {
+                method: "POST",
 
-        let result = null;
-        try {
-            result = await response.json();
-        } catch (parseError) {
-            // non-JSON response, fall through with result = null
-        }
+                headers: {
+                    "Content-Type": "application/json",
+                    "Accept": "application/json"
+                },
+
+                body: JSON.stringify(payload)
+            }
+        );
+
+        // ----------------------------------------------------
+        // READ RESPONSE
+        // ----------------------------------------------------
+
+        const result =
+            await parseJsonResponse(response);
+
+        // ----------------------------------------------------
+        // HTTP ERROR
+        // ----------------------------------------------------
 
         if (!response.ok) {
-            const detail = result && (result.detail || result.message);
+
+            const message =
+                extractApiError(result) ||
+                `Payment request failed (HTTP ${response.status}).`;
+
+            throw new Error(message);
+        }
+
+        // ----------------------------------------------------
+        // APPLICATION ERROR
+        // ----------------------------------------------------
+
+        if (
+            !result ||
+            result.success === false
+        ) {
+
+            const message =
+                extractApiError(result) ||
+                "Payment could not be initiated.";
+
+            throw new Error(message);
+        }
+
+        const data =
+            result.data || result;
+
+        // ----------------------------------------------------
+        // ALREADY PAID
+        // ----------------------------------------------------
+
+        if (data.already_paid === true) {
+
+            showPaymentSuccess(
+                "Registration fee has already been paid."
+            );
+
+            setTimeout(() => {
+
+                window.location.href =
+                    "confirmation.html";
+
+            }, 1200);
+
+            return;
+        }
+
+        // ----------------------------------------------------
+        // CHECKOUT REQUEST ID
+        // ----------------------------------------------------
+
+        const checkoutRequestId =
+            data.checkout_request_id ||
+            data.CheckoutRequestID ||
+            data.checkoutRequestId;
+
+        if (!checkoutRequestId) {
+
             throw new Error(
-                (typeof detail === "string" && detail) ||
-                `STK push request failed (HTTP ${response.status}).`
+                "The payment request was accepted, but no Safaricom checkout reference was returned."
             );
         }
 
-        if (!result || result.success === false) {
-            showPaymentError((result && result.message) || "Payment could not be initiated.");
-            paymentInProgress = false;
-            setPaymentLoading(button, false);
-            return;
-        }
+        // ----------------------------------------------------
+        // REUSED EXISTING STK REQUEST
+        // ----------------------------------------------------
 
-        if (result.data && result.data.already_paid) {
-            showPaymentSuccess("Registration fee already paid.");
-            setTimeout(() => {
-                window.location.href = "confirmation.html";
-            }, 1500);
-            return;
-        }
+        if (data.reused === true) {
 
-        if (result.data && result.data.reused) {
-            // Backend found an existing in-flight STK push for this
-            // member instead of starting a new one -- same prompt the
-            // user already got, so message it as a resume, not a new
-            // request.
-            showPaymentSuccess("A payment request for this registration is already in progress. Please check your phone and enter your M-Pesa PIN.");
+            showPaymentSuccess(
+                "A payment request is already in progress. Please check your phone and enter your M-Pesa PIN."
+            );
+
         } else {
-            showPaymentSuccess("Payment request sent. Please check your phone and enter your M-Pesa PIN.");
+
+            showPaymentSuccess(
+                "Payment request sent. Please check your phone and enter your M-Pesa PIN."
+            );
         }
 
-        const checkoutRequestId = result.data && result.data.checkout_request_id;
-        if (checkoutRequestId) {
-            await monitorPayment(checkoutRequestId);
-        } else {
-            // No checkout ID at all means nothing was actually sent to
-            // Safaricom -- don't leave the button disabled forever, and
-            // don't silently pretend this succeeded.
-            showPaymentError("Payment could not be started. Please try again or contact support.");
-            paymentInProgress = false;
-            setPaymentLoading(button, false);
-        }
+        // ----------------------------------------------------
+        // MONITOR PAYMENT
+        // ----------------------------------------------------
+
+        await monitorPayment(
+            checkoutRequestId
+        );
 
     } catch (error) {
-        console.error("Payment error:", error);
-        showPaymentError(error.message || "An unexpected payment error occurred.");
+
+        console.error(
+            "Masika payment error:",
+            error
+        );
+
+        showPaymentError(
+            error?.message ||
+            "Unable to start the M-Pesa payment. Please try again."
+        );
+
         paymentInProgress = false;
-        setPaymentLoading(button, false);
+
+        setPaymentLoading(
+            button,
+            false
+        );
     }
 }
 
@@ -240,75 +421,295 @@ async function handlePayment(event) {
 // ============================================================
 // MONITOR PAYMENT
 // ============================================================
+//
+// Polls FastAPI for the payment status.
+//
+// IMPORTANT:
+// We intentionally use recursive setTimeout rather than
+// setInterval(async...), preventing overlapping HTTP requests.
+//
 
 async function monitorPayment(checkoutRequestId) {
 
-    const maxAttempts = 30;
+    // Stop an old monitor if one exists.
+    stopPaymentMonitor();
+
+    const maxAttempts = 40;
+    const pollDelay = 3000;
+
     let attempts = 0;
 
-    const button = document.querySelector('#paymentForm [type="submit"]');
+    const button =
+        document.querySelector(
+            "#paymentForm [type='submit']"
+        );
 
-    const interval = setInterval(async () => {
+    return new Promise(resolve => {
 
-        attempts++;
+        const poll = async () => {
 
-        try {
-            const response = await fetch(
-                `${API_BASE_URL}/api/public/payment/status/${encodeURIComponent(checkoutRequestId)}`
-            );
+            attempts++;
 
-            if (!response.ok) {
-                console.error("Payment status error: HTTP", response.status);
-                return;
-            }
+            try {
 
-            const result = await response.json();
-            const data = result && result.data;
+                const response = await fetch(
+                    `${API_BASE_URL}/api/public/payment/status/${encodeURIComponent(checkoutRequestId)}`,
+                    {
+                        method: "GET",
+                        headers: {
+                            "Accept": "application/json"
+                        },
+                        cache: "no-store"
+                    }
+                );
 
-            if (!data) {
-                if (attempts >= maxAttempts) {
-                    clearInterval(interval);
-                    paymentInProgress = false;
-                    setPaymentLoading(button, false);
+                const result =
+                    await parseJsonResponse(response);
+
+                // ------------------------------------------------
+                // HTTP ERROR
+                // ------------------------------------------------
+
+                if (!response.ok) {
+
+                    console.error(
+                        "Payment status HTTP error:",
+                        response.status,
+                        result
+                    );
+
+                    // Allow temporary backend errors to be retried.
+                    if (attempts < maxAttempts) {
+
+                        paymentMonitorTimer =
+                            setTimeout(
+                                poll,
+                                pollDelay
+                            );
+
+                        return;
+                    }
+
+                    finishPaymentMonitoring();
+
+                    showPaymentError(
+                        "We could not confirm the payment status. If you completed the M-Pesa prompt, please wait a moment before retrying."
+                    );
+
+                    resolve();
+
+                    return;
                 }
-                return;
+
+                const data =
+                    result?.data || result;
+
+                if (!data) {
+
+                    if (attempts < maxAttempts) {
+
+                        paymentMonitorTimer =
+                            setTimeout(
+                                poll,
+                                pollDelay
+                            );
+
+                        return;
+                    }
+
+                    finishPaymentMonitoring();
+
+                    showPaymentError(
+                        "Payment confirmation is taking longer than expected."
+                    );
+
+                    resolve();
+
+                    return;
+                }
+
+                const status =
+                    String(
+                        data.status ||
+                        data.payment_status ||
+                        ""
+                    )
+                        .trim()
+                        .toUpperCase();
+
+                console.log(
+                    `Payment status attempt ${attempts}:`,
+                    status
+                );
+
+                // ------------------------------------------------
+                // SUCCESS
+                // ------------------------------------------------
+
+                if (
+                    [
+                        "CONFIRMED",
+                        "PAID",
+                        "SUCCESS",
+                        "COMPLETED"
+                    ].includes(status)
+                ) {
+
+                    stopPaymentMonitor();
+
+                    paymentCompleted(data);
+
+                    resolve();
+
+                    return;
+                }
+
+                // ------------------------------------------------
+                // FAILURE
+                // ------------------------------------------------
+
+                if (
+                    [
+                        "FAILED",
+                        "CANCELLED",
+                        "CANCELED",
+                        "REJECTED",
+                        "EXPIRED"
+                    ].includes(status)
+                ) {
+
+                    stopPaymentMonitor();
+
+                    showPaymentError(
+                        data.result_desc ||
+                        data.message ||
+                        "The M-Pesa payment was not completed."
+                    );
+
+                    paymentInProgress = false;
+
+                    setPaymentLoading(
+                        button,
+                        false
+                    );
+
+                    resolve();
+
+                    return;
+                }
+
+                // ------------------------------------------------
+                // STILL PENDING
+                // ------------------------------------------------
+
+                if (attempts >= maxAttempts) {
+
+                    stopPaymentMonitor();
+
+                    showPaymentError(
+                        "Payment confirmation is taking longer than expected. If you completed the M-Pesa prompt, please wait a moment before retrying."
+                    );
+
+                    paymentInProgress = false;
+
+                    setPaymentLoading(
+                        button,
+                        false
+                    );
+
+                    resolve();
+
+                    return;
+                }
+
+                // ------------------------------------------------
+                // CONTINUE POLLING
+                // ------------------------------------------------
+
+                paymentMonitorTimer =
+                    setTimeout(
+                        poll,
+                        pollDelay
+                    );
+
+            } catch (error) {
+
+                console.error(
+                    "Payment monitoring error:",
+                    error
+                );
+
+                if (attempts >= maxAttempts) {
+
+                    stopPaymentMonitor();
+
+                    showPaymentError(
+                        "We could not confirm the payment. Please check your M-Pesa messages and try again if necessary."
+                    );
+
+                    paymentInProgress = false;
+
+                    setPaymentLoading(
+                        button,
+                        false
+                    );
+
+                    resolve();
+
+                    return;
+                }
+
+                // Temporary network failure:
+                // continue polling.
+                paymentMonitorTimer =
+                    setTimeout(
+                        poll,
+                        pollDelay
+                    );
             }
+        };
 
-            const status = String(data.status || "").toUpperCase();
+        poll();
+    });
+}
 
-            if (status === "CONFIRMED" || status === "PAID" || status === "SUCCESS" || status === "COMPLETED") {
-                clearInterval(interval);
-                paymentCompleted(data);
-                return;
-            }
 
-            if (status === "FAILED" || status === "CANCELLED") {
-                clearInterval(interval);
-                showPaymentError("The M-Pesa payment was not completed.");
-                paymentInProgress = false;
-                setPaymentLoading(button, false);
-                return;
-            }
+// ============================================================
+// STOP PAYMENT MONITOR
+// ============================================================
 
-            if (attempts >= maxAttempts) {
-                clearInterval(interval);
-                // Deliberately re-enable the button rather than leaving
-                // it stuck: the backend's own de-dup guard (reused STK
-                // push within 5 minutes for the same member/amount) means
-                // a retry here won't create a duplicate payments row --
-                // it'll resume this same attempt if it's still live on
-                // Safaricom's side, or start a fresh one if it's truly
-                // expired.
-                showPaymentError("Payment confirmation is taking longer than expected. If you completed the M-Pesa prompt, please wait a moment and try again; otherwise you can retry.");
-                paymentInProgress = false;
-                setPaymentLoading(button, false);
-            }
+function stopPaymentMonitor() {
 
-        } catch (error) {
-            console.error("Payment monitoring error:", error);
-        }
+    if (paymentMonitorTimer) {
 
-    }, 3000);
+        clearTimeout(
+            paymentMonitorTimer
+        );
+
+        paymentMonitorTimer = null;
+    }
+}
+
+
+// ============================================================
+// FINISH PAYMENT MONITORING
+// ============================================================
+
+function finishPaymentMonitoring() {
+
+    stopPaymentMonitor();
+
+    paymentInProgress = false;
+
+    const button =
+        document.querySelector(
+            "#paymentForm [type='submit']"
+        );
+
+    setPaymentLoading(
+        button,
+        false
+    );
 }
 
 
@@ -318,122 +719,406 @@ async function monitorPayment(checkoutRequestId) {
 
 function paymentCompleted(payment) {
 
-    sessionStorage.setItem("completedPayment", JSON.stringify({
-        amount: payment.amount,
-        receipt_number: payment.receipt,
-        created_at: new Date().toISOString()
-    }));
+    const completedPayment = {
 
-    showPaymentSuccess("✅ Payment received successfully!");
+        amount:
+            payment.amount ??
+            window.registrationPaymentAmount,
 
-    // Intentionally leave paymentInProgress = true / button disabled
-    // here -- we're navigating away momentarily, and re-enabling would
-    // just invite a stray extra click before the redirect fires.
+        receipt_number:
+            payment.receipt ||
+            payment.receipt_number ||
+            payment.mpesa_receipt ||
+            null,
+
+        checkout_request_id:
+            payment.checkout_request_id ||
+            payment.checkoutRequestId ||
+            null,
+
+        created_at:
+            new Date().toISOString()
+    };
+
+    sessionStorage.setItem(
+        "completedPayment",
+        JSON.stringify(completedPayment)
+    );
+
+    showPaymentSuccess(
+        "✅ Payment received successfully!"
+    );
+
+    // Do not unlock the button here.
+    // We are navigating to confirmation.
+    paymentInProgress = true;
+
     setTimeout(() => {
-        window.location.href = "confirmation.html";
+
+        window.location.href =
+            "confirmation.html";
+
     }, 1500);
 }
 
 
 // ============================================================
-// GET REGISTRATION
+// GET STORED REGISTRATION
 // ============================================================
 
 function getStoredRegistration() {
 
-    const stored = sessionStorage.getItem("registrationResult");
+    const stored =
+        sessionStorage.getItem(
+            "registrationResult"
+        );
 
-    if (!stored) return null;
+    if (!stored) {
+        return null;
+    }
 
     try {
+
         return JSON.parse(stored);
+
     } catch (error) {
-        console.error(error);
+
+        console.error(
+            "Invalid registrationResult:",
+            error
+        );
+
         return null;
     }
 }
 
 
 // ============================================================
-// UI
+// NORMALIZE KENYAN PHONE
+// ============================================================
+//
+// Accepted examples:
+//
+// 0712345678
+// 0722123456
+// +254712345678
+// 254712345678
+// 712345678
+//
+// Returned format:
+//
+// 254712345678
+//
+
+function normalizeKenyanPhone(phone) {
+
+    let value =
+        String(phone || "")
+            .replace(/\s+/g, "")
+            .replace(/-/g, "");
+
+    if (!value) {
+        return null;
+    }
+
+    // +2547XXXXXXXX
+    if (value.startsWith("+254")) {
+        value = value.substring(1);
+    }
+
+    // 07XXXXXXXX / 01XXXXXXXX
+    if (
+        value.startsWith("07") ||
+        value.startsWith("01")
+    ) {
+
+        value =
+            "254" +
+            value.substring(1);
+    }
+
+    // 7XXXXXXXX / 1XXXXXXXX
+    else if (
+        value.startsWith("7") ||
+        value.startsWith("1")
+    ) {
+
+        value =
+            "254" +
+            value;
+    }
+
+    // Must now be 254 + 9 digits.
+    if (
+        !/^254[17]\d{8}$/.test(value)
+    ) {
+
+        return null;
+    }
+
+    return value;
+}
+
+
+// ============================================================
+// PARSE JSON RESPONSE
+// ============================================================
+
+async function parseJsonResponse(response) {
+
+    const text =
+        await response.text();
+
+    if (!text) {
+        return null;
+    }
+
+    try {
+
+        return JSON.parse(text);
+
+    } catch (error) {
+
+        console.error(
+            "Non-JSON API response:",
+            text
+        );
+
+        return {
+            message: text
+        };
+    }
+}
+
+
+// ============================================================
+// EXTRACT API ERROR
+// ============================================================
+
+function extractApiError(result) {
+
+    if (!result) {
+        return null;
+    }
+
+    // Standard API message
+    if (
+        typeof result.message === "string" &&
+        result.message.trim()
+    ) {
+
+        return result.message.trim();
+    }
+
+    // FastAPI detail
+    if (
+        typeof result.detail === "string" &&
+        result.detail.trim()
+    ) {
+
+        return result.detail.trim();
+    }
+
+    // FastAPI validation error
+    if (Array.isArray(result.detail)) {
+
+        return result.detail
+            .map(item => {
+
+                if (
+                    typeof item === "string"
+                ) {
+                    return item;
+                }
+
+                if (
+                    item?.msg
+                ) {
+                    return item.msg;
+                }
+
+                return null;
+
+            })
+            .filter(Boolean)
+            .join("; ");
+    }
+
+    // Nested data.message
+    if (
+        typeof result.data?.message === "string" &&
+        result.data.message.trim()
+    ) {
+
+        return result.data.message.trim();
+    }
+
+    return null;
+}
+
+
+// ============================================================
+// UI - ERROR
 // ============================================================
 
 function showPaymentError(message) {
 
-    const element = document.getElementById("paymentError") || document.getElementById("errorMessage");
+    const element =
+        document.getElementById("paymentError") ||
+        document.getElementById("errorMessage");
 
     if (!element) {
+
         alert(message);
+
         return;
     }
 
-    element.textContent = message;
-    element.style.display = "block";
-    element.classList.add("show");
+    element.textContent =
+        message;
+
+    element.style.display =
+        "block";
+
+    element.classList.add(
+        "show"
+    );
 }
 
+
+// ============================================================
+// UI - SUCCESS / INFORMATION
+// ============================================================
 
 function showPaymentSuccess(message) {
 
-    const element = document.getElementById("paymentSuccess") || document.getElementById("successMessage");
+    const element =
+        document.getElementById("paymentSuccess") ||
+        document.getElementById("successMessage");
 
     if (!element) {
+
         alert(message);
+
         return;
     }
 
-    element.textContent = message;
-    element.style.display = "block";
-    element.classList.add("show");
+    element.textContent =
+        message;
+
+    element.style.display =
+        "block";
+
+    element.classList.add(
+        "show"
+    );
 }
 
+
+// ============================================================
+// CLEAR PAYMENT MESSAGES
+// ============================================================
 
 function clearPaymentMessages() {
 
-    const error = document.getElementById("paymentError") || document.getElementById("errorMessage");
-    const success = document.getElementById("paymentSuccess") || document.getElementById("successMessage");
+    const error =
+        document.getElementById("paymentError") ||
+        document.getElementById("errorMessage");
+
+    const success =
+        document.getElementById("paymentSuccess") ||
+        document.getElementById("successMessage");
 
     if (error) {
+
         error.textContent = "";
-        error.style.display = "none";
-        error.classList.remove("show");
+
+        error.style.display =
+            "none";
+
+        error.classList.remove(
+            "show"
+        );
     }
 
     if (success) {
+
         success.textContent = "";
-        success.style.display = "none";
-        success.classList.remove("show");
+
+        success.style.display =
+            "none";
+
+        success.classList.remove(
+            "show"
+        );
     }
 }
 
 
+// ============================================================
+// PAYMENT BUTTON LOADING STATE
+// ============================================================
+
 function setPaymentLoading(button, loading) {
 
-    if (!button) return;
+    if (!button) {
+        return;
+    }
 
     if (loading) {
-        button.dataset.originalText = button.innerHTML;
+
+        if (!button.dataset.originalText) {
+
+            button.dataset.originalText =
+                button.innerHTML;
+        }
+
         button.disabled = true;
-        button.innerHTML = "Sending payment request...";
+
+        button.setAttribute(
+            "aria-busy",
+            "true"
+        );
+
+        button.innerHTML =
+            "Sending payment request...";
+
     } else {
+
         button.disabled = false;
-        if (button.dataset.originalText) {
-            button.innerHTML = button.dataset.originalText;
+
+        button.removeAttribute(
+            "aria-busy"
+        );
+
+        if (
+            button.dataset.originalText
+        ) {
+
+            button.innerHTML =
+                button.dataset.originalText;
         }
     }
 }
 
 
 // ============================================================
-// FORMAT MONEY
+// FORMAT KENYAN CURRENCY
 // ============================================================
 
 function formatKES(amount) {
-    return new Intl.NumberFormat("en-KE", {
-        style: "currency",
-        currency: "KES",
-        minimumFractionDigits: 0
-    }).format(Number(amount) || 0);
+
+    return new Intl.NumberFormat(
+        "en-KE",
+        {
+            style: "currency",
+            currency: "KES",
+            minimumFractionDigits: 0,
+            maximumFractionDigits: 0
+        }
+    ).format(
+        Number(amount) || 0
+    );
 }
 
 
@@ -441,5 +1126,15 @@ function formatKES(amount) {
 // PUBLIC API
 // ============================================================
 
-window.startPayment = handlePayment;
-window.monitorPayment = monitorPayment;
+window.startPayment =
+    handlePayment;
+
+window.monitorPayment =
+    monitorPayment;
+
+window.stopPaymentMonitor =
+    stopPaymentMonitor;
+
+window.normalizeKenyanPhone =
+    normalizeKenyanPhone;
+```
