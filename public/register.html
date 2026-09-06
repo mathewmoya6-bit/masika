@@ -623,28 +623,76 @@
         });
 
         document.addEventListener("DOMContentLoaded", async () => {
-            $("year").textContent = new Date().getFullYear();
-            bindEvents();
-            renderDependants();
-            await Promise.allSettled([loadPlans(), loadSalesCodes()]);
-            updateSummary();
+            // Everything in here used to run unguarded: a single null
+            // element (e.g. #year missing, or any id drifting out of sync
+            // with the JS) threw immediately and silently killed every
+            // listener registration below it — including both forms'
+            // submit handlers — with nothing printed to the console and
+            // nothing shown to the user. Each step is now isolated so one
+            // failure can't cascade into "nothing happens when I click
+            // Continue to Payment" on both forms at once.
+            try {
+                if ($("year")) $("year").textContent = new Date().getFullYear();
+            } catch (error) {
+                console.error("register.html: failed to set footer year:", error);
+            }
+
+            try {
+                bindEvents();
+            } catch (error) {
+                console.error("register.html: bindEvents() threw — form submit buttons may not work:", error);
+            }
+
+            try {
+                renderDependants();
+            } catch (error) {
+                console.error("register.html: renderDependants() threw on initial render:", error);
+            }
+
+            try {
+                await Promise.allSettled([loadPlans(), loadSalesCodes()]);
+            } catch (error) {
+                console.error("register.html: error awaiting loadPlans/loadSalesCodes:", error);
+            }
+
+            try {
+                updateSummary();
+            } catch (error) {
+                console.error("register.html: updateSummary() threw on initial render:", error);
+            }
         });
 
         function bindEvents() {
-            elements.individualModeBtn.addEventListener("click", () => setMode(false));
-            elements.chamaModeBtn.addEventListener("click", () => setMode(true));
-            elements.registrationForm.addEventListener("submit", registerMember);
-            elements.chamaForm.addEventListener("submit", registerChamaGroup);
-            elements.addDependantBtn.addEventListener("click", addDependant);
-            elements.resetBtn.addEventListener("click", resetIndividualForm);
-            elements.chamaResetBtn.addEventListener("click", resetChamaForm);
-            elements.chamaCsv.addEventListener("change", handleChamaCsv);
+            // Each binding is independent — a missing/renamed element logs
+            // an error (already flagged by the element-existence check
+            // above) instead of throwing and skipping every binding that
+            // comes after it in this list.
+            const bind = (element, key, event, handler) => {
+                if (!element) {
+                    console.error(`register.html: cannot bind ${event} handler — #${key} was not found in the DOM.`);
+                    return;
+                }
+                element.addEventListener(event, handler);
+            };
+
+            bind(elements.individualModeBtn, "individualModeBtn", "click", () => setMode(false));
+            bind(elements.chamaModeBtn, "chamaModeBtn", "click", () => setMode(true));
+            bind(elements.registrationForm, "registrationForm", "submit", registerMember);
+            bind(elements.chamaForm, "chamaForm", "submit", registerChamaGroup);
+            bind(elements.addDependantBtn, "addDependantBtn", "click", addDependant);
+            bind(elements.resetBtn, "resetBtn", "click", resetIndividualForm);
+            bind(elements.chamaResetBtn, "chamaResetBtn", "click", resetChamaForm);
+            bind(elements.chamaCsv, "chamaCsv", "change", handleChamaCsv);
 
             // If the page was opened with ?mode=chama (e.g. the "Back"
             // button from payment.html for a chama registration), land
             // directly in chama mode instead of individual mode.
-            const params = new URLSearchParams(window.location.search);
-            if (params.get("mode") === "chama") setMode(true);
+            try {
+                const params = new URLSearchParams(window.location.search);
+                if (params.get("mode") === "chama") setMode(true);
+            } catch (error) {
+                console.error("register.html: failed to apply ?mode=chama:", error);
+            }
         }
 
         function setMode(chamaMode) {
