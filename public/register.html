@@ -1580,9 +1580,11 @@
                 const memberId = result.member_id || result.id;
                 if (!memberId) throw new Error("Registration succeeded but no member ID was returned by the server.");
                 const registrationAmount = Number(result.registration_amount ?? result.amount ?? calculateRegistrationAmount());
+                const memberNumber = result.member_number || result.member?.member_number || "";
                 sessionStorage.removeItem("newMemberNumber");
                 sessionStorage.removeItem("newChamaGroupId");
                 sessionStorage.setItem("newMemberId", String(memberId));
+                if (memberNumber) sessionStorage.setItem("newMemberNumber", String(memberNumber));
                 sessionStorage.setItem("newMemberName", `${payload.first_name} ${payload.last_name}`.trim());
                 sessionStorage.setItem("newMemberPhone", payload.phone);
                 sessionStorage.setItem("registrationAmount", String(registrationAmount));
