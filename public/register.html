@@ -791,7 +791,7 @@
                                     <span class="help-text">Optional. If provided, enter a valid email address.</span>
                                 </div>
 
-                                <!-- ===== COUNTY DROPDOWN (FIXED) ===== -->
+                                <!-- ===== COUNTY DROPDOWN ===== -->
                                 <div class="form-group">
                                     <label for="county">County <span class="required">*</span></label>
                                     <select id="county" name="county" class="county-select" required>
@@ -1049,7 +1049,7 @@
         "use strict";
 
         /* ============================================================
-           MASIKA BENEVOLENT — PUBLIC REGISTRATION
+           MASIKA BENEVOLENT — PUBLIC REGISTRATION (FIXED)
            ============================================================ */
 
         const API_BASE_URL = "https://masika-c921.onrender.com";
@@ -1251,6 +1251,9 @@
             const lower = message.toLowerCase();
             if (lower.includes("failed to fetch")) return "Unable to connect to the Masika registration server. The server may be waking up. Please wait a few seconds and try again.";
             if (lower.includes("timed out")) return "The registration server took too long to respond. Please try again.";
+            if (lower.includes("sales agent") && lower.includes("branch")) {
+                return "The selected sales agent is not available in your branch. Please select a different agent or leave the field empty.";
+            }
             return message;
         }
 
@@ -1561,43 +1564,232 @@
             elements.summaryTotal.textContent = `KES ${money(total)}`;
         }
 
-        // ===== REGISTER MEMBER =====
+        // ============================================================
+        // FIXED: REGISTER MEMBER (Individual)
+        // ============================================================
         async function registerMember(event) {
             event.preventDefault();
+
             if (state.submitting) return;
+
             clearAlert();
+
             const payload = getMemberPayload();
             const validationError = validateMemberPayload(payload);
-            if (validationError) { showAlert(validationError, "error"); return; }
+
+            if (validationError) {
+                showAlert(validationError, "error");
+                return;
+            }
+
             state.submitting = true;
             setLoading(true, "Creating your registration...");
+
             try {
                 const result = await apiRequest("/api/public/register", {
                     method: "POST",
                     body: JSON.stringify(payload)
                 });
-                if (!result?.success) throw new Error(result?.error || result?.message || "Registration could not be completed.");
+
+                if (!result?.success) {
+                    throw new Error(
+                        result?.error ||
+                        result?.message ||
+                        "Registration could not be completed."
+                    );
+                }
+
                 const memberId = result.member_id || result.id;
-                if (!memberId) throw new Error("Registration succeeded but no member ID was returned by the server.");
-                const registrationAmount = Number(result.registration_amount ?? result.amount ?? calculateRegistrationAmount());
-                const memberNumber = result.member_number || result.member?.member_number || "";
+
+                if (!memberId) {
+                    throw new Error(
+                        "Registration succeeded but no member ID was returned by the server."
+                    );
+                }
+
+                const registrationAmount = Number(
+                    result.registration_amount ??
+                    result.amount ??
+                    calculateRegistrationAmount()
+                );
+
+                const memberNumber =
+                    result.member_number ||
+                    result.member?.member_number ||
+                    "";
+
+                // Store payment handoff data
                 sessionStorage.removeItem("newMemberNumber");
                 sessionStorage.removeItem("newChamaGroupId");
+
                 sessionStorage.setItem("newMemberId", String(memberId));
-                if (memberNumber) sessionStorage.setItem("newMemberNumber", String(memberNumber));
-                sessionStorage.setItem("newMemberName", `${payload.first_name} ${payload.last_name}`.trim());
-                sessionStorage.setItem("newMemberPhone", payload.phone);
-                sessionStorage.setItem("registrationAmount", String(registrationAmount));
-                sessionStorage.setItem("isChamaRegistration", "false");
-                showAlert("Registration created successfully. Redirecting to payment...", "success");
+
+                if (memberNumber) {
+                    sessionStorage.setItem(
+                        "newMemberNumber",
+                        String(memberNumber)
+                    );
+                }
+
+                sessionStorage.setItem(
+                    "newMemberName",
+                    `${payload.first_name} ${payload.last_name}`.trim()
+                );
+
+                sessionStorage.setItem(
+                    "newMemberPhone",
+                    payload.phone
+                );
+
+                sessionStorage.setItem(
+                    "registrationAmount",
+                    String(registrationAmount)
+                );
+
+                sessionStorage.setItem(
+                    "isChamaRegistration",
+                    "false"
+                );
+
+                showAlert(
+                    "Registration created successfully. Redirecting to payment...",
+                    "success"
+                );
+
                 await sleep(700);
-                window.location.href = `payment.html?member_id=${encodeURIComponent(memberId)}`;
-            } catch (error) {
-                console.error("Member registration failed:", error);
-                showAlert(friendlyError(error), "error");
-            } finally {
+
+                // IMPORTANT: Release unload protection BEFORE navigation
                 state.submitting = false;
                 setLoading(false);
+
+                // Use replace() so the user cannot navigate back to the form
+                window.location.replace(
+                    `payment.html?member_id=${encodeURIComponent(memberId)}`
+                );
+
+            } catch (error) {
+                console.error("Member registration failed:", error);
+
+                state.submitting = false;
+                setLoading(false);
+
+                showAlert(
+                    friendlyError(error),
+                    "error"
+                );
+            }
+        }
+
+        // ============================================================
+        // FIXED: REGISTER CHAMA GROUP
+        // ============================================================
+        async function registerChamaGroup(event) {
+            event.preventDefault();
+
+            if (state.submitting) return;
+
+            clearAlert();
+
+            const payload = getChamaPayload();
+            const validationError = validateChamaPayload(payload);
+
+            if (validationError) {
+                showAlert(validationError, "error");
+                return;
+            }
+
+            state.submitting = true;
+            setLoading(true, "Creating chama registration...");
+
+            try {
+                const result = await apiRequest("/api/public/register/chama", {
+                    method: "POST",
+                    body: JSON.stringify(payload)
+                });
+
+                if (!result?.success) {
+                    throw new Error(
+                        result?.error ||
+                        result?.message ||
+                        "Chama registration could not be completed."
+                    );
+                }
+
+                const groupId =
+                    result.group_id ||
+                    result.chama_group_id ||
+                    result.id;
+
+                if (!groupId) {
+                    throw new Error(
+                        "Chama registration succeeded but no group ID was returned."
+                    );
+                }
+
+                const registrationAmount = Number(
+                    result.registration_amount ??
+                    result.amount ??
+                    (payload.members.length * CONFIG.CHAMA_REGISTRATION_RATE)
+                );
+
+                sessionStorage.removeItem("newMemberId");
+                sessionStorage.removeItem("newMemberNumber");
+
+                sessionStorage.setItem(
+                    "newChamaGroupId",
+                    String(groupId)
+                );
+
+                sessionStorage.setItem(
+                    "newChamaGroupName",
+                    payload.group_name
+                );
+
+                sessionStorage.setItem(
+                    "newChamaMemberCount",
+                    String(payload.members.length)
+                );
+
+                sessionStorage.setItem(
+                    "newChamaPhone",
+                    payload.phone
+                );
+
+                sessionStorage.setItem(
+                    "registrationAmount",
+                    String(registrationAmount)
+                );
+
+                sessionStorage.setItem(
+                    "isChamaRegistration",
+                    "true"
+                );
+
+                showAlert(
+                    "Chama registration created successfully. Redirecting to payment...",
+                    "success"
+                );
+
+                await sleep(700);
+
+                // IMPORTANT: Release unload protection BEFORE navigation
+                state.submitting = false;
+                setLoading(false);
+
+                window.location.replace(
+                    `payment.html?group_id=${encodeURIComponent(groupId)}`
+                );
+
+            } catch (error) {
+                console.error("Chama registration failed:", error);
+
+                state.submitting = false;
+                setLoading(false);
+
+                showAlert(
+                    friendlyError(error),
+                    "error"
+                );
             }
         }
 
@@ -1751,47 +1943,6 @@
             return null;
         }
 
-        async function registerChamaGroup(event) {
-            event.preventDefault();
-            if (state.submitting) return;
-            clearAlert();
-            const payload = getChamaPayload();
-            const validationError = validateChamaPayload(payload);
-            if (validationError) { showAlert(validationError, "error"); return; }
-            state.submitting = true;
-            setLoading(true, "Creating chama registration...");
-            try {
-                const result = await apiRequest("/api/public/register/chama", {
-                    method: "POST",
-                    body: JSON.stringify(payload)
-                });
-                if (!result?.success) throw new Error(result?.error || result?.message || "Chama registration could not be completed.");
-                const groupId = result.group_id || result.chama_group_id || result.id;
-                if (!groupId) throw new Error("Chama registration succeeded but no group ID was returned.");
-                const registrationAmount = Number(result.registration_amount ?? result.amount ?? (payload.members.length * CONFIG
-                    .CHAMA_REGISTRATION_RATE));
-                const groupName = payload.group_name;
-                const groupPhone = payload.phone;
-                sessionStorage.removeItem("newMemberId");
-                sessionStorage.removeItem("newMemberNumber");
-                sessionStorage.setItem("newChamaGroupId", String(groupId));
-                sessionStorage.setItem("newChamaGroupName", groupName);
-                sessionStorage.setItem("newChamaMemberCount", String(payload.members.length));
-                sessionStorage.setItem("newChamaPhone", groupPhone);
-                sessionStorage.setItem("registrationAmount", String(registrationAmount));
-                sessionStorage.setItem("isChamaRegistration", "true");
-                showAlert("Chama registration created successfully. Redirecting to payment...", "success");
-                await sleep(700);
-                window.location.href = `payment.html?group_id=${encodeURIComponent(groupId)}`;
-            } catch (error) {
-                console.error("Chama registration failed:", error);
-                showAlert(friendlyError(error), "error");
-            } finally {
-                state.submitting = false;
-                setLoading(false);
-            }
-        }
-
         // ===== RESET =====
         function resetIndividualForm() {
             if (!confirm("Reset this registration form?")) return;
@@ -1821,9 +1972,12 @@
         }
 
         // ===== PREVENT ACCIDENTAL DOUBLE SUBMISSION =====
+        // Fixed: Only prevent navigation if actually submitting
         window.addEventListener("beforeunload", event => {
-            if (state.submitting) { event.preventDefault();
-                event.returnValue = "Registration is being processed."; }
+            if (state.submitting) {
+                event.preventDefault();
+                event.returnValue = "Registration is being processed.";
+            }
         });
     </script>
 </body>
