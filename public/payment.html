@@ -11,8 +11,6 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     
-    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-    <script src="js/supabase-config.js"></script>
 
     <style>
         /* ===== RESET & VARIABLES ===== */
@@ -1001,9 +999,10 @@
         // ===== LOAD PAYMENT DATA =====
         async function loadPaymentData() {
             const params = new URLSearchParams(window.location.search);
-            state.memberId = params.get('member_id');
-            state.groupId = params.get('group_id');
-            state.isChama = !!state.groupId;
+
+            state.memberId = params.get('member_id') || sessionStorage.getItem('newMemberId');
+            state.groupId = params.get('group_id') || sessionStorage.getItem('newChamaGroupId');
+            state.isChama = !!state.groupId && !state.memberId;
 
             if (!state.memberId && !state.groupId) {
                 showAlert('No registration specified. Please restart the registration process.', 'error');
@@ -1011,78 +1010,51 @@
                 return;
             }
 
-            if (!window.supabaseClient) {
-                showAlert('Could not connect to the database. Please refresh the page.', 'error');
-                el.payNowBtn.disabled = true;
-                return;
-            }
-
             try {
+                const storedAmount = Number(sessionStorage.getItem('registrationAmount') || 0);
+                const storedMemberNumber = sessionStorage.getItem('newMemberNumber') || '';
+                const storedMemberName = sessionStorage.getItem('newMemberName') || '';
+                const storedMemberPhone = sessionStorage.getItem('newMemberPhone') || '';
+                const storedGroupName = sessionStorage.getItem('newChamaGroupName') || '';
+                const storedGroupPhone = sessionStorage.getItem('newChamaPhone') || '';
+
+                state.amount = storedAmount;
+                state.memberData = {
+                    id: state.memberId || state.groupId,
+                    member_number: storedMemberNumber,
+                    full_name: storedMemberName,
+                    group_name: storedGroupName
+                };
+
                 if (state.isChama) {
-                    // Load chama data
-                    const { data: chama, error: chamaError } = await window.supabaseClient
-                        .from('chama_groups')
-                        .select('id, group_name, member_count, registration_amount, status')
-                        .eq('id', state.groupId)
-                        .single();
-
-                    if (chamaError) throw chamaError;
-                    state.memberData = chama;
-                    state.amount = Number(chama.registration_amount || 0);
-
-                    el.memberName.textContent = chama.group_name || 'Chama Group';
-                    el.memberNumber.textContent = chama.id || '—';
+                    el.memberName.textContent = storedGroupName || 'Chama Group';
+                    el.memberNumber.textContent = state.groupId || '—';
                     el.registrationType.textContent = 'Chama / Group';
                     el.memberPlan.textContent = 'Chama';
+                    if (storedGroupPhone && !el.mpesaPhone.value) {
+                        el.mpesaPhone.value = storedGroupPhone;
+                    }
                 } else {
-                    // Load individual member data
-                    const { data: member, error: memberError } = await window.supabaseClient
-                        .from('members')
-                        .select('id, first_name, last_name, full_name, member_number, plan_code, status')
-                        .eq('id', state.memberId)
-                        .single();
-
-                    if (memberError) throw memberError;
-                    state.memberData = member;
-
-                    const fullName = member.full_name || 
-                        [member.first_name, member.last_name].filter(Boolean).join(' ') || 'Member';
-                    el.memberName.textContent = fullName;
-                    el.memberNumber.textContent = member.member_number || '—';
+                    el.memberName.textContent = storedMemberName || 'Member';
+                    el.memberNumber.textContent = storedMemberNumber || 'Pending';
                     el.registrationType.textContent = 'Individual / Family';
-                    el.memberPlan.textContent = member.plan_code || '—';
-
-                    // Get payment amount
-                    const { data: payment, error: paymentError } = await window.supabaseClient
-                        .from('payments')
-                        .select('id, amount, status')
-                        .eq('member_id', state.memberId)
-                        .eq('payment_type', 'registration')
-                        .order('created_at', { ascending: false })
-                        .limit(1)
-                        .maybeSingle();
-
-                    if (paymentError) throw paymentError;
-                    state.amount = Number(payment?.amount || 0);
+                    el.memberPlan.textContent = 'Registration';
+                    if (storedMemberPhone && !el.mpesaPhone.value) {
+                        el.mpesaPhone.value = storedMemberPhone;
+                    }
                 }
 
                 el.paymentAmount.textContent = formatMoney(state.amount);
 
                 if (state.amount <= 0) {
-                    showAlert('No payment amount found. Please contact support.', 'warning');
+                    showAlert('No registration payment amount was found. Please restart registration.', 'warning');
                     el.payNowBtn.disabled = true;
                     return;
                 }
 
-                // Prefill phone from session
-                const sessionPhone = sessionStorage.getItem('newMemberPhone');
-                if (sessionPhone && !el.mpesaPhone.value) {
-                    el.mpesaPhone.value = sessionPhone;
-                }
-
                 el.payNowBtn.disabled = false;
                 clearAlert();
-
+                validatePhoneInput();
             } catch (error) {
                 console.error('Failed to load payment data:', error);
                 showAlert('Could not load payment details: ' + (error.message || 'Unknown error'), 'error');
@@ -1134,7 +1106,17 @@
                     throw new Error(result?.error || result?.message || 'Payment initiation failed.');
                 }
 
-                state.transactionId = result.transaction_id || result.id;
+                state.transactionId = result.transaction_id || result.transactionId || result.id;
+                if (!state.transactionId) {
+                    throw new Error('Payment request was accepted but no transaction ID was returned.');
+                }
+
+                if (result.member_number || result.member?.member_number) {
+                    state.memberData = {
+                        ...(state.memberData || {}),
+                        member_number: result.member_number || result.member?.member_number
+                    };
+                }
 
                 el.paymentCard.style.display = 'none';
                 el.processingCard.style.display = 'block';
@@ -1216,14 +1198,28 @@
             el.processingCard.style.display = 'none';
             el.successCard.style.display = 'block';
 
-            el.successMemberNumber.textContent = state.memberData?.member_number || 
-                state.memberData?.id || '—';
-            el.successTransactionId.textContent = state.transactionId || '—';
-            el.successAmount.textContent = formatMoney(state.amount);
+            const finalMemberNumber =
+                result?.member_number ||
+                result?.member?.member_number ||
+                state.memberData?.member_number ||
+                sessionStorage.getItem('newMemberNumber') ||
+                (state.isChama ? state.groupId : state.memberId) ||
+                '—';
+
+            el.successMemberNumber.textContent = finalMemberNumber;
+            el.successTransactionId.textContent =
+                result?.transaction_id || result?.transactionId || state.transactionId || '—';
+            el.successAmount.textContent = formatMoney(result?.amount || state.amount);
 
             // Clear session data
             sessionStorage.removeItem('newMemberId');
+            sessionStorage.removeItem('newMemberNumber');
+            sessionStorage.removeItem('newMemberName');
+            sessionStorage.removeItem('newMemberPhone');
             sessionStorage.removeItem('newChamaGroupId');
+            sessionStorage.removeItem('newChamaGroupName');
+            sessionStorage.removeItem('newChamaMemberCount');
+            sessionStorage.removeItem('newChamaPhone');
             sessionStorage.removeItem('registrationAmount');
             sessionStorage.removeItem('isChamaRegistration');
 
