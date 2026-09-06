@@ -1618,17 +1618,20 @@
                     result.member?.member_number ||
                     "";
 
-                // Store payment handoff data
+                // ============================================================
+                // FIX: Release the submission lock BEFORE navigating
+                // ============================================================
+                state.submitting = false;
+                setLoading(false);
+
+                // Store everything required by payment.html
                 sessionStorage.removeItem("newMemberNumber");
                 sessionStorage.removeItem("newChamaGroupId");
 
                 sessionStorage.setItem("newMemberId", String(memberId));
 
                 if (memberNumber) {
-                    sessionStorage.setItem(
-                        "newMemberNumber",
-                        String(memberNumber)
-                    );
+                    sessionStorage.setItem("newMemberNumber", String(memberNumber));
                 }
 
                 sessionStorage.setItem(
@@ -1658,11 +1661,7 @@
 
                 await sleep(700);
 
-                // IMPORTANT: Release unload protection BEFORE navigation
-                state.submitting = false;
-                setLoading(false);
-
-                // Use replace() so the user cannot navigate back to the form
+                // Use replace() with member_id (NOT phone)
                 window.location.replace(
                     `payment.html?member_id=${encodeURIComponent(memberId)}`
                 );
@@ -1732,6 +1731,12 @@
                     (payload.members.length * CONFIG.CHAMA_REGISTRATION_RATE)
                 );
 
+                // ============================================================
+                // FIX: Release the submission lock BEFORE navigating
+                // ============================================================
+                state.submitting = false;
+                setLoading(false);
+
                 sessionStorage.removeItem("newMemberId");
                 sessionStorage.removeItem("newMemberNumber");
 
@@ -1772,10 +1777,7 @@
 
                 await sleep(700);
 
-                // IMPORTANT: Release unload protection BEFORE navigation
-                state.submitting = false;
-                setLoading(false);
-
+                // Use replace() with group_id (NOT phone)
                 window.location.replace(
                     `payment.html?group_id=${encodeURIComponent(groupId)}`
                 );
@@ -1972,7 +1974,6 @@
         }
 
         // ===== PREVENT ACCIDENTAL DOUBLE SUBMISSION =====
-        // Fixed: Only prevent navigation if actually submitting
         window.addEventListener("beforeunload", event => {
             if (state.submitting) {
                 event.preventDefault();
