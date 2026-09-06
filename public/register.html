@@ -374,7 +374,7 @@
                                     <select id="salesCode" name="sales_code">
                                         <option value="">Select sales agent</option>
                                     </select>
-                                    <span class="help-text">Select the agent who assisted with your registration.</span>
+                                    <span class="help-text" id="salesCodeHelp">Select the agent who assisted with your registration.</span>
                                 </div>
                                 <div class="form-group">
                                     <label for="benefitOption">Benefit Option <span class="required">*</span></label>
@@ -593,6 +593,7 @@
             plansContainer: $("plansContainer"),
             planHelp: $("planHelp"),
             salesCode: $("salesCode"),
+            salesCodeHelp: $("salesCodeHelp"),
             dependantsContainer: $("dependantsContainer"),
             addDependantBtn: $("addDependantBtn"),
             submitBtn: $("submitBtn"),
@@ -835,19 +836,54 @@
 
         // ===== SALES CODES =====
         async function loadSalesCodes() {
-            if (typeof supabaseClient === "undefined" || !supabaseClient) return;
+            if (typeof supabaseClient === "undefined" || !supabaseClient) {
+                console.error("register.html: supabaseClient is not defined — cannot load sales agents. " +
+                    "Check that js/supabase-config.js loaded successfully and defines a global supabaseClient " +
+                    "with valid project URL/anon key.");
+                if (elements.salesCodeHelp) {
+                    elements.salesCodeHelp.textContent = "Sales agent list unavailable right now — you can leave this blank.";
+                }
+                return;
+            }
             try {
                 const { data, error } = await supabaseClient.from("public_agent_codes").select("code, agent_name").order(
                     "agent_name", { ascending: true });
-                if (error) { console.warn("Sales code loading failed:", error); return; }
+                if (error) {
+                    // Full error object logged (not just .message) because the
+                    // most common causes here are a missing table/view or an
+                    // RLS policy silently blocking the anon key — both show
+                    // up in error.code/error.hint/error.details, not in a
+                    // generic message string.
+                    console.error("register.html: loading public_agent_codes failed:", error);
+                    if (elements.salesCodeHelp) {
+                        elements.salesCodeHelp.textContent = "Unable to load sales agents (see console for details). You can leave this blank.";
+                    }
+                    return;
+                }
+                if (!data || !data.length) {
+                    console.warn("register.html: public_agent_codes query succeeded but returned zero rows. " +
+                        "Check that active agent rows exist and that the anon/public role has SELECT access to this table/view.");
+                    if (elements.salesCodeHelp) {
+                        elements.salesCodeHelp.textContent = "No sales agents are currently listed — you can leave this blank.";
+                    }
+                    return;
+                }
                 elements.salesCode.innerHTML = `<option value="">Select sales agent</option>`;
-                (data || []).forEach(agent => {
+                data.forEach(agent => {
                     const option = document.createElement("option");
                     option.value = agent.code || "";
                     option.textContent = agent.agent_name ? `${agent.agent_name} (${agent.code})` : agent.code || "Agent";
                     elements.salesCode.appendChild(option);
                 });
-            } catch (error) { console.warn("Sales code error:", error); }
+                if (elements.salesCodeHelp) {
+                    elements.salesCodeHelp.textContent = "Select the agent who assisted with your registration.";
+                }
+            } catch (error) {
+                console.error("register.html: unexpected error loading sales codes:", error);
+                if (elements.salesCodeHelp) {
+                    elements.salesCodeHelp.textContent = "Unable to load sales agents (see console for details). You can leave this blank.";
+                }
+            }
         }
 
         // ===== DEPENDANTS =====
