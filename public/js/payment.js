@@ -13,6 +13,13 @@
 // Backend endpoints used (FastAPI, masika-c921.onrender.com):
 //   POST /api/public/initiate-payment
 //   GET  /api/public/check-payment/{transaction_id}
+//
+// NOTE: response field names below are read defensively (several
+// aliases checked per field) because the backend's payments-table
+// column names have drifted before (status/confirmed_at/notes vs
+// the actual payment_status/verified_at columns) and a single
+// exact-match read silently breaks the whole polling flow when
+// that happens again.
 // ============================================================
 
 (function () {
@@ -103,6 +110,9 @@
         if (!value) return '';
         if (value.startsWith('+254')) value = value.substring(1);
         if (value.startsWith('0')) value = '254' + value.substring(1);
+        // Bare 9-digit local number with no leading 0 (e.g. "712345678")
+        // — treat as a Kenyan mobile number missing its leading zero.
+        if (/^[71]\d{8}$/.test(value)) value = '254' + value;
         return value;
     }
 
@@ -122,6 +132,34 @@
     function sleep(ms) {
         return new Promise(resolve => setTimeout(resolve, ms));
     }
+
+    // Reads the first defined/non-null value out of a list of
+    // (object, key) style lookups. Used everywhere we read a field
+    // from a backend response whose exact column/key name has
+    // drifted before.
+    function firstDefined(...values) {
+        for (const value of values) {
+            if (value !== undefined && value !== null && value !== '') return value;
+        }
+        return undefined;
+    }
+
+    // Normalizes a variety of possible "success" / "failure" status
+    // strings the backend might send for a payment (different casing,
+    // different field names — status vs payment_status vs result).
+    function extractPaymentStatus(result) {
+        const raw = firstDefined(
+            result?.status,
+            result?.payment_status,
+            result?.paymentStatus,
+            result?.result,
+            result?.state
+        );
+        return String(raw || '').trim().toLowerCase();
+    }
+
+    const SUCCESS_STATUSES = new Set(['completed', 'complete', 'success', 'successful', 'paid', 'confirmed']);
+    const FAILURE_STATUSES = new Set(['failed', 'failure', 'cancelled', 'canceled', 'declined', 'timeout', 'expired', 'error']);
 
     const CIRCLES = { 1: el.step1Circle, 2: el.step2Circle, 3: el.step3Circle, 4: el.step4Circle };
     const LABELS = { 1: el.step1Label, 2: el.step2Label, 3: el.step3Label, 4: el.step4Label };
@@ -192,6 +230,7 @@
                     }).join(' | ');
                 }
                 if (typeof message === 'object' && message !== null) message = JSON.stringify(message);
+                console.error(`payment.js: ${endpoint} returned HTTP ${response.status}:`, result || responseText);
                 throw new Error(message || `Server returned HTTP ${response.status}.`);
             }
 
@@ -201,6 +240,7 @@
             if (error.name === 'AbortError') {
                 throw new Error('The request took too long to respond. Please try again.');
             }
+            console.error(`payment.js: request to ${endpoint} failed:`, error);
             throw error;
         }
     }
@@ -257,6 +297,9 @@
             el.paymentAmount.textContent = formatMoney(state.amount);
 
             if (state.amount <= 0) {
+                console.warn('payment.js: registrationAmount was 0 or missing from sessionStorage. ' +
+                    'This happens if the page was opened directly, in a new tab, or sessionStorage was cleared ' +
+                    'between register.html and payment.html — reload from register.html to restore it.');
                 showAlert('No registration payment amount was found. Please restart registration.', 'warning');
                 el.payNowBtn.disabled = true;
                 return;
@@ -312,19 +355,32 @@
                 body: JSON.stringify(payload)
             });
 
-            if (!result?.success) {
+            const transactionId = firstDefined(
+                result?.transaction_id,
+                result?.transactionId,
+                result?.checkout_request_id,
+                result?.CheckoutRequestID,
+                result?.id
+            );
+
+            if (result?.success === false || (!transactionId && result?.error)) {
                 throw new Error(result?.error || result?.message || 'Payment initiation failed.');
             }
 
-            state.transactionId = result.transaction_id || result.transactionId || result.id;
+            state.transactionId = transactionId;
             if (!state.transactionId) {
+                console.error('payment.js: /api/public/initiate-payment response had no usable transaction id:', result);
                 throw new Error('Payment request was accepted but no transaction ID was returned.');
             }
 
-            if (result.member_number || result.member?.member_number) {
+            const memberNumberFromResult = firstDefined(
+                result?.member_number,
+                result?.member?.member_number
+            );
+            if (memberNumberFromResult) {
                 state.memberData = {
                     ...(state.memberData || {}),
-                    member_number: result.member_number || result.member?.member_number
+                    member_number: memberNumberFromResult
                 };
             }
 
@@ -358,18 +414,28 @@
                         method: 'GET'
                     });
 
-                    if (result?.status === 'completed' || result?.status === 'success') {
+                    const status = extractPaymentStatus(result);
+
+                    if (SUCCESS_STATUSES.has(status)) {
                         clearInterval(state.pollInterval);
                         await handlePaymentSuccess(result);
                         resolve();
                         return;
                     }
 
-                    if (result?.status === 'failed' || result?.status === 'cancelled') {
+                    if (FAILURE_STATUSES.has(status)) {
                         clearInterval(state.pollInterval);
                         await handlePaymentFailed(result);
                         reject(new Error('Payment failed or was cancelled.'));
                         return;
+                    }
+
+                    if (!status) {
+                        // No recognizable status field at all — log the raw
+                        // shape once so a real backend field-name change is
+                        // visible in the console instead of just spinning
+                        // forever with no clue why.
+                        console.warn('payment.js: check-payment response had no recognizable status field:', result);
                     }
 
                     if (state.pollAttempts > 10) {
@@ -408,18 +474,25 @@
         el.processingCard.style.display = 'none';
         el.successCard.style.display = 'block';
 
-        const finalMemberNumber =
-            result?.member_number ||
-            result?.member?.member_number ||
-            state.memberData?.member_number ||
-            sessionStorage.getItem('newMemberNumber') ||
-            (state.isChama ? state.groupId : state.memberId) ||
-            '—';
+        const finalMemberNumber = firstDefined(
+            result?.member_number,
+            result?.member?.member_number,
+            state.memberData?.member_number,
+            sessionStorage.getItem('newMemberNumber'),
+            state.isChama ? state.groupId : state.memberId
+        ) || '—';
+
+        const finalTransactionId = firstDefined(
+            result?.transaction_id,
+            result?.transactionId,
+            result?.mpesa_receipt_number,
+            result?.receipt_number,
+            state.transactionId
+        ) || '—';
 
         el.successMemberNumber.textContent = finalMemberNumber;
-        el.successTransactionId.textContent =
-            result?.transaction_id || result?.transactionId || state.transactionId || '—';
-        el.successAmount.textContent = formatMoney(result?.amount || state.amount);
+        el.successTransactionId.textContent = finalTransactionId;
+        el.successAmount.textContent = formatMoney(firstDefined(result?.amount, state.amount));
 
         // Clear session data — registration is fully complete now.
         sessionStorage.removeItem('newMemberId');
@@ -448,7 +521,8 @@
     // ===== HANDLE PAYMENT FAILED =====
     async function handlePaymentFailed(result) {
         updateStep(3, 'error');
-        showAlert('Payment failed: ' + (result?.message || 'Please try again.'), 'error');
+        const reason = firstDefined(result?.message, result?.error, result?.reason);
+        showAlert('Payment failed: ' + (reason || 'Please try again.'), 'error');
 
         await sleep(1500);
         el.processingCard.style.display = 'none';
@@ -478,7 +552,7 @@
     // ===== VALIDATE PHONE =====
     function validatePhoneInput() {
         const phone = el.mpesaPhone.value;
-        if (phone.length >= 10) {
+        if (phone.length >= 9) {
             const isValid = validatePhone(phone);
             if (isValid) {
                 el.phoneError.classList.remove('show');
@@ -505,10 +579,6 @@
         el.mpesaPhone.addEventListener('input', validatePhoneInput);
         el.mpesaPhone.addEventListener('blur', validatePhoneInput);
 
-        // This is the line that was missing its target element
-        // (el.paymentForm was undefined) and silently broke every
-        // handler registered after it. Fixed by adding paymentForm
-        // to the el map above.
         el.paymentForm.addEventListener('submit', async (e) => {
             e.preventDefault();
             await initiatePayment();
