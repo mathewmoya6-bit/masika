@@ -6,459 +6,1326 @@
     <title>Complete Payment | Masika Benevolent</title>
     <meta name="description" content="Complete your Masika Benevolent registration payment via M-Pesa.">
 
+    <link rel="icon" type="image/svg+xml" href="assets/branding/favicon.svg" />
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="js/supabase-config.js"></script>
 
     <style>
+        /* ===== RESET & VARIABLES ===== */
         :root {
-            --primary: #0b5d3b;
-            --primary-dark: #06452c;
-            --secondary: #d9a441;
-            --danger: #dc3545;
-            --success: #198754;
-            --light: #f5f7f8;
-            --border: #dfe4e7;
-            --text: #1f2933;
-            --muted: #6b7280;
+            --primary: #173f35;
+            --primary-dark: #0e2c25;
+            --gold: #c99a3e;
+            --gold-dark: #a77b27;
+            --cream: #f8f5ee;
             --white: #ffffff;
+            --text: #17211f;
+            --muted: #66736f;
+            --border: #dfe5e2;
+            --success: #198754;
+            --danger: #c0392b;
+            --warning: #b7791f;
+            --shadow: 0 15px 45px rgba(20, 45, 38, 0.10);
+            --radius: 16px;
         }
 
-        * { box-sizing: border-box; }
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        html {
+            scroll-behavior: smooth;
+        }
 
         body {
             margin: 0;
-            font-family: Arial, Helvetica, sans-serif;
-            background: var(--light);
+            font-family: "Inter", Arial, sans-serif;
+            background: var(--cream);
             color: var(--text);
+            line-height: 1.6;
+            min-height: 100vh;
         }
 
-        .page-wrapper { min-height: 100vh; }
+        a {
+            color: inherit;
+            text-decoration: none;
+        }
 
-        /* HEADER */
-        .topbar {
+        button,
+        input,
+        select,
+        textarea {
+            font: inherit;
+        }
+
+        .container {
+            width: min(680px, calc(100% - 32px));
+            margin: 0 auto;
+        }
+
+        /* ===== HEADER ===== */
+        .site-header {
             background: var(--primary);
             color: white;
-            min-height: 68px;
+            position: sticky;
+            top: 0;
+            z-index: 1000;
+            box-shadow: 0 5px 20px rgba(0, 0, 0, .10);
+        }
+        .header-inner {
+            min-height: 74px;
             display: flex;
             align-items: center;
             justify-content: space-between;
-            padding: 0 28px;
-            box-shadow: 0 2px 8px rgba(0,0,0,.12);
-            flex-wrap: wrap;
-            gap: 10px;
+            gap: 20px;
         }
-
         .brand {
             display: flex;
             align-items: center;
             gap: 12px;
         }
-
-        .brand-logo {
-            width: 42px;
-            height: 42px;
+        .brand-mark {
+            width: 44px;
+            height: 44px;
             border-radius: 50%;
-            background: white;
-            color: var(--primary);
+            background: var(--gold);
+            color: white;
+            display: grid;
+            place-items: center;
+            font-size: 22px;
+            font-weight: 800;
+        }
+        img.brand-mark {
+            background: transparent;
+            object-fit: contain;
+            padding: 2px;
+        }
+        .brand-text {
+            line-height: 1.1;
+        }
+        .brand-text strong {
+            display: block;
+            font-size: 17px;
+            letter-spacing: .08em;
+        }
+        .brand-text small {
+            color: #ead9b3;
+            font-size: 11px;
+            letter-spacing: .12em;
+            text-transform: uppercase;
+        }
+        .nav {
             display: flex;
             align-items: center;
-            justify-content: center;
+            gap: 22px;
+        }
+        .nav a {
+            color: rgba(255, 255, 255, .9);
+            font-size: 14px;
+            font-weight: 600;
+            transition: color 0.2s;
+        }
+        .nav a:hover {
+            color: white;
+        }
+        .nav-register {
+            background: var(--gold);
+            padding: 10px 17px;
+            border-radius: 9px;
+        }
+
+        /* ===== HERO ===== */
+        .hero {
+            background: linear-gradient(135deg, rgba(23, 63, 53, .98), rgba(14, 44, 37, .94));
+            color: white;
+            padding: 50px 0 60px;
+        }
+        .hero-content {
+            text-align: center;
+        }
+        .eyebrow {
+            color: #e8c56d;
+            text-transform: uppercase;
+            letter-spacing: .15em;
+            font-size: 12px;
             font-weight: 800;
+            margin-bottom: 12px;
+        }
+        .hero h1 {
+            margin: 0 0 12px;
+            font-size: clamp(28px, 4vw, 38px);
+            line-height: 1.08;
+        }
+        .hero p {
+            max-width: 580px;
+            margin: 0 auto;
+            color: rgba(255, 255, 255, .82);
             font-size: 17px;
         }
 
-        .brand-text strong { display: block; font-size: 18px; }
-        .brand-text span { display: block; font-size: 12px; opacity: .85; }
+        /* ===== MAIN ===== */
+        .main {
+            padding: 40px 0 80px;
+        }
 
+        /* ===== CARD ===== */
+        .card {
+            background: var(--white);
+            border-radius: var(--radius);
+            box-shadow: var(--shadow);
+            border: 1px solid var(--border);
+            padding: 32px;
+            margin-bottom: 24px;
+        }
+
+        /* ===== STATUS STEPS ===== */
+        .status-steps {
+            display: flex;
+            justify-content: space-between;
+            margin: 0 0 28px;
+            position: relative;
+            padding: 0 10px;
+        }
+        .status-steps::before {
+            content: '';
+            position: absolute;
+            top: 16px;
+            left: 12%;
+            right: 12%;
+            height: 2px;
+            background: var(--border);
+            z-index: 0;
+        }
+        .status-step {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 6px;
+            position: relative;
+            z-index: 1;
+            flex: 1;
+        }
+        .status-step .circle {
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            background: var(--border);
+            display: grid;
+            place-items: center;
+            font-size: 13px;
+            font-weight: 800;
+            color: white;
+            transition: all 0.4s ease;
+        }
+        .status-step .circle.active {
+            background: var(--gold);
+            box-shadow: 0 0 0 4px rgba(201, 154, 62, .2);
+        }
+        .status-step .circle.completed {
+            background: var(--success);
+        }
+        .status-step .circle.error {
+            background: var(--danger);
+        }
+        .status-step .label {
+            font-size: 11px;
+            color: var(--muted);
+            text-align: center;
+            font-weight: 600;
+            transition: color 0.3s;
+        }
+        .status-step .label.active {
+            color: var(--primary);
+        }
+
+        /* ===== SUMMARY ===== */
+        .summary {
+            background: #f6f8f6;
+            border-radius: 12px;
+            padding: 20px 24px;
+            margin-bottom: 24px;
+        }
+        .summary-row {
+            display: flex;
+            justify-content: space-between;
+            padding: 10px 0;
+            border-bottom: 1px solid var(--border);
+            gap: 15px;
+        }
+        .summary-row:last-child {
+            border-bottom: 0;
+        }
+        .summary-row .label {
+            color: var(--muted);
+            font-size: 14px;
+        }
+        .summary-row .value {
+            font-weight: 600;
+            font-size: 15px;
+            text-align: right;
+            word-break: break-word;
+        }
+        .summary-row.total {
+            padding-top: 14px;
+            margin-top: 6px;
+            border-top: 2px solid var(--primary);
+        }
+        .summary-row.total .value {
+            font-size: 24px;
+            font-weight: 800;
+            color: var(--primary);
+        }
+
+        /* ===== MPESA BADGE ===== */
+        .mpesa-badge {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            background: #f0f7f4;
+            border: 1px solid #c5dcd0;
+            border-radius: 10px;
+            padding: 12px 16px;
+            margin-bottom: 24px;
+            font-size: 14px;
+            color: var(--primary);
+        }
+        .mpesa-badge .icon {
+            font-size: 24px;
+            flex-shrink: 0;
+        }
+
+        /* ===== FORM ===== */
+        .form-group {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+            margin-bottom: 20px;
+        }
+        label {
+            font-size: 13px;
+            font-weight: 700;
+            color: #34423e;
+        }
+        label .required {
+            color: var(--danger);
+        }
+        input {
+            width: 100%;
+            border: 1px solid var(--border);
+            background: white;
+            border-radius: 9px;
+            padding: 13px 14px;
+            outline: none;
+            color: var(--text);
+            font-size: 15px;
+            transition: 0.2s;
+        }
+        input:focus {
+            border-color: var(--gold);
+            box-shadow: 0 0 0 3px rgba(201, 154, 62, .12);
+        }
+        input:disabled {
+            background: #f5f7f6;
+            cursor: not-allowed;
+        }
+        input.input-error {
+            border-color: var(--danger);
+            box-shadow: 0 0 0 3px rgba(192, 57, 43, .10);
+        }
+        .help-text {
+            font-size: 12px;
+            color: var(--muted);
+        }
+        .error-text {
+            font-size: 12px;
+            color: var(--danger);
+            display: none;
+        }
+        .error-text.show {
+            display: block;
+        }
+
+        /* ===== BUTTONS ===== */
         .btn {
             border: 0;
-            border-radius: 7px;
-            padding: 11px 17px;
-            font-weight: 600;
+            border-radius: 9px;
+            padding: 13px 20px;
             cursor: pointer;
-            text-decoration: none;
+            font-weight: 800;
+            transition: .2s;
             display: inline-flex;
             align-items: center;
             justify-content: center;
-            gap: 7px;
-            font-size: 14px;
-            transition: all 0.2s;
-            width: 100%;
+            gap: 10px;
+            font-size: 15px;
         }
-
-        .btn:hover {
-            transform: translateY(-1px);
-            box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+        .btn:hover:not(:disabled) {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 20px rgba(0, 0, 0, .12);
         }
-
-        .btn-outline-light {
-            background: transparent;
-            color: white;
-            border: 2px solid rgba(255,255,255,0.3);
-        }
-
-        .btn-outline-light:hover {
-            background: rgba(255,255,255,0.1);
-            border-color: white;
-        }
-
-        .btn-success {
-            background: var(--success);
-            color: white;
-        }
-
         .btn:disabled {
             opacity: .55;
             cursor: not-allowed;
             transform: none !important;
         }
-
-        /* CONTENT */
-        .container {
-            width: min(560px, calc(100% - 32px));
-            margin: 50px auto 60px;
+        .btn-primary {
+            background: var(--primary);
+            color: white;
         }
-
-        .page-title { margin-bottom: 22px; text-align: center; }
-        .page-title h1 { margin: 0 0 7px; font-size: 27px; }
-        .page-title p { margin: 0; color: var(--muted); }
-
-        /* CARD */
-        .card {
-            background: white;
-            border: 1px solid var(--border);
-            border-radius: 12px;
-            padding: 28px;
-            margin-bottom: 20px;
-            box-shadow: 0 2px 7px rgba(0,0,0,.04);
+        .btn-primary:hover:not(:disabled) {
+            background: var(--primary-dark);
         }
-
-        /* SUMMARY */
-        .summary {
-            background: #f7faf8;
-            border: 1px solid #dbe9e2;
-            border-radius: 10px;
-            padding: 20px;
-            margin-bottom: 24px;
+        .btn-gold {
+            background: var(--gold);
+            color: white;
         }
-
-        .summary-row {
-            display: flex;
-            justify-content: space-between;
-            padding: 9px 0;
-            border-bottom: 1px solid #e2e9e5;
+        .btn-gold:hover:not(:disabled) {
+            background: var(--gold-dark);
         }
-
-        .summary-row:last-child { border-bottom: 0; }
-
-        .summary-row span { color: var(--muted); font-size: 14px; }
-        .summary-row strong { font-size: 15px; }
-
-        .summary-row.total strong {
-            font-size: 22px;
-            font-weight: 800;
+        .btn-secondary {
+            background: #eef2f0;
             color: var(--primary);
         }
-
-        /* FORM */
-        .form-group { display: flex; flex-direction: column; margin-bottom: 18px; }
-
-        label {
-            font-size: 13px;
-            font-weight: 700;
-            margin-bottom: 7px;
+        .btn-secondary:hover:not(:disabled) {
+            background: #dfe6e3;
+        }
+        .btn-success {
+            background: var(--success);
+            color: white;
+        }
+        .btn-success:hover:not(:disabled) {
+            background: #146c43;
         }
 
-        input {
-            width: 100%;
-            border: 1px solid #cfd6da;
-            border-radius: 7px;
-            padding: 13px 14px;
-            font-size: 15px;
-            outline: none;
-            background: white;
-            color: var(--text);
-            transition: border-color 0.2s;
+        .button-row {
+            display: flex;
+            gap: 12px;
+            margin-top: 8px;
+        }
+        .button-row .btn {
+            flex: 1;
         }
 
-        input:focus {
-            border-color: var(--primary);
-            box-shadow: 0 0 0 3px rgba(11,93,59,.08);
-        }
-
-        input:disabled {
-            background: #f5f5f5;
-            cursor: not-allowed;
-        }
-
-        .help-text {
-            color: var(--muted);
-            font-size: 12px;
-            margin-top: 5px;
-        }
-
-        /* ALERT */
+        /* ===== ALERTS ===== */
         .alert {
             display: none;
+            border-radius: 10px;
             padding: 13px 15px;
-            border-radius: 7px;
-            margin-bottom: 18px;
-            font-size: 14px;
-        }
-
-        .alert.show { display: block; }
-
-        .alert.error {
-            background: #fff0f0;
-            border: 1px solid #f1b5b5;
-            color: #9f1239;
-        }
-
-        .alert.success {
-            background: #effaf3;
-            border: 1px solid #b9dfc7;
-            color: #166534;
-        }
-
-        .mpesa-badge {
-            display: flex;
-            align-items: center;
-            gap: 10px;
-            background: #effaf3;
-            border: 1px solid #b9dfc7;
-            border-radius: 8px;
-            padding: 10px 14px;
             margin-bottom: 20px;
+            font-size: 14px;
+            font-weight: 600;
+        }
+        .alert.show {
+            display: block;
+        }
+        .alert.success {
+            background: #eaf7ef;
+            color: #17683d;
+            border: 1px solid #bce5cc;
+        }
+        .alert.error {
+            background: #fcebea;
+            color: #922b21;
+            border: 1px solid #f0c4bf;
+        }
+        .alert.warning {
+            background: #fff7df;
+            color: #8a6116;
+            border: 1px solid #ead49a;
+        }
+        .alert.info {
+            background: #edf5fa;
+            color: #245b79;
+            border: 1px solid #c5deec;
+        }
+
+        /* ===== LOADING ===== */
+        .spinner {
+            display: inline-block;
+            width: 19px;
+            height: 19px;
+            border: 3px solid rgba(255, 255, 255, .3);
+            border-top-color: white;
+            border-radius: 50%;
+            animation: spin .8s linear infinite;
+        }
+        .spinner-dark {
+            border-color: #dce4e0;
+            border-top-color: var(--primary);
+        }
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        /* ===== PROCESSING CARD ===== */
+        .processing-content {
+            text-align: center;
+            padding: 20px 0;
+        }
+        .processing-content .big-spinner {
+            width: 48px;
+            height: 48px;
+            border: 4px solid #dce4e0;
+            border-top-color: var(--primary);
+            border-radius: 50%;
+            animation: spin .8s linear infinite;
+            margin: 0 auto 16px;
+        }
+        .processing-content h3 {
+            margin: 0 0 8px;
+            font-size: 20px;
+        }
+        .processing-content p {
+            color: var(--muted);
+            margin: 0 0 20px;
+        }
+
+        /* ===== SUCCESS CARD ===== */
+        .success-content {
+            text-align: center;
+            padding: 10px 0;
+        }
+        .success-content .checkmark {
+            font-size: 56px;
+            margin-bottom: 12px;
+        }
+        .success-content h2 {
+            color: var(--success);
+            margin: 0 0 8px;
+        }
+        .success-content .subtitle {
+            color: var(--muted);
+            margin: 0 0 16px;
+        }
+        .success-details {
+            background: #f6f8f6;
+            border-radius: 10px;
+            padding: 16px 20px;
+            margin: 16px 0 20px;
+            text-align: left;
+        }
+        .success-details .detail-row {
+            display: flex;
+            justify-content: space-between;
+            padding: 6px 0;
+            gap: 15px;
+        }
+        .success-details .detail-row .detail-label {
+            color: var(--muted);
             font-size: 13px;
-            color: #166534;
+        }
+        .success-details .detail-row .detail-value {
+            font-weight: 600;
+            font-size: 14px;
+            text-align: right;
+            word-break: break-word;
+        }
+
+        /* ===== FOOTER ===== */
+        footer {
+            background: var(--primary-dark);
+            color: rgba(255, 255, 255, .8);
+            padding: 35px 0;
+        }
+        .footer-inner {
+            display: flex;
+            justify-content: space-between;
+            gap: 20px;
+            align-items: center;
+            font-size: 13px;
         }
 
         .footer-links {
             text-align: center;
             font-size: 13px;
             color: var(--muted);
+            margin-top: 8px;
         }
-
         .footer-links a {
             color: var(--primary);
             font-weight: 600;
             text-decoration: none;
         }
+        .footer-links a:hover {
+            text-decoration: underline;
+        }
 
-        @media (max-width: 600px) {
-            .topbar {
-                padding: 12px 15px;
-                flex-direction: column;
-                align-items: stretch;
+        /* ===== RESPONSIVE ===== */
+        @media (max-width: 650px) {
+            .nav {
+                display: none;
             }
-            .brand { justify-content: center; }
-            .card { padding: 20px; }
+            .card {
+                padding: 20px;
+            }
+            .summary {
+                padding: 16px;
+            }
+            .summary-row.total .value {
+                font-size: 20px;
+            }
+            .button-row {
+                flex-direction: column;
+            }
+            .button-row .btn {
+                width: 100%;
+            }
+            .status-steps {
+                flex-direction: column;
+                gap: 12px;
+                align-items: flex-start;
+                padding: 0;
+            }
+            .status-steps::before {
+                display: none;
+            }
+            .status-step {
+                flex-direction: row;
+                width: 100%;
+                gap: 12px;
+            }
+            .status-step .circle {
+                width: 28px;
+                height: 28px;
+                font-size: 11px;
+            }
+            .hero {
+                padding: 35px 0 45px;
+            }
+            .footer-inner {
+                flex-direction: column;
+                text-align: center;
+            }
+        }
+
+        @media (max-width: 480px) {
+            .header-inner {
+                min-height: 64px;
+            }
+            .brand-text strong {
+                font-size: 14px;
+            }
+            .brand-text small {
+                font-size: 10px;
+            }
+            .brand-mark {
+                width: 36px;
+                height: 36px;
+                font-size: 18px;
+            }
+            .card {
+                padding: 16px;
+            }
+            .summary {
+                padding: 12px 14px;
+            }
+            .summary-row {
+                padding: 6px 0;
+                font-size: 13px;
+            }
+            .summary-row.total .value {
+                font-size: 18px;
+            }
+            .mpesa-badge {
+                font-size: 13px;
+                padding: 10px 12px;
+            }
+            .mpesa-badge .icon {
+                font-size: 20px;
+            }
+            .success-content .checkmark {
+                font-size: 40px;
+            }
         }
     </style>
 </head>
 
 <body>
 
-<div class="page-wrapper">
-
-    <!-- HEADER -->
-    <header class="topbar">
-        <div class="brand">
-            <div class="brand-logo">MB</div>
-            <div class="brand-text">
-                <strong>Masika Benevolent</strong>
-                <span>Membership Management System</span>
-            </div>
+    <!-- ===== HEADER ===== -->
+    <header class="site-header">
+        <div class="container header-inner">
+            <a href="index.html" class="brand">
+                <img src="assets/branding/favicon.svg" alt="Masika Benevolent" class="brand-mark" />
+                <span class="brand-text">
+                    <strong>MASIKA</strong>
+                    <small>Benevolent</small>
+                </span>
+            </a>
+            <nav class="nav">
+                <a href="index.html">Home</a>
+                <a href="plans.html">Plans</a>
+                <a href="login.html">Staff Login</a>
+                <a href="register.html" class="nav-register">Register</a>
+            </nav>
         </div>
     </header>
 
-    <main class="container">
-
-        <div class="page-title">
-            <h1>Complete Your Payment</h1>
-            <p>Confirm your details and pay the registration fee via M-Pesa.</p>
+    <!-- ===== HERO ===== -->
+    <section class="hero">
+        <div class="container">
+            <div class="hero-content">
+                <div class="eyebrow">Secure Payment</div>
+                <h1>Complete Your Registration</h1>
+                <p>Confirm your details and pay the registration fee via M-Pesa.</p>
+            </div>
         </div>
+    </section>
 
-        <div id="paymentError" class="alert error"></div>
-        <div id="paymentSuccess" class="alert success"></div>
+    <!-- ===== MAIN ===== -->
+    <main class="main">
+        <div class="container">
 
-        <div class="card">
-
-            <div class="summary">
-                <div class="summary-row">
-                    <span>Member</span>
-                    <strong id="memberName">Loading…</strong>
+            <!-- Status Steps -->
+            <div class="status-steps" id="statusSteps">
+                <div class="status-step">
+                    <div class="circle active" id="step1Circle">1</div>
+                    <span class="label active" id="step1Label">Confirm</span>
                 </div>
-                <div class="summary-row">
-                    <span>Member Number</span>
-                    <strong id="memberNumber">Loading…</strong>
+                <div class="status-step">
+                    <div class="circle" id="step2Circle">2</div>
+                    <span class="label" id="step2Label">Pay</span>
                 </div>
-                <div class="summary-row total">
-                    <span>Amount to Pay</span>
-                    <strong id="paymentAmount" data-payment-amount>Loading…</strong>
+                <div class="status-step">
+                    <div class="circle" id="step3Circle">3</div>
+                    <span class="label" id="step3Label">Verify</span>
+                </div>
+                <div class="status-step">
+                    <div class="circle" id="step4Circle">4</div>
+                    <span class="label" id="step4Label">Complete</span>
                 </div>
             </div>
 
-            <div class="mpesa-badge">
-                📱 You'll receive an M-Pesa STK push prompt on this number.
-            </div>
+            <!-- Alert -->
+            <div id="alertBox" class="alert"></div>
 
-            <form id="paymentForm">
-                <div class="form-group">
-                    <label for="mpesaPhone">M-Pesa Phone Number <span style="color:var(--danger);">*</span></label>
-                    <input type="tel" id="mpesaPhone" name="phone" placeholder="e.g. 0712345678" autocomplete="tel" required>
-                    <span class="help-text">Enter the phone number registered with M-Pesa.</span>
+            <!-- ===== PAYMENT CARD ===== -->
+            <div class="card" id="paymentCard">
+                <div class="summary">
+                    <div class="summary-row">
+                        <span class="label">Member</span>
+                        <span class="value" id="memberName">Loading…</span>
+                    </div>
+                    <div class="summary-row">
+                        <span class="label">Member Number</span>
+                        <span class="value" id="memberNumber">Loading…</span>
+                    </div>
+                    <div class="summary-row">
+                        <span class="label">Registration Type</span>
+                        <span class="value" id="registrationType">Individual</span>
+                    </div>
+                    <div class="summary-row">
+                        <span class="label">Plan</span>
+                        <span class="value" id="memberPlan">—</span>
+                    </div>
+                    <div class="summary-row total">
+                        <span class="label">Amount to Pay</span>
+                        <span class="value" id="paymentAmount">KES 0</span>
+                    </div>
                 </div>
 
-                <button type="submit" class="btn btn-success" id="payNowBtn" disabled>
-                    Pay Now
-                </button>
-            </form>
+                <div class="mpesa-badge">
+                    <span class="icon">📱</span>
+                    <span>You'll receive an M-Pesa STK push prompt on the phone number you enter below.</span>
+                </div>
+
+                <form id="paymentForm" novalidate>
+                    <div class="form-group">
+                        <label for="mpesaPhone">M-Pesa Phone Number <span class="required">*</span></label>
+                        <input 
+                            type="tel" 
+                            id="mpesaPhone" 
+                            name="phone" 
+                            placeholder="e.g. 0712345678" 
+                            autocomplete="tel"
+                            required
+                            maxlength="12"
+                        />
+                        <span class="help-text">Enter the phone number registered with M-Pesa (e.g., 0712345678 or 254712345678).</span>
+                        <span class="error-text" id="phoneError">Please enter a valid M-Pesa phone number.</span>
+                    </div>
+
+                    <div class="button-row">
+                        <button type="button" id="backBtn" class="btn btn-secondary">Back</button>
+                        <button type="submit" id="payNowBtn" class="btn btn-gold" disabled>
+                            Pay Now
+                        </button>
+                    </div>
+                </form>
+            </div>
+
+            <!-- ===== PROCESSING CARD ===== -->
+            <div class="card" id="processingCard" style="display:none;">
+                <div class="processing-content">
+                    <div class="big-spinner"></div>
+                    <h3 id="processingTitle">Processing Payment</h3>
+                    <p id="processingMessage">Please check your phone for the M-Pesa STK push prompt.</p>
+                    <button type="button" id="cancelPaymentBtn" class="btn btn-secondary">Cancel</button>
+                </div>
+            </div>
+
+            <!-- ===== SUCCESS CARD ===== -->
+            <div class="card" id="successCard" style="display:none; border-color: var(--success);">
+                <div class="success-content">
+                    <div class="checkmark">✅</div>
+                    <h2>Payment Successful!</h2>
+                    <p class="subtitle">Your registration has been finalized.</p>
+
+                    <div class="success-details">
+                        <div class="detail-row">
+                            <span class="detail-label">Member Number</span>
+                            <span class="detail-value" id="successMemberNumber">—</span>
+                        </div>
+                        <div class="detail-row">
+                            <span class="detail-label">Transaction ID</span>
+                            <span class="detail-value" id="successTransactionId">—</span>
+                        </div>
+                        <div class="detail-row">
+                            <span class="detail-label">Amount Paid</span>
+                            <span class="detail-value" id="successAmount">—</span>
+                        </div>
+                    </div>
+
+                    <div class="button-row">
+                        <a href="#" class="btn btn-primary" id="viewMemberBtn">View Details</a>
+                        <a href="index.html" class="btn btn-secondary">Return Home</a>
+                    </div>
+                </div>
+            </div>
+
+            <p class="footer-links">
+                Having trouble? <a href="index.html">Return home</a> or <a href="mailto:support@masika.co.ke">contact support</a>.
+            </p>
+
         </div>
-
-        <p class="footer-links">
-            Having trouble? <a href="index.html">Return home</a> or contact support.
-        </p>
-
     </main>
-</div>
 
-<script src="js/payment.js"></script>
+    <!-- ===== FOOTER ===== -->
+    <footer>
+        <div class="container footer-inner">
+            <div>© <span id="year"></span> Masika Benevolent. All rights reserved.</div>
+            <div>Dignity. Support. Together.</div>
+        </div>
+    </footer>
 
-<script>
+    <script>
     // ============================================================
-    // AUTHORITATIVE AMOUNT LOADER
-    //
-    // WHY THIS EXISTS:
-    // payment.js's own loadRegistrationPayment() trusts whatever is
-    // sitting in sessionStorage["registrationResult"]. sessionStorage
-    // persists for the whole browser tab/session, not just one
-    // registration. If this tab was ever used for an earlier
-    // registration attempt (including a failed/test one, or someone
-    // else's registration on a shared machine) that left a stale or
-    // malformed registrationResult behind, every payment page opened
-    // afterwards in that tab silently displayed that stale data --
-    // most commonly surfacing as "KES 0" even though the real fee in
-    // the database was correct the whole time.
-    //
-    // Money-relevant values should never be trusted from client
-    // storage alone. This script ALWAYS re-fetches the member and
-    // their pending registration payment straight from Supabase using
-    // only the member_id in the URL, and OVERWRITES whatever payment.js
-    // set from sessionStorage -- both on screen and in
-    // window.registrationPaymentAmount (which is what payment.js's
-    // handlePayment() actually charges when "Pay Now" is clicked).
-    //
-    // sessionStorage is still used for ONE thing: prefilling the
-    // M-Pesa phone field for convenience, since that's not
-    // security/money sensitive.
+    // COMPLETE PAYMENT HANDLER - ALIGNED WITH REGISTER.HTML
     // ============================================================
 
-    document.addEventListener("DOMContentLoaded", async () => {
-        const payNowBtn = document.getElementById("payNowBtn");
-        const nameEl = document.getElementById("memberName");
-        const numberEl = document.getElementById("memberNumber");
-        const errEl = document.getElementById("paymentError");
-        const phoneInput = document.getElementById("mpesaPhone");
+    (function() {
+        'use strict';
 
-        // Convenience-only prefill, never used for the amount.
-        const sessionPhone = sessionStorage.getItem("newMemberPhone");
-        if (sessionPhone && !phoneInput.value) {
-            phoneInput.value = sessionPhone;
+        // ===== CONFIGURATION =====
+        const API_BASE_URL = "https://masika-c921.onrender.com";
+        const CONFIG = {
+            API: API_BASE_URL,
+            REQUEST_TIMEOUT: 60000,
+            POLL_INTERVAL: 2000,
+            MAX_POLL_ATTEMPTS: 60,
+        };
+
+        // ===== DOM REFS =====
+        const $ = id => document.getElementById(id);
+        const el = {
+            alertBox: $('alertBox'),
+            paymentCard: $('paymentCard'),
+            processingCard: $('processingCard'),
+            successCard: $('successCard'),
+            memberName: $('memberName'),
+            memberNumber: $('memberNumber'),
+            memberPlan: $('memberPlan'),
+            registrationType: $('registrationType'),
+            paymentAmount: $('paymentAmount'),
+            mpesaPhone: $('mpesaPhone'),
+            phoneError: $('phoneError'),
+            payNowBtn: $('payNowBtn'),
+            backBtn: $('backBtn'),
+            cancelPaymentBtn: $('cancelPaymentBtn'),
+            processingTitle: $('processingTitle'),
+            processingMessage: $('processingMessage'),
+            successMemberNumber: $('successMemberNumber'),
+            successTransactionId: $('successTransactionId'),
+            successAmount: $('successAmount'),
+            viewMemberBtn: $('viewMemberBtn'),
+            year: $('year'),
+            step1Circle: $('step1Circle'),
+            step2Circle: $('step2Circle'),
+            step3Circle: $('step3Circle'),
+            step4Circle: $('step4Circle'),
+            step1Label: $('step1Label'),
+            step2Label: $('step2Label'),
+            step3Label: $('step3Label'),
+            step4Label: $('step4Label'),
+        };
+
+        // ===== STATE =====
+        const state = {
+            memberId: null,
+            groupId: null,
+            isChama: false,
+            amount: 0,
+            memberData: null,
+            transactionId: null,
+            isProcessing: false,
+            pollInterval: null,
+            pollAttempts: 0,
+        };
+
+        // ===== UTILITY =====
+        function showAlert(message, type = 'info') {
+            el.alertBox.textContent = message;
+            el.alertBox.className = `alert ${type} show`;
         }
 
-        const params = new URLSearchParams(window.location.search);
-        const memberId = params.get("member_id");
-
-        if (!memberId) {
-            nameEl.textContent = "—";
-            numberEl.textContent = "—";
-            document.getElementById("paymentAmount").textContent = "KES 0";
-            errEl.textContent = "No member specified. Please restart registration.";
-            errEl.classList.add("show");
-            return;
+        function clearAlert() {
+            el.alertBox.textContent = '';
+            el.alertBox.className = 'alert';
         }
 
-        if (!window.supabaseClient) {
-            errEl.textContent = "Could not connect to the database. Please refresh the page.";
-            errEl.classList.add("show");
-            return;
+        function normalizePhone(phone) {
+            let value = String(phone || '').replace(/\s+/g, '').replace(/-/g, '');
+            if (!value) return '';
+            if (value.startsWith('+254')) value = value.substring(1);
+            if (value.startsWith('0')) value = '254' + value.substring(1);
+            if (value.startsWith('01')) value = '254' + value.substring(1);
+            return value;
         }
 
-        try {
-            const { data: member, error: memberError } = await window.supabaseClient
-                .from("members")
-                .select("id, full_name, first_name, last_name, member_number")
-                .eq("id", memberId)
-                .single();
+        function validatePhone(phone) {
+            const normalized = normalizePhone(phone);
+            return /^254\d{9}$/.test(normalized);
+        }
 
-            if (memberError) throw memberError;
+        function formatMoney(amount) {
+            const num = Number(amount || 0);
+            return 'KES ' + num.toLocaleString('en-KE', { 
+                minimumFractionDigits: 0, 
+                maximumFractionDigits: 0 
+            });
+        }
 
-            const fullName = member.full_name
-                || [member.first_name, member.last_name].filter(Boolean).join(" ")
-                || "Member";
+        function sleep(ms) {
+            return new Promise(resolve => setTimeout(resolve, ms));
+        }
 
-            // member_number is the canonical, actually-used member ID
-            // throughout the rest of the app (register.html, main.py,
-            // members.html, member-details.html). membership_number is a
-            // separate, unrelated column populated by an unrelated DB
-            // trigger and is not used anywhere else -- so it must never be
-            // shown here even if present on the row.
-            nameEl.textContent = fullName;
-            numberEl.textContent = member.member_number || "—";
+        function updateStep(step, status) {
+            const circleMap = { 1: el.step1Circle, 2: el.step2Circle, 3: el.step3Circle, 4: el.step4Circle };
+            const labelMap = { 1: el.step1Label, 2: el.step2Label, 3: el.step3Label, 4: el.step4Label };
+            const circle = circleMap[step];
+            const label = labelMap[step];
+            if (!circle || !label) return;
 
-            const { data: paymentRow, error: paymentError } = await window.supabaseClient
-                .from("payments")
-                .select("id, amount")
-                .eq("member_id", memberId)
-                .eq("payment_type", "registration")
-                .order("created_at", { ascending: false })
-                .limit(1)
-                .maybeSingle();
+            circle.className = 'circle';
+            label.className = 'label';
 
-            if (paymentError) throw paymentError;
+            if (status === 'active') {
+                circle.classList.add('active');
+                label.classList.add('active');
+            } else if (status === 'completed') {
+                circle.classList.add('completed');
+                circle.textContent = '✓';
+            } else if (status === 'error') {
+                circle.classList.add('error');
+                circle.textContent = '✗';
+            }
+        }
 
-            if (!paymentRow || paymentRow.amount == null) {
-                document.getElementById("paymentAmount").textContent = "KES 0";
-                errEl.textContent = "Couldn't find a pending registration amount for this member. Please contact support or restart registration.";
-                errEl.classList.add("show");
+        function resetSteps() {
+            for (let i = 1; i <= 4; i++) {
+                const circleMap = { 1: el.step1Circle, 2: el.step2Circle, 3: el.step3Circle, 4: el.step4Circle };
+                const labelMap = { 1: el.step1Label, 2: el.step2Label, 3: el.step3Label, 4: el.step4Label };
+                const circle = circleMap[i];
+                const label = labelMap[i];
+                if (circle) {
+                    circle.className = 'circle';
+                    circle.textContent = i;
+                }
+                if (label) {
+                    label.className = 'label';
+                }
+            }
+            updateStep(1, 'active');
+        }
+
+        // ===== API =====
+        async function apiRequest(endpoint, options = {}) {
+            const controller = new AbortController();
+            const timer = setTimeout(() => controller.abort(), CONFIG.REQUEST_TIMEOUT);
+
+            try {
+                const response = await fetch(`${CONFIG.API}${endpoint}`, {
+                    headers: { 'Content-Type': 'application/json', ...(options.headers || {}) },
+                    signal: controller.signal,
+                    ...options
+                });
+
+                clearTimeout(timer);
+
+                let result = null;
+                const responseText = await response.text();
+                if (responseText) {
+                    try { result = JSON.parse(responseText); } catch { result = null; }
+                }
+
+                if (!response.ok) {
+                    let message = result?.error || result?.message || result?.detail;
+                    if (Array.isArray(result?.detail)) {
+                        message = result.detail.map(item => {
+                            const location = Array.isArray(item.loc) ? item.loc : [];
+                            const field = location.length > 1 ? location.slice(1).join('.') : 'field';
+                            const readableField = field.replace(/_/g, ' ').replace(/\b\w/g, char => char.toUpperCase());
+                            return `${readableField}: ${item.msg}`;
+                        }).join(' | ');
+                    }
+                    if (typeof message === 'object' && message !== null) message = JSON.stringify(message);
+                    throw new Error(message || `Server returned HTTP ${response.status}.`);
+                }
+
+                return result;
+            } catch (error) {
+                clearTimeout(timer);
+                if (error.name === 'AbortError') {
+                    throw new Error('The request took too long to respond. Please try again.');
+                }
+                throw error;
+            }
+        }
+
+        // ===== LOAD PAYMENT DATA =====
+        async function loadPaymentData() {
+            const params = new URLSearchParams(window.location.search);
+            state.memberId = params.get('member_id');
+            state.groupId = params.get('group_id');
+            state.isChama = !!state.groupId;
+
+            if (!state.memberId && !state.groupId) {
+                showAlert('No registration specified. Please restart the registration process.', 'error');
+                el.payNowBtn.disabled = true;
                 return;
             }
 
-            const amount = Number(paymentRow.amount);
-
-            // Overwrite whatever payment.js set from sessionStorage --
-            // this is now the single source of truth for both display
-            // and what gets charged on submit.
-            window.registrationPaymentAmount = amount;
-            if (typeof updatePaymentAmount === "function") {
-                updatePaymentAmount(amount);
-            } else {
-                document.getElementById("paymentAmount").textContent =
-                    "KES " + amount.toLocaleString("en-KE", { maximumFractionDigits: 0 });
+            if (!window.supabaseClient) {
+                showAlert('Could not connect to the database. Please refresh the page.', 'error');
+                el.payNowBtn.disabled = true;
+                return;
             }
 
-            // Keep sessionStorage in sync so payment.js's submit-time
-            // getStoredRegistration() (used for registration_id on the
-            // STK payload) also reflects the correct, current member.
-            sessionStorage.setItem("registrationResult", JSON.stringify({
-                id: memberId,
-                member_id: memberId,
-                member_number: member.member_number,
-                full_name: fullName,
-                amount: amount
-            }));
+            try {
+                if (state.isChama) {
+                    // Load chama data
+                    const { data: chama, error: chamaError } = await window.supabaseClient
+                        .from('chama_groups')
+                        .select('id, group_name, member_count, registration_amount, status')
+                        .eq('id', state.groupId)
+                        .single();
 
-            payNowBtn.disabled = false;
+                    if (chamaError) throw chamaError;
+                    state.memberData = chama;
+                    state.amount = Number(chama.registration_amount || 0);
 
-        } catch (err) {
-            console.error("Payment page load failed:", err);
-            document.getElementById("paymentAmount").textContent = "KES 0";
-            errEl.textContent = "Couldn't load payment details for this member. Please contact support.";
-            errEl.classList.add("show");
+                    el.memberName.textContent = chama.group_name || 'Chama Group';
+                    el.memberNumber.textContent = chama.id || '—';
+                    el.registrationType.textContent = 'Chama / Group';
+                    el.memberPlan.textContent = 'Chama';
+                } else {
+                    // Load individual member data
+                    const { data: member, error: memberError } = await window.supabaseClient
+                        .from('members')
+                        .select('id, first_name, last_name, full_name, member_number, plan_code, status')
+                        .eq('id', state.memberId)
+                        .single();
+
+                    if (memberError) throw memberError;
+                    state.memberData = member;
+
+                    const fullName = member.full_name || 
+                        [member.first_name, member.last_name].filter(Boolean).join(' ') || 'Member';
+                    el.memberName.textContent = fullName;
+                    el.memberNumber.textContent = member.member_number || '—';
+                    el.registrationType.textContent = 'Individual / Family';
+                    el.memberPlan.textContent = member.plan_code || '—';
+
+                    // Get payment amount
+                    const { data: payment, error: paymentError } = await window.supabaseClient
+                        .from('payments')
+                        .select('id, amount, status')
+                        .eq('member_id', state.memberId)
+                        .eq('payment_type', 'registration')
+                        .order('created_at', { ascending: false })
+                        .limit(1)
+                        .maybeSingle();
+
+                    if (paymentError) throw paymentError;
+                    state.amount = Number(payment?.amount || 0);
+                }
+
+                el.paymentAmount.textContent = formatMoney(state.amount);
+
+                if (state.amount <= 0) {
+                    showAlert('No payment amount found. Please contact support.', 'warning');
+                    el.payNowBtn.disabled = true;
+                    return;
+                }
+
+                // Prefill phone from session
+                const sessionPhone = sessionStorage.getItem('newMemberPhone');
+                if (sessionPhone && !el.mpesaPhone.value) {
+                    el.mpesaPhone.value = sessionPhone;
+                }
+
+                el.payNowBtn.disabled = false;
+                clearAlert();
+
+            } catch (error) {
+                console.error('Failed to load payment data:', error);
+                showAlert('Could not load payment details: ' + (error.message || 'Unknown error'), 'error');
+                el.payNowBtn.disabled = true;
+            }
         }
-    });
-</script>
+
+        // ===== INITIATE PAYMENT =====
+        async function initiatePayment() {
+            const phone = normalizePhone(el.mpesaPhone.value);
+
+            if (!validatePhone(phone)) {
+                el.phoneError.classList.add('show');
+                el.mpesaPhone.classList.add('input-error');
+                return;
+            }
+
+            el.phoneError.classList.remove('show');
+            el.mpesaPhone.classList.remove('input-error');
+
+            if (state.isProcessing) return;
+            state.isProcessing = true;
+
+            el.payNowBtn.disabled = true;
+            el.payNowBtn.innerHTML = '<span class="spinner"></span> Processing...';
+            clearAlert();
+            updateStep(2, 'active');
+
+            try {
+                const payload = {
+                    amount: state.amount,
+                    phone: phone,
+                };
+
+                if (state.isChama) {
+                    payload.group_id = state.groupId;
+                    payload.payment_type = 'chama_registration';
+                } else {
+                    payload.member_id = state.memberId;
+                    payload.payment_type = 'registration';
+                }
+
+                const result = await apiRequest('/api/public/initiate-payment', {
+                    method: 'POST',
+                    body: JSON.stringify(payload)
+                });
+
+                if (!result?.success) {
+                    throw new Error(result?.error || result?.message || 'Payment initiation failed.');
+                }
+
+                state.transactionId = result.transaction_id || result.id;
+
+                el.paymentCard.style.display = 'none';
+                el.processingCard.style.display = 'block';
+                updateStep(2, 'completed');
+                updateStep(3, 'active');
+
+                await pollPaymentStatus();
+
+            } catch (error) {
+                console.error('Payment initiation failed:', error);
+                updateStep(2, 'error');
+                showAlert('Payment initiation failed: ' + (error.message || 'Unknown error'), 'error');
+                el.payNowBtn.disabled = false;
+                el.payNowBtn.textContent = 'Pay Now';
+                state.isProcessing = false;
+            }
+        }
+
+        // ===== POLL PAYMENT STATUS =====
+        async function pollPaymentStatus() {
+            state.pollAttempts = 0;
+
+            return new Promise((resolve, reject) => {
+                state.pollInterval = setInterval(async () => {
+                    state.pollAttempts++;
+
+                    try {
+                        const result = await apiRequest(`/api/public/check-payment/${state.transactionId}`, {
+                            method: 'GET'
+                        });
+
+                        if (result?.status === 'completed' || result?.status === 'success') {
+                            clearInterval(state.pollInterval);
+                            await handlePaymentSuccess(result);
+                            resolve();
+                            return;
+                        }
+
+                        if (result?.status === 'failed' || result?.status === 'cancelled') {
+                            clearInterval(state.pollInterval);
+                            await handlePaymentFailed(result);
+                            reject(new Error('Payment failed or was cancelled.'));
+                            return;
+                        }
+
+                        if (state.pollAttempts > 10) {
+                            el.processingMessage.textContent = 
+                                `Still waiting for M-Pesa confirmation... (${Math.floor(state.pollAttempts * CONFIG.POLL_INTERVAL / 1000)}s)`;
+                        }
+
+                        if (state.pollAttempts >= CONFIG.MAX_POLL_ATTEMPTS) {
+                            clearInterval(state.pollInterval);
+                            showAlert('Payment verification timed out. Please check your M-Pesa messages.', 'warning');
+                            el.processingCard.style.display = 'none';
+                            el.paymentCard.style.display = 'block';
+                            el.payNowBtn.disabled = false;
+                            el.payNowBtn.textContent = 'Retry';
+                            state.isProcessing = false;
+                            updateStep(3, 'error');
+                            reject(new Error('Payment verification timed out.'));
+                        }
+
+                    } catch (error) {
+                        console.warn('Polling error:', error);
+                    }
+                }, CONFIG.POLL_INTERVAL);
+            });
+        }
+
+        // ===== HANDLE PAYMENT SUCCESS =====
+        async function handlePaymentSuccess(result) {
+            updateStep(3, 'completed');
+            updateStep(4, 'active');
+
+            el.processingTitle.textContent = 'Payment Confirmed!';
+            el.processingMessage.textContent = 'Your payment has been successfully processed.';
+
+            await sleep(1000);
+            el.processingCard.style.display = 'none';
+            el.successCard.style.display = 'block';
+
+            el.successMemberNumber.textContent = state.memberData?.member_number || 
+                state.memberData?.id || '—';
+            el.successTransactionId.textContent = state.transactionId || '—';
+            el.successAmount.textContent = formatMoney(state.amount);
+
+            // Clear session data
+            sessionStorage.removeItem('newMemberId');
+            sessionStorage.removeItem('newChamaGroupId');
+            sessionStorage.removeItem('registrationAmount');
+            sessionStorage.removeItem('isChamaRegistration');
+
+            // Set view link
+            if (state.isChama) {
+                el.viewMemberBtn.href = `chama-details.html?id=${state.groupId}`;
+                el.viewMemberBtn.textContent = 'View Chama Details';
+            } else {
+                el.viewMemberBtn.href = `member-details.html?id=${state.memberId}`;
+                el.viewMemberBtn.textContent = 'View Member Details';
+            }
+
+            updateStep(4, 'completed');
+            state.isProcessing = false;
+        }
+
+        // ===== HANDLE PAYMENT FAILED =====
+        async function handlePaymentFailed(result) {
+            updateStep(3, 'error');
+            showAlert('Payment failed: ' + (result?.message || 'Please try again.'), 'error');
+
+            await sleep(1500);
+            el.processingCard.style.display = 'none';
+            el.paymentCard.style.display = 'block';
+            el.payNowBtn.disabled = false;
+            el.payNowBtn.textContent = 'Retry Payment';
+            state.isProcessing = false;
+        }
+
+        // ===== CANCEL PAYMENT =====
+        function cancelPayment() {
+            if (state.pollInterval) {
+                clearInterval(state.pollInterval);
+                state.pollInterval = null;
+            }
+
+            el.processingCard.style.display = 'none';
+            el.paymentCard.style.display = 'block';
+            el.payNowBtn.disabled = false;
+            el.payNowBtn.textContent = 'Pay Now';
+            state.isProcessing = false;
+            updateStep(2, '');
+            updateStep(1, 'active');
+            showAlert('Payment was cancelled.', 'info');
+        }
+
+        // ===== VALIDATE PHONE =====
+        function validatePhoneInput() {
+            const phone = el.mpesaPhone.value;
+            if (phone.length >= 10) {
+                const isValid = validatePhone(phone);
+                if (isValid) {
+                    el.phoneError.classList.remove('show');
+                    el.mpesaPhone.classList.remove('input-error');
+                    el.payNowBtn.disabled = false;
+                } else if (phone.length >= 10) {
+                    el.phoneError.classList.add('show');
+                    el.mpesaPhone.classList.add('input-error');
+                    el.payNowBtn.disabled = true;
+                }
+            } else {
+                el.phoneError.classList.remove('show');
+                el.mpesaPhone.classList.remove('input-error');
+                el.payNowBtn.disabled = true;
+            }
+        }
+
+        // ===== INIT =====
+        document.addEventListener('DOMContentLoaded', async () => {
+            el.year.textContent = new Date().getFullYear();
+            resetSteps();
+            await loadPaymentData();
+
+            el.mpesaPhone.addEventListener('input', validatePhoneInput);
+            el.mpesaPhone.addEventListener('blur', validatePhoneInput);
+
+            el.paymentForm.addEventListener('submit', async (e) => {
+                e.preventDefault();
+                await initiatePayment();
+            });
+
+            el.backBtn.addEventListener('click', () => {
+                if (state.isChama) {
+                    window.location.href = 'register.html?mode=chama';
+                } else {
+                    window.location.href = 'register.html';
+                }
+            });
+
+            el.cancelPaymentBtn.addEventListener('click', cancelPayment);
+
+            // Prevent accidental navigation during payment
+            window.addEventListener('beforeunload', (e) => {
+                if (state.isProcessing) {
+                    e.preventDefault();
+                    e.returnValue = 'Payment is being processed. Are you sure you want to leave?';
+                }
+            });
+        });
+
+    })();
+    </script>
 
 </body>
 </html>
