@@ -1,35 +1,41 @@
 ```javascript
 // ============================================================
 // PAYMENT PAGE LOGIC — MASIKA BENEVOLENT
-// ------------------------------------------------------------
+// ============================================================
 // FastAPI payment contract:
 //
 //   POST /api/public/payment/stk-push
 //   GET  /api/public/payment/status/{checkout_request_id}
 //
-// Registration data comes from sessionStorage:
+// Individual registration session:
 //
 //   newMemberId
 //   newMemberNumber
 //   newMemberName
 //   newMemberPhone
+//   registrationAmount
+//   registrationPlan
+//   registrationPlanName
+//   registrationType
+//   isChamaRegistration
+//
+// Chama session:
+//
 //   newChamaGroupId
 //   newChamaGroupName
 //   newChamaMemberCount
 //   newChamaPhone
-//   registrationAmount
-//   isChamaRegistration
 //
 // IMPORTANT:
 // - No Daraja credentials are stored here.
 // - M-Pesa STK Push is handled by FastAPI.
 // - Frontend only communicates with the public payment API.
+// - The current FastAPI payment endpoint accepts member_id.
 // ============================================================
 
 (function () {
 
     'use strict';
-
 
     // ============================================================
     // CONFIGURATION
@@ -37,7 +43,6 @@
 
     const API_BASE_URL =
         'https://masika-c921.onrender.com';
-
 
     const CONFIG = {
         API: API_BASE_URL,
@@ -51,129 +56,90 @@
 
 
     // ============================================================
-    // DOM HELPERS
+    // BUILD MARKER
+    // ============================================================
+    // This makes it immediately obvious in the browser console
+    // whether the new payment.js has actually loaded.
+    // ============================================================
+
+    console.log(
+        'payment.js: MASIKA PAYMENT SCRIPT LOADED — FIXED BUILD 2026-09-06'
+    );
+
+
+    // ============================================================
+    // DOM HELPER
     // ============================================================
 
     const $ = id =>
         document.getElementById(id);
 
 
+    // ============================================================
+    // DOM ELEMENTS
+    // ============================================================
+
     const el = {
+        alertBox: null,
 
-        alertBox:
-            $('alertBox'),
+        paymentForm: null,
 
-        paymentForm:
-            $('paymentForm'),
+        paymentCard: null,
 
-        paymentCard:
-            $('paymentCard'),
+        processingCard: null,
 
-        processingCard:
-            $('processingCard'),
+        successCard: null,
 
-        successCard:
-            $('successCard'),
+        memberName: null,
 
+        memberNumber: null,
 
-        memberName:
-            $('memberName'),
+        memberPlan: null,
 
-        memberNumber:
-            $('memberNumber'),
+        registrationType: null,
 
-        memberPlan:
-            $('memberPlan'),
+        paymentAmount: null,
 
-        registrationType:
-            $('registrationType'),
+        mpesaPhone: null,
 
-        paymentAmount:
-            $('paymentAmount'),
+        phoneError: null,
 
+        payNowBtn: null,
 
-        mpesaPhone:
-            $('mpesaPhone'),
+        backBtn: null,
 
-        phoneError:
-            $('phoneError'),
+        cancelPaymentBtn: null,
 
-        payNowBtn:
-            $('payNowBtn'),
+        processingTitle: null,
 
-        backBtn:
-            $('backBtn'),
+        processingMessage: null,
 
-        cancelPaymentBtn:
-            $('cancelPaymentBtn'),
+        successMemberNumber: null,
 
+        successTransactionId: null,
 
-        processingTitle:
-            $('processingTitle'),
+        successAmount: null,
 
-        processingMessage:
-            $('processingMessage'),
+        viewMemberBtn: null,
 
+        year: null,
 
-        successMemberNumber:
-            $('successMemberNumber'),
+        step1Circle: null,
 
-        successTransactionId:
-            $('successTransactionId'),
+        step2Circle: null,
 
-        successAmount:
-            $('successAmount'),
+        step3Circle: null,
 
-        viewMemberBtn:
-            $('viewMemberBtn'),
+        step4Circle: null,
 
+        step1Label: null,
 
-        year:
-            $('year'),
+        step2Label: null,
 
+        step3Label: null,
 
-        step1Circle:
-            $('step1Circle'),
-
-        step2Circle:
-            $('step2Circle'),
-
-        step3Circle:
-            $('step3Circle'),
-
-        step4Circle:
-            $('step4Circle'),
-
-
-        step1Label:
-            $('step1Label'),
-
-        step2Label:
-            $('step2Label'),
-
-        step3Label:
-            $('step3Label'),
-
-        step4Label:
-            $('step4Label')
+        step4Label: null
     };
-
-
-    // ============================================================
-    // DOM VALIDATION
-    // ============================================================
-
-    Object.entries(el).forEach(
-        ([key, node]) => {
-
-            if (!node) {
-
-                console.error(
-                    `payment.js: expected element #${key} was not found in the DOM.`
-                );
-            }
-        }
-    );
 
 
     // ============================================================
@@ -182,37 +148,139 @@
 
     const state = {
 
-        memberId:
-            null,
+        initialized: false,
 
-        groupId:
-            null,
+        memberId: null,
 
-        isChama:
-            false,
+        groupId: null,
 
-        amount:
-            0,
+        isChama: false,
 
-        memberData:
-            null,
+        amount: 0,
 
-        // Safaricom CheckoutRequestID
-        checkoutRequestId:
-            null,
+        memberData: null,
 
-        paymentId:
-            null,
+        checkoutRequestId: null,
 
-        isProcessing:
-            false,
+        paymentId: null,
 
-        pollInterval:
-            null,
+        isProcessing: false,
 
-        pollAttempts:
-            0
+        pollAttempts: 0,
+
+        paymentCompleted: false
     };
+
+
+    // ============================================================
+    // LOAD DOM REFERENCES
+    // ============================================================
+
+    function loadDomReferences() {
+
+        el.alertBox =
+            $('alertBox');
+
+        el.paymentForm =
+            $('paymentForm');
+
+        el.paymentCard =
+            $('paymentCard');
+
+        el.processingCard =
+            $('processingCard');
+
+        el.successCard =
+            $('successCard');
+
+        el.memberName =
+            $('memberName');
+
+        el.memberNumber =
+            $('memberNumber');
+
+        el.memberPlan =
+            $('memberPlan');
+
+        el.registrationType =
+            $('registrationType');
+
+        el.paymentAmount =
+            $('paymentAmount');
+
+        el.mpesaPhone =
+            $('mpesaPhone');
+
+        el.phoneError =
+            $('phoneError');
+
+        el.payNowBtn =
+            $('payNowBtn');
+
+        el.backBtn =
+            $('backBtn');
+
+        el.cancelPaymentBtn =
+            $('cancelPaymentBtn');
+
+        el.processingTitle =
+            $('processingTitle');
+
+        el.processingMessage =
+            $('processingMessage');
+
+        el.successMemberNumber =
+            $('successMemberNumber');
+
+        el.successTransactionId =
+            $('successTransactionId');
+
+        el.successAmount =
+            $('successAmount');
+
+        el.viewMemberBtn =
+            $('viewMemberBtn');
+
+        el.year =
+            $('year');
+
+        el.step1Circle =
+            $('step1Circle');
+
+        el.step2Circle =
+            $('step2Circle');
+
+        el.step3Circle =
+            $('step3Circle');
+
+        el.step4Circle =
+            $('step4Circle');
+
+        el.step1Label =
+            $('step1Label');
+
+        el.step2Label =
+            $('step2Label');
+
+        el.step3Label =
+            $('step3Label');
+
+        el.step4Label =
+            $('step4Label');
+
+
+        Object.entries(el).forEach(
+            ([key, node]) => {
+
+                if (!node) {
+
+                    console.warn(
+                        `payment.js: element #${key} was not found.`
+                    );
+                }
+            }
+        );
+    }
 
 
     // ============================================================
@@ -228,10 +296,8 @@
             return;
         }
 
-
         el.alertBox.textContent =
             message;
-
 
         el.alertBox.className =
             `alert ${type} show`;
@@ -244,10 +310,8 @@
             return;
         }
 
-
         el.alertBox.textContent =
             '';
-
 
         el.alertBox.className =
             'alert';
@@ -262,6 +326,7 @@
 
         let value =
             String(phone || '')
+                .trim()
                 .replace(/\s+/g, '')
                 .replace(/-/g, '');
 
@@ -274,9 +339,7 @@
         // +254712345678
         // -> 254712345678
 
-        if (
-            value.startsWith('+254')
-        ) {
+        if (value.startsWith('+254')) {
 
             value =
                 value.substring(1);
@@ -287,7 +350,7 @@
         // -> 254712345678
 
         if (
-            value.startsWith('0')
+            /^0[71]\d{8}$/.test(value)
         ) {
 
             value =
@@ -304,7 +367,8 @@
         ) {
 
             value =
-                '254' + value;
+                '254' +
+                value;
         }
 
 
@@ -317,8 +381,7 @@
         const normalized =
             normalizePhone(phone);
 
-
-        return /^254\d{9}$/.test(
+        return /^254[17]\d{8}$/.test(
             normalized
         );
     }
@@ -355,7 +418,10 @@
 
         return new Promise(
             resolve =>
-                setTimeout(resolve, ms)
+                setTimeout(
+                    resolve,
+                    ms
+                )
         );
     }
 
@@ -376,8 +442,46 @@
             }
         }
 
-
         return undefined;
+    }
+
+
+    function getSession(key) {
+
+        try {
+
+            return sessionStorage.getItem(key);
+
+        } catch (error) {
+
+            console.error(
+                'payment.js: unable to read sessionStorage:',
+                error
+            );
+
+            return null;
+        }
+    }
+
+
+    function setSession(key, value) {
+
+        try {
+
+            sessionStorage.setItem(
+                key,
+                String(value ?? '')
+            );
+
+        } catch (error) {
+
+            console.error(
+                'payment.js: unable to write sessionStorage:',
+                error
+            );
+
+            throw error;
+        }
     }
 
 
@@ -387,17 +491,20 @@
 
     function getPaymentData(result) {
 
-        return (
-            result?.data ||
-            result ||
-            {}
-        );
+        if (
+            result &&
+            typeof result.data === 'object' &&
+            result.data !== null
+        ) {
+
+            return result.data;
+        }
+
+        return result || {};
     }
 
 
-    function extractCheckoutRequestId(
-        result
-    ) {
+    function extractCheckoutRequestId(result) {
 
         const data =
             getPaymentData(result);
@@ -411,22 +518,12 @@
 
             result?.checkout_request_id,
 
-            result?.CheckoutRequestID,
-
-            data.transaction_id,
-
-            data.transactionId,
-
-            result?.transaction_id,
-
-            result?.transactionId
+            result?.CheckoutRequestID
         );
     }
 
 
-    function extractPaymentStatus(
-        result
-    ) {
+    function extractPaymentStatus(result) {
 
         const data =
             getPaymentData(result);
@@ -441,8 +538,6 @@
 
                 data.paymentStatus,
 
-                data.result,
-
                 data.state,
 
                 result?.status,
@@ -450,8 +545,6 @@
                 result?.payment_status,
 
                 result?.paymentStatus,
-
-                result?.result,
 
                 result?.state
             );
@@ -465,9 +558,7 @@
     }
 
 
-    function extractPaymentMessage(
-        result
-    ) {
+    function extractPaymentMessage(result) {
 
         const data =
             getPaymentData(result);
@@ -492,9 +583,7 @@
     }
 
 
-    function extractReceipt(
-        result
-    ) {
+    function extractReceipt(result) {
 
         const data =
             getPaymentData(result);
@@ -521,27 +610,37 @@
     }
 
 
-    function extractAmount(
-        result
-    ) {
+    function extractAmount(result) {
 
         const data =
             getPaymentData(result);
 
 
-        return firstDefined(
+        const amount =
+            firstDefined(
 
-            data.amount,
+                data.amount,
 
-            result?.amount,
+                result?.amount,
 
-            state.amount
-        );
+                state.amount
+            );
+
+
+        const numericAmount =
+            Number(amount);
+
+
+        return Number.isFinite(
+            numericAmount
+        )
+            ? numericAmount
+            : state.amount;
     }
 
 
     // ============================================================
-    // PAYMENT STATUS DEFINITIONS
+    // PAYMENT STATUS
     // ============================================================
 
     const SUCCESS_STATUSES =
@@ -572,48 +671,32 @@
     // PAYMENT STEPS
     // ============================================================
 
-    const CIRCLES = {
-
-        1:
-            el.step1Circle,
-
-        2:
-            el.step2Circle,
-
-        3:
-            el.step3Circle,
-
-        4:
-            el.step4Circle
-    };
-
-
-    const LABELS = {
-
-        1:
-            el.step1Label,
-
-        2:
-            el.step2Label,
-
-        3:
-            el.step3Label,
-
-        4:
-            el.step4Label
-    };
-
-
     function updateStep(
         step,
         status
     ) {
 
+        const circles = {
+            1: el.step1Circle,
+            2: el.step2Circle,
+            3: el.step3Circle,
+            4: el.step4Circle
+        };
+
+
+        const labels = {
+            1: el.step1Label,
+            2: el.step2Label,
+            3: el.step3Label,
+            4: el.step4Label
+        };
+
+
         const circle =
-            CIRCLES[step];
+            circles[step];
 
         const label =
-            LABELS[step];
+            labels[step];
 
 
         if (
@@ -643,6 +726,9 @@
             label.classList.add(
                 'active'
             );
+
+            circle.textContent =
+                String(step);
         }
 
 
@@ -670,6 +756,12 @@
             circle.textContent =
                 '✗';
         }
+
+        else {
+
+            circle.textContent =
+                String(step);
+        }
     }
 
 
@@ -682,10 +774,21 @@
         ) {
 
             const circle =
-                CIRCLES[i];
+                ({
+                    1: el.step1Circle,
+                    2: el.step2Circle,
+                    3: el.step3Circle,
+                    4: el.step4Circle
+                })[i];
+
 
             const label =
-                LABELS[i];
+                ({
+                    1: el.step1Label,
+                    2: el.step2Label,
+                    3: el.step3Label,
+                    4: el.step4Label
+                })[i];
 
 
             if (circle) {
@@ -694,7 +797,7 @@
                     'circle';
 
                 circle.textContent =
-                    i;
+                    String(i);
             }
 
 
@@ -708,6 +811,11 @@
 
         updateStep(
             1,
+            'completed'
+        );
+
+        updateStep(
+            2,
             'active'
         );
     }
@@ -728,8 +836,7 @@
 
         const timer =
             setTimeout(
-                () =>
-                    controller.abort(),
+                () => controller.abort(),
                 CONFIG.REQUEST_TIMEOUT
             );
 
@@ -752,8 +859,10 @@
                         ...options,
 
                         headers: {
-
                             'Content-Type':
+                                'application/json',
+
+                            'Accept':
                                 'application/json',
 
                             ...(options.headers || {})
@@ -763,9 +872,6 @@
                             controller.signal
                     }
                 );
-
-
-            clearTimeout(timer);
 
 
             const responseText =
@@ -806,20 +912,13 @@
             );
 
 
-            // ----------------------------------------------------
-            // HTTP ERROR
-            // ----------------------------------------------------
-
             if (
                 !response.ok
             ) {
 
                 let message =
-
                     result?.error ||
-
                     result?.message ||
-
                     result?.detail;
 
 
@@ -878,7 +977,7 @@
 
                 if (
                     typeof message ===
-                        'object' &&
+                    'object' &&
                     message !== null
                 ) {
 
@@ -887,13 +986,6 @@
                             message
                         );
                 }
-
-
-                console.error(
-                    `payment.js: ${endpoint} returned HTTP ${response.status}:`,
-                    result ||
-                    responseText
-                );
 
 
                 throw new Error(
@@ -910,9 +1002,6 @@
         }
 
         catch (error) {
-
-            clearTimeout(timer);
-
 
             if (
                 error.name ===
@@ -932,6 +1021,14 @@
 
 
             throw error;
+
+        }
+
+        finally {
+
+            clearTimeout(
+                timer
+            );
         }
     }
 
@@ -940,7 +1037,7 @@
     // LOAD PAYMENT DATA
     // ============================================================
 
-    async function loadPaymentData() {
+    function loadPaymentData() {
 
         console.log(
             'payment.js: loading payment data...'
@@ -954,26 +1051,44 @@
 
 
         // --------------------------------------------------------
-        // MEMBER / GROUP
+        // MEMBER ID
         // --------------------------------------------------------
 
         state.memberId =
             params.get('member_id') ||
-            sessionStorage.getItem(
-                'newMemberId'
-            );
+            getSession('newMemberId');
 
+
+        // --------------------------------------------------------
+        // CHAMA ID
+        // --------------------------------------------------------
 
         state.groupId =
             params.get('group_id') ||
-            sessionStorage.getItem(
-                'newChamaGroupId'
-            );
+            getSession('newChamaGroupId');
+
+
+        // --------------------------------------------------------
+        // DETERMINE REGISTRATION TYPE
+        // --------------------------------------------------------
+
+        const storedChamaFlag =
+            String(
+                getSession(
+                    'isChamaRegistration'
+                ) || ''
+            ).toLowerCase();
 
 
         state.isChama =
-            !!state.groupId &&
-            !state.memberId;
+            (
+                storedChamaFlag === 'true' ||
+                storedChamaFlag === '1' ||
+                (
+                    !!state.groupId &&
+                    !state.memberId
+                )
+            );
 
 
         console.log(
@@ -991,213 +1106,136 @@
         );
 
 
+        // ========================================================
+        // INDIVIDUAL REGISTRATION
+        // ========================================================
+
         if (
-            !state.memberId &&
-            !state.groupId
+            state.memberId
         ) {
 
-            showAlert(
-                'No registration specified. Please restart the registration process.',
-                'error'
-            );
+            const memberNumber =
+                getSession(
+                    'newMemberNumber'
+                ) || 'Pending';
 
 
-            if (el.payNowBtn) {
-                el.payNowBtn.disabled =
-                    true;
-            }
+            const memberName =
+                getSession(
+                    'newMemberName'
+                ) || 'Member';
 
 
-            return;
-        }
+            const memberPhone =
+                getSession(
+                    'newMemberPhone'
+                ) || '';
 
 
-        // --------------------------------------------------------
-        // SESSION DATA
-        // --------------------------------------------------------
+            const planCode =
+                getSession(
+                    'registrationPlan'
+                ) || '';
 
-        try {
+
+            const planName =
+                getSession(
+                    'registrationPlanName'
+                ) ||
+                planCode ||
+                '—';
+
+
+            const registrationType =
+                getSession(
+                    'registrationType'
+                ) ||
+                'Individual';
+
 
             const storedAmount =
                 Number(
-                    sessionStorage.getItem(
+                    getSession(
                         'registrationAmount'
                     ) || 0
                 );
 
 
-            const storedMemberNumber =
-                sessionStorage.getItem(
-                    'newMemberNumber'
-                ) || '';
-
-
-            const storedMemberName =
-                sessionStorage.getItem(
-                    'newMemberName'
-                ) || '';
-
-
-            const storedMemberPhone =
-                sessionStorage.getItem(
-                    'newMemberPhone'
-                ) || '';
-
-
-            const storedGroupName =
-                sessionStorage.getItem(
-                    'newChamaGroupName'
-                ) || '';
-
-
-            const storedGroupPhone =
-                sessionStorage.getItem(
-                    'newChamaPhone'
-                ) || '';
-
-
             state.amount =
-                storedAmount;
+                Number.isFinite(
+                    storedAmount
+                )
+                    ? storedAmount
+                    : 0;
 
 
             state.memberData = {
 
                 id:
-                    state.memberId ||
-                    state.groupId,
+                    state.memberId,
 
                 member_number:
-                    storedMemberNumber,
+                    memberNumber,
 
                 full_name:
-                    storedMemberName,
+                    memberName,
 
-                group_name:
-                    storedGroupName
+                phone:
+                    memberPhone,
+
+                plan_code:
+                    planCode,
+
+                plan_name:
+                    planName
             };
 
 
-            console.log(
-                'payment.js: session data:',
-                {
-                    amount:
-                        state.amount,
-
-                    memberNumber:
-                        storedMemberNumber,
-
-                    memberName:
-                        storedMemberName,
-
-                    memberPhone:
-                        storedMemberPhone,
-
-                    groupName:
-                        storedGroupName
-                }
-            );
-
-
             // ----------------------------------------------------
-            // CHAMA
+            // DISPLAY MEMBER
             // ----------------------------------------------------
+
+            if (el.memberName) {
+
+                el.memberName.textContent =
+                    memberName;
+            }
+
+
+            if (el.memberNumber) {
+
+                el.memberNumber.textContent =
+                    memberNumber;
+            }
+
+
+            if (el.registrationType) {
+
+                el.registrationType.textContent =
+                    registrationType;
+            }
+
+
+            if (el.memberPlan) {
+
+                el.memberPlan.textContent =
+                    planName;
+            }
+
 
             if (
-                state.isChama
+                el.mpesaPhone &&
+                memberPhone &&
+                !el.mpesaPhone.value
             ) {
 
-                if (el.memberName) {
-
-                    el.memberName.textContent =
-                        storedGroupName ||
-                        'Chama Group';
-                }
-
-
-                if (el.memberNumber) {
-
-                    el.memberNumber.textContent =
-                        state.groupId ||
-                        '—';
-                }
-
-
-                if (el.registrationType) {
-
-                    el.registrationType.textContent =
-                        'Chama / Group';
-                }
-
-
-                if (el.memberPlan) {
-
-                    el.memberPlan.textContent =
-                        'Chama';
-                }
-
-
-                if (
-                    storedGroupPhone &&
-                    el.mpesaPhone &&
-                    !el.mpesaPhone.value
-                ) {
-
-                    el.mpesaPhone.value =
-                        storedGroupPhone;
-                }
+                el.mpesaPhone.value =
+                    memberPhone;
             }
 
 
             // ----------------------------------------------------
-            // INDIVIDUAL
-            // ----------------------------------------------------
-
-            else {
-
-                if (el.memberName) {
-
-                    el.memberName.textContent =
-                        storedMemberName ||
-                        'Member';
-                }
-
-
-                if (el.memberNumber) {
-
-                    el.memberNumber.textContent =
-                        storedMemberNumber ||
-                        'Pending';
-                }
-
-
-                if (el.registrationType) {
-
-                    el.registrationType.textContent =
-                        'Individual / Family';
-                }
-
-
-                if (el.memberPlan) {
-
-                    el.memberPlan.textContent =
-                        'Registration';
-                }
-
-
-                if (
-                    storedMemberPhone &&
-                    el.mpesaPhone &&
-                    !el.mpesaPhone.value
-                ) {
-
-                    el.mpesaPhone.value =
-                        storedMemberPhone;
-                }
-            }
-
-
-            // ----------------------------------------------------
-            // AMOUNT
+            // DISPLAY AMOUNT
             // ----------------------------------------------------
 
             if (el.paymentAmount) {
@@ -1209,67 +1247,159 @@
             }
 
 
+            console.log(
+                'payment.js: individual payment data loaded:',
+                {
+                    memberId:
+                        state.memberId,
+
+                    memberNumber,
+
+                    memberName,
+
+                    memberPhone,
+
+                    planCode,
+
+                    planName,
+
+                    registrationType,
+
+                    amount:
+                        state.amount
+                }
+            );
+        }
+
+
+        // ========================================================
+        // CHAMA REGISTRATION
+        // ========================================================
+
+        else if (
+            state.isChama &&
+            state.groupId
+        ) {
+
+            const groupName =
+                getSession(
+                    'newChamaGroupName'
+                ) ||
+                'Chama Group';
+
+
+            const groupPhone =
+                getSession(
+                    'newChamaPhone'
+                ) ||
+                '';
+
+
+            const storedAmount =
+                Number(
+                    getSession(
+                        'registrationAmount'
+                    ) || 0
+                );
+
+
+            state.amount =
+                Number.isFinite(
+                    storedAmount
+                )
+                    ? storedAmount
+                    : 0;
+
+
+            state.memberData = {
+
+                id:
+                    state.groupId,
+
+                group_name:
+                    groupName,
+
+                group_id:
+                    state.groupId
+            };
+
+
+            if (el.memberName) {
+
+                el.memberName.textContent =
+                    groupName;
+            }
+
+
+            if (el.memberNumber) {
+
+                el.memberNumber.textContent =
+                    state.groupId;
+            }
+
+
+            if (el.registrationType) {
+
+                el.registrationType.textContent =
+                    'Chama / Group';
+            }
+
+
+            if (el.memberPlan) {
+
+                el.memberPlan.textContent =
+                    'Chama';
+            }
+
+
             if (
-                state.amount <= 0
+                el.mpesaPhone &&
+                groupPhone &&
+                !el.mpesaPhone.value
             ) {
 
-                console.warn(
-                    'payment.js: registrationAmount is missing or zero.'
-                );
-
-
-                showAlert(
-                    'No registration payment amount was found. Please restart registration.',
-                    'warning'
-                );
-
-
-                if (el.payNowBtn) {
-
-                    el.payNowBtn.disabled =
-                        true;
-                }
-
-
-                return;
+                el.mpesaPhone.value =
+                    groupPhone;
             }
 
 
-            // Amount exists.
+            if (el.paymentAmount) {
 
-            if (el.payNowBtn) {
-
-                el.payNowBtn.disabled =
-                    false;
+                el.paymentAmount.textContent =
+                    formatMoney(
+                        state.amount
+                    );
             }
-
-
-            clearAlert();
-
-
-            validatePhoneInput();
 
 
             console.log(
-                'payment.js: payment data loaded successfully.'
-            );
+                'payment.js: Chama payment data loaded:',
+                {
+                    groupId:
+                        state.groupId,
 
+                    groupName,
+
+                    amount:
+                        state.amount
+                }
+            );
         }
 
-        catch (error) {
+
+        // ========================================================
+        // NOTHING FOUND
+        // ========================================================
+
+        else {
 
             console.error(
-                'payment.js: failed to load payment data:',
-                error
+                'payment.js: no member or Chama registration found.'
             );
 
 
             showAlert(
-                'Could not load payment details: ' +
-                (
-                    error.message ||
-                    'Unknown error'
-                ),
+                'No registration was found. Please restart the registration process.',
                 'error'
             );
 
@@ -1279,12 +1409,84 @@
                 el.payNowBtn.disabled =
                     true;
             }
+
+
+            return;
         }
+
+
+        // ========================================================
+        // VALIDATE AMOUNT
+        // ========================================================
+
+        if (
+            state.amount <= 0
+        ) {
+
+            console.error(
+                'payment.js: invalid registration amount:',
+                state.amount
+            );
+
+
+            showAlert(
+                'No valid registration payment amount was found. Please restart registration.',
+                'warning'
+            );
+
+
+            if (el.payNowBtn) {
+
+                el.payNowBtn.disabled =
+                    true;
+            }
+
+
+            return;
+        }
+
+
+        // ========================================================
+        // ENABLE PAYMENT
+        // ========================================================
+
+        if (el.payNowBtn) {
+
+            el.payNowBtn.disabled =
+                false;
+        }
+
+
+        clearAlert();
+
+
+        validatePhoneInput();
+
+
+        console.log(
+            'payment.js: payment data loaded successfully:',
+            {
+                memberId:
+                    state.memberId,
+
+                memberNumber:
+                    state.memberData?.member_number,
+
+                amount:
+                    state.amount,
+
+                phone:
+                    el.mpesaPhone?.value,
+
+                plan:
+                    state.memberData?.plan_name
+            }
+        );
     }
 
 
     // ============================================================
-    // INITIATE STK PUSH
+    // INITIATE PAYMENT
     // ============================================================
 
     async function initiatePayment() {
@@ -1306,12 +1508,56 @@
         }
 
 
+        // ========================================================
+        // CHAMA NOT SUPPORTED BY CURRENT BACKEND
+        // ========================================================
+
+        if (
+            state.isChama
+        ) {
+
+            showAlert(
+                'Chama registration payment is not yet enabled on the current payment API.',
+                'warning'
+            );
+
+
+            console.warn(
+                'payment.js: Chama payment blocked because current FastAPI StkPushRequest requires member_id.'
+            );
+
+
+            return;
+        }
+
+
+        // ========================================================
+        // MEMBER VALIDATION
+        // ========================================================
+
+        if (
+            !state.memberId
+        ) {
+
+            showAlert(
+                'Member information is missing. Please restart registration.',
+                'error'
+            );
+
+            return;
+        }
+
+
+        // ========================================================
+        // PHONE
+        // ========================================================
+
         if (
             !el.mpesaPhone
         ) {
 
             showAlert(
-                'M-Pesa phone input was not found.',
+                'M-Pesa phone number field was not found.',
                 'error'
             );
 
@@ -1330,10 +1576,6 @@
             phone
         );
 
-
-        // --------------------------------------------------------
-        // VALIDATE PHONE
-        // --------------------------------------------------------
 
         if (
             !validatePhone(phone)
@@ -1375,27 +1617,9 @@
         );
 
 
-        // --------------------------------------------------------
-        // VALIDATE MEMBER
-        // --------------------------------------------------------
-
-        if (
-            !state.isChama &&
-            !state.memberId
-        ) {
-
-            showAlert(
-                'Member information is missing. Please restart registration.',
-                'error'
-            );
-
-            return;
-        }
-
-
-        // --------------------------------------------------------
-        // VALIDATE AMOUNT
-        // --------------------------------------------------------
+        // ========================================================
+        // AMOUNT
+        // ========================================================
 
         if (
             !state.amount ||
@@ -1411,9 +1635,9 @@
         }
 
 
-        // --------------------------------------------------------
+        // ========================================================
         // LOCK PAYMENT
-        // --------------------------------------------------------
+        // ========================================================
 
         state.isProcessing =
             true;
@@ -1423,7 +1647,6 @@
 
             el.payNowBtn.disabled =
                 true;
-
 
             el.payNowBtn.innerHTML =
                 '<span class="spinner"></span> Processing...';
@@ -1439,75 +1662,47 @@
         );
 
 
-        // --------------------------------------------------------
-        // BUILD REQUEST
-        // --------------------------------------------------------
+        // ========================================================
+        // FASTAPI PAYLOAD
+        // ========================================================
+        //
+        // IMPORTANT:
+        // Current backend StkPushRequest accepts:
+        //
+        // member_id
+        // phone
+        // amount
+        // transaction_desc
+        //
+        // Do NOT send group_id/payment_type here.
+        // ========================================================
 
         const payload = {
+
+            member_id:
+                state.memberId,
+
+            phone:
+                phone,
 
             amount:
                 state.amount,
 
-            phone:
-                phone
+            transaction_desc:
+                'Membership Registration'
         };
-
-
-        if (
-            state.isChama
-        ) {
-
-            // NOTE:
-            // The current FastAPI StkPushRequest shown earlier
-            // accepts member_id, not group_id.
-            //
-            // This branch therefore requires a corresponding
-            // Chama payment backend before Chama STK payments
-            // can work.
-
-            payload.group_id =
-                state.groupId;
-
-            payload.payment_type =
-                'chama_registration';
-
-        }
-
-        else {
-
-            payload.member_id =
-                state.memberId;
-
-            payload.payment_type =
-                'registration';
-        }
 
 
         console.log(
             'payment.js: initiating STK payment:',
-            {
-                amount:
-                    payload.amount,
-
-                member_id:
-                    payload.member_id,
-
-                group_id:
-                    payload.group_id,
-
-                payment_type:
-                    payload.payment_type,
-
-                phone:
-                    payload.phone
-            }
+            payload
         );
 
 
         try {
 
             // ====================================================
-            // FASTAPI STK PUSH ENDPOINT
+            // SEND STK REQUEST
             // ====================================================
 
             const result =
@@ -1531,9 +1726,9 @@
             );
 
 
-            // ----------------------------------------------------
-            // BACKEND FAILURE
-            // ----------------------------------------------------
+            // ====================================================
+            // BACKEND EXPLICIT FAILURE
+            // ====================================================
 
             if (
                 result?.success === false
@@ -1550,9 +1745,9 @@
             }
 
 
-            // ----------------------------------------------------
+            // ====================================================
             // CHECKOUT REQUEST ID
-            // ----------------------------------------------------
+            // ====================================================
 
             const checkoutRequestId =
                 extractCheckoutRequestId(
@@ -1571,18 +1766,20 @@
 
 
                 throw new Error(
-                    'Payment request was accepted but no M-Pesa checkout ID was returned.'
+                    'Payment request was accepted but no M-Pesa checkout ID was returned by the server.'
                 );
             }
 
 
             state.checkoutRequestId =
-                checkoutRequestId;
+                String(
+                    checkoutRequestId
+                );
 
 
-            // ----------------------------------------------------
+            // ====================================================
             // PAYMENT ID
-            // ----------------------------------------------------
+            // ====================================================
 
             const paymentData =
                 getPaymentData(
@@ -1611,9 +1808,9 @@
             );
 
 
-            // ----------------------------------------------------
-            // MEMBER NUMBER
-            // ----------------------------------------------------
+            // ====================================================
+            // MEMBER NUMBER FROM BACKEND
+            // ====================================================
 
             const memberNumberFromResult =
                 firstDefined(
@@ -1632,19 +1829,28 @@
                 memberNumberFromResult
             ) {
 
-                state.memberData = {
+                if (
+                    state.memberData
+                ) {
 
-                    ...(state.memberData || {}),
+                    state.memberData.member_number =
+                        memberNumberFromResult;
 
-                    member_number:
-                        memberNumberFromResult
-                };
+                }
+
+                if (
+                    el.memberNumber
+                ) {
+
+                    el.memberNumber.textContent =
+                        memberNumberFromResult;
+                }
             }
 
 
-            // ----------------------------------------------------
-            // SHOW PROCESSING SCREEN
-            // ----------------------------------------------------
+            // ====================================================
+            // SHOW PROCESSING CARD
+            // ====================================================
 
             if (el.paymentCard) {
 
@@ -1686,9 +1892,9 @@
             }
 
 
-            // ----------------------------------------------------
-            // POLL PAYMENT STATUS
-            // ----------------------------------------------------
+            // ====================================================
+            // POLL STATUS
+            // ====================================================
 
             await pollPaymentStatus();
 
@@ -1737,345 +1943,218 @@
     // ============================================================
     // POLL PAYMENT STATUS
     // ============================================================
+    // Uses sequential requests instead of setInterval so that
+    // requests cannot overlap.
+    // ============================================================
 
-    function pollPaymentStatus() {
+    async function pollPaymentStatus() {
 
         state.pollAttempts =
             0;
 
 
-        return new Promise(
-            (resolve, reject) => {
+        while (
+            state.pollAttempts <
+            CONFIG.MAX_POLL_ATTEMPTS
+        ) {
 
-                // Prevent duplicate polling.
+            state.pollAttempts++;
 
-                if (
-                    state.pollInterval
-                ) {
 
-                    clearInterval(
-                        state.pollInterval
+            console.log(
+                `payment.js: checking payment status (${state.pollAttempts}/${CONFIG.MAX_POLL_ATTEMPTS})`
+            );
+
+
+            try {
+
+                const result =
+                    await apiRequest(
+
+                        `/api/public/payment/status/${encodeURIComponent(
+                            state.checkoutRequestId
+                        )}`,
+
+                        {
+                            method:
+                                'GET'
+                        }
                     );
 
-                    state.pollInterval =
-                        null;
+
+                console.log(
+                    'payment.js: payment status response:',
+                    result
+                );
+
+
+                const paymentStatus =
+                    extractPaymentStatus(
+                        result
+                    );
+
+
+                console.log(
+                    'payment.js: normalized payment status:',
+                    paymentStatus
+                );
+
+
+                // =================================================
+                // SUCCESS
+                // =================================================
+
+                if (
+                    SUCCESS_STATUSES.has(
+                        paymentStatus
+                    )
+                ) {
+
+                    await handlePaymentSuccess(
+                        result
+                    );
+
+                    return;
                 }
 
 
-                state.pollInterval =
-                    setInterval(
-
-                        async () => {
-
-                            state.pollAttempts++;
-
-
-                            console.log(
-                                `payment.js: checking payment status (${state.pollAttempts}/${CONFIG.MAX_POLL_ATTEMPTS})`
-                            );
-
-
-                            try {
-
-                                // =================================
-                                // FASTAPI STATUS ENDPOINT
-                                // =================================
-
-                                const result =
-                                    await apiRequest(
-
-                                        `/api/public/payment/status/${encodeURIComponent(
-                                            state.checkoutRequestId
-                                        )}`,
-
-                                        {
-                                            method:
-                                                'GET'
-                                        }
-                                    );
-
-
-                                console.log(
-                                    'payment.js: payment status response:',
-                                    result
-                                );
-
-
-                                const paymentStatus =
-                                    extractPaymentStatus(
-                                        result
-                                    );
-
-
-                                console.log(
-                                    'payment.js: normalized payment status:',
-                                    paymentStatus
-                                );
-
-
-                                // ---------------------------------
-                                // SUCCESS
-                                // ---------------------------------
-
-                                if (
-                                    SUCCESS_STATUSES.has(
-                                        paymentStatus
-                                    )
-                                ) {
-
-                                    clearInterval(
-                                        state.pollInterval
-                                    );
-
-
-                                    state.pollInterval =
-                                        null;
-
-
-                                    await handlePaymentSuccess(
-                                        result
-                                    );
-
-
-                                    resolve();
-
-                                    return;
-                                }
-
-
-                                // ---------------------------------
-                                // FAILURE
-                                // ---------------------------------
-
-                                if (
-                                    FAILURE_STATUSES.has(
-                                        paymentStatus
-                                    )
-                                ) {
-
-                                    clearInterval(
-                                        state.pollInterval
-                                    );
-
-
-                                    state.pollInterval =
-                                        null;
-
-
-                                    await handlePaymentFailed(
-                                        result
-                                    );
-
-
-                                    reject(
-
-                                        new Error(
-                                            extractPaymentMessage(
-                                                result
-                                            )
-                                        )
-                                    );
-
-
-                                    return;
-                                }
-
-
-                                // ---------------------------------
-                                // WAITING
-                                // ---------------------------------
-
-                                if (
-                                    !paymentStatus
-                                ) {
-
-                                    console.warn(
-                                        'payment.js: no recognizable payment status:',
-                                        result
-                                    );
-                                }
-
-
-                                if (
-                                    state.pollAttempts > 5
-                                ) {
-
-                                    const seconds =
-                                        Math.floor(
-
-                                            state.pollAttempts *
-                                            CONFIG.POLL_INTERVAL /
-                                            1000
-                                        );
-
-
-                                    if (
-                                        el.processingMessage
-                                    ) {
-
-                                        el.processingMessage.textContent =
-                                            `Waiting for M-Pesa confirmation... (${seconds}s)`;
-                                    }
-                                }
-
-
-                                // ---------------------------------
-                                // TIMEOUT
-                                // ---------------------------------
-
-                                if (
-                                    state.pollAttempts >=
-                                    CONFIG.MAX_POLL_ATTEMPTS
-                                ) {
-
-                                    clearInterval(
-                                        state.pollInterval
-                                    );
-
-
-                                    state.pollInterval =
-                                        null;
-
-
-                                    showAlert(
-                                        'Payment verification timed out. Please check your M-Pesa messages before trying again.',
-                                        'warning'
-                                    );
-
-
-                                    if (
-                                        el.processingCard
-                                    ) {
-
-                                        el.processingCard.style.display =
-                                            'none';
-                                    }
-
-
-                                    if (
-                                        el.paymentCard
-                                    ) {
-
-                                        el.paymentCard.style.display =
-                                            'block';
-                                    }
-
-
-                                    if (
-                                        el.payNowBtn
-                                    ) {
-
-                                        el.payNowBtn.disabled =
-                                            false;
-
-                                        el.payNowBtn.textContent =
-                                            'Retry Payment';
-                                    }
-
-
-                                    state.isProcessing =
-                                        false;
-
-
-                                    updateStep(
-                                        3,
-                                        'error'
-                                    );
-
-
-                                    reject(
-
-                                        new Error(
-                                            'Payment verification timed out.'
-                                        )
-                                    );
-                                }
-
-                            }
-
-                            catch (error) {
-
-                                // ---------------------------------
-                                // DO NOT IMMEDIATELY FAIL
-                                // ---------------------------------
-
-                                console.warn(
-                                    'payment.js: payment polling error:',
-                                    error
-                                );
-
-
-                                if (
-                                    state.pollAttempts >=
-                                    CONFIG.MAX_POLL_ATTEMPTS
-                                ) {
-
-                                    clearInterval(
-                                        state.pollInterval
-                                    );
-
-
-                                    state.pollInterval =
-                                        null;
-
-
-                                    showAlert(
-                                        'Unable to verify the payment. Please check your M-Pesa messages before retrying.',
-                                        'warning'
-                                    );
-
-
-                                    if (
-                                        el.processingCard
-                                    ) {
-
-                                        el.processingCard.style.display =
-                                            'none';
-                                    }
-
-
-                                    if (
-                                        el.paymentCard
-                                    ) {
-
-                                        el.paymentCard.style.display =
-                                            'block';
-                                    }
-
-
-                                    if (
-                                        el.payNowBtn
-                                    ) {
-
-                                        el.payNowBtn.disabled =
-                                            false;
-
-                                        el.payNowBtn.textContent =
-                                            'Retry Payment';
-                                    }
-
-
-                                    state.isProcessing =
-                                        false;
-
-
-                                    updateStep(
-                                        3,
-                                        'error'
-                                    );
-
-
-                                    reject(
-                                        error
-                                    );
-                                }
-                            }
-
-                        },
-
-                        CONFIG.POLL_INTERVAL
+                // =================================================
+                // FAILURE
+                // =================================================
+
+                if (
+                    FAILURE_STATUSES.has(
+                        paymentStatus
+                    )
+                ) {
+
+                    await handlePaymentFailed(
+                        result
                     );
+
+                    return;
+                }
+
+
+                // =================================================
+                // WAITING
+                // =================================================
+
+                if (
+                    el.processingMessage
+                ) {
+
+                    const seconds =
+                        Math.floor(
+                            (
+                                state.pollAttempts *
+                                CONFIG.POLL_INTERVAL
+                            ) / 1000
+                        );
+
+
+                    if (
+                        state.pollAttempts <= 5
+                    ) {
+
+                        el.processingMessage.textContent =
+                            'Waiting for M-Pesa confirmation...';
+
+                    }
+
+                    else {
+
+                        el.processingMessage.textContent =
+                            `Waiting for M-Pesa confirmation... (${seconds}s)`;
+                    }
+                }
+
+
             }
+
+            catch (error) {
+
+                console.warn(
+                    'payment.js: payment polling error:',
+                    error
+                );
+
+
+                // Continue polling unless this is the final attempt.
+
+                if (
+                    state.pollAttempts >=
+                    CONFIG.MAX_POLL_ATTEMPTS
+                ) {
+
+                    handlePollingTimeout(
+                        error
+                    );
+
+                    return;
+                }
+            }
+
+
+            await sleep(
+                CONFIG.POLL_INTERVAL
+            );
+        }
+
+
+        handlePollingTimeout();
+    }
+
+
+    // ============================================================
+    // POLLING TIMEOUT
+    // ============================================================
+
+    function handlePollingTimeout(error) {
+
+        console.error(
+            'payment.js: payment verification timed out.',
+            error || ''
+        );
+
+
+        updateStep(
+            3,
+            'error'
+        );
+
+
+        if (el.processingCard) {
+
+            el.processingCard.style.display =
+                'none';
+        }
+
+
+        if (el.paymentCard) {
+
+            el.paymentCard.style.display =
+                'block';
+        }
+
+
+        if (el.payNowBtn) {
+
+            el.payNowBtn.disabled =
+                false;
+
+            el.payNowBtn.textContent =
+                'Retry Payment';
+        }
+
+
+        state.isProcessing =
+            false;
+
+
+        showAlert(
+            'Payment verification timed out. Please check your M-Pesa messages before trying again.',
+            'warning'
         );
     }
 
@@ -2087,6 +2166,16 @@
     async function handlePaymentSuccess(
         result
     ) {
+
+        console.log(
+            'payment.js: PAYMENT SUCCESS:',
+            result
+        );
+
+
+        state.paymentCompleted =
+            true;
+
 
         updateStep(
             3,
@@ -2114,7 +2203,9 @@
         }
 
 
-        await sleep(1000);
+        await sleep(
+            800
+        );
 
 
         if (el.processingCard) {
@@ -2137,9 +2228,9 @@
             );
 
 
-        // --------------------------------------------------------
+        // ========================================================
         // MEMBER NUMBER
-        // --------------------------------------------------------
+        // ========================================================
 
         const finalMemberNumber =
             firstDefined(
@@ -2154,19 +2245,17 @@
 
                 state.memberData?.member_number,
 
-                sessionStorage.getItem(
+                getSession(
                     'newMemberNumber'
                 ),
 
-                state.isChama
-                    ? state.groupId
-                    : state.memberId
+                state.memberId
             ) || '—';
 
 
-        // --------------------------------------------------------
+        // ========================================================
         // RECEIPT
-        // --------------------------------------------------------
+        // ========================================================
 
         const receipt =
             extractReceipt(
@@ -2174,9 +2263,9 @@
             );
 
 
-        // --------------------------------------------------------
+        // ========================================================
         // TRANSACTION ID
-        // --------------------------------------------------------
+        // ========================================================
 
         const finalTransactionId =
             firstDefined(
@@ -2195,15 +2284,19 @@
             ) || '—';
 
 
-        // --------------------------------------------------------
+        // ========================================================
         // AMOUNT
-        // --------------------------------------------------------
+        // ========================================================
 
         const finalAmount =
             extractAmount(
                 result
             );
 
+
+        // ========================================================
+        // DISPLAY SUCCESS DETAILS
+        // ========================================================
 
         if (
             el.successMemberNumber
@@ -2234,78 +2327,35 @@
         }
 
 
-        // --------------------------------------------------------
-        // VIEW DETAILS
-        // --------------------------------------------------------
+        // ========================================================
+        // VIEW MEMBER BUTTON
+        // ========================================================
 
         if (
             el.viewMemberBtn
         ) {
 
-            if (
-                state.isChama
-            ) {
-
-                el.viewMemberBtn.href =
-                    `chama-details.html?id=${encodeURIComponent(
-                        state.groupId
-                    )}`;
+            el.viewMemberBtn.href =
+                `member-details.html?id=${encodeURIComponent(
+                    state.memberId
+                )}`;
 
 
-                el.viewMemberBtn.textContent =
-                    'View Chama Details';
-
-            }
-
-            else {
-
-                el.viewMemberBtn.href =
-                    `member-details.html?id=${encodeURIComponent(
-                        state.memberId
-                    )}`;
-
-
-                el.viewMemberBtn.textContent =
-                    'View Member Details';
-            }
+            el.viewMemberBtn.textContent =
+                'View Member Details';
         }
 
 
-        // --------------------------------------------------------
+        // ========================================================
         // CLEAR REGISTRATION SESSION
-        // --------------------------------------------------------
+        // ========================================================
 
-        const sessionKeys = [
-
-            'newMemberId',
-
-            'newMemberNumber',
-
-            'newMemberName',
-
-            'newMemberPhone',
-
-            'newChamaGroupId',
-
-            'newChamaGroupName',
-
-            'newChamaMemberCount',
-
-            'newChamaPhone',
-
-            'registrationAmount',
-
-            'isChamaRegistration'
-        ];
+        clearRegistrationSession();
 
 
-        sessionKeys.forEach(
-            key =>
-                sessionStorage.removeItem(
-                    key
-                )
-        );
-
+        // ========================================================
+        // COMPLETE FINAL STEP
+        // ========================================================
 
         updateStep(
             4,
@@ -2324,12 +2374,80 @@
 
 
     // ============================================================
+    // CLEAR REGISTRATION SESSION
+    // ============================================================
+
+    function clearRegistrationSession() {
+
+        const sessionKeys = [
+
+            'newMemberId',
+
+            'newMemberNumber',
+
+            'newMemberName',
+
+            'newMemberPhone',
+
+            'registrationAmount',
+
+            'registrationPlan',
+
+            'registrationPlanName',
+
+            'registrationType',
+
+            'isChamaRegistration',
+
+            'newChamaGroupId',
+
+            'newChamaGroupName',
+
+            'newChamaMemberCount',
+
+            'newChamaPhone'
+        ];
+
+
+        sessionKeys.forEach(
+            key => {
+
+                try {
+
+                    sessionStorage.removeItem(
+                        key
+                    );
+
+                } catch (error) {
+
+                    console.warn(
+                        `payment.js: unable to remove session key ${key}:`,
+                        error
+                    );
+                }
+            }
+        );
+
+
+        console.log(
+            'payment.js: registration session cleared after successful payment.'
+        );
+    }
+
+
+    // ============================================================
     // PAYMENT FAILED
     // ============================================================
 
     async function handlePaymentFailed(
         result
     ) {
+
+        console.error(
+            'payment.js: PAYMENT FAILED:',
+            result
+        );
+
 
         updateStep(
             3,
@@ -2353,30 +2471,26 @@
         );
 
 
-        await sleep(1500);
+        await sleep(
+            1200
+        );
 
 
-        if (
-            el.processingCard
-        ) {
+        if (el.processingCard) {
 
             el.processingCard.style.display =
                 'none';
         }
 
 
-        if (
-            el.paymentCard
-        ) {
+        if (el.paymentCard) {
 
             el.paymentCard.style.display =
                 'block';
         }
 
 
-        if (
-            el.payNowBtn
-        ) {
+        if (el.payNowBtn) {
 
             el.payNowBtn.disabled =
                 false;
@@ -2402,16 +2516,422 @@
         );
 
 
+        if (el.processingCard) {
+
+            el.processingCard.style.display =
+                'none';
+        }
+
+
+        if (el.paymentCard) {
+
+            el.paymentCard.style.display =
+                'block';
+        }
+
+
+        if (el.payNowBtn) {
+
+            el.payNowBtn.disabled =
+                false;
+
+            el.payNowBtn.textContent =
+                'Pay Now';
+        }
+
+
+        state.isProcessing =
+            false;
+
+
+        updateStep(
+            2,
+            ''
+        );
+
+
+        updateStep(
+            3,
+            ''
+        );
+
+
+        updateStep(
+            1,
+            'completed'
+        );
+
+
+        showAlert(
+            'Payment was cancelled. If you already approved the M-Pesa prompt, please wait for confirmation before attempting another payment.',
+            'info'
+        );
+    }
+
+
+    // ============================================================
+    // PHONE VALIDATION UI
+    // ============================================================
+
+    function validatePhoneInput() {
+
         if (
-            state.pollInterval
+            !el.mpesaPhone
         ) {
 
-            clearInterval(
-                state.pollInterval
+            return false;
+        }
+
+
+        const phone =
+            el.mpesaPhone.value;
+
+
+        if (
+            !phone
+        ) {
+
+            if (el.phoneError) {
+
+                el.phoneError.classList.remove(
+                    'show'
+                );
+            }
+
+
+            el.mpesaPhone.classList.remove(
+                'input-error'
             );
 
-            state.pollInterval =
-                null;
+
+            if (el.payNowBtn) {
+
+                el.payNowBtn.disabled =
+                    true;
+            }
+
+
+            return false;
+        }
+
+
+        const isValid =
+            validatePhone(
+                phone
+            );
+
+
+        if (
+            isValid
+        ) {
+
+            if (el.phoneError) {
+
+                el.phoneError.classList.remove(
+                    'show'
+                );
+            }
+
+
+            el.mpesaPhone.classList.remove(
+                'input-error'
+            );
+
+
+            if (
+                el.payNowBtn &&
+                state.amount > 0 &&
+                !state.isProcessing
+            ) {
+
+                el.payNowBtn.disabled =
+                    false;
+            }
+
+
+            return true;
+        }
+
+
+        if (el.phoneError) {
+
+            el.phoneError.classList.add(
+                'show'
+            );
+        }
+
+
+        el.mpesaPhone.classList.add(
+            'input-error'
+        );
+
+
+        if (el.payNowBtn) {
+
+            el.payNowBtn.disabled =
+                true;
+        }
+
+
+        return false;
+    }
+
+
+    // ============================================================
+    // ATTACH EVENT HANDLERS
+    // ============================================================
+
+    function attachEventHandlers() {
+
+        console.log(
+            'payment.js: attaching event handlers...'
+        );
+
+
+        // --------------------------------------------------------
+        // YEAR
+        // --------------------------------------------------------
+
+        if (el.year) {
+
+            el.year.textContent =
+                new Date().getFullYear();
+        }
+
+
+        // --------------------------------------------------------
+        // PHONE INPUT
+        // --------------------------------------------------------
+
+        if (el.mpesaPhone) {
+
+            el.mpesaPhone.addEventListener(
+                'input',
+                validatePhoneInput
+            );
+
+
+            el.mpesaPhone.addEventListener(
+                'blur',
+                validatePhoneInput
+            );
+        }
+
+
+        // --------------------------------------------------------
+        // PAYMENT FORM
+        // --------------------------------------------------------
+
+        if (el.paymentForm) {
+
+            console.log(
+                'payment.js: payment form found.'
+            );
+
+
+            el.paymentForm.addEventListener(
+                'submit',
+                async event => {
+
+                    event.preventDefault();
+
+                    event.stopPropagation();
+
+
+                    console.log(
+                        'payment.js: PAYMENT FORM SUBMITTED'
+                    );
+
+
+                    await initiatePayment();
+                }
+            );
+
+        }
+
+        else {
+
+            console.warn(
+                'payment.js: #paymentForm not found.'
+            );
+        }
+
+
+        // --------------------------------------------------------
+        // PAY NOW BUTTON
+        // --------------------------------------------------------
+
+        if (el.payNowBtn) {
+
+            console.log(
+                'payment.js: Pay Now button found.'
+            );
+
+
+            el.payNowBtn.addEventListener(
+                'click',
+                async event => {
+
+                    event.preventDefault();
+
+                    event.stopPropagation();
+
+
+                    console.log(
+                        'payment.js: PAY NOW CLICKED'
+                    );
+
+
+                    // If the button is inside a form,
+                    // submit handler may also fire.
+                    //
+                    // state.isProcessing protects against
+                    // duplicate API requests.
+
+                    await initiatePayment();
+                }
+            );
+
+        }
+
+        else {
+
+            console.warn(
+                'payment.js: #payNowBtn not found.'
+            );
+        }
+
+
+        // --------------------------------------------------------
+        // BACK BUTTON
+        // --------------------------------------------------------
+
+        if (el.backBtn) {
+
+            el.backBtn.addEventListener(
+                'click',
+                event => {
+
+                    event.preventDefault();
+
+
+                    if (
+                        state.isChama
+                    ) {
+
+                        window.location.href =
+                            'register.html?mode=chama';
+
+                    }
+
+                    else {
+
+                        window.location.href =
+                            'register.html';
+                    }
+                }
+            );
+        }
+
+
+        // --------------------------------------------------------
+        // CANCEL PAYMENT
+        // --------------------------------------------------------
+
+        if (
+            el.cancelPaymentBtn
+        ) {
+
+            el.cancelPaymentBtn.addEventListener(
+                'click',
+                event => {
+
+                    event.preventDefault();
+
+                    cancelPayment();
+                }
+            );
+        }
+
+
+        // --------------------------------------------------------
+        // PREVENT ACCIDENTAL PAGE LEAVE
+        // --------------------------------------------------------
+
+        window.addEventListener(
+            'beforeunload',
+            event => {
+
+                if (
+                    state.isProcessing &&
+                    !state.paymentCompleted
+                ) {
+
+                    event.preventDefault();
+
+                    event.returnValue =
+                        'Payment is being processed. Are you sure you want to leave?';
+                }
+            }
+        );
+    }
+
+
+    // ============================================================
+    // INITIALIZATION
+    // ============================================================
+    //
+    // IMPORTANT FIX:
+    //
+    // Do NOT rely exclusively on DOMContentLoaded.
+    //
+    // If this script is loaded after DOMContentLoaded has already
+    // fired, the old code never initialized.
+    //
+    // This version checks document.readyState and initializes
+    // immediately when the DOM is already ready.
+    // ============================================================
+
+    function initializePaymentPage() {
+
+        if (
+            state.initialized
+        ) {
+
+            console.warn(
+                'payment.js: initialization already completed.'
+            );
+
+            return;
+        }
+
+
+        state.initialized =
+            true;
+
+
+        console.log(
+            'payment.js: INITIALIZING PAYMENT PAGE'
+        );
+
+
+        // --------------------------------------------------------
+        // LOAD DOM
+        // --------------------------------------------------------
+
+        loadDomReferences();
+
+
+        // --------------------------------------------------------
+        // RESET PAYMENT CARDS
+        // --------------------------------------------------------
+
+        if (
+            el.successCard
+        ) {
+
+            el.successCard.style.display =
+                'none';
         }
 
 
@@ -2433,462 +2953,149 @@
         }
 
 
-        if (
-            el.payNowBtn
-        ) {
+        // --------------------------------------------------------
+        // RESET STEPS
+        // --------------------------------------------------------
 
-            el.payNowBtn.disabled =
-                false;
+        resetSteps();
 
-            el.payNowBtn.textContent =
-                'Pay Now';
+
+        // --------------------------------------------------------
+        // ATTACH HANDLERS BEFORE LOADING DATA
+        // --------------------------------------------------------
+
+        attachEventHandlers();
+
+
+        // --------------------------------------------------------
+        // LOAD SESSION DATA
+        // --------------------------------------------------------
+
+        try {
+
+            loadPaymentData();
+
         }
 
+        catch (error) {
 
-        state.isProcessing =
-            false;
-
-
-        updateStep(
-            2,
-            ''
-        );
+            console.error(
+                'payment.js: initialization failed:',
+                error
+            );
 
 
-        updateStep(
-            1,
-            'active'
-        );
+            showAlert(
+                'Could not initialize payment page: ' +
+                (
+                    error.message ||
+                    'Unknown error'
+                ),
+                'error'
+            );
 
 
-        showAlert(
-            'Payment was cancelled. If you already approved the M-Pesa prompt, please wait for confirmation before attempting another payment.',
-            'info'
-        );
-    }
+            if (el.payNowBtn) {
 
+                el.payNowBtn.disabled =
+                    true;
+            }
 
-    // ============================================================
-    // PHONE VALIDATION UI
-    // ============================================================
-
-    function validatePhoneInput() {
-
-        if (
-            !el.mpesaPhone
-        ) {
 
             return;
         }
 
 
-        const phone =
-            el.mpesaPhone.value;
+        // --------------------------------------------------------
+        // FINAL DEBUG
+        // --------------------------------------------------------
 
+        console.log(
+            'payment.js: INITIALIZATION COMPLETE',
+            {
+                memberId:
+                    state.memberId,
 
-        if (
-            phone.length >= 9
-        ) {
+                groupId:
+                    state.groupId,
 
-            const isValid =
-                validatePhone(
-                    phone
-                );
+                isChama:
+                    state.isChama,
 
+                amount:
+                    state.amount,
 
-            if (
-                isValid
-            ) {
+                memberName:
+                    el.memberName?.textContent,
 
-                if (
-                    el.phoneError
-                ) {
+                memberNumber:
+                    el.memberNumber?.textContent,
 
-                    el.phoneError.classList.remove(
-                        'show'
-                    );
-                }
+                plan:
+                    el.memberPlan?.textContent,
 
+                registrationType:
+                    el.registrationType?.textContent,
 
-                el.mpesaPhone.classList.remove(
-                    'input-error'
-                );
-
-
-                if (
-                    el.payNowBtn
-                ) {
-
-                    el.payNowBtn.disabled =
-                        state.amount <= 0;
-                }
-
+                phone:
+                    el.mpesaPhone?.value
             }
-
-            else {
-
-                if (
-                    el.phoneError
-                ) {
-
-                    el.phoneError.classList.add(
-                        'show'
-                    );
-                }
-
-
-                el.mpesaPhone.classList.add(
-                    'input-error'
-                );
-
-
-                if (
-                    el.payNowBtn
-                ) {
-
-                    el.payNowBtn.disabled =
-                        true;
-                }
-            }
-
-        }
-
-        else {
-
-            if (
-                el.phoneError
-            ) {
-
-                el.phoneError.classList.remove(
-                    'show'
-                );
-            }
-
-
-            el.mpesaPhone.classList.remove(
-                'input-error'
-            );
-
-
-            if (
-                el.payNowBtn
-            ) {
-
-                el.payNowBtn.disabled =
-                    true;
-            }
-        }
+        );
     }
 
 
     // ============================================================
-    // INITIALIZATION
-    // ============================================================
-    //
-    // IMPORTANT:
-    // Event handlers are attached BEFORE loadPaymentData().
-    //
-    // This means a failure while loading session data cannot
-    // prevent the payment form from being initialized.
+    // START APPLICATION
     // ============================================================
 
-    document.addEventListener(
-        'DOMContentLoaded',
-        () => {
+    if (
+        document.readyState ===
+        'loading'
+    ) {
 
-            console.log(
-                'payment.js: DOMContentLoaded'
-            );
+        console.log(
+            'payment.js: DOM still loading — waiting for DOMContentLoaded.'
+        );
 
 
-            // ----------------------------------------------------
-            // YEAR
-            // ----------------------------------------------------
-
-            if (
-                el.year
-            ) {
-
-                el.year.textContent =
-                    new Date().getFullYear();
+        document.addEventListener(
+            'DOMContentLoaded',
+            initializePaymentPage,
+            {
+                once: true
             }
+        );
 
+    }
 
-            // ----------------------------------------------------
-            // RESET STEPS
-            // ----------------------------------------------------
+    else {
 
-            resetSteps();
+        console.log(
+            'payment.js: DOM already ready — initializing immediately.'
+        );
 
 
-            // ----------------------------------------------------
-            // PHONE INPUT
-            // ----------------------------------------------------
+        initializePaymentPage();
+    }
 
-            if (
-                el.mpesaPhone
-            ) {
-
-                el.mpesaPhone.addEventListener(
-                    'input',
-                    () => {
-
-                        console.log(
-                            'payment.js: phone input changed'
-                        );
-
-
-                        validatePhoneInput();
-                    }
-                );
-
-
-                el.mpesaPhone.addEventListener(
-                    'blur',
-                    validatePhoneInput
-                );
-            }
-
-            else {
-
-                console.error(
-                    'payment.js: #mpesaPhone was NOT found.'
-                );
-            }
-
-
-            // ----------------------------------------------------
-            // PAYMENT FORM
-            // ----------------------------------------------------
-
-            if (
-                el.paymentForm
-            ) {
-
-                console.log(
-                    'payment.js: payment form found:',
-                    el.paymentForm
-                );
-
-
-                el.paymentForm.addEventListener(
-                    'submit',
-                    async event => {
-
-                        event.preventDefault();
-                        event.stopPropagation();
-
-
-                        console.log(
-                            'payment.js: PAYMENT FORM SUBMITTED'
-                        );
-
-
-                        await initiatePayment();
-                    }
-                );
-
-            }
-
-            else {
-
-                console.error(
-                    'payment.js: #paymentForm was NOT found.'
-                );
-            }
-
-
-            // ----------------------------------------------------
-            // PAY NOW BUTTON
-            // ----------------------------------------------------
-            //
-            // Direct click fallback.
-            //
-            // If the HTML button is not configured as type="submit",
-            // the payment will still initiate.
-            //
-            // If it is a submit button, the state.isProcessing
-            // guard prevents duplicate API calls.
-            // ----------------------------------------------------
-
-            if (
-                el.payNowBtn
-            ) {
-
-                console.log(
-                    'payment.js: Pay Now button found:',
-                    el.payNowBtn
-                );
-
-
-                el.payNowBtn.addEventListener(
-                    'click',
-                    async event => {
-
-                        event.preventDefault();
-                        event.stopPropagation();
-
-
-                        console.log(
-                            'payment.js: PAY NOW CLICKED'
-                        );
-
-
-                        await initiatePayment();
-                    }
-                );
-
-            }
-
-            else {
-
-                console.error(
-                    'payment.js: #payNowBtn was NOT found.'
-                );
-            }
-
-
-            // ----------------------------------------------------
-            // BACK BUTTON
-            // ----------------------------------------------------
-
-            if (
-                el.backBtn
-            ) {
-
-                el.backBtn.addEventListener(
-                    'click',
-                    event => {
-
-                        event.preventDefault();
-
-
-                        if (
-                            state.isChama
-                        ) {
-
-                            window.location.href =
-                                'register.html?mode=chama';
-
-                        }
-
-                        else {
-
-                            window.location.href =
-                                'register.html';
-                        }
-                    }
-                );
-            }
-
-
-            // ----------------------------------------------------
-            // CANCEL PAYMENT
-            // ----------------------------------------------------
-
-            if (
-                el.cancelPaymentBtn
-            ) {
-
-                el.cancelPaymentBtn.addEventListener(
-                    'click',
-                    event => {
-
-                        event.preventDefault();
-
-
-                        cancelPayment();
-                    }
-                );
-            }
-
-
-            // ----------------------------------------------------
-            // PREVENT ACCIDENTAL PAGE LEAVE
-            // ----------------------------------------------------
-
-            window.addEventListener(
-                'beforeunload',
-                event => {
-
-                    if (
-                        state.isProcessing
-                    ) {
-
-                        event.preventDefault();
-
-
-                        event.returnValue =
-                            'Payment is being processed. Are you sure you want to leave?';
-                    }
-                }
-            );
-
-
-            // ----------------------------------------------------
-            // LOAD PAYMENT DATA
-            // ----------------------------------------------------
-            //
-            // This is deliberately LAST.
-            // All event handlers are already installed.
-            // ----------------------------------------------------
-
-            loadPaymentData()
-                .then(
-                    () => {
-
-                        console.log(
-                            'payment.js: INITIALIZATION COMPLETE',
-                            {
-                                memberId:
-                                    state.memberId,
-
-                                groupId:
-                                    state.groupId,
-
-                                isChama:
-                                    state.isChama,
-
-                                amount:
-                                    state.amount,
-
-                                phone:
-                                    el.mpesaPhone
-                                        ?.value
-                            }
-                        );
-                    }
-                )
-                .catch(
-                    error => {
-
-                        console.error(
-                            'payment.js: initialization error:',
-                            error
-                        );
-
-
-                        showAlert(
-                            'Could not initialize payment page: ' +
-                            (
-                                error.message ||
-                                'Unknown error'
-                            ),
-                            'error'
-                        );
-
-
-                        if (
-                            el.payNowBtn
-                        ) {
-
-                            el.payNowBtn.disabled =
-                                true;
-                        }
-                    }
-                );
-        }
-    );
 
 })();
 ```
+
+This version is aligned with the current FastAPI contract and, importantly, fixes the initialization path that can leave the page permanently showing `Loading…`.
+
+**After replacing the file:**
+
+1. Save it as exactly:
+   `js/payment.js`
+2. Deploy/push the change.
+3. Open the payment page and do **Ctrl + Shift + R**.
+4. In the browser console you should immediately see:
+   `payment.js: MASIKA PAYMENT SCRIPT LOADED — FIXED BUILD 2026-09-06`
+5. Then you should see:
+   `payment.js: INITIALIZING PAYMENT PAGE`
+6. Then something like:
+   `payment.js: individual payment data loaded`
+7. The page should populate with the member number, name, actual plan, and registration amount from `sessionStorage`.
+
+One important point: **do not change `register.html` again yet.** The registration page is already handing off `newMemberId`, `newMemberNumber`, `registrationAmount`, `registrationPlanName`, etc. The corrected payment script now reads those exact values.
