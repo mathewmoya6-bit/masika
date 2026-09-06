@@ -613,6 +613,14 @@
             loadingText: $("loadingText")
         };
 
+        // Fail loudly instead of silently if an expected element is ever
+        // missing from the DOM — a missing node used to break every
+        // handler registered after it, with nothing but a swallowed
+        // exception to show for it.
+        Object.entries(elements).forEach(([key, node]) => {
+            if (!node) console.error(`register.html: expected element #${key} was not found in the DOM.`);
+        });
+
         document.addEventListener("DOMContentLoaded", async () => {
             $("year").textContent = new Date().getFullYear();
             bindEvents();
@@ -630,6 +638,12 @@
             elements.resetBtn.addEventListener("click", resetIndividualForm);
             elements.chamaResetBtn.addEventListener("click", resetChamaForm);
             elements.chamaCsv.addEventListener("change", handleChamaCsv);
+
+            // If the page was opened with ?mode=chama (e.g. the "Back"
+            // button from payment.html for a chama registration), land
+            // directly in chama mode instead of individual mode.
+            const params = new URLSearchParams(window.location.search);
+            if (params.get("mode") === "chama") setMode(true);
         }
 
         function setMode(chamaMode) {
@@ -686,7 +700,10 @@
                     headers: { "Content-Type": "application/json", ...(options.headers || {}) },
                     ...options
                 });
-            } catch (error) { throw error; }
+            } catch (error) {
+                console.error(`register.html: request to ${endpoint} failed before a response was received:`, error);
+                throw error;
+            }
             let result = null;
             const responseText = await response.text();
             if (responseText) { try { result = JSON.parse(responseText); } catch { result = null; } }
@@ -701,6 +718,7 @@
                     }).join(" | ");
                 }
                 if (typeof message === "object" && message !== null) message = JSON.stringify(message);
+                console.error(`register.html: ${endpoint} returned HTTP ${response.status}:`, result || responseText);
                 throw new Error(message || `Server returned HTTP ${response.status}.`);
             }
             return result;
@@ -712,6 +730,10 @@
             if (value.startsWith("+254")) value = value.substring(1);
             if (value.startsWith("07")) value = "254" + value.substring(1);
             if (value.startsWith("01")) value = "254" + value.substring(1);
+            // Bare 9-digit local number with no leading 0 (e.g. "712345678"
+            // or "112345678") — treat as a Kenyan mobile number missing its
+            // leading zero rather than leaving it unnormalized/invalid.
+            if (/^[71]\d{8}$/.test(value)) value = "254" + value;
             return value;
         }
 
@@ -752,6 +774,8 @@
                         .order("principal_monthly_premium", { ascending: true });
                     if (!error && Array.isArray(data)) plans = data;
                     else if (error) console.warn("Unable to load plans from Supabase:", error);
+                } else {
+                    console.warn("register.html: supabaseClient is not defined (check js/supabase-config.js) — using fallback plans.");
                 }
             } catch (error) { console.warn("Plan loading failed:", error); }
             if (!plans.length) plans = CONFIG.FALLBACK_PLANS;
@@ -1072,7 +1096,18 @@
                     body: JSON.stringify(payload)
                 });
 
-                if (!result?.success) {
+                // Some backend responses omit an explicit `success` flag but
+                // still return a usable member id — only treat this as a
+                // hard failure once we've also confirmed there's no id to
+                // work with.
+                const memberId =
+                    result?.member_id ??
+                    result?.id ??
+                    result?.member?.id ??
+                    result?.data?.id ??
+                    result?.data?.member_id;
+
+                if (result?.success === false || (!memberId && result?.error)) {
                     throw new Error(
                         result?.error ||
                         result?.message ||
@@ -1080,9 +1115,8 @@
                     );
                 }
 
-                const memberId = result.member_id || result.id;
-
                 if (!memberId) {
+                    console.error("register.html: /api/public/register response had no usable member id:", result);
                     throw new Error(
                         "Registration succeeded but no member ID was returned by the server."
                     );
@@ -1091,12 +1125,14 @@
                 const registrationAmount = Number(
                     result.registration_amount ??
                     result.amount ??
+                    result?.member?.registration_amount ??
                     calculateRegistrationAmount()
                 );
 
                 const memberNumber =
                     result.member_number ||
                     result.member?.member_number ||
+                    result?.data?.member_number ||
                     "";
 
                 // Release the submission lock BEFORE navigating away,
@@ -1166,7 +1202,14 @@
                     body: JSON.stringify(payload)
                 });
 
-                if (!result?.success) {
+                const groupId =
+                    result?.group_id ??
+                    result?.chama_group_id ??
+                    result?.id ??
+                    result?.group?.id ??
+                    result?.data?.id;
+
+                if (result?.success === false || (!groupId && result?.error)) {
                     throw new Error(
                         result?.error ||
                         result?.message ||
@@ -1174,12 +1217,8 @@
                     );
                 }
 
-                const groupId =
-                    result.group_id ||
-                    result.chama_group_id ||
-                    result.id;
-
                 if (!groupId) {
+                    console.error("register.html: /api/public/register/chama response had no usable group id:", result);
                     throw new Error(
                         "Chama registration succeeded but no group ID was returned."
                     );
