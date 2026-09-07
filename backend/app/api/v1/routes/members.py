@@ -76,4 +76,43 @@ async def search_members(
     try:
         search_params = {
             k: v for k, v in locals().items()
-            if k in ["
+            if k in ["membership_number", "phone", "email", "first_name", 
+                    "last_name", "plan_type", "branch", "is_active", "page", "limit"]
+            and v is not None
+        }
+        
+        results = await member_service.search_members(search_params)
+        
+        # Get total count
+        db = get_supabase_client()
+        count = db.table("members").select("*", count="exact").execute()
+        
+        return PaginatedResponse(
+            items=results,
+            total=count.count,
+            page=page,
+            limit=limit,
+            pages=(count.count + limit - 1) // limit
+        )
+        
+    except Exception as e:
+        logger.error(f"❌ Search error: {str(e)}")
+        raise HTTPException(status_code=400, detail=str(e))
+
+@router.put("/{member_id}/status")
+async def update_member_status(
+    member_id: str,
+    is_active: bool,
+    admin_user: dict = Depends(get_admin_user)
+):
+    """Update member status (Admin only)"""
+    try:
+        updated = await member_service.update_member(
+            member_id,
+            {"is_active": is_active}
+        )
+        return {"message": f"Member {'activated' if is_active else 'deactivated'} successfully"}
+        
+    except Exception as e:
+        logger.error(f"❌ Status update error: {str(e)}")
+        raise HTTPException(status_code=400, detail=str(e))
