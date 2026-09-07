@@ -2,10 +2,13 @@ from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.trustedhost import TrustedHostMiddleware
 from fastapi.responses import JSONResponse
-import time
 from .config import settings
 from .core.middleware import LoggingMiddleware, RateLimitMiddleware
-from .api.v1.routes import auth, members, payments, plans, dashboard, webhooks
+from .api.v1.routes import (
+    auth_router, members_router, payments_router, 
+    plans_router, dashboard_router, webhooks_router,
+    mpesa_router  # ← NEW
+)
 from .utils.logger import logger
 
 # Create FastAPI app
@@ -29,7 +32,7 @@ app.add_middleware(
 # Trusted host middleware
 app.add_middleware(
     TrustedHostMiddleware,
-    allowed_hosts=["*"] if settings.debug else [".onrender.com", "masikabbs.com", "masika-c921.onrender.com"]
+    allowed_hosts=["*"] if settings.debug else [".onrender.com", "masikabbs.com"]
 )
 
 # Custom middleware
@@ -55,12 +58,13 @@ async def root():
     }
 
 # Register routes
-app.include_router(auth.router, prefix="/api/v1")
-app.include_router(members.router, prefix="/api/v1")
-app.include_router(payments.router, prefix="/api/v1")
-app.include_router(plans.router, prefix="/api/v1")
-app.include_router(dashboard.router, prefix="/api/v1")
-app.include_router(webhooks.router, prefix="/api/v1")
+app.include_router(auth_router, prefix="/api/v1")
+app.include_router(members_router, prefix="/api/v1")
+app.include_router(payments_router, prefix="/api/v1")
+app.include_router(plans_router, prefix="/api/v1")
+app.include_router(dashboard_router, prefix="/api/v1")
+app.include_router(webhooks_router, prefix="/api/v1")
+app.include_router(mpesa_router, prefix="/api/v1")  # ← NEW
 
 # Exception handlers
 @app.exception_handler(Exception)
