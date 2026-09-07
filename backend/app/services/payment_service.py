@@ -337,10 +337,15 @@ class PaymentService:
                 data = response.json()
                 logger.info(f"STK Query Response: {json.dumps(data)}")
                 
+                # Safaricom's stkpushquery endpoint sends ResultCode as a
+                # STRING ("0"). Normalize with str() anyway so this keeps
+                # working even if that ever changes -- see the note on
+                # handle_mpesa_webhook() below for why this matters.
                 result_code = data.get("ResultCode")
+                result_code_str = str(result_code).strip() if result_code is not None else None
                 result_desc = data.get("ResultDesc", "Unknown")
                 
-                if result_code == "0":
+                if result_code_str == "0":
                     # Payment successful - extract details
                     metadata = data.get("CallbackMetadata", {})
                     items = metadata.get("Item", [])
@@ -373,24 +378,31 @@ class PaymentService:
                         }).eq("id", payment.data[0]["member_id"]).execute()
                     
                     return {
-                        "result_code": result_code,
+                        "result_code": result_code_str,
                         "result_desc": result_desc,
                         "status": "confirmed",
                         "amount": amount,
                         "receipt": receipt
                     }
                     
-                elif result_code in ["1037", "1032"]:
-                    # Pending
+                elif result_code_str in ("1037", "1032"):
+                    # Pending / not yet actioned by the user. IMPORTANT:
+                    # this branch deliberately does NOT write "failed" to
+                    # the payments row -- these codes commonly show up
+                    # when this query is run seconds after the STK push,
+                    # before the user has entered their PIN. Writing
+                    # "failed" here would poison the row before the real
+                    # async webhook (handle_mpesa_webhook) has a chance
+                    # to record the actual outcome.
                     return {
-                        "result_code": result_code,
+                        "result_code": result_code_str,
                         "result_desc": result_desc,
                         "status": "pending"
                     }
                 else:
                     # Failed
                     return {
-                        "result_code": result_code,
+                        "result_code": result_code_str,
                         "result_desc": result_desc,
                         "status": "failed"
                     }
@@ -421,7 +433,29 @@ class PaymentService:
             stk_callback = body.get("stkCallback", {})
             
             checkout_request_id = stk_callback.get("CheckoutRequestID")
+
+            # ------------------------------------------------------
+            # FIX (2026-09-07): Safaricom's ASYNC STK callback sends
+            # ResultCode as a JSON NUMBER (0), not a string ("0") --
+            # unlike the synchronous stkpushquery endpoint used in
+            # query_stk_status() above, which does send it as a string.
+            # Comparing `result_code == "0"` here was ALWAYS False, so
+            # every genuinely successful payment fell into the "else"
+            # branch below and got written to the DB as status="failed".
+            # Confirmed by production logs on 2026-09-07: three separate
+            # STK pushes (ws_CO_07092026144824172703738707,
+            # ws_CO_07092026145109114703738707,
+            # ws_CO_07092026145150165703738342) each logged
+            # "Payment failed via webhook" immediately on receiving the
+            # webhook, with no other explanation for a 100% failure rate.
+            #
+            # Normalizing both sides to str() makes this correct
+            # regardless of whether Safaricom sends an int, a string, or
+            # (per some Daraja sandbox responses) a float.
+            # ------------------------------------------------------
             result_code = stk_callback.get("ResultCode")
+            result_code_str = str(result_code).strip() if result_code is not None else None
+
             result_desc = stk_callback.get("ResultDesc")
             metadata = stk_callback.get("CallbackMetadata", {})
             
@@ -429,7 +463,10 @@ class PaymentService:
                 logger.warning("No CheckoutRequestID in webhook")
                 return {"ResultCode": 1, "ResultDesc": "No CheckoutRequestID"}
             
-            logger.info(f"Processing webhook: CheckoutID={checkout_request_id}, ResultCode={result_code}")
+            logger.info(
+                f"Processing webhook: CheckoutID={checkout_request_id}, "
+                f"ResultCode={result_code!r} (normalized={result_code_str!r})"
+            )
             
             # Find payment record
             payment = self.supabase.table("payments").select("*").eq("checkout_request_id", checkout_request_id).execute()
@@ -439,8 +476,16 @@ class PaymentService:
                 return {"ResultCode": 1, "ResultDesc": "Payment not found"}
             
             payment_data = payment.data[0]
+
+            # Idempotency guard: Safaricom can retry the same webhook
+            # delivery. If we've already recorded this checkout request
+            # as confirmed, don't reprocess (and don't let a later
+            # duplicate/failed retry overwrite a real success).
+            if payment_data.get("status") == "confirmed":
+                logger.info(f"Webhook for already-confirmed payment ignored: {checkout_request_id}")
+                return {"ResultCode": 0, "ResultDesc": "Already confirmed"}
             
-            if result_code == "0":
+            if result_code_str == "0":
                 # Payment successful
                 items = metadata.get("Item", [])
                 amount = None
@@ -479,7 +524,9 @@ class PaymentService:
                 
                 return {"ResultCode": 0, "ResultDesc": "Success"}
             else:
-                # Payment failed
+                # Payment genuinely failed (user cancelled, insufficient
+                # funds, wrong PIN, etc -- result_code_str is a real,
+                # non-zero Daraja result code here, not a type mismatch).
                 update_data = {
                     "status": "failed",
                     "notes": f"Webhook: {result_desc}",
@@ -488,7 +535,10 @@ class PaymentService:
                 
                 self.supabase.table("payments").update(update_data).eq("id", payment_data["id"]).execute()
                 
-                logger.warning(f"Payment failed: {checkout_request_id} - {result_desc}")
+                logger.warning(
+                    f"Payment failed: {checkout_request_id} - "
+                    f"ResultCode={result_code_str} {result_desc}"
+                )
                 
                 return {"ResultCode": 0, "ResultDesc": "Payment failed recorded"}
                 
