@@ -15,11 +15,22 @@
         rel="stylesheet"
     />
 
+    <!-- =========================================================
+         EXTERNAL JS - ALIGNED WITH SUPABASE/BACKEND
+         ========================================================= -->
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.3/papaparse.min.js"></script>
-    <script src="js/supabase-config.js"></script>
+    
+    <!-- Masika JS Modules -->
+    <script src="js/config.js"></script>
+    <script src="js/supabase.js"></script>
+    <script src="js/auth.js"></script>
+    <script src="js/masika-utils.js"></script>
 
     <style>
+        /* =========================================================
+           ALL STYLES - Same as before
+           ========================================================= */
         :root {
             --primary: #173f35;
             --primary-dark: #0e2c25;
@@ -779,6 +790,7 @@
             padding: 6px;
         }
     </style>
+
 </head>
 
 <body>
@@ -800,7 +812,7 @@
 
         <nav class="nav">
             <a href="index.html">Home</a>
-            <a href="plans.html">Plans</a>
+            <a href="#plans">Plans</a>
             <a href="login.html">Staff Login</a>
             <a href="register.html" class="nav-register">Register</a>
         </nav>
@@ -1661,7 +1673,35 @@
     </div>
 </footer>
 
-<script src="js/masika-utils.js"></script>
+<!-- =========================================================
+     ALIGNED JAVASCRIPT
+     ========================================================= -->
+
+<script>
+    // =========================================================
+    // SET YEAR IN FOOTER
+    // =========================================================
+    document.getElementById('year').textContent = new Date().getFullYear();
+
+    // =========================================================
+    // CHECK IF ALREADY LOGGED IN
+    // =========================================================
+    document.addEventListener('DOMContentLoaded', function() {
+        if (typeof authManager !== 'undefined' && authManager.isAuthenticated) {
+            window.location.href = CONFIG.ROUTES.DASHBOARD;
+            return;
+        }
+        
+        // Initialize registration
+        if (typeof initRegistration === 'function') {
+            initRegistration();
+        } else {
+            console.warn('register.js not loaded properly');
+        }
+    });
+</script>
+
+<!-- Register JS - Main registration logic -->
 <script src="js/register.js"></script>
 
 </body>
