@@ -106,7 +106,10 @@
         paymentId: null,
         isProcessing: false,
         pollAttempts: 0,
-        paymentCompleted: false
+        paymentCompleted: false,
+        consecutiveFailureSignals: 0,
+        lastStatusResult: null,
+        lastStatusError: null
     };
 
     // ============================================================
@@ -228,12 +231,19 @@
     function extractPaymentMessage(result) {
         const data = getPaymentData(result);
         return firstDefined(
-            data.message,
+            data.ResultDesc,
+            data.resultDesc,
             data.result_desc,
             data.result_description,
-            result?.message,
+            result?.ResultDesc,
+            result?.resultDesc,
             result?.result_desc,
             result?.result_description,
+            // Only fall back to the generic envelope "message" last — it's
+            // frequently a wrapper string like "Payment status retrieved"
+            // describing the API call, not the M-Pesa outcome itself.
+            data.message,
+            result?.message,
             "Payment status unavailable."
         );
     }
@@ -718,13 +728,41 @@
                 const outcome = interpretPaymentResult(result);
 
                 if (outcome === "success") {
+                    state.consecutiveFailureSignals = 0;
                     await handlePaymentSuccess(result);
                     return;
                 }
 
                 if (outcome === "failure") {
-                    await handlePaymentFailed(result);
-                    return;
+                    // Require two consecutive "failure" readings, a poll
+                    // interval apart, before treating this as final.
+                    //
+                    // Why: on 2026-09-07 a member (MSK00041) was shown
+                    // "Payment failed" immediately after a successful
+                    // M-Pesa deduction — the status endpoint's first
+                    // response after the STK push reported failure before
+                    // the real asynchronous callback had landed (a known
+                    // Daraja quirk: the synchronous status/query API can
+                    // return a transient error/failure code in the first
+                    // second or two after a push). Acting on a single
+                    // failure reading risks exactly that: telling someone
+                    // their payment failed when the money was in fact
+                    // taken, right before offering them a "Retry" that
+                    // could charge them again.
+                    state.consecutiveFailureSignals = (state.consecutiveFailureSignals || 0) + 1;
+
+                    if (state.consecutiveFailureSignals >= 2) {
+                        await handlePaymentFailed(result);
+                        return;
+                    }
+
+                    U.warn(
+                        "payment.js: failure signal received (",
+                        state.consecutiveFailureSignals,
+                        "/2) — waiting for confirmation before treating as final."
+                    );
+                } else {
+                    state.consecutiveFailureSignals = 0;
                 }
 
                 if (el.processingMessage) {
@@ -873,6 +911,7 @@
         state.paymentId = null;
         state.lastStatusResult = null;
         state.lastStatusError = null;
+        state.consecutiveFailureSignals = 0;
 
         updateStep(2, "");
         updateStep(3, "");
