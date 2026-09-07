@@ -591,4 +591,103 @@ async function handleChamaRegistration() {
     // Get CSV data
     const fileInput = document.getElementById('chamaCsv');
     if (!fileInput.files || !fileInput.files[0]) {
-        showAlert
+        showAlert('Please upload a CSV file with members.', 'error');
+        return;
+    }
+    
+    // Show loading
+    loadingBox.classList.add('show');
+    submitBtn.disabled = true;
+    clearAlerts();
+    
+    try {
+        // Parse CSV again to get data
+        const file = fileInput.files[0];
+        const csvText = await file.text();
+        const result = Papa.parse(csvText, { header: true, skipEmptyLines: true });
+        
+        if (result.errors.length > 0) {
+            throw new Error('Error parsing CSV: ' + result.errors[0].message);
+        }
+        
+        const members = result.data;
+        
+        if (members.length < 30) {
+            throw new Error('Minimum 30 members required for chama registration.');
+        }
+        
+        // Create chama registration
+        const chamaData = {
+            name: chamaName,
+            phone: chamaPhone,
+            chairperson: {
+                name: document.getElementById('chairpersonName').value,
+                phone: document.getElementById('chairpersonPhone').value,
+                id: document.getElementById('chairpersonId').value
+            },
+            treasurer: {
+                name: document.getElementById('treasurerName').value,
+                phone: document.getElementById('treasurerPhone').value,
+                id: document.getElementById('treasurerId').value
+            },
+            secretary: {
+                name: document.getElementById('secretaryName').value,
+                phone: document.getElementById('secretaryPhone').value,
+                id: document.getElementById('secretaryId').value
+            },
+            members: members,
+            total_members: members.length,
+            total_amount: members.length * 100
+        };
+        
+        // Store chama data for payment
+        localStorage.setItem('chama_registration', JSON.stringify(chamaData));
+        
+        showAlert(`Chama registration successful! ${members.length} members loaded. Redirecting to payment...`, 'success');
+        
+        setTimeout(() => {
+            window.location.href = CONFIG.ROUTES.PAYMENT + '?type=chama';
+        }, 2000);
+        
+    } catch (error) {
+        console.error('Chama registration error:', error);
+        showAlert(error.message || 'Chama registration failed.', 'error');
+    } finally {
+        loadingBox.classList.remove('show');
+        submitBtn.disabled = false;
+    }
+}
+
+// ============================================================
+// UTILITY FUNCTIONS
+// ============================================================
+
+function showAlert(message, type = 'info') {
+    const alertBox = document.getElementById('alertBox');
+    alertBox.className = `alert show ${type}`;
+    alertBox.textContent = message;
+    alertBox.style.display = 'block';
+}
+
+function clearAlerts() {
+    const alertBox = document.getElementById('alertBox');
+    alertBox.className = 'alert';
+    alertBox.textContent = '';
+    alertBox.style.display = 'none';
+}
+
+// ============================================================
+// SET YEAR IN FOOTER
+// ============================================================
+
+document.getElementById('year').textContent = new Date().getFullYear();
+
+// ============================================================
+// EXPOSE FUNCTIONS
+// ============================================================
+
+window.removeDependant = removeDependant;
+window.addDependant = addDependant;
+window.updateSummary = updateSummary;
+window.showAlert = showAlert;
+window.clearAlerts = clearAlerts;
