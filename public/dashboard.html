@@ -9,20 +9,21 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
     
-    <!-- Supabase JS -->
+    <!-- =========================================================
+         EXTERNAL JS - ALIGNED WITH SUPABASE/BACKEND
+         ========================================================= -->
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="js/config.js"></script>
+    <script src="js/supabase.js"></script>
+    <script src="js/auth.js"></script>
+    <script src="js/masika-utils.js"></script>
     
     <style>
         /* =========================================================
-           DASHBOARD STYLES
+           IMPROVED DASHBOARD STYLES
            ========================================================= */
 
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
-
+        /* ===== CSS VARIABLES ===== */
         :root {
             --primary-900: #0a1e12;
             --primary-800: #0d2818;
@@ -49,7 +50,6 @@
             --primary-gradient: linear-gradient(135deg, #0a1e12 0%, #1a472a 40%, #2d6a4f 70%, #40916c 100%);
             --gold-gradient: linear-gradient(135deg, #b8860b 0%, #d4a843 50%, #e8c85a 100%);
             --blue-gradient: linear-gradient(135deg, #12386f 0%, #2f6fc4 60%, #4f8fe0 100%);
-            --purple-gradient: linear-gradient(135deg, #2d1b4e 0%, #4a2f7a 60%, #6b46b3 100%);
 
             --white: #ffffff;
             --text-dark: #0f172a;
@@ -58,6 +58,7 @@
             --bg-light: #f0f4f2;
             --danger: #b3261e;
             --success: #2e7d32;
+            --warning: #e65100;
 
             --shadow: 0 4px 24px rgba(0, 0, 0, 0.08);
             --shadow-hover: 0 12px 48px rgba(0, 0, 0, 0.15);
@@ -68,6 +69,9 @@
             --transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
         }
 
+        /* ===== RESET ===== */
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
         body {
             font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
             background: var(--bg-light);
@@ -75,11 +79,61 @@
             min-height: 100vh;
         }
 
+        /* ===== SCROLLBAR ===== */
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        ::-webkit-scrollbar-track { background: var(--bg-light); border-radius: 10px; }
+        ::-webkit-scrollbar-thumb { background: var(--primary-300); border-radius: 10px; }
+        ::-webkit-scrollbar-thumb:hover { background: var(--primary-500); }
+
         .container {
             max-width: 1200px;
             margin: 0 auto;
             padding: 0 24px;
         }
+
+        /* ===== BUTTONS ===== */
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 10px 20px;
+            border: none;
+            border-radius: 10px;
+            font-weight: 600;
+            font-size: 14px;
+            cursor: pointer;
+            transition: var(--transition);
+            font-family: inherit;
+            text-decoration: none;
+        }
+
+        .btn-primary {
+            background: var(--primary-gradient);
+            color: var(--white);
+        }
+        .btn-primary:hover { transform: translateY(-2px); box-shadow: 0 8px 30px rgba(26, 71, 42, 0.3); }
+
+        .btn-gold {
+            background: var(--gold-gradient);
+            color: var(--white);
+        }
+        .btn-gold:hover { transform: translateY(-2px); box-shadow: var(--shadow-gold); }
+
+        .btn-outline {
+            background: transparent;
+            border: 2px solid #e9ecef;
+            color: var(--text-gray);
+        }
+        .btn-outline:hover { border-color: var(--primary-500); color: var(--primary-500); }
+
+        .btn-danger {
+            background: var(--danger);
+            color: var(--white);
+        }
+        .btn-danger:hover { opacity: 0.85; transform: translateY(-2px); }
+
+        .btn-sm { padding: 6px 14px; font-size: 12px; }
+        .btn-block { width: 100%; justify-content: center; }
 
         /* ===== NAVBAR ===== */
         .navbar {
@@ -90,6 +144,8 @@
             top: 0;
             z-index: 1000;
             border-bottom: 1px solid rgba(0, 0, 0, 0.04);
+            backdrop-filter: blur(12px);
+            background: rgba(255, 255, 255, 0.95);
         }
 
         .navbar .container {
@@ -105,11 +161,7 @@
             text-decoration: none;
         }
 
-        .nav-brand img {
-            height: 38px;
-            width: auto;
-        }
-
+        .nav-brand img { height: 38px; width: auto; }
         .nav-brand span {
             font-weight: 800;
             font-size: 17px;
@@ -119,7 +171,7 @@
         .nav-actions {
             display: flex;
             align-items: center;
-            gap: 16px;
+            gap: 12px;
         }
 
         .nav-actions .user-greeting {
@@ -127,10 +179,7 @@
             font-weight: 600;
             color: var(--text-dark);
         }
-
-        .nav-actions .user-greeting span {
-            color: var(--primary-500);
-        }
+        .nav-actions .user-greeting span { color: var(--primary-500); }
 
         .btn-logout {
             background: none;
@@ -144,12 +193,7 @@
             transition: var(--transition);
             font-family: inherit;
         }
-
-        .btn-logout:hover {
-            border-color: var(--danger);
-            color: var(--danger);
-            background: #fff5f5;
-        }
+        .btn-logout:hover { border-color: var(--danger); color: var(--danger); background: #fff5f5; }
 
         .btn-back {
             background: none;
@@ -167,46 +211,43 @@
             align-items: center;
             gap: 8px;
         }
+        .btn-back:hover { border-color: var(--primary-500); color: var(--primary-500); }
 
-        .btn-back:hover {
-            border-color: var(--primary-500);
-            color: var(--primary-500);
-        }
-
-        /* ===== DASHBOARD ===== */
-        .dashboard-section {
-            padding: 40px 0 60px;
-        }
-
-        /* Loading */
+        /* ===== LOADING SCREEN ===== */
         .loading-screen {
             display: flex;
             flex-direction: column;
             align-items: center;
             justify-content: center;
-            min-height: 400px;
-            gap: 20px;
+            min-height: 60vh;
+            gap: 24px;
         }
 
         .loading-screen .spinner {
-            width: 48px;
-            height: 48px;
+            width: 56px;
+            height: 56px;
             border: 4px solid #e9ecef;
             border-top-color: var(--primary-500);
             border-radius: 50%;
             animation: spin 0.8s linear infinite;
         }
 
-        @keyframes spin {
-            to { transform: rotate(360deg); }
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+        .loading-screen .skeleton-text {
+            width: 200px;
+            height: 16px;
+            background: #e9ecef;
+            border-radius: 8px;
+            animation: pulse 1.5s ease-in-out infinite;
         }
 
-        .loading-screen p {
-            color: var(--text-gray);
-            font-size: 16px;
+        @keyframes pulse {
+            0%, 100% { opacity: 0.4; }
+            50% { opacity: 0.8; }
         }
 
-        /* Welcome Banner */
+        /* ===== WELCOME BANNER ===== */
         .welcome-banner {
             background: var(--primary-gradient);
             color: var(--white);
@@ -218,16 +259,29 @@
             align-items: center;
             flex-wrap: wrap;
             gap: 16px;
+            position: relative;
+            overflow: hidden;
         }
+
+        .welcome-banner::before {
+            content: '';
+            position: absolute;
+            top: -50%;
+            right: -10%;
+            width: 40%;
+            height: 200%;
+            background: radial-gradient(ellipse, rgba(255,255,255,0.05) 0%, transparent 70%);
+            border-radius: 50%;
+            transform: rotate(-15deg);
+        }
+
+        .welcome-banner > * { position: relative; z-index: 1; }
 
         .welcome-banner h1 {
             font-size: 28px;
             font-weight: 800;
         }
-
-        .welcome-banner h1 .highlight {
-            color: var(--gold-300);
-        }
+        .welcome-banner h1 .highlight { color: var(--gold-300); }
 
         .welcome-banner p {
             opacity: 0.85;
@@ -242,10 +296,11 @@
             padding: 12px 24px;
             text-align: center;
             backdrop-filter: blur(10px);
+            min-width: 140px;
         }
 
         .welcome-banner .member-badge .label {
-            font-size: 12px;
+            font-size: 11px;
             opacity: 0.7;
             text-transform: uppercase;
             letter-spacing: 0.5px;
@@ -255,12 +310,14 @@
             font-size: 22px;
             font-weight: 900;
             color: var(--gold-300);
+            font-family: 'Inter', monospace;
+            letter-spacing: 1px;
         }
 
-        /* Stats Grid */
+        /* ===== STATS GRID ===== */
         .stats-grid {
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            grid-template-columns: repeat(4, 1fr);
             gap: 20px;
             margin-bottom: 32px;
         }
@@ -272,17 +329,27 @@
             box-shadow: var(--shadow);
             text-align: center;
             transition: var(--transition);
+            border: 1px solid transparent;
         }
 
         .stat-card:hover {
             transform: translateY(-4px);
             box-shadow: var(--shadow-hover);
+            border-color: var(--primary-100);
         }
 
         .stat-card .stat-icon {
-            font-size: 32px;
+            font-size: 28px;
             color: var(--primary-500);
             margin-bottom: 8px;
+            width: 48px;
+            height: 48px;
+            background: var(--primary-50);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 0 auto 10px;
         }
 
         .stat-card .stat-value {
@@ -292,7 +359,7 @@
         }
 
         .stat-card .stat-label {
-            font-size: 14px;
+            font-size: 13px;
             color: var(--text-gray);
             margin-top: 2px;
         }
@@ -301,32 +368,17 @@
             display: inline-block;
             padding: 4px 12px;
             border-radius: 12px;
-            font-size: 12px;
+            font-size: 11px;
             font-weight: 600;
             margin-top: 8px;
         }
 
-        .stat-status.active {
-            background: #e8f5e9;
-            color: var(--success);
-        }
+        .stat-status.active { background: #e8f5e9; color: var(--success); }
+        .stat-status.pending { background: #fff3e0; color: var(--warning); }
+        .stat-status.gold { background: #fff8e1; color: var(--gold-600); }
+        .stat-status.inactive { background: #fce4ec; color: var(--danger); }
 
-        .stat-status.pending {
-            background: #fff3e0;
-            color: #e65100;
-        }
-
-        .stat-status.gold {
-            background: #fff8e1;
-            color: var(--gold-600);
-        }
-
-        .stat-status.inactive {
-            background: #fce4ec;
-            color: var(--danger);
-        }
-
-        /* Main Grid */
+        /* ===== DASHBOARD GRID ===== */
         .dashboard-grid {
             display: grid;
             grid-template-columns: 2fr 1fr;
@@ -338,7 +390,10 @@
             border-radius: var(--radius);
             padding: 28px;
             box-shadow: var(--shadow);
+            transition: var(--transition);
         }
+
+        .dash-card:hover { box-shadow: var(--shadow-hover); }
 
         .dash-card .card-header {
             display: flex;
@@ -350,43 +405,40 @@
         }
 
         .dash-card .card-header h3 {
-            font-size: 18px;
+            font-size: 17px;
             font-weight: 700;
+            display: flex;
+            align-items: center;
+            gap: 10px;
         }
 
         .dash-card .card-header a {
             color: var(--primary-500);
             text-decoration: none;
-            font-size: 14px;
+            font-size: 13px;
             font-weight: 600;
         }
+        .dash-card .card-header a:hover { text-decoration: underline; }
 
-        .dash-card .card-header a:hover {
-            text-decoration: underline;
-        }
-
+        /* ===== EMPTY STATE ===== */
         .empty-state {
             text-align: center;
-            padding: 30px 20px;
+            padding: 40px 20px;
             color: var(--text-gray);
         }
 
         .empty-state i {
-            font-size: 40px;
+            font-size: 48px;
             color: var(--text-light);
             margin-bottom: 12px;
             display: block;
         }
 
-        .empty-state p {
-            font-size: 14px;
-        }
+        .empty-state p { font-size: 14px; }
+        .empty-state .btn { margin-top: 12px; }
 
-        /* Payment History */
-        .payment-list {
-            list-style: none;
-            padding: 0;
-        }
+        /* ===== PAYMENT LIST ===== */
+        .payment-list { list-style: none; padding: 0; }
 
         .payment-list li {
             display: flex;
@@ -396,11 +448,11 @@
             border-bottom: 1px solid #f0f4f2;
             flex-wrap: wrap;
             gap: 8px;
+            transition: var(--transition);
         }
 
-        .payment-list li:last-child {
-            border-bottom: none;
-        }
+        .payment-list li:hover { background: #fafcfb; padding: 12px 8px; border-radius: 8px; }
+        .payment-list li:last-child { border-bottom: none; }
 
         .payment-list .payment-info {
             display: flex;
@@ -417,6 +469,7 @@
             align-items: center;
             justify-content: center;
             color: var(--primary-500);
+            flex-shrink: 0;
         }
 
         .payment-list .payment-info .p-details .p-title {
@@ -433,40 +486,21 @@
             font-weight: 700;
             color: var(--primary-700);
         }
-
-        .payment-list .payment-amount.overdue {
-            color: var(--danger);
-        }
+        .payment-list .payment-amount.overdue { color: var(--danger); }
 
         .payment-status {
-            font-size: 12px;
+            font-size: 11px;
             font-weight: 600;
             padding: 2px 10px;
             border-radius: 10px;
             display: inline-block;
         }
+        .payment-status.paid { background: #e8f5e9; color: var(--success); }
+        .payment-status.confirmed { background: #e8f5e9; color: var(--success); }
+        .payment-status.pending { background: #fff3e0; color: var(--warning); }
+        .payment-status.failed { background: #fce4ec; color: var(--danger); }
 
-        .payment-status.paid {
-            background: #e8f5e9;
-            color: var(--success);
-        }
-
-        .payment-status.confirmed {
-            background: #e8f5e9;
-            color: var(--success);
-        }
-
-        .payment-status.pending {
-            background: #fff3e0;
-            color: #e65100;
-        }
-
-        .payment-status.failed {
-            background: #fce4ec;
-            color: var(--danger);
-        }
-
-        /* Plan Details */
+        /* ===== PLAN DETAILS ===== */
         .plan-detail-item {
             display: flex;
             justify-content: space-between;
@@ -474,32 +508,18 @@
             border-bottom: 1px solid #f0f4f2;
             font-size: 14px;
         }
+        .plan-detail-item:last-child { border-bottom: none; }
 
-        .plan-detail-item:last-child {
-            border-bottom: none;
-        }
+        .plan-detail-item .label { color: var(--text-gray); }
+        .plan-detail-item .value { font-weight: 600; }
+        .plan-detail-item .value.gold { color: var(--gold-500); }
+        .plan-detail-item .value.green { color: var(--primary-500); }
 
-        .plan-detail-item .label {
-            color: var(--text-gray);
-        }
-
-        .plan-detail-item .value {
-            font-weight: 600;
-        }
-
-        .plan-detail-item .value.gold {
-            color: var(--gold-500);
-        }
-
-        .plan-detail-item .value.green {
-            color: var(--primary-500);
-        }
-
-        /* Quick Actions */
+        /* ===== QUICK ACTIONS ===== */
         .quick-actions {
             display: grid;
             grid-template-columns: 1fr 1fr;
-            gap: 12px;
+            gap: 10px;
             margin-top: 16px;
         }
 
@@ -514,7 +534,7 @@
             text-decoration: none;
             color: var(--text-dark);
             font-weight: 600;
-            font-size: 14px;
+            font-size: 13px;
             transition: var(--transition);
             font-family: inherit;
             cursor: pointer;
@@ -538,23 +558,18 @@
             border-color: var(--gold-500);
             color: var(--white);
             grid-column: 1 / -1;
+            font-size: 15px;
+            padding: 16px;
         }
-
-        .quick-action-btn.pay-btn i {
-            color: var(--white);
-        }
-
+        .quick-action-btn.pay-btn i { color: var(--white); }
         .quick-action-btn.pay-btn:hover {
             background: #c4951a;
             border-color: #c4951a;
             color: var(--white);
         }
 
-        /* Members */
-        .member-list {
-            list-style: none;
-            padding: 0;
-        }
+        /* ===== MEMBER LIST ===== */
+        .member-list { list-style: none; padding: 0; }
 
         .member-list li {
             display: flex;
@@ -563,11 +578,10 @@
             padding: 10px 0;
             border-bottom: 1px solid #f0f4f2;
             font-size: 14px;
+            transition: var(--transition);
         }
-
-        .member-list li:last-child {
-            border-bottom: none;
-        }
+        .member-list li:hover { background: #fafcfb; padding: 10px 8px; border-radius: 8px; }
+        .member-list li:last-child { border-bottom: none; }
 
         .member-list .member-avatar {
             width: 32px;
@@ -579,38 +593,23 @@
             justify-content: center;
             font-weight: 700;
             color: var(--primary-700);
-            font-size: 14px;
+            font-size: 13px;
             flex-shrink: 0;
         }
 
-        .member-list .member-name {
-            flex: 1;
-            font-weight: 500;
-        }
-
-        .member-list .member-relation {
-            color: var(--text-gray);
-            font-size: 12px;
-        }
+        .member-list .member-name { flex: 1; font-weight: 500; }
+        .member-list .member-relation { color: var(--text-gray); font-size: 12px; }
 
         .member-list .member-status {
-            font-size: 11px;
+            font-size: 10px;
             padding: 2px 8px;
             border-radius: 8px;
             font-weight: 600;
         }
+        .member-status.active-status { background: #e8f5e9; color: var(--success); }
+        .member-status.inactive-status { background: #fce4ec; color: var(--danger); }
 
-        .member-status.active-status {
-            background: #e8f5e9;
-            color: var(--success);
-        }
-
-        .member-status.inactive-status {
-            background: #fce4ec;
-            color: var(--danger);
-        }
-
-        /* Modal */
+        /* ===== MODAL ===== */
         .modal-overlay {
             display: none;
             position: fixed;
@@ -625,10 +624,7 @@
             justify-content: center;
             padding: 20px;
         }
-
-        .modal-overlay.show {
-            display: flex;
-        }
+        .modal-overlay.show { display: flex; }
 
         .modal {
             background: var(--white);
@@ -639,17 +635,12 @@
             max-height: 90vh;
             overflow-y: auto;
             animation: modalSlide 0.3s ease;
+            box-shadow: 0 24px 80px rgba(0,0,0,0.2);
         }
 
         @keyframes modalSlide {
-            from {
-                transform: translateY(-30px);
-                opacity: 0;
-            }
-            to {
-                transform: translateY(0);
-                opacity: 1;
-            }
+            from { transform: translateY(-30px) scale(0.95); opacity: 0; }
+            to { transform: translateY(0) scale(1); opacity: 1; }
         }
 
         .modal .modal-header {
@@ -674,14 +665,9 @@
             border-radius: 8px;
             transition: var(--transition);
         }
+        .modal .modal-close:hover { background: var(--bg-light); }
 
-        .modal .modal-close:hover {
-            background: var(--bg-light);
-        }
-
-        .modal .form-group {
-            margin-bottom: 16px;
-        }
+        .modal .form-group { margin-bottom: 16px; }
 
         .modal .form-group label {
             display: block;
@@ -690,6 +676,7 @@
             margin-bottom: 4px;
             color: var(--text-dark);
         }
+        .modal .form-group label .required { color: var(--danger); }
 
         .modal .form-group input,
         .modal .form-group select {
@@ -722,62 +709,68 @@
             transition: var(--transition);
             font-family: inherit;
         }
-
         .modal .btn-submit:hover {
             transform: translateY(-2px);
             box-shadow: 0 8px 30px rgba(26, 71, 42, 0.4);
         }
-
         .modal .btn-submit:disabled {
             opacity: 0.6;
             cursor: not-allowed;
             transform: none;
         }
 
-        /* Toast Notification */
-        .toast {
+        /* ===== TOAST NOTIFICATIONS ===== */
+        .toast-container {
             position: fixed;
             bottom: 30px;
             right: 30px;
+            z-index: 3000;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            max-width: 420px;
+        }
+
+        .toast {
             padding: 16px 24px;
             border-radius: 12px;
             color: var(--white);
             font-weight: 600;
             font-size: 14px;
-            z-index: 3000;
             animation: toastSlide 0.4s ease;
-            box-shadow: var(--shadow-hover);
-            max-width: 400px;
+            box-shadow: 0 12px 48px rgba(0,0,0,0.15);
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            cursor: pointer;
+            transition: all 0.3s ease;
         }
+        .toast:hover { transform: scale(1.02); }
+        .toast.success { background: var(--success); }
+        .toast.error { background: var(--danger); }
+        .toast.info { background: var(--blue-500); }
+        .toast.warning { background: var(--warning); }
 
-        .toast.success {
-            background: var(--success);
+        .toast .toast-icon { font-size: 20px; flex-shrink: 0; }
+        .toast .toast-close {
+            background: none;
+            border: none;
+            color: rgba(255,255,255,0.7);
+            cursor: pointer;
+            font-size: 18px;
+            margin-left: auto;
+            padding: 0 4px;
         }
-
-        .toast.error {
-            background: var(--danger);
-        }
-
-        .toast.info {
-            background: var(--blue-500);
-        }
+        .toast .toast-close:hover { color: white; }
 
         @keyframes toastSlide {
-            from {
-                transform: translateX(100px);
-                opacity: 0;
-            }
-            to {
-                transform: translateX(0);
-                opacity: 1;
-            }
+            from { transform: translateX(100px); opacity: 0; }
+            to { transform: translateX(0); opacity: 1; }
         }
 
-        /* Responsive */
+        /* ===== RESPONSIVE ===== */
         @media (max-width: 1024px) {
-            .dashboard-grid {
-                grid-template-columns: 1fr;
-            }
+            .dashboard-grid { grid-template-columns: 1fr; }
         }
 
         @media (max-width: 768px) {
@@ -786,63 +779,32 @@
                 text-align: center;
                 padding: 24px;
             }
-
-            .welcome-banner h1 {
-                font-size: 22px;
-            }
-
-            .stats-grid {
-                grid-template-columns: 1fr 1fr;
-            }
-
-            .quick-actions {
-                grid-template-columns: 1fr 1fr;
-            }
-
-            .quick-action-btn.pay-btn {
-                grid-column: 1 / -1;
-            }
-
-            .nav-actions .user-greeting {
-                display: none;
-            }
-
-            .modal {
-                padding: 24px;
-            }
+            .welcome-banner h1 { font-size: 22px; }
+            .stats-grid { grid-template-columns: 1fr 1fr; }
+            .quick-actions { grid-template-columns: 1fr 1fr; }
+            .quick-action-btn.pay-btn { grid-column: 1 / -1; }
+            .nav-actions .user-greeting { display: none; }
+            .modal { padding: 24px; margin: 16px; }
         }
 
         @media (max-width: 480px) {
-            .stats-grid {
-                grid-template-columns: 1fr;
-            }
-
-            .dash-card {
-                padding: 20px;
-            }
-
-            .payment-list li {
-                flex-direction: column;
-                align-items: flex-start;
-            }
-
-            .quick-actions {
-                grid-template-columns: 1fr;
-            }
-
-            .quick-action-btn.pay-btn {
-                grid-column: 1;
-            }
-
-            .welcome-banner .member-badge {
-                width: 100%;
-            }
+            .stats-grid { grid-template-columns: 1fr; }
+            .dash-card { padding: 20px; }
+            .payment-list li { flex-direction: column; align-items: flex-start; }
+            .quick-actions { grid-template-columns: 1fr; }
+            .quick-action-btn.pay-btn { grid-column: 1; }
+            .welcome-banner .member-badge { width: 100%; }
+            .navbar .container { flex-wrap: wrap; gap: 8px; }
+            .nav-actions { width: 100%; justify-content: center; flex-wrap: wrap; }
+            .btn-back, .btn-logout { font-size: 12px; padding: 6px 12px; }
         }
     </style>
 </head>
 <body>
 
-    <!-- ===== NAVBAR ===== -->
+    <!-- =========================================================
+         NAVBAR
+         ========================================================= -->
     <nav class="navbar">
         <div class="container">
             <a href="index.html" class="nav-brand">
@@ -861,14 +823,17 @@
         </div>
     </nav>
 
-    <!-- ===== DASHBOARD ===== -->
+    <!-- =========================================================
+         DASHBOARD SECTION
+         ========================================================= -->
     <section class="dashboard-section">
         <div class="container">
 
             <!-- Loading State -->
             <div id="loadingScreen" class="loading-screen">
                 <div class="spinner"></div>
-                <p>Loading your dashboard...</p>
+                <div class="skeleton-text"></div>
+                <div class="skeleton-text" style="width:160px;"></div>
             </div>
 
             <!-- Dashboard Content -->
@@ -882,32 +847,32 @@
                     </div>
                     <div class="member-badge">
                         <div class="label">Membership Number</div>
-                        <div class="number" id="memberNumberDisplay">MAS-2026-0042</div>
+                        <div class="number" id="memberNumberDisplay">---</div>
                     </div>
                 </div>
 
-                <!-- Stats -->
+                <!-- Stats Grid -->
                 <div class="stats-grid">
                     <div class="stat-card">
                         <div class="stat-icon"><i class="fas fa-crown"></i></div>
-                        <div class="stat-value" id="planDisplay">Comfort</div>
+                        <div class="stat-value" id="planDisplay">---</div>
                         <div class="stat-label">Your Plan</div>
                         <span class="stat-status active" id="planStatus">● Active</span>
                     </div>
                     <div class="stat-card">
                         <div class="stat-icon"><i class="fas fa-users"></i></div>
                         <div class="stat-value" id="dependantCount">0</div>
-                        <div class="stat-label">Family Members Covered</div>
+                        <div class="stat-label">Family Members</div>
                     </div>
                     <div class="stat-card">
                         <div class="stat-icon"><i class="fas fa-calendar-check"></i></div>
                         <div class="stat-value" id="coverageStatusText">Pending</div>
                         <div class="stat-label">Coverage Status</div>
-                        <span class="stat-status pending" id="coverageStatusBadge">Waiting period</span>
+                        <span class="stat-status pending" id="coverageStatusBadge">Waiting</span>
                     </div>
                     <div class="stat-card">
                         <div class="stat-icon"><i class="fas fa-wallet"></i></div>
-                        <div class="stat-value" id="benefitAmount">KES 110,000</div>
+                        <div class="stat-value" id="benefitAmount">KES 0</div>
                         <div class="stat-label">Benefit Amount</div>
                     </div>
                 </div>
@@ -921,11 +886,14 @@
                         <!-- Payment History -->
                         <div class="dash-card">
                             <div class="card-header">
-                                <h3><i class="fas fa-clock-rotate-left" style="color:var(--primary-500);"></i> Payment History</h3>
-                                <a href="#payments" onclick="showToast('info', 'Redirecting to payments...')">View all</a>
+                                <h3><i class="fas fa-clock-rotate-left" style="color:var(--primary-500);"></i> Recent Payments</h3>
+                                <a href="payment.html">View all <i class="fas fa-arrow-right"></i></a>
                             </div>
                             <div id="paymentListContainer">
-                                <!-- Populated by JavaScript -->
+                                <div class="empty-state">
+                                    <i class="fas fa-receipt"></i>
+                                    <p>No payments recorded yet.</p>
+                                </div>
                             </div>
                         </div>
 
@@ -943,13 +911,13 @@
                                     <i class="fas fa-user-plus"></i>
                                     Add Dependant
                                 </button>
-                                <button onclick="showToast('info', 'Downloading statement...')" class="quick-action-btn">
+                                <button onclick="downloadStatement()" class="quick-action-btn">
                                     <i class="fas fa-file-invoice"></i>
-                                    Download Statement
+                                    Statement
                                 </button>
-                                <button onclick="showToast('info', 'Opening claims form...')" class="quick-action-btn">
+                                <button onclick="fileClaim()" class="quick-action-btn">
                                     <i class="fas fa-life-ring"></i>
-                                    File a Claim
+                                    File Claim
                                 </button>
                             </div>
                         </div>
@@ -963,10 +931,13 @@
                         <div class="dash-card">
                             <div class="card-header">
                                 <h3><i class="fas fa-crown" style="color:var(--gold-500);"></i> Plan Details</h3>
-                                <a href="#plans" onclick="showToast('info', 'Viewing plan options...')">Change</a>
+                                <a href="#" onclick="showToast('info', 'Contact support to change plan'); return false;">Change</a>
                             </div>
                             <div id="planDetailsContainer">
-                                <!-- Populated by JavaScript -->
+                                <div class="empty-state">
+                                    <i class="fas fa-spinner fa-spin"></i>
+                                    <p>Loading plan details...</p>
+                                </div>
                             </div>
                         </div>
 
@@ -974,10 +945,15 @@
                         <div class="dash-card" style="margin-top: 24px;">
                             <div class="card-header">
                                 <h3><i class="fas fa-users" style="color:var(--primary-500);"></i> Family Members</h3>
-                                <button onclick="openDependantModal()" style="background:none;border:none;color:var(--primary-500);font-weight:600;font-size:14px;cursor:pointer;font-family:inherit;">Add</button>
+                                <button onclick="openDependantModal()" style="background:none;border:none;color:var(--primary-500);font-weight:600;font-size:13px;cursor:pointer;font-family:inherit;">
+                                    <i class="fas fa-plus"></i> Add
+                                </button>
                             </div>
                             <div id="memberListContainer">
-                                <!-- Populated by JavaScript -->
+                                <div class="empty-state">
+                                    <i class="fas fa-user-plus"></i>
+                                    <p>No dependants added yet.</p>
+                                </div>
                             </div>
                         </div>
 
@@ -990,7 +966,9 @@
         </div>
     </section>
 
-    <!-- ===== MODAL: Add Dependant ===== -->
+    <!-- =========================================================
+         MODAL: Add Dependant
+         ========================================================= -->
     <div class="modal-overlay" id="dependantModal">
         <div class="modal">
             <div class="modal-header">
@@ -999,19 +977,19 @@
             </div>
             <form id="dependantForm" onsubmit="handleAddDependant(event)">
                 <div class="form-group">
-                    <label for="depFirstName">First Name</label>
+                    <label for="depFirstName">First Name <span class="required">*</span></label>
                     <input type="text" id="depFirstName" placeholder="Enter first name" required>
                 </div>
                 <div class="form-group">
-                    <label for="depLastName">Last Name</label>
+                    <label for="depLastName">Last Name <span class="required">*</span></label>
                     <input type="text" id="depLastName" placeholder="Enter last name" required>
                 </div>
                 <div class="form-group">
-                    <label for="depDob">Date of Birth</label>
+                    <label for="depDob">Date of Birth <span class="required">*</span></label>
                     <input type="date" id="depDob" required>
                 </div>
                 <div class="form-group">
-                    <label for="depRelationship">Relationship</label>
+                    <label for="depRelationship">Relationship <span class="required">*</span></label>
                     <select id="depRelationship" required>
                         <option value="">Select relationship...</option>
                         <option value="spouse">Spouse</option>
@@ -1027,25 +1005,27 @@
         </div>
     </div>
 
-    <!-- ===== MODAL: Make Payment ===== -->
+    <!-- =========================================================
+         MODAL: Make Payment
+         ========================================================= -->
     <div class="modal-overlay" id="paymentModal">
         <div class="modal">
             <div class="modal-header">
                 <h2><i class="fas fa-mobile-screen-button" style="color:var(--gold-500);"></i> Make Payment</h2>
                 <button class="modal-close" onclick="closeModal('paymentModal')">&times;</button>
             </div>
-            <div style="background:#f8f9fa;border-radius:12px;padding:16px;margin-bottom:20px;text-align:center;">
+            <div style="background:var(--primary-50);border-radius:12px;padding:16px;margin-bottom:20px;text-align:center;">
                 <p style="font-size:13px;color:var(--text-gray);">Pay via M-Pesa Paybill</p>
-                <p style="font-size:28px;font-weight:900;color:var(--gold-500);">348127</p>
+                <p style="font-size:32px;font-weight:900;color:var(--gold-500);">348127</p>
                 <p style="font-size:13px;color:var(--text-gray);">Account: <strong id="paymentMemberNumber">Your Membership Number</strong></p>
             </div>
             <form id="paymentForm" onsubmit="handlePayment(event)">
                 <div class="form-group">
-                    <label for="paymentAmount">Amount (KES)</label>
+                    <label for="paymentAmount">Amount (KES) <span class="required">*</span></label>
                     <input type="number" id="paymentAmount" placeholder="Enter amount" required min="100">
                 </div>
                 <div class="form-group">
-                    <label for="paymentType">Payment Type</label>
+                    <label for="paymentType">Payment Type <span class="required">*</span></label>
                     <select id="paymentType" required>
                         <option value="monthly">Monthly Premium</option>
                         <option value="registration">Registration Fee</option>
@@ -1053,101 +1033,93 @@
                     </select>
                 </div>
                 <div class="form-group">
-                    <label for="mpesaReceipt">M-Pesa Confirmation Code</label>
+                    <label for="mpesaReceipt">M-Pesa Confirmation Code <span class="required">*</span></label>
                     <input type="text" id="mpesaReceipt" placeholder="e.g. QWERTY123" required>
                 </div>
                 <button type="submit" class="btn-submit" id="paymentSubmitBtn">
                     <i class="fas fa-check"></i> Confirm Payment
                 </button>
             </form>
+            <p style="text-align:center;font-size:12px;color:var(--text-light);margin-top:12px;">
+                <i class="fas fa-lock"></i> Secured by M-Pesa
+            </p>
         </div>
     </div>
 
-    <!-- ===== TOAST CONTAINER ===== -->
-    <div id="toastContainer"></div>
+    <!-- =========================================================
+         TOAST CONTAINER
+         ========================================================= -->
+    <div class="toast-container" id="toastContainer"></div>
 
     <!-- =========================================================
-         JAVASCRIPT
+         JAVASCRIPT - IMPROVED VERSION
          ========================================================= -->
     <script>
         // =========================================================
-        // SUPABASE CONFIGURATION
+        // CONFIG
         // =========================================================
-
-        const SUPABASE_URL = 'https://wpxzlcdrirlcyvfiquld.supabase.co';
-        const SUPABASE_ANON_KEY = 'YOUR_SUPABASE_ANON_KEY'; // REPLACE WITH YOUR ACTUAL KEY
-
-        const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-
-        // =========================================================
-        // STATE
-        // =========================================================
-
-        let currentUser = null;
-        let currentMember = null;
-        let dependants = [];
-        let payments = [];
+        const CONFIG = window.CONFIG || {
+            ROUTES: { LOGIN: 'login.html', PAYMENT: 'payment.html' }
+        };
 
         // =========================================================
         // INITIALIZATION
         // =========================================================
-
         document.addEventListener('DOMContentLoaded', async function() {
-            await loadDashboard();
-        });
-
-        async function loadDashboard() {
             try {
                 // Check authentication
-                const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+                if (typeof authManager !== 'undefined') {
+                    if (!authManager.isAuthenticated) {
+                        window.location.href = CONFIG.ROUTES.LOGIN || 'login.html';
+                        return;
+                    }
+                    await loadDashboard();
+                } else {
+                    // Fallback to localStorage
+                    const user = localStorage.getItem('masika_user');
+                    if (!user) {
+                        window.location.href = 'login.html';
+                        return;
+                    }
+                    await loadDashboardFallback();
+                }
+            } catch (error) {
+                console.error('Init error:', error);
+                showToast('error', 'Failed to load dashboard');
+            }
+        });
 
-                if (sessionError || !session) {
-                    window.location.href = 'login.html';
+        // =========================================================
+        // LOAD DASHBOARD - Using authManager
+        // =========================================================
+        async function loadDashboard() {
+            try {
+                const member = authManager.getMember();
+                const user = authManager.getUser();
+
+                if (!member) {
+                    showToast('error', 'Member profile not found');
                     return;
-                }
-
-                currentUser = session.user;
-
-                // Load member profile
-                const { data: member, error: memberError } = await supabase
-                    .from('members')
-                    .select('*')
-                    .eq('id', currentUser.id)
-                    .single();
-
-                if (memberError) {
-                    console.error('Member load error:', memberError);
-                    showToast('error', 'Failed to load profile data');
-                    return;
-                }
-
-                currentMember = member;
-
-                // Load dependants
-                const { data: deps, error: depsError } = await supabase
-                    .from('dependants')
-                    .select('*')
-                    .eq('member_id', currentUser.id)
-                    .order('created_at', { ascending: false });
-
-                if (!depsError) {
-                    dependants = deps || [];
-                }
-
-                // Load payments
-                const { data: pays, error: paysError } = await supabase
-                    .from('payments')
-                    .select('*')
-                    .eq('member_id', currentUser.id)
-                    .order('payment_date', { ascending: false })
-                    .limit(5);
-
-                if (!paysError) {
-                    payments = pays || [];
                 }
 
                 // Render dashboard
-                renderDashboard();
+                renderDashboard(member);
+
+                // Load dependants
+                const depsResult = await supabaseClient.getMemberDependants(member.id);
+                if (depsResult.success) {
+                    renderFamilyMembers(depsResult.data || []);
+                    document.getElementById('dependantCount').textContent = (depsResult.data || []).length;
+                }
+
+                // Load payments
+                const paymentsResult = await supabaseClient.getMemberPayments(
+                    member.membership_number,
+                    5
+                );
+                if (paymentsResult.success) {
+                    renderPayments(paymentsResult.data || []);
+                }
 
                 // Show content
                 document.getElementById('loadingScreen').style.display = 'none';
@@ -1161,83 +1133,56 @@
         }
 
         // =========================================================
-        // RENDER FUNCTIONS
+        // RENDER DASHBOARD
         // =========================================================
-
-        function renderDashboard() {
-            if (!currentMember) return;
-
-            const member = currentMember;
-
-            // Welcome
+        function renderDashboard(member) {
             const fullName = `${member.first_name || ''} ${member.last_name || ''}`.trim() || 'Member';
+            
+            // Welcome
             document.getElementById('userNameDisplay').textContent = member.first_name || 'Member';
             document.getElementById('welcomeName').textContent = fullName;
-            document.getElementById('memberNumberDisplay').textContent = member.member_number || 'MAS-2026-0001';
-            document.getElementById('paymentMemberNumber').textContent = member.member_number || 'Your Membership Number';
-
-            // Plan mapping
+            document.getElementById('memberNumberDisplay').textContent = member.membership_number || '---';
+            document.getElementById('paymentMemberNumber').textContent = member.membership_number || 'Your Membership Number';
+            
+            // Plan
             const planMap = {
-                'comfort': { name: 'Comfort Plan', price: 'KES 300', benefit: 'Service Benefit', badge: 'active' },
-                'dignity': { name: 'Dignity Plan', price: 'KES 1,000', benefit: 'Service Benefit', badge: 'active' },
-                'wazazi': { name: 'Wazazi Plan', price: 'KES 350', benefit: 'Service Benefit', badge: 'active' }
+                'comfort': { name: 'Comfort Plan', benefit: 'KES 110,000' },
+                'dignity': { name: 'Dignity Plan', benefit: 'KES 110,000' },
+                'wazazi': { name: 'Wazazi Plan', benefit: 'KES 110,000' }
             };
-
-            const planData = planMap[member.plan] || { name: 'Comfort Plan', price: 'KES 300', benefit: 'Service Benefit',
-                badge: 'active' };
-
-            // Plan display
-            document.getElementById('planDisplay').textContent = planData.name;
-            document.getElementById('planStatus').textContent = '● Active';
-            document.getElementById('planStatus').className = 'stat-status active';
-
-            // Benefit amount
-            const benefitText = member.benefit_option === 'cash' ? 'KES 110,000' : 'KES 110,000';
-            document.getElementById('benefitAmount').textContent = benefitText;
-
+            const plan = planMap[member.plan_type] || planMap['comfort'];
+            
+            document.getElementById('planDisplay').textContent = plan.name;
+            document.getElementById('benefitAmount').textContent = plan.benefit;
+            
             // Coverage status
-            if (member.coverage_start_date) {
-                const startDate = new Date(member.coverage_start_date);
+            if (member.waiting_period_end) {
+                const waitEnd = new Date(member.waiting_period_end);
                 const today = new Date();
-                const isActive = today >= startDate;
-
-                document.getElementById('coverageStatusText').textContent = isActive ? 'Active' : 'Pending';
-                document.getElementById('coverageStatusBadge').textContent = isActive ? 'Coverage active' :
-                    'Waiting period in progress';
+                const isActive = today >= waitEnd;
+                
+                document.getElementById('coverageStatusText').textContent = isActive ? 'Active' : 'Waiting';
+                document.getElementById('coverageStatusBadge').textContent = isActive ? 'Coverage Active' : 'Waiting Period';
                 document.getElementById('coverageStatusBadge').className = `stat-status ${isActive ? 'active' : 'pending'}`;
-            } else {
-                document.getElementById('coverageStatusText').textContent = 'Pending';
-                document.getElementById('coverageStatusBadge').textContent = 'Not yet started';
-                document.getElementById('coverageStatusBadge').className = 'stat-status pending';
             }
-
-            // Dependant count
-            const activeDeps = dependants.filter(d => d.is_active !== false);
-            document.getElementById('dependantCount').textContent = activeDeps.length;
-
-            // Plan details
-            renderPlanDetails(member, planData);
-
-            // Family members
-            renderFamilyMembers(activeDeps);
-
-            // Payment history
-            renderPayments(payments);
-
-            // Set welcome subtext
+            
+            // Welcome subtext
+            const joinDate = member.registration_date ? new Date(member.registration_date) : new Date();
             document.getElementById('welcomeSubtext').textContent = 
-                `Member since ${new Date(member.created_at).toLocaleDateString('en-KE', { year: 'numeric', month: 'long', day: 'numeric' })}`;
+                `Member since ${joinDate.toLocaleDateString('en-KE', { year: 'numeric', month: 'long', day: 'numeric' })}`;
+            
+            // Plan details
+            renderPlanDetails(member, plan);
         }
 
-        function renderPlanDetails(member, planData) {
+        function renderPlanDetails(member, plan) {
             const container = document.getElementById('planDetailsContainer');
             const planMap = {
                 'comfort': { name: 'Comfort Plan', price: 'KES 300', waiting: '4 months' },
                 'dignity': { name: 'Dignity Plan', price: 'KES 1,000', waiting: '6 months' },
                 'wazazi': { name: 'Wazazi Plan', price: 'KES 350', waiting: '6 months' }
             };
-
-            const details = planMap[member.plan] || planMap['comfort'];
+            const details = planMap[member.plan_type] || planMap['comfort'];
 
             container.innerHTML = `
                 <div class="plan-detail-item">
@@ -1265,12 +1210,15 @@
 
         function renderFamilyMembers(deps) {
             const container = document.getElementById('memberListContainer');
-
-            if (deps.length === 0) {
+            
+            if (!deps || deps.length === 0) {
                 container.innerHTML = `
                     <div class="empty-state">
                         <i class="fas fa-user-plus"></i>
-                        <p>No dependants added yet.<br>Click "Add" to include family members.</p>
+                        <p>No dependants added yet.</p>
+                        <button onclick="openDependantModal()" class="btn btn-primary btn-sm">
+                            <i class="fas fa-plus"></i> Add Dependant
+                        </button>
                     </div>
                 `;
                 return;
@@ -1279,62 +1227,60 @@
             let html = '<ul class="member-list">';
             deps.slice(0, 5).forEach(dep => {
                 const initials = `${(dep.first_name || '?').charAt(0)}${(dep.last_name || '?').charAt(0)}`;
-                const age = dep.date_of_birth ? new Date().getFullYear() - new Date(dep.date_of_birth).getFullYear() :
-                    '';
-                const relationLabel = dep.relationship === 'child' ? `Child (${age})` :
-                    dep.relationship === 'spouse' ? 'Spouse' :
-                    dep.relationship === 'parent' ? 'Parent' :
-                    dep.relationship === 'in_law' ? 'In-Law' : dep.relationship;
-
+                const relationshipMap = {
+                    'spouse': '💑', 'child': '👶', 'parent': '👴', 'in_law': '👨‍👩‍👦'
+                };
+                const icon = relationshipMap[dep.relationship] || '👤';
+                
                 html += `
                     <li>
                         <div class="member-avatar">${initials}</div>
                         <span class="member-name">${dep.first_name || ''} ${dep.last_name || ''}</span>
-                        <span class="member-relation">${relationLabel}</span>
-                        <span class="member-status ${dep.is_active !== false ? 'active-status' : 'inactive-status'}">
-                            ${dep.is_active !== false ? 'Active' : 'Inactive'}
-                        </span>
+                        <span class="member-relation">${icon} ${dep.relationship || 'Family'}</span>
+                        <span class="member-status active-status">Active</span>
                     </li>
                 `;
             });
-
             if (deps.length > 5) {
-                html += `
-                    <li style="text-align:center;color:var(--text-gray);font-size:13px;justify-content:center;">
-                        <i class="fas fa-ellipsis-h"></i> +${deps.length - 5} more
-                    </li>
-                `;
+                html += `<li style="text-align:center;color:var(--text-gray);font-size:13px;justify-content:center;">
+                    <i class="fas fa-ellipsis-h"></i> +${deps.length - 5} more
+                </li>`;
             }
-
             html += '</ul>';
             container.innerHTML = html;
         }
 
-        function renderPayments(pays) {
+        function renderPayments(payments) {
             const container = document.getElementById('paymentListContainer');
-
-            if (!pays || pays.length === 0) {
+            
+            if (!payments || payments.length === 0) {
                 container.innerHTML = `
                     <div class="empty-state">
                         <i class="fas fa-receipt"></i>
                         <p>No payments recorded yet.</p>
+                        <a href="payment.html" class="btn btn-gold btn-sm">
+                            <i class="fas fa-plus"></i> Make Payment
+                        </a>
                     </div>
                 `;
                 return;
             }
 
             let html = '<ul class="payment-list">';
-            pays.forEach(pay => {
-                const statusClass = pay.status === 'confirmed' ? 'paid' : pay.status === 'pending' ? 'pending' :
-                    'failed';
-                const statusText = pay.status === 'confirmed' ? 'Paid' : pay.status === 'pending' ? 'Pending' : 'Failed';
-                const typeLabel = pay.payment_type === 'registration' ? 'Registration Fee' :
-                    pay.payment_type === 'monthly' ? 'Monthly Premium' : 'Top-up';
-
-                const date = pay.payment_date ? new Date(pay.payment_date).toLocaleDateString('en-KE', {
-                    year: 'numeric',
-                    month: 'short',
-                    day: 'numeric'
+            payments.forEach(pay => {
+                const statusClass = pay.status === 'completed' ? 'paid' : 
+                                   pay.status === 'pending' ? 'pending' : 'failed';
+                const statusText = pay.status === 'completed' ? 'Paid' : 
+                                  pay.status === 'pending' ? 'Pending' : 'Failed';
+                const typeLabel = {
+                    'registration': 'Registration Fee',
+                    'monthly': 'Monthly Premium',
+                    'topup': 'Top-up',
+                    'addon': 'Add-on'
+                }[pay.payment_type] || pay.payment_type || 'Payment';
+                
+                const date = pay.created_at ? new Date(pay.created_at).toLocaleDateString('en-KE', {
+                    year: 'numeric', month: 'short', day: 'numeric'
                 }) : 'N/A';
 
                 html += `
@@ -1346,9 +1292,9 @@
                                 <div class="p-date">${date} ${pay.mpesa_receipt ? '• ' + pay.mpesa_receipt : ''}</div>
                             </div>
                         </div>
-                        <div>
+                        <div style="text-align:right;">
                             <span class="payment-status ${statusClass}">${statusText}</span>
-                            <span class="payment-amount">KES ${parseFloat(pay.amount || 0).toLocaleString()}</span>
+                            <div class="payment-amount">KES ${parseFloat(pay.amount || 0).toLocaleString()}</div>
                         </div>
                     </li>
                 `;
@@ -1360,7 +1306,6 @@
         // =========================================================
         // MODAL FUNCTIONS
         // =========================================================
-
         function openDependantModal() {
             document.getElementById('dependantModal').classList.add('show');
             document.getElementById('dependantForm').reset();
@@ -1378,19 +1323,16 @@
         // Close modal on overlay click
         document.querySelectorAll('.modal-overlay').forEach(overlay => {
             overlay.addEventListener('click', function(e) {
-                if (e.target === this) {
-                    this.classList.remove('show');
-                }
+                if (e.target === this) this.classList.remove('show');
             });
         });
 
         // =========================================================
         // HANDLE ADD DEPENDANT
         // =========================================================
-
         async function handleAddDependant(event) {
             event.preventDefault();
-
+            
             const firstName = document.getElementById('depFirstName').value.trim();
             const lastName = document.getElementById('depLastName').value.trim();
             const dob = document.getElementById('depDob').value;
@@ -1406,41 +1348,32 @@
             submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Adding...';
 
             try {
-                const { data, error } = await supabase
-                    .from('dependants')
-                    .insert({
-                        member_id: currentUser.id,
-                        first_name: firstName,
-                        last_name: lastName,
-                        date_of_birth: dob,
-                        relationship: relationship,
-                        is_active: true
-                    })
-                    .select()
-                    .single();
+                const member = authManager.getMember();
+                
+                // Use supabaseClient from supabase.js
+                const result = await supabaseClient.createDependant({
+                    member_id: member.id,
+                    first_name: firstName,
+                    last_name: lastName,
+                    date_of_birth: dob,
+                    relationship: relationship
+                });
 
-                if (error) throw error;
+                if (!result.success) throw new Error(result.error);
 
                 // Refresh dependants
-                const { data: deps, error: depsError } = await supabase
-                    .from('dependants')
-                    .select('*')
-                    .eq('member_id', currentUser.id)
-                    .order('created_at', { ascending: false });
-
-                if (!depsError) {
-                    dependants = deps || [];
+                const depsResult = await supabaseClient.getMemberDependants(member.id);
+                if (depsResult.success) {
+                    renderFamilyMembers(depsResult.data || []);
+                    document.getElementById('dependantCount').textContent = (depsResult.data || []).length;
                 }
-
-                renderFamilyMembers(dependants.filter(d => d.is_active !== false));
-                document.getElementById('dependantCount').textContent = dependants.filter(d => d.is_active !== false).length;
 
                 closeModal('dependantModal');
                 showToast('success', `${firstName} ${lastName} added successfully!`);
 
             } catch (error) {
                 console.error('Add dependant error:', error);
-                showToast('error', 'Failed to add dependant: ' + error.message);
+                showToast('error', error.message || 'Failed to add dependant');
             } finally {
                 submitBtn.disabled = false;
                 submitBtn.innerHTML = '<i class="fas fa-plus"></i> Add Dependant';
@@ -1450,10 +1383,9 @@
         // =========================================================
         // HANDLE PAYMENT
         // =========================================================
-
         async function handlePayment(event) {
             event.preventDefault();
-
+            
             const amount = parseFloat(document.getElementById('paymentAmount').value);
             const paymentType = document.getElementById('paymentType').value;
             const mpesaReceipt = document.getElementById('mpesaReceipt').value.trim();
@@ -1462,7 +1394,6 @@
                 showToast('error', 'Please enter a valid amount (minimum KES 100)');
                 return;
             }
-
             if (!mpesaReceipt) {
                 showToast('error', 'Please enter the M-Pesa confirmation code');
                 return;
@@ -1473,42 +1404,33 @@
             submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Confirming...';
 
             try {
-                const { data, error } = await supabase
-                    .from('payments')
-                    .insert({
-                        member_id: currentUser.id,
-                        amount: amount,
-                        payment_type: paymentType,
-                        mpesa_receipt: mpesaReceipt,
-                        paybill_number: '348127',
-                        account_number: currentMember.member_number,
-                        status: 'confirmed',
-                        confirmed_at: new Date().toISOString()
-                    })
-                    .select()
-                    .single();
+                const member = authManager.getMember();
+                
+                const result = await supabaseClient.createPayment({
+                    membership_number: member.membership_number,
+                    amount: amount,
+                    payment_type: paymentType,
+                    status: 'completed',
+                    mpesa_receipt: mpesaReceipt
+                });
 
-                if (error) throw error;
+                if (!result.success) throw new Error(result.error);
 
                 // Refresh payments
-                const { data: pays, error: paysError } = await supabase
-                    .from('payments')
-                    .select('*')
-                    .eq('member_id', currentUser.id)
-                    .order('payment_date', { ascending: false })
-                    .limit(5);
-
-                if (!paysError) {
-                    payments = pays || [];
+                const paymentsResult = await supabaseClient.getMemberPayments(
+                    member.membership_number,
+                    5
+                );
+                if (paymentsResult.success) {
+                    renderPayments(paymentsResult.data || []);
                 }
 
-                renderPayments(payments);
                 closeModal('paymentModal');
                 showToast('success', `Payment of KES ${amount.toLocaleString()} confirmed successfully!`);
 
             } catch (error) {
                 console.error('Payment error:', error);
-                showToast('error', 'Failed to confirm payment: ' + error.message);
+                showToast('error', error.message || 'Failed to confirm payment');
             } finally {
                 submitBtn.disabled = false;
                 submitBtn.innerHTML = '<i class="fas fa-check"></i> Confirm Payment';
@@ -1516,13 +1438,27 @@
         }
 
         // =========================================================
+        // QUICK ACTIONS
+        // =========================================================
+        function downloadStatement() {
+            const member = authManager.getMember();
+            const membershipNumber = member?.membership_number || 'unknown';
+            showToast('info', `Generating statement for ${membershipNumber}...`);
+            // Redirect to download endpoint
+            window.open(`/api/v1/members/${membershipNumber}/statement`, '_blank');
+        }
+
+        function fileClaim() {
+            showToast('info', 'Opening claims form...');
+            window.location.href = 'claims.html';
+        }
+
+        // =========================================================
         // LOGOUT
         // =========================================================
-
         async function handleLogout() {
             try {
-                await supabase.auth.signOut();
-                sessionStorage.clear();
+                await authManager.logout();
                 window.location.href = 'index.html';
             } catch (error) {
                 console.error('Logout error:', error);
@@ -1533,42 +1469,69 @@
         // =========================================================
         // TOAST NOTIFICATIONS
         // =========================================================
-
         function showToast(type, message) {
             const container = document.getElementById('toastContainer');
+            
+            const icons = {
+                success: 'fa-check-circle',
+                error: 'fa-exclamation-circle',
+                warning: 'fa-triangle-exclamation',
+                info: 'fa-info-circle'
+            };
+            
             const toast = document.createElement('div');
             toast.className = `toast ${type}`;
-            toast.innerHTML = message;
-
-            // Icon
-            const icon = type === 'success' ? 'fa-check-circle' :
-                type === 'error' ? 'fa-exclamation-circle' :
-                'fa-info-circle';
-            toast.innerHTML = `<i class="fas ${icon}"></i> ${message}`;
-
+            toast.innerHTML = `
+                <span class="toast-icon"><i class="fas ${icons[type] || icons.info}"></i></span>
+                <span>${message}</span>
+                <button class="toast-close" onclick="this.parentElement.remove()">&times;</button>
+            `;
+            
             container.appendChild(toast);
-
+            
+            // Auto remove after 4 seconds
             setTimeout(() => {
                 toast.style.opacity = '0';
                 toast.style.transform = 'translateX(100px)';
                 toast.style.transition = 'all 0.4s ease';
-                setTimeout(() => {
-                    toast.remove();
-                }, 400);
+                setTimeout(() => toast.remove(), 400);
             }, 4000);
         }
 
         // =========================================================
         // KEYBOARD SHORTCUTS
         // =========================================================
-
         document.addEventListener('keydown', function(e) {
+            // Escape to close modals
             if (e.key === 'Escape') {
                 document.querySelectorAll('.modal-overlay.show').forEach(modal => {
                     modal.classList.remove('show');
                 });
             }
+            // Ctrl+P for payment modal
+            if (e.ctrlKey && e.key === 'p') {
+                e.preventDefault();
+                openPaymentModal();
+            }
+            // Ctrl+D for dependant modal
+            if (e.ctrlKey && e.key === 'd') {
+                e.preventDefault();
+                openDependantModal();
+            }
         });
+
+        // =========================================================
+        // EXPOSE FUNCTIONS GLOBALLY
+        // =========================================================
+        window.openDependantModal = openDependantModal;
+        window.openPaymentModal = openPaymentModal;
+        window.closeModal = closeModal;
+        window.handleAddDependant = handleAddDependant;
+        window.handlePayment = handlePayment;
+        window.handleLogout = handleLogout;
+        window.showToast = showToast;
+        window.downloadStatement = downloadStatement;
+        window.fileClaim = fileClaim;
     </script>
 
 </body>
