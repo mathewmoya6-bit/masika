@@ -5,6 +5,7 @@ Payment Service - Production M-Pesa Integration
 import os
 import json
 import base64
+import calendar
 import logging
 import time
 from datetime import date, datetime
@@ -369,24 +370,12 @@ class PaymentService:
                     
                     self.supabase.table("payments").update(update_data).eq("checkout_request_id", checkout_request_id).execute()
                     
-                    # Update member registration status
-                    #
-                    # FIX (2026-09-07): also set registration_date here, not
-                    # just registration_fee_paid/coverage_start_date.
-                    # membership_service.get_card_status() reads
-                    # `registration_date` (a plain date column) to compute
-                    # card eligibility. That column was never written by
-                    # either confirmation path, so members whose payment
-                    # went through this query fallback (rather than the
-                    # webhook) still showed as "unpaid" on the membership
-                    # card even though registration_fee_paid was True.
+                    # Update member registration status.
+                    # See _mark_member_paid() for why coverage_start_date
+                    # is set to the end of the waiting period, not "now".
                     payment = self.supabase.table("payments").select("*").eq("checkout_request_id", checkout_request_id).execute()
                     if payment.data and payment.data[0].get("member_id"):
-                        self.supabase.table("members").update({
-                            "registration_fee_paid": True,
-                            "registration_date": date.today().isoformat(),
-                            "coverage_start_date": datetime.now().isoformat()
-                        }).eq("id", payment.data[0]["member_id"]).execute()
+                        self._mark_member_paid(payment.data[0]["member_id"])
                     
                     return {
                         "result_code": result_code_str,
@@ -426,6 +415,77 @@ class PaymentService:
                 "status": "failed"
             }
     
+    # ============================================================
+    # MEMBER ACTIVATION HELPERS
+    # ============================================================
+
+    @staticmethod
+    def _add_months(d: date, months: int) -> date:
+        """Calendar-correct month addition, mirroring
+        membership_service.MembershipService._add_months() so the date
+        payment_service writes as coverage_start_date is computed the
+        exact same way membership_service later reads it back for
+        eligibility checks. Clamps the day if the target month is
+        shorter (e.g. Jan 31 + 1 month -> Feb 28/29)."""
+        month_index = d.month - 1 + int(months)
+        year = d.year + month_index // 12
+        month = month_index % 12 + 1
+        day = min(d.day, calendar.monthrange(year, month)[1])
+        return date(year, month, day)
+
+    def _get_waiting_period_months(self, member_id: str) -> int:
+        """waiting_period_months lives on `memberships`, not `members` --
+        it's set at signup time in member_service.create_member() from
+        the chosen plan. Falls back to 1 month (matching
+        membership_service.DEFAULT_WAITING_PERIOD_MONTHS) if no
+        membership row is found or the column is unset."""
+        try:
+            result = (
+                self.supabase.table("memberships")
+                .select("waiting_period_months")
+                .eq("member_id", member_id)
+                .order("created_at", desc=True)
+                .limit(1)
+                .execute()
+            )
+            if result.data:
+                months = result.data[0].get("waiting_period_months")
+                if months is not None:
+                    return int(months)
+        except Exception as e:
+            logger.warning(f"Could not fetch waiting_period_months for member {member_id}: {e}")
+        return 1
+
+    def _mark_member_paid(self, member_id: str) -> None:
+        """
+        Marks a member's registration fee as paid AND sets when their
+        coverage actually starts.
+
+        IMPORTANT: coverage_start_date is the END of the waiting period
+        (registration_date + waiting_period_months), not the moment of
+        payment. Setting it to "now" would let a member access benefits
+        immediately after paying, bypassing the waiting period that
+        membership_service.get_card_status() is supposed to enforce.
+
+        registration_date is still recorded as today -- that's the
+        payment/registration event date, and is what get_card_status()
+        adds the waiting period on top of.
+        """
+        registration_date = date.today()
+        waiting_months = self._get_waiting_period_months(member_id)
+        activation_date = self._add_months(registration_date, waiting_months)
+
+        self.supabase.table("members").update({
+            "registration_fee_paid": True,
+            "registration_date": registration_date.isoformat(),
+            "coverage_start_date": activation_date.isoformat()
+        }).eq("id", member_id).execute()
+
+        logger.info(
+            f"Member {member_id} marked paid: registration_date={registration_date.isoformat()}, "
+            f"waiting_period_months={waiting_months}, coverage_start_date={activation_date.isoformat()}"
+        )
+
     # ============================================================
     # WEBHOOK HANDLING
     # ============================================================
@@ -530,23 +590,11 @@ class PaymentService:
                 
                 result = self.supabase.table("payments").update(update_data).eq("id", payment_data["id"]).execute()
                 
-                # Update member registration status
-                #
-                # FIX (2026-09-07): also set registration_date here.
-                # membership_service.get_card_status() computes card
-                # eligibility from `registration_date` + waiting period,
-                # not from registration_fee_paid/coverage_start_date.
-                # Without this, a fully confirmed payment still showed
-                # the member as "unpaid" on the membership card because
-                # registration_date was never populated at signup or at
-                # confirmation.
+                # Update member registration status.
+                # See _mark_member_paid() for why coverage_start_date
+                # is set to the end of the waiting period, not "now".
                 if payment_data.get("member_id"):
-                    self.supabase.table("members").update({
-                        "registration_fee_paid": True,
-                        "registration_date": date.today().isoformat(),
-                        "coverage_start_date": datetime.now().isoformat()
-                    }).eq("id", payment_data["member_id"]).execute()
-                    
+                    self._mark_member_paid(payment_data["member_id"])
                     logger.info(f"Payment confirmed for member: {payment_data['member_id']}")
                 
                 logger.info(f"Payment confirmed: {checkout_request_id}, Receipt: {receipt}")
@@ -698,11 +746,7 @@ class PaymentService:
         if not result.data:
             raise ValidationError("Failed to confirm payment")
         
-        self.supabase.table("members").update({
-            "registration_fee_paid": True,
-            "registration_date": date.today().isoformat(),
-            "coverage_start_date": datetime.now().isoformat()
-        }).eq("id", str(member_id)).execute()
+        self._mark_member_paid(str(member_id))
         
         return result.data[0]
     
