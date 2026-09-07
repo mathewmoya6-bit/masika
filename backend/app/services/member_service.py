@@ -1,4 +1,3 @@
-```python
 """
 Member Service - Business Logic for Members
 
@@ -48,6 +47,39 @@ class MemberService:
 
     def __init__(self):
         self.supabase = get_supabase()
+
+    # ============================================================
+    # MEMBER NUMBER GENERATION
+    # ============================================================
+
+    def _generate_unique_member_number(self, max_attempts: int = 5) -> str:
+        """
+        generate_member_number() produces MAS-{year}-{4 random digits} --
+        only ~9000 possible values per year with no built-in uniqueness
+        guarantee. membership_number/member_number are used elsewhere as
+        the public identifier for a member (membership card lookups,
+        get_member_by_number()), so a collision is a real data-integrity
+        bug, not just a cosmetic one. Check the DB and retry a bounded
+        number of times instead of trusting randomness alone.
+        """
+        for _ in range(max_attempts):
+            candidate = generate_member_number()
+
+            existing = (
+                self.supabase
+                .table("members")
+                .select("id")
+                .eq("membership_number", candidate)
+                .limit(1)
+                .execute()
+            )
+
+            if not existing.data:
+                return candidate
+
+        raise ValidationError(
+            "Could not generate a unique membership number. Please try again."
+        )
 
     # ============================================================
     # CREATE MEMBER
@@ -185,9 +217,15 @@ class MemberService:
 
             # ----------------------------------------------------
             # 6. GENERATE MEMBERSHIP NUMBER
+            #
+            # FIX (2026-09-07): previously called generate_member_number()
+            # directly, which returns a random 4-digit suffix with no
+            # uniqueness guarantee. Use the DB-checked generator instead
+            # (see _generate_unique_member_number() above); the insert
+            # below also retries once on a duplicate-key race.
             # ----------------------------------------------------
 
-            membership_number = generate_member_number()
+            membership_number = self._generate_unique_member_number()
 
             # ----------------------------------------------------
             # 7. OTHER MEMBER DETAILS
@@ -422,14 +460,37 @@ class MemberService:
 
             # ----------------------------------------------------
             # 13. INSERT MEMBER
+            #
+            # FIX (2026-09-07): retries once if a concurrent request
+            # claimed the same membership_number between the
+            # uniqueness check above and this insert. The DB's unique
+            # constraint is the real source of truth; the pre-check
+            # above just avoids the common case cheaply.
             # ----------------------------------------------------
 
-            result = (
-                self.supabase
-                .table("members")
-                .insert(member_data)
-                .execute()
-            )
+            result = None
+
+            for attempt in range(2):
+                try:
+                    result = (
+                        self.supabase
+                        .table("members")
+                        .insert(member_data)
+                        .execute()
+                    )
+                    break
+                except Exception as insert_error:
+                    if "duplicate" in str(insert_error).lower() and attempt == 0:
+                        membership_number = self._generate_unique_member_number()
+                        member_data["membership_number"] = membership_number
+                        member_data["member_number"] = membership_number
+
+                        logger.warning(
+                            "membership_number collision on insert, retrying with %s",
+                            membership_number,
+                        )
+                        continue
+                    raise
 
             if not result.data:
                 raise ValidationError(
@@ -1498,4 +1559,3 @@ class MemberService:
 # ============================================================
 
 member_service = MemberService()
-```
