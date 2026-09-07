@@ -292,4 +292,52 @@ async def get_upcoming_payment(
 async def calculate_payment_amount(db, member_data: dict, payment_type: str, amount: Optional[float] = None) -> float:
     """Calculate payment amount based on type"""
     
-    if payment_type == "
+    if payment_type == "registration":
+        return member_data.get("registration_fee", 200)
+    
+    elif payment_type == "monthly":
+        plan = PlanConstants.PLANS.get(member_data["plan_type"])
+        return plan["monthly_fee"] if plan else 300
+    
+    elif payment_type == "addon":
+        # Add-on for parents (Wazazi plan)
+        return 350 * len(member_data.get("parents", []))
+    
+    elif payment_type == "custom":
+        if not amount or amount <= 0:
+            raise ValueError("Custom amount required")
+        return amount
+    
+    else:
+        raise ValueError(f"Invalid payment type: {payment_type}")
+
+async def monitor_payment_status(checkout_request_id: str, payment_id: str):
+    """Background task to monitor payment status"""
+    try:
+        # Wait for 30 seconds before first check
+        import asyncio
+        await asyncio.sleep(30)
+        
+        # Query status up to 3 times
+        for attempt in range(3):
+            try:
+                status = await mpesa_service.query_status(checkout_request_id)
+                
+                if status.get("ResultCode") == "0":
+                    # Payment completed
+                    logger.info(f"✅ Payment completed: {checkout_request_id}")
+                    break
+                elif status.get("ResultCode") == "1037":
+                    # Still pending, wait and retry
+                    await asyncio.sleep(20)
+                else:
+                    # Failed or other status
+                    logger.warning(f"⚠️ Payment status: {status.get('ResultDesc')}")
+                    break
+                    
+            except Exception as e:
+                logger.error(f"❌ Status check attempt {attempt + 1} failed: {str(e)}")
+                await asyncio.sleep(10)
+                
+    except Exception as e:
+        logger.error(f"❌ Monitoring error: {str(e)}")
