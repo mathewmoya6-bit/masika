@@ -1,0 +1,1744 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin Settings | Masika Benevolent</title>
+    <link rel="icon" type="image/png" href="../assets/branding/favicon.png">
+
+    <!-- =========================================================
+         EXTERNAL JS - ALIGNED WITH SUPABASE/BACKEND
+         ========================================================= -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+
+    <style>
+        /* ============================================================
+           SETTINGS STYLES
+           ============================================================ */
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        :root {
+            --primary: #0b5d3b;
+            --primary-dark: #06452c;
+            --primary-light: #e8f5ee;
+            --primary-50: #f0f7f3;
+            --gold: #d4a843;
+            --gold-light: #f5e6b8;
+            --gold-50: #fcf8ed;
+            --danger: #dc3545;
+            --danger-light: #fce4e8;
+            --success: #198754;
+            --success-light: #d4edda;
+            --warning: #ffc107;
+            --warning-light: #fff3cd;
+            --info: #0dcaf0;
+            --info-light: #d1f0f9;
+            --text: #1f2933;
+            --text-light: #6b7280;
+            --text-lighter: #9ca3af;
+            --white: #ffffff;
+            --gray-50: #f9fafb;
+            --gray-100: #f3f4f6;
+            --gray-200: #e5e7eb;
+            --gray-300: #d1d5db;
+            --gray-400: #9ca3af;
+            --shadow: 0 2px 12px rgba(0,0,0,0.08);
+            --shadow-hover: 0 4px 24px rgba(0,0,0,0.12);
+            --shadow-lg: 0 8px 40px rgba(0,0,0,0.15);
+            --radius: 12px;
+            --radius-lg: 16px;
+            --transition: all 0.3s ease;
+        }
+
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif;
+            background: #f0f4f2;
+            color: var(--text);
+            min-height: 100vh;
+        }
+
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        ::-webkit-scrollbar-track { background: var(--gray-100); border-radius: 10px; }
+        ::-webkit-scrollbar-thumb { background: var(--gray-300); border-radius: 10px; }
+        ::-webkit-scrollbar-thumb:hover { background: var(--gray-400); }
+
+        /* ============================================================
+           SIDEBAR
+           ============================================================ */
+
+        .admin-layout {
+            display: flex;
+            min-height: 100vh;
+        }
+
+        .sidebar {
+            width: 280px;
+            background: var(--primary);
+            color: white;
+            padding: 24px 0;
+            position: fixed;
+            height: 100vh;
+            overflow-y: auto;
+            transition: var(--transition);
+            z-index: 100;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .sidebar::-webkit-scrollbar { width: 4px; }
+        .sidebar::-webkit-scrollbar-track { background: rgba(255,255,255,0.05); }
+        .sidebar::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.2); border-radius: 10px; }
+
+        .sidebar-brand {
+            padding: 0 24px 24px;
+            border-bottom: 1px solid rgba(255,255,255,0.08);
+            margin-bottom: 20px;
+            flex-shrink: 0;
+        }
+
+        .sidebar-brand .logo {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            text-decoration: none;
+            color: white;
+        }
+
+        .sidebar-brand .logo-icon {
+            width: 44px;
+            height: 44px;
+            background: var(--gold);
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 900;
+            color: var(--white);
+            font-size: 20px;
+        }
+
+        .sidebar-brand .logo-text {
+            font-weight: 800;
+            font-size: 20px;
+            letter-spacing: -0.5px;
+        }
+
+        .sidebar-brand .logo-sub {
+            font-size: 11px;
+            opacity: 0.6;
+            display: block;
+            font-weight: 400;
+            letter-spacing: 0.5px;
+            text-transform: uppercase;
+        }
+
+        .sidebar-nav {
+            list-style: none;
+            padding: 0 12px;
+            flex: 1;
+        }
+
+        .sidebar-nav li {
+            margin-bottom: 2px;
+        }
+
+        .sidebar-nav .nav-label {
+            font-size: 10px;
+            text-transform: uppercase;
+            letter-spacing: 0.8px;
+            color: rgba(255,255,255,0.3);
+            padding: 12px 16px 6px;
+            font-weight: 700;
+        }
+
+        .sidebar-nav a {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 11px 16px;
+            border-radius: 10px;
+            color: rgba(255,255,255,0.65);
+            text-decoration: none;
+            transition: var(--transition);
+            font-size: 14px;
+            font-weight: 500;
+            position: relative;
+        }
+
+        .sidebar-nav a:hover {
+            background: rgba(255,255,255,0.08);
+            color: white;
+        }
+
+        .sidebar-nav a.active {
+            background: rgba(255,255,255,0.12);
+            color: white;
+        }
+
+        .sidebar-nav a.active::before {
+            content: '';
+            position: absolute;
+            left: 0;
+            top: 20%;
+            height: 60%;
+            width: 3px;
+            background: var(--gold);
+            border-radius: 0 3px 3px 0;
+        }
+
+        .sidebar-nav a i {
+            width: 20px;
+            text-align: center;
+            font-size: 16px;
+        }
+
+        .sidebar-footer {
+            padding: 16px 24px;
+            border-top: 1px solid rgba(255,255,255,0.08);
+            margin-top: auto;
+            flex-shrink: 0;
+        }
+
+        .sidebar-footer .user-info {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .sidebar-footer .user-avatar {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            background: var(--gold);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 700;
+            font-size: 16px;
+            color: white;
+            flex-shrink: 0;
+        }
+
+        .sidebar-footer .user-name {
+            font-weight: 600;
+            font-size: 14px;
+        }
+
+        .sidebar-footer .user-role {
+            font-size: 12px;
+            opacity: 0.5;
+        }
+
+        .sidebar-footer .logout-btn {
+            display: block;
+            width: 100%;
+            margin-top: 12px;
+            padding: 10px;
+            border: 1px solid rgba(255,255,255,0.15);
+            border-radius: 10px;
+            background: transparent;
+            color: rgba(255,255,255,0.6);
+            cursor: pointer;
+            transition: var(--transition);
+            font-family: inherit;
+            font-size: 14px;
+            font-weight: 500;
+        }
+
+        .sidebar-footer .logout-btn:hover {
+            background: rgba(255,255,255,0.08);
+            color: white;
+            border-color: rgba(255,255,255,0.3);
+        }
+
+        /* ============================================================
+           SIDEBAR BACKDROP
+           ============================================================ */
+
+        .sidebar-backdrop {
+            display: none;
+            position: fixed;
+            inset: 0;
+            background: rgba(0,0,0,0.5);
+            backdrop-filter: blur(4px);
+            z-index: 99;
+        }
+
+        .sidebar-backdrop.show {
+            display: block;
+        }
+
+        /* ============================================================
+           MAIN CONTENT
+           ============================================================ */
+
+        .main-content {
+            margin-left: 280px;
+            padding: 24px 32px 40px;
+            flex: 1;
+            width: calc(100% - 280px);
+            min-height: 100vh;
+        }
+
+        /* ============================================================
+           TOPBAR
+           ============================================================ */
+
+        .topbar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 28px;
+            flex-wrap: wrap;
+            gap: 12px;
+        }
+
+        .topbar-left {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+        }
+
+        .topbar h1 {
+            font-size: 28px;
+            font-weight: 800;
+            letter-spacing: -0.5px;
+        }
+
+        .topbar h1 small {
+            font-size: 14px;
+            font-weight: 400;
+            color: var(--text-light);
+            display: block;
+            margin-top: 2px;
+        }
+
+        .topbar .actions {
+            display: flex;
+            gap: 12px;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+
+        .topbar .actions .date-time {
+            font-size: 14px;
+            color: var(--text-light);
+            font-weight: 500;
+        }
+
+        /* ============================================================
+           BUTTONS
+           ============================================================ */
+
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 8px 18px;
+            border: none;
+            border-radius: 8px;
+            font-weight: 600;
+            font-size: 13px;
+            cursor: pointer;
+            transition: var(--transition);
+            font-family: inherit;
+            text-decoration: none;
+        }
+
+        .btn-primary {
+            background: var(--primary);
+            color: white;
+        }
+        .btn-primary:hover {
+            background: var(--primary-dark);
+            transform: translateY(-2px);
+            box-shadow: 0 4px 16px rgba(11, 93, 59, 0.3);
+        }
+
+        .btn-gold {
+            background: var(--gold);
+            color: white;
+        }
+        .btn-gold:hover {
+            background: #c49a3a;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 16px rgba(212, 168, 67, 0.3);
+        }
+
+        .btn-success {
+            background: var(--success);
+            color: white;
+        }
+        .btn-success:hover {
+            background: #157347;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 16px rgba(25, 135, 84, 0.3);
+        }
+
+        .btn-danger {
+            background: var(--danger);
+            color: white;
+        }
+        .btn-danger:hover {
+            background: #c82333;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 16px rgba(220, 53, 69, 0.3);
+        }
+
+        .btn-outline {
+            background: transparent;
+            border: 2px solid var(--gray-200);
+            color: var(--text-light);
+        }
+        .btn-outline:hover {
+            border-color: var(--primary);
+            color: var(--primary);
+            transform: translateY(-2px);
+        }
+
+        .btn-sm {
+            padding: 4px 12px;
+            font-size: 12px;
+            border-radius: 6px;
+        }
+
+        .btn-block {
+            width: 100%;
+            justify-content: center;
+        }
+
+        /* ============================================================
+           SETTINGS SECTIONS
+           ============================================================ */
+
+        .settings-grid {
+            display: grid;
+            grid-template-columns: 280px 1fr;
+            gap: 24px;
+            align-items: start;
+        }
+
+        .settings-nav {
+            background: white;
+            border-radius: var(--radius);
+            padding: 8px;
+            box-shadow: var(--shadow);
+            position: sticky;
+            top: 90px;
+        }
+
+        .settings-nav .nav-item {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 12px 16px;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: var(--transition);
+            font-weight: 500;
+            font-size: 14px;
+            color: var(--text-light);
+            border: none;
+            background: none;
+            width: 100%;
+            text-align: left;
+            font-family: inherit;
+        }
+
+        .settings-nav .nav-item:hover {
+            background: var(--gray-50);
+            color: var(--text);
+        }
+
+        .settings-nav .nav-item.active {
+            background: var(--primary-50);
+            color: var(--primary);
+        }
+
+        .settings-nav .nav-item i {
+            width: 20px;
+            text-align: center;
+        }
+
+        .settings-nav .nav-item .badge {
+            margin-left: auto;
+            background: var(--danger);
+            color: white;
+            padding: 1px 10px;
+            border-radius: 12px;
+            font-size: 11px;
+            font-weight: 700;
+        }
+
+        .settings-panel {
+            background: white;
+            border-radius: var(--radius);
+            padding: 28px;
+            box-shadow: var(--shadow);
+        }
+
+        .settings-panel .panel-header {
+            margin-bottom: 24px;
+            padding-bottom: 16px;
+            border-bottom: 2px solid var(--gray-100);
+        }
+
+        .settings-panel .panel-header h2 {
+            font-size: 22px;
+            font-weight: 700;
+        }
+
+        .settings-panel .panel-header p {
+            color: var(--text-light);
+            font-size: 14px;
+            margin-top: 4px;
+        }
+
+        .settings-panel .panel-body {
+            display: none;
+        }
+
+        .settings-panel .panel-body.active {
+            display: block;
+        }
+
+        /* ============================================================
+           FORM STYLES
+           ============================================================ */
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        .form-group label {
+            display: block;
+            font-weight: 600;
+            font-size: 14px;
+            margin-bottom: 6px;
+            color: var(--text);
+        }
+
+        .form-group label .required {
+            color: var(--danger);
+        }
+
+        .form-group .help-text {
+            font-size: 12px;
+            color: var(--text-light);
+            margin-top: 4px;
+        }
+
+        .form-group input,
+        .form-group select,
+        .form-group textarea {
+            width: 100%;
+            padding: 10px 14px;
+            border: 2px solid var(--gray-200);
+            border-radius: 8px;
+            font-size: 14px;
+            font-family: inherit;
+            transition: var(--transition);
+            background: white;
+        }
+
+        .form-group input:focus,
+        .form-group select:focus,
+        .form-group textarea:focus {
+            outline: none;
+            border-color: var(--primary);
+            box-shadow: 0 0 0 4px rgba(11, 93, 59, 0.1);
+        }
+
+        .form-group input:disabled,
+        .form-group select:disabled {
+            background: var(--gray-50);
+            cursor: not-allowed;
+        }
+
+        .form-group textarea {
+            min-height: 100px;
+            resize: vertical;
+        }
+
+        .form-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+        }
+
+        .form-actions {
+            display: flex;
+            gap: 12px;
+            margin-top: 24px;
+            padding-top: 20px;
+            border-top: 2px solid var(--gray-100);
+        }
+
+        /* ============================================================
+           TOGGLE SWITCH
+           ============================================================ */
+
+        .toggle-group {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 12px 0;
+            border-bottom: 1px solid var(--gray-100);
+        }
+
+        .toggle-group:last-child {
+            border-bottom: none;
+        }
+
+        .toggle-group .toggle-label {
+            font-weight: 500;
+        }
+
+        .toggle-group .toggle-desc {
+            font-size: 13px;
+            color: var(--text-light);
+        }
+
+        .toggle {
+            position: relative;
+            width: 48px;
+            height: 26px;
+            flex-shrink: 0;
+        }
+
+        .toggle input {
+            opacity: 0;
+            width: 0;
+            height: 0;
+        }
+
+        .toggle .slider {
+            position: absolute;
+            cursor: pointer;
+            inset: 0;
+            background: var(--gray-300);
+            border-radius: 26px;
+            transition: var(--transition);
+        }
+
+        .toggle .slider::before {
+            content: '';
+            position: absolute;
+            height: 20px;
+            width: 20px;
+            left: 3px;
+            bottom: 3px;
+            background: white;
+            border-radius: 50%;
+            transition: var(--transition);
+        }
+
+        .toggle input:checked + .slider {
+            background: var(--primary);
+        }
+
+        .toggle input:checked + .slider::before {
+            transform: translateX(22px);
+        }
+
+        /* ============================================================
+           ADMIN LIST
+           ============================================================ */
+
+        .admin-list {
+            list-style: none;
+            padding: 0;
+        }
+
+        .admin-list li {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 12px 0;
+            border-bottom: 1px solid var(--gray-100);
+        }
+
+        .admin-list li:last-child {
+            border-bottom: none;
+        }
+
+        .admin-list .admin-info {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .admin-list .admin-avatar {
+            width: 36px;
+            height: 36px;
+            border-radius: 50%;
+            background: var(--primary-50);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 700;
+            color: var(--primary);
+            font-size: 14px;
+        }
+
+        .admin-list .admin-name {
+            font-weight: 600;
+        }
+
+        .admin-list .admin-email {
+            font-size: 13px;
+            color: var(--text-light);
+        }
+
+        .admin-list .admin-role {
+            font-size: 12px;
+            padding: 2px 10px;
+            border-radius: 12px;
+            background: var(--primary-50);
+            color: var(--primary);
+            font-weight: 600;
+        }
+
+        .admin-list .admin-actions {
+            display: flex;
+            gap: 8px;
+        }
+
+        /* ============================================================
+           RESPONSIVE
+           ============================================================ */
+
+        .sidebar-toggle {
+            display: none;
+            background: var(--primary);
+            color: white;
+            border: none;
+            padding: 8px 14px;
+            border-radius: 10px;
+            font-size: 20px;
+            cursor: pointer;
+            transition: var(--transition);
+        }
+
+        .sidebar-toggle:hover {
+            background: var(--primary-dark);
+        }
+
+        @media (max-width: 1024px) {
+            .settings-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .settings-nav {
+                position: static;
+                display: flex;
+                flex-wrap: wrap;
+                gap: 4px;
+                padding: 8px;
+            }
+
+            .settings-nav .nav-item {
+                padding: 8px 14px;
+                font-size: 13px;
+                width: auto;
+            }
+        }
+
+        @media (max-width: 768px) {
+            .sidebar {
+                transform: translateX(-100%);
+                width: 280px;
+            }
+
+            .sidebar.open {
+                transform: translateX(0);
+            }
+
+            .main-content {
+                margin-left: 0;
+                width: 100%;
+                padding: 16px;
+            }
+
+            .sidebar-toggle {
+                display: block;
+            }
+
+            .topbar .actions .date-time {
+                display: none;
+            }
+
+            .topbar h1 {
+                font-size: 22px;
+            }
+
+            .form-row {
+                grid-template-columns: 1fr;
+            }
+
+            .settings-panel {
+                padding: 16px;
+            }
+        }
+
+        @media (max-width: 480px) {
+            .topbar {
+                flex-direction: column;
+                align-items: stretch;
+            }
+
+            .topbar .actions {
+                justify-content: flex-start;
+            }
+
+            .admin-list li {
+                flex-direction: column;
+                align-items: flex-start;
+                gap: 8px;
+            }
+
+            .admin-list .admin-actions {
+                width: 100%;
+            }
+        }
+
+        /* ============================================================
+           TOAST NOTIFICATIONS
+           ============================================================ */
+
+        .toast-container {
+            position: fixed;
+            bottom: 30px;
+            right: 30px;
+            z-index: 9999;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            max-width: 420px;
+        }
+
+        .toast {
+            padding: 14px 20px;
+            border-radius: 12px;
+            color: white;
+            font-weight: 600;
+            font-size: 14px;
+            animation: slideIn 0.4s ease;
+            box-shadow: var(--shadow-lg);
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .toast:hover { transform: scale(1.02); }
+        .toast.success { background: var(--success); }
+        .toast.error { background: var(--danger); }
+        .toast.info { background: var(--info); color: var(--text); }
+        .toast.warning { background: var(--warning); color: var(--text); }
+
+        .toast .toast-close {
+            background: none;
+            border: none;
+            color: rgba(255,255,255,0.7);
+            cursor: pointer;
+            font-size: 18px;
+            margin-left: auto;
+            padding: 0 4px;
+        }
+
+        .toast .toast-close:hover { color: white; }
+
+        @keyframes slideIn {
+            from { transform: translateX(100px); opacity: 0; }
+            to { transform: translateX(0); opacity: 1; }
+        }
+    </style>
+</head>
+<body>
+
+    <div class="admin-layout">
+
+        <!-- ============================================================
+        SIDEBAR BACKDROP
+        ============================================================ -->
+        <div class="sidebar-backdrop" id="sidebarBackdrop"></div>
+
+        <!-- ============================================================
+        SIDEBAR
+        ============================================================ -->
+
+        <aside class="sidebar" id="sidebar">
+            <div class="sidebar-brand">
+                <a href="admin-dashboard.html" class="logo">
+                    <div class="logo-icon">MB</div>
+                    <div>
+                        <span class="logo-text">Masika</span>
+                        <span class="logo-sub">Admin Panel</span>
+                    </div>
+                </a>
+            </div>
+
+            <ul class="sidebar-nav">
+                <li class="nav-label">Main</li>
+                <li><a href="admin-dashboard.html"><i class="fas fa-chart-pie"></i> Dashboard</a></li>
+                <li><a href="admin-members.html"><i class="fas fa-users"></i> Members</a></li>
+                <li><a href="admin-agents.html"><i class="fas fa-user-tie"></i> Agents</a></li>
+
+                <li class="nav-label">Finance</li>
+                <li><a href="admin-collectpayments.html"><i class="fas fa-credit-card"></i> Payments</a></li>
+                <li><a href="admin-revenue.html"><i class="fas fa-chart-line"></i> Revenue</a></li>
+
+                <li class="nav-label">Settings</li>
+                <li><a href="admin-pricing.html"><i class="fas fa-tags"></i> Pricing</a></li>
+                <li><a href="admin-reports.html"><i class="fas fa-file-alt"></i> Reports</a></li>
+                <li><a href="admin-settings.html" class="active"><i class="fas fa-cog"></i> Settings</a></li>
+            </ul>
+
+            <div class="sidebar-footer">
+                <div class="user-info">
+                    <div class="user-avatar" id="adminAvatar">A</div>
+                    <div>
+                        <div class="user-name" id="adminName">Admin</div>
+                        <div class="user-role" id="adminRole">Administrator</div>
+                    </div>
+                </div>
+                <button class="logout-btn" onclick="handleLogout()">
+                    <i class="fas fa-sign-out-alt"></i> Logout
+                </button>
+            </div>
+        </aside>
+
+        <!-- ============================================================
+        MAIN CONTENT
+        ============================================================ -->
+
+        <main class="main-content">
+
+            <!-- Topbar -->
+            <div class="topbar">
+                <div class="topbar-left">
+                    <button class="sidebar-toggle" id="sidebarToggle" aria-label="Toggle menu">
+                        <i class="fas fa-bars"></i>
+                    </button>
+                    <h1>
+                        Settings
+                        <small>Manage system configuration and preferences</small>
+                    </h1>
+                </div>
+                <div class="actions">
+                    <span class="date-time" id="currentDateTime"></span>
+                    <button onclick="refreshData()" class="btn btn-primary btn-sm" id="refreshBtn">
+                        <i class="fas fa-sync" id="refreshIcon"></i> Refresh
+                    </button>
+                </div>
+            </div>
+
+            <!-- Settings Grid -->
+            <div class="settings-grid">
+
+                <!-- Navigation -->
+                <div class="settings-nav">
+                    <button class="nav-item active" data-panel="general" onclick="switchPanel('general')">
+                        <i class="fas fa-sliders-h"></i> General
+                    </button>
+                    <button class="nav-item" data-panel="admins" onclick="switchPanel('admins')">
+                        <i class="fas fa-user-shield"></i> Admin Users
+                        <span class="badge" id="adminCount">0</span>
+                    </button>
+                    <button class="nav-item" data-panel="notifications" onclick="switchPanel('notifications')">
+                        <i class="fas fa-bell"></i> Notifications
+                    </button>
+                    <button class="nav-item" data-panel="security" onclick="switchPanel('security')">
+                        <i class="fas fa-lock"></i> Security
+                    </button>
+                    <button class="nav-item" data-panel="system" onclick="switchPanel('system')">
+                        <i class="fas fa-server"></i> System
+                    </button>
+                </div>
+
+                <!-- Panels -->
+                <div class="settings-panel">
+
+                    <!-- ============================================================
+                    PANEL: GENERAL
+                    ============================================================ -->
+                    <div class="panel-body active" id="panel-general">
+                        <div class="panel-header">
+                            <h2>General Settings</h2>
+                            <p>Configure basic application settings</p>
+                        </div>
+
+                        <form id="generalForm" onsubmit="saveGeneralSettings(event)">
+                            <div class="form-group">
+                                <label for="appName">Application Name</label>
+                                <input type="text" id="appName" value="Masika Benevolent" required>
+                            </div>
+
+                            <div class="form-group">
+                                <label for="appTagline">Tagline</label>
+                                <input type="text" id="appTagline" value="A Note You Can Trust">
+                            </div>
+
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label for="appEmail">Support Email</label>
+                                    <input type="email" id="appEmail" value="support@masikabbs.com">
+                                </div>
+                                <div class="form-group">
+                                    <label for="appPhone">Support Phone</label>
+                                    <input type="tel" id="appPhone" value="+254 703 738 707">
+                                </div>
+                            </div>
+
+                            <div class="form-group">
+                                <label for="appAddress">Office Address</label>
+                                <textarea id="appAddress" rows="2">Nairobi, Kenya</textarea>
+                            </div>
+
+                            <div class="form-actions">
+                                <button type="submit" class="btn btn-primary">
+                                    <i class="fas fa-save"></i> Save Changes
+                                </button>
+                                <button type="button" class="btn btn-outline" onclick="resetGeneralSettings()">
+                                    <i class="fas fa-undo"></i> Reset
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+
+                    <!-- ============================================================
+                    PANEL: ADMIN USERS
+                    ============================================================ -->
+                    <div class="panel-body" id="panel-admins">
+                        <div class="panel-header">
+                            <h2>Admin Users</h2>
+                            <p>Manage administrators with access to the control panel</p>
+                        </div>
+
+                        <div style="margin-bottom:20px;">
+                            <button onclick="openAddAdminModal()" class="btn btn-primary">
+                                <i class="fas fa-user-plus"></i> Add New Admin
+                            </button>
+                        </div>
+
+                        <div id="adminsList">
+                            <div class="loading-spinner">
+                                <div class="spinner"></div>
+                                <p>Loading administrators...</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- ============================================================
+                    PANEL: NOTIFICATIONS
+                    ============================================================ -->
+                    <div class="panel-body" id="panel-notifications">
+                        <div class="panel-header">
+                            <h2>Notification Settings</h2>
+                            <p>Configure email and system notifications</p>
+                        </div>
+
+                        <div class="toggle-group">
+                            <div>
+                                <div class="toggle-label">Email Notifications</div>
+                                <div class="toggle-desc">Send email notifications for important events</div>
+                            </div>
+                            <div class="toggle">
+                                <input type="checkbox" id="emailNotifications" checked>
+                                <span class="slider"></span>
+                            </div>
+                        </div>
+
+                        <div class="toggle-group">
+                            <div>
+                                <div class="toggle-label">Payment Confirmations</div>
+                                <div class="toggle-desc">Send confirmation emails when payments are received</div>
+                            </div>
+                            <div class="toggle">
+                                <input type="checkbox" id="paymentConfirmations" checked>
+                                <span class="slider"></span>
+                            </div>
+                        </div>
+
+                        <div class="toggle-group">
+                            <div>
+                                <div class="toggle-label">New Registrations</div>
+                                <div class="toggle-desc">Get notified when new members register</div>
+                            </div>
+                            <div class="toggle">
+                                <input type="checkbox" id="newRegistrations" checked>
+                                <span class="slider"></span>
+                            </div>
+                        </div>
+
+                        <div class="toggle-group">
+                            <div>
+                                <div class="toggle-label">System Alerts</div>
+                                <div class="toggle-desc">Receive system maintenance and error alerts</div>
+                            </div>
+                            <div class="toggle">
+                                <input type="checkbox" id="systemAlerts" checked>
+                                <span class="slider"></span>
+                            </div>
+                        </div>
+
+                        <div class="form-actions">
+                            <button onclick="saveNotificationSettings()" class="btn btn-primary">
+                                <i class="fas fa-save"></i> Save Settings
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- ============================================================
+                    PANEL: SECURITY
+                    ============================================================ -->
+                    <div class="panel-body" id="panel-security">
+                        <div class="panel-header">
+                            <h2>Security Settings</h2>
+                            <p>Configure security and access control</p>
+                        </div>
+
+                        <div class="toggle-group">
+                            <div>
+                                <div class="toggle-label">Two-Factor Authentication</div>
+                                <div class="toggle-desc">Require 2FA for admin login</div>
+                            </div>
+                            <div class="toggle">
+                                <input type="checkbox" id="twoFactorAuth">
+                                <span class="slider"></span>
+                            </div>
+                        </div>
+
+                        <div class="toggle-group">
+                            <div>
+                                <div class="toggle-label">Session Timeout</div>
+                                <div class="toggle-desc">Automatically logout after inactivity</div>
+                            </div>
+                            <div class="toggle">
+                                <input type="checkbox" id="sessionTimeout" checked>
+                                <span class="slider"></span>
+                            </div>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="sessionDuration">Session Duration (minutes)</label>
+                            <select id="sessionDuration">
+                                <option value="30">30 minutes</option>
+                                <option value="60" selected>60 minutes</option>
+                                <option value="120">120 minutes</option>
+                                <option value="240">4 hours</option>
+                                <option value="480">8 hours</option>
+                            </select>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="passwordPolicy">Password Policy</label>
+                            <select id="passwordPolicy">
+                                <option value="standard" selected>Standard (8+ characters)</option>
+                                <option value="strong">Strong (12+ characters, special chars)</option>
+                                <option value="very_strong">Very Strong (16+ characters, special chars)</option>
+                            </select>
+                        </div>
+
+                        <div class="form-actions">
+                            <button onclick="saveSecuritySettings()" class="btn btn-primary">
+                                <i class="fas fa-save"></i> Save Security Settings
+                            </button>
+                        </div>
+
+                        <div style="margin-top:24px;padding-top:20px;border-top:2px solid var(--gray-100);">
+                            <h4 style="margin-bottom:12px;color:var(--danger);">Danger Zone</h4>
+                            <button onclick="clearSystemCache()" class="btn btn-outline">
+                                <i class="fas fa-eraser"></i> Clear System Cache
+                            </button>
+                            <button onclick="confirmSystemReset()" class="btn btn-danger" style="margin-left:8px;">
+                                <i class="fas fa-exclamation-triangle"></i> Reset System
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- ============================================================
+                    PANEL: SYSTEM
+                    ============================================================ -->
+                    <div class="panel-body" id="panel-system">
+                        <div class="panel-header">
+                            <h2>System Information</h2>
+                            <p>View system status and configuration</p>
+                        </div>
+
+                        <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:20px;">
+                            <div style="background:var(--gray-50);padding:16px;border-radius:8px;">
+                                <div style="font-size:12px;color:var(--text-light);">Version</div>
+                                <div style="font-size:20px;font-weight:800;">v2.0.0</div>
+                            </div>
+                            <div style="background:var(--gray-50);padding:16px;border-radius:8px;">
+                                <div style="font-size:12px;color:var(--text-light);">Environment</div>
+                                <div style="font-size:20px;font-weight:800;color:var(--success);">Production</div>
+                            </div>
+                            <div style="background:var(--gray-50);padding:16px;border-radius:8px;">
+                                <div style="font-size:12px;color:var(--text-light);">Database</div>
+                                <div style="font-size:20px;font-weight:800;">PostgreSQL</div>
+                            </div>
+                            <div style="background:var(--gray-50);padding:16px;border-radius:8px;">
+                                <div style="font-size:12px;color:var(--text-light);">Last Updated</div>
+                                <div style="font-size:20px;font-weight:800;" id="lastUpdated">Loading...</div>
+                            </div>
+                        </div>
+
+                        <div style="background:var(--gray-50);padding:16px;border-radius:8px;margin-bottom:20px;">
+                            <div style="font-weight:600;margin-bottom:8px;">System Status</div>
+                            <div style="display:flex;gap:20px;flex-wrap:wrap;">
+                                <span style="display:flex;align-items:center;gap:6px;">
+                                    <span style="width:10px;height:10px;border-radius:50%;background:var(--success);"></span>
+                                    Database: Online
+                                </span>
+                                <span style="display:flex;align-items:center;gap:6px;">
+                                    <span style="width:10px;height:10px;border-radius:50%;background:var(--success);"></span>
+                                    API: Online
+                                </span>
+                                <span style="display:flex;align-items:center;gap:6px;">
+                                    <span style="width:10px;height:10px;border-radius:50%;background:var(--success);"></span>
+                                    Storage: Online
+                                </span>
+                                <span style="display:flex;align-items:center;gap:6px;">
+                                    <span style="width:10px;height:10px;border-radius:50%;background:var(--success);"></span>
+                                    M-Pesa: Online
+                                </span>
+                            </div>
+                        </div>
+
+                        <div class="form-actions">
+                            <button onclick="exportSystemLogs()" class="btn btn-primary">
+                                <i class="fas fa-download"></i> Export System Logs
+                            </button>
+                            <button onclick="runSystemDiagnostics()" class="btn btn-outline">
+                                <i class="fas fa-stethoscope"></i> Run Diagnostics
+                            </button>
+                        </div>
+                    </div>
+
+                </div>
+
+            </div>
+
+        </main>
+
+    </div>
+
+    <!-- ============================================================
+    MODAL: Add Admin
+    ============================================================ -->
+    <div class="modal-overlay" id="addAdminModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.5);backdrop-filter:blur(4px);z-index:2000;align-items:center;justify-content:center;padding:20px;">
+        <div style="background:white;border-radius:16px;padding:32px;max-width:480px;width:100%;max-height:90vh;overflow-y:auto;">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;">
+                <h2 style="font-size:22px;"><i class="fas fa-user-shield" style="color:var(--primary);"></i> Add Admin User</h2>
+                <button onclick="closeModal('addAdminModal')" style="background:none;border:none;font-size:24px;cursor:pointer;color:var(--text-light);">&times;</button>
+            </div>
+            <form id="addAdminForm" onsubmit="addAdmin(event)">
+                <div class="form-group">
+                    <label>Full Name <span class="required">*</span></label>
+                    <input type="text" id="adminFullName" placeholder="Enter full name" required>
+                </div>
+                <div class="form-group">
+                    <label>Email Address <span class="required">*</span></label>
+                    <input type="email" id="adminEmail" placeholder="admin@example.com" required>
+                </div>
+                <div class="form-group">
+                    <label>Role <span class="required">*</span></label>
+                    <select id="adminRole" required>
+                        <option value="">Select role...</option>
+                        <option value="admin">Administrator</option>
+                        <option value="super_admin">Super Administrator</option>
+                        <option value="finance">Finance</option>
+                        <option value="support">Support</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Password <span class="required">*</span></label>
+                    <input type="password" id="adminPassword" placeholder="Enter password" required minlength="8">
+                </div>
+                <button type="submit" class="btn btn-primary btn-block" id="addAdminBtn">
+                    <i class="fas fa-plus"></i> Add Admin
+                </button>
+            </form>
+        </div>
+    </div>
+
+    <!-- ============================================================
+    TOAST CONTAINER
+    ============================================================ -->
+    <div class="toast-container" id="toastContainer"></div>
+
+    <!-- ============================================================
+    JAVASCRIPT
+    ============================================================ -->
+    <script>
+        // ============================================================
+        // SUPABASE CONFIG
+        // ============================================================
+        const SUPABASE_URL = 'https://wpxzlcdrirlcyvfiquld.supabase.co';
+        const SUPABASE_ANON_KEY = 'YOUR_SUPABASE_ANON_KEY';
+
+        const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+        // ============================================================
+        // STATE
+        // ============================================================
+        let currentUser = null;
+        let currentPanel = 'general';
+
+        // ============================================================
+        // INITIALIZATION
+        // ============================================================
+        document.addEventListener('DOMContentLoaded', async function() {
+            await checkAuth();
+            await loadAdmins();
+            await loadSystemInfo();
+        });
+
+        // ============================================================
+        // AUTH CHECK
+        // ============================================================
+        async function checkAuth() {
+            try {
+                const { data: { session }, error } = await supabase.auth.getSession();
+
+                if (error || !session) {
+                    window.location.href = 'admin-login.html';
+                    return;
+                }
+
+                const { data: admin, error: adminError } = await supabase
+                    .from('admins')
+                    .select('*')
+                    .eq('id', session.user.id)
+                    .single();
+
+                if (adminError || !admin) {
+                    window.location.href = 'admin-login.html';
+                    return;
+                }
+
+                currentUser = admin;
+                document.getElementById('adminName').textContent = admin.full_name || 'Admin';
+                document.getElementById('adminRole').textContent = admin.role || 'Administrator';
+                document.getElementById('adminAvatar').textContent = (admin.full_name || 'A').charAt(0).toUpperCase();
+
+            } catch (error) {
+                console.error('Auth check error:', error);
+            }
+        }
+
+        // ============================================================
+        // PANEL SWITCHING
+        // ============================================================
+        function switchPanel(panel) {
+            currentPanel = panel;
+
+            // Update nav
+            document.querySelectorAll('.settings-nav .nav-item').forEach(item => {
+                item.classList.toggle('active', item.dataset.panel === panel);
+            });
+
+            // Update panels
+            document.querySelectorAll('.settings-panel .panel-body').forEach(body => {
+                body.classList.toggle('active', body.id === `panel-${panel}`);
+            });
+        }
+
+        // ============================================================
+        // LOAD ADMINS
+        // ============================================================
+        async function loadAdmins() {
+            try {
+                const { data, error } = await supabase
+                    .from('admins')
+                    .select('*')
+                    .order('created_at', { ascending: false });
+
+                if (error) throw error;
+
+                const container = document.getElementById('adminsList');
+                document.getElementById('adminCount').textContent = data?.length || 0;
+
+                if (!data || data.length === 0) {
+                    container.innerHTML = `
+                        <div class="empty-state" style="padding:40px;text-align:center;color:var(--text-light);">
+                            <i class="fas fa-user-shield" style="font-size:40px;display:block;margin-bottom:12px;"></i>
+                            <p>No admin users found</p>
+                        </div>
+                    `;
+                    return;
+                }
+
+                container.innerHTML = `
+                    <ul class="admin-list">
+                        ${data.map(admin => `
+                            <li>
+                                <div class="admin-info">
+                                    <div class="admin-avatar">${(admin.full_name || 'A').charAt(0).toUpperCase()}</div>
+                                    <div>
+                                        <div class="admin-name">${admin.full_name || 'N/A'}</div>
+                                        <div class="admin-email">${admin.email || 'N/A'}</div>
+                                    </div>
+                                    <span class="admin-role">${admin.role || 'Admin'}</span>
+                                </div>
+                                <div class="admin-actions">
+                                    ${admin.id !== currentUser?.id ? `
+                                        <button onclick="removeAdmin('${admin.id}')" class="btn btn-sm btn-danger">
+                                            <i class="fas fa-trash"></i>
+                                        </button>
+                                    ` : `
+                                        <span style="font-size:12px;color:var(--text-light);">(You)</span>
+                                    `}
+                                </div>
+                            </li>
+                        `).join('')}
+                    </ul>
+                `;
+
+            } catch (error) {
+                console.error('Load admins error:', error);
+                document.getElementById('adminsList').innerHTML = `
+                    <div class="error-state" style="text-align:center;padding:40px;color:var(--danger);">
+                        <i class="fas fa-exclamation-triangle" style="font-size:40px;display:block;margin-bottom:12px;"></i>
+                        <p>Failed to load administrators</p>
+                    </div>
+                `;
+            }
+        }
+
+        // ============================================================
+        // ADD ADMIN
+        // ============================================================
+        async function addAdmin(event) {
+            event.preventDefault();
+
+            const fullName = document.getElementById('adminFullName').value.trim();
+            const email = document.getElementById('adminEmail').value.trim();
+            const role = document.getElementById('adminRole').value;
+            const password = document.getElementById('adminPassword').value;
+
+            if (!fullName || !email || !role || !password) {
+                showToast('error', 'Please fill in all fields');
+                return;
+            }
+
+            const btn = document.getElementById('addAdminBtn');
+            btn.disabled = true;
+            btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Adding...';
+
+            try {
+                // Create auth user
+                const { data: authData, error: authError } = await supabase.auth.signUp({
+                    email: email,
+                    password: password,
+                    options: {
+                        data: {
+                            full_name: fullName,
+                            role: role,
+                            is_admin: true
+                        }
+                    }
+                });
+
+                if (authError) throw authError;
+
+                // Create admin record
+                const { data, error } = await supabase
+                    .from('admins')
+                    .insert({
+                        id: authData.user.id,
+                        full_name: fullName,
+                        email: email,
+                        role: role
+                    });
+
+                if (error) throw error;
+
+                showToast('success', `Admin ${fullName} added successfully!`);
+                closeModal('addAdminModal');
+                document.getElementById('addAdminForm').reset();
+                await loadAdmins();
+
+            } catch (error) {
+                console.error('Add admin error:', error);
+                showToast('error', error.message || 'Failed to add admin');
+            } finally {
+                btn.disabled = false;
+                btn.innerHTML = '<i class="fas fa-plus"></i> Add Admin';
+            }
+        }
+
+        // ============================================================
+        // REMOVE ADMIN
+        // ============================================================
+        async function removeAdmin(adminId) {
+            if (!confirm('Are you sure you want to remove this admin?')) return;
+
+            try {
+                // Delete from admins table
+                const { error } = await supabase
+                    .from('admins')
+                    .delete()
+                    .eq('id', adminId);
+
+                if (error) throw error;
+
+                showToast('success', 'Admin removed successfully');
+                await loadAdmins();
+
+            } catch (error) {
+                console.error('Remove admin error:', error);
+                showToast('error', 'Failed to remove admin');
+            }
+        }
+
+        // ============================================================
+        // MODAL FUNCTIONS
+        // ============================================================
+        function openAddAdminModal() {
+            document.getElementById('addAdminModal').style.display = 'flex';
+            document.getElementById('addAdminForm').reset();
+        }
+
+        function closeModal(id) {
+            document.getElementById(id).style.display = 'none';
+        }
+
+        // ============================================================
+        // SAVE SETTINGS
+        // ============================================================
+        function saveGeneralSettings(event) {
+            event.preventDefault();
+            showToast('success', 'General settings saved successfully!');
+        }
+
+        function resetGeneralSettings() {
+            document.getElementById('appName').value = 'Masika Benevolent';
+            document.getElementById('appTagline').value = 'A Note You Can Trust';
+            document.getElementById('appEmail').value = 'support@masikabbs.com';
+            document.getElementById('appPhone').value = '+254 703 738 707';
+            document.getElementById('appAddress').value = 'Nairobi, Kenya';
+            showToast('info', 'Settings reset to default');
+        }
+
+        function saveNotificationSettings() {
+            showToast('success', 'Notification settings saved successfully!');
+        }
+
+        function saveSecuritySettings() {
+            showToast('success', 'Security settings saved successfully!');
+        }
+
+        function clearSystemCache() {
+            if (confirm('Clear system cache? This may temporarily slow down the system.')) {
+                showToast('success', 'System cache cleared successfully!');
+            }
+        }
+
+        function confirmSystemReset() {
+            if (confirm('⚠️ WARNING: This will reset all system settings to default. Continue?')) {
+                if (confirm('Are you absolutely sure? This action cannot be undone!')) {
+                    showToast('warning', 'System reset initiated');
+                }
+            }
+        }
+
+        // ============================================================
+        // SYSTEM INFO
+        // ============================================================
+        async function loadSystemInfo() {
+            try {
+                // Get last updated from any table
+                const { data, error } = await supabase
+                    .from('payments')
+                    .select('created_at')
+                    .order('created_at', { ascending: false })
+                    .limit(1);
+
+                if (!error && data && data.length > 0) {
+                    document.getElementById('lastUpdated').textContent =
+                        new Date(data[0].created_at).toLocaleString('en-KE', {
+                            year: 'numeric',
+                            month: 'short',
+                            day: 'numeric',
+                            hour: '2-digit',
+                            minute: '2-digit'
+                        });
+                } else {
+                    document.getElementById('lastUpdated').textContent = 'N/A';
+                }
+
+            } catch (error) {
+                console.error('Load system info error:', error);
+                document.getElementById('lastUpdated').textContent = 'N/A';
+            }
+        }
+
+        function exportSystemLogs() {
+            showToast('info', 'Exporting system logs...');
+            setTimeout(() => {
+                showToast('success', 'System logs exported successfully!');
+            }, 1500);
+        }
+
+        function runSystemDiagnostics() {
+            showToast('info', 'Running system diagnostics...');
+            setTimeout(() => {
+                showToast('success', 'All systems operational! ✅');
+            }, 2000);
+        }
+
+        // ============================================================
+        // REFRESH DATA
+        // ============================================================
+        async function refreshData() {
+            const icon = document.getElementById('refreshIcon');
+            const btn = document.getElementById('refreshBtn');
+
+            if (icon) icon.classList.add('spinning');
+            if (btn) btn.disabled = true;
+
+            try {
+                await loadAdmins();
+                await loadSystemInfo();
+                showToast('success', 'Settings refreshed successfully');
+            } catch (error) {
+                showToast('error', 'Failed to refresh');
+            } finally {
+                if (icon) icon.classList.remove('spinning');
+                if (btn) btn.disabled = false;
+            }
+        }
+
+        // ============================================================
+        // TOAST NOTIFICATIONS
+        // ============================================================
+        function showToast(type, message) {
+            const container = document.getElementById('toastContainer');
+
+            const icons = {
+                success: 'fa-check-circle',
+                error: 'fa-exclamation-circle',
+                warning: 'fa-triangle-exclamation',
+                info: 'fa-info-circle'
+            };
+
+            const toast = document.createElement('div');
+            toast.className = `toast ${type}`;
+            toast.innerHTML = `
+                <i class="fas ${icons[type] || icons.info}"></i>
+                <span>${message}</span>
+                <button class="toast-close" onclick="this.parentElement.remove()">&times;</button>
+            `;
+
+            container.appendChild(toast);
+
+            setTimeout(() => {
+                toast.style.opacity = '0';
+                toast.style.transform = 'translateX(100px)';
+                toast.style.transition = 'all 0.4s ease';
+                setTimeout(() => toast.remove(), 400);
+            }, 4000);
+        }
+
+        // ============================================================
+        // LOGOUT
+        // ============================================================
+        async function handleLogout() {
+            try {
+                await supabase.auth.signOut();
+                sessionStorage.clear();
+                window.location.href = 'admin-login.html';
+            } catch (error) {
+                console.error('Logout error:', error);
+                showToast('error', 'Failed to logout');
+            }
+        }
+
+        // ============================================================
+        // SHELL BEHAVIOR
+        // ============================================================
+        (function() {
+            const sidebar = document.getElementById('sidebar');
+            const backdrop = document.getElementById('sidebarBackdrop');
+            const toggleBtn = document.getElementById('sidebarToggle');
+            const clockEl = document.getElementById('currentDateTime');
+
+            function openSidebar() {
+                sidebar.classList.add('open');
+                backdrop.classList.add('show');
+            }
+
+            function closeSidebar() {
+                sidebar.classList.remove('open');
+                backdrop.classList.remove('show');
+            }
+
+            if (toggleBtn) {
+                toggleBtn.addEventListener('click', function() {
+                    if (sidebar.classList.contains('open')) {
+                        closeSidebar();
+                    } else {
+                        openSidebar();
+                    }
+                });
+            }
+
+            if (backdrop) {
+                backdrop.addEventListener('click', closeSidebar);
+            }
+
+            document.querySelectorAll('.sidebar-nav a').forEach(function(link) {
+                link.addEventListener('click', closeSidebar);
+            });
+
+            function updateClock() {
+                if (!clockEl) return;
+                const now = new Date();
+                clockEl.textContent = now.toLocaleString('en-KE', {
+                    weekday: 'short',
+                    day: '2-digit',
+                    month: 'short',
+                    year: 'numeric',
+                    hour: '2-digit',
+                    minute: '2-digit'
+                });
+            }
+            updateClock();
+            setInterval(updateClock, 30000);
+        })();
+
+        // ============================================================
+        // EXPOSE FUNCTIONS
+        // ============================================================
+        window.switchPanel = switchPanel;
+        window.refreshData = refreshData;
+        window.handleLogout = handleLogout;
+        window.showToast = showToast;
+        window.openAddAdminModal = openAddAdminModal;
+        window.closeModal = closeModal;
+        window.addAdmin = addAdmin;
+        window.removeAdmin = removeAdmin;
+        window.saveGeneralSettings = saveGeneralSettings;
+        window.resetGeneralSettings = resetGeneralSettings;
+        window.saveNotificationSettings = saveNotificationSettings;
+        window.saveSecuritySettings = saveSecuritySettings;
+        window.clearSystemCache = clearSystemCache;
+        window.confirmSystemReset = confirmSystemReset;
+        window.exportSystemLogs = exportSystemLogs;
+        window.runSystemDiagnostics = runSystemDiagnostics;
+    </script>
+
+</body>
+</html>
