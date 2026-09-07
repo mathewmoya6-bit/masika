@@ -1,22 +1,22 @@
 # ============================================================
-# BACKEND ENTRY POINT - main.py
-# This is the root file that uvicorn/gunicorn runs
+# MAIN ENTRY POINT - backend/main.py
+# Render runs: uvicorn main:app
 # ============================================================
 
 import sys
 import os
-from pathlib import Path
 
-# Add the parent directory to path so we can import app
-sys.path.insert(0, str(Path(__file__).parent))
+# Add current directory to Python path
+current_dir = os.path.dirname(os.path.abspath(__file__))
+sys.path.insert(0, current_dir)
 
-from app.main import app  # Absolute import
-import uvicorn
+# Import the FastAPI app from app.main
+try:
+    from app.main import app
+    print(f"✅ Successfully imported app")
+except ImportError as e:
+    print(f"❌ Failed to import app: {e}")
+    print(f"PYTHONPATH: {sys.path}")
+    raise
 
-if __name__ == "__main__":
-    uvicorn.run(
-        "app.main:app",
-        host="0.0.0.0",
-        port=8000,
-        reload=False
-    )
+# This is what uvicorn will import as "main:app"
