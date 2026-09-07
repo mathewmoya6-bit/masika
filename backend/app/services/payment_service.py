@@ -7,7 +7,7 @@ import json
 import base64
 import logging
 import time
-from datetime import datetime
+from datetime import date, datetime
 from typing import Optional, List, Dict, Any
 from uuid import UUID
 
@@ -370,10 +370,21 @@ class PaymentService:
                     self.supabase.table("payments").update(update_data).eq("checkout_request_id", checkout_request_id).execute()
                     
                     # Update member registration status
+                    #
+                    # FIX (2026-09-07): also set registration_date here, not
+                    # just registration_fee_paid/coverage_start_date.
+                    # membership_service.get_card_status() reads
+                    # `registration_date` (a plain date column) to compute
+                    # card eligibility. That column was never written by
+                    # either confirmation path, so members whose payment
+                    # went through this query fallback (rather than the
+                    # webhook) still showed as "unpaid" on the membership
+                    # card even though registration_fee_paid was True.
                     payment = self.supabase.table("payments").select("*").eq("checkout_request_id", checkout_request_id).execute()
                     if payment.data and payment.data[0].get("member_id"):
                         self.supabase.table("members").update({
                             "registration_fee_paid": True,
+                            "registration_date": date.today().isoformat(),
                             "coverage_start_date": datetime.now().isoformat()
                         }).eq("id", payment.data[0]["member_id"]).execute()
                     
@@ -452,6 +463,14 @@ class PaymentService:
             # Normalizing both sides to str() makes this correct
             # regardless of whether Safaricom sends an int, a string, or
             # (per some Daraja sandbox responses) a float.
+            #
+            # NOTE: this fix only takes effect once webhooks.py's /mpesa
+            # route actually calls this method -- previously that route
+            # parsed the callback into an unrelated flat model
+            # (MpesaWebhookData) that never matched Safaricom's real
+            # payload shape, so this function was never invoked at all
+            # on production traffic. Fixed the same day by rewriting
+            # webhooks.py to delegate here directly.
             # ------------------------------------------------------
             result_code = stk_callback.get("ResultCode")
             result_code_str = str(result_code).strip() if result_code is not None else None
@@ -512,9 +531,19 @@ class PaymentService:
                 result = self.supabase.table("payments").update(update_data).eq("id", payment_data["id"]).execute()
                 
                 # Update member registration status
+                #
+                # FIX (2026-09-07): also set registration_date here.
+                # membership_service.get_card_status() computes card
+                # eligibility from `registration_date` + waiting period,
+                # not from registration_fee_paid/coverage_start_date.
+                # Without this, a fully confirmed payment still showed
+                # the member as "unpaid" on the membership card because
+                # registration_date was never populated at signup or at
+                # confirmation.
                 if payment_data.get("member_id"):
                     self.supabase.table("members").update({
                         "registration_fee_paid": True,
+                        "registration_date": date.today().isoformat(),
                         "coverage_start_date": datetime.now().isoformat()
                     }).eq("id", payment_data["member_id"]).execute()
                     
@@ -671,6 +700,7 @@ class PaymentService:
         
         self.supabase.table("members").update({
             "registration_fee_paid": True,
+            "registration_date": date.today().isoformat(),
             "coverage_start_date": datetime.now().isoformat()
         }).eq("id", str(member_id)).execute()
         
