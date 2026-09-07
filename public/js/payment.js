@@ -38,7 +38,8 @@
     const CONFIG = {
         REQUEST_TIMEOUT: 60000,
         POLL_INTERVAL: 3000,
-        MAX_POLL_ATTEMPTS: 60
+        MAX_POLL_ATTEMPTS: 60, // 60 x 3s = 3 minutes for the initial automatic poll
+        MANUAL_RECHECK_ATTEMPTS: 5 // 5 x 3s = 15s per manual "Check Status Again" click
     };
 
     U.log("payment.js: script loaded");
@@ -69,6 +70,10 @@
         payNowBtn: null,
         backBtn: null,
         cancelPaymentBtn: null,
+        timeoutActions: null,
+        recheckStatusBtn: null,
+        newPaymentBtn: null,
+        timeoutReference: null,
         processingTitle: null,
         processingMessage: null,
         successMemberNumber: null,
@@ -124,6 +129,10 @@
         el.payNowBtn = $("payNowBtn");
         el.backBtn = $("backBtn");
         el.cancelPaymentBtn = $("cancelPaymentBtn");
+        el.timeoutActions = $("timeoutActions");
+        el.recheckStatusBtn = $("recheckStatusBtn");
+        el.newPaymentBtn = $("newPaymentBtn");
+        el.timeoutReference = $("timeoutReference");
         el.processingTitle = $("processingTitle");
         el.processingMessage = $("processingMessage");
         el.successMemberNumber = $("successMemberNumber");
@@ -273,6 +282,50 @@
         "expired",
         "error"
     ]);
+
+    // "pending"/"processing"/etc are explicitly NOT failures — anything
+    // not recognized as success or failure is treated as still-pending,
+    // which is the safe default (see interpretPaymentResult below).
+
+    // ------------------------------------------------------------------
+    // interpretPaymentResult()
+    // ------------------------------------------------------------------
+    // extractPaymentStatus() only understands a "status"-style string
+    // field. Some backends instead relay the raw Safaricom Daraja
+    // callback shape, where the outcome lives in a numeric ResultCode
+    // (0 = success, anything else = failure) with no "status" field at
+    // all. If that's what's happening, the string-based check never
+    // matches either SUCCESS_STATUSES or FAILURE_STATUSES, the poll
+    // loop sits there until it times out, and the person is told
+    // "verification timed out" even though the callback already came
+    // in as a success. This adds that fallback so it isn't missed.
+    //
+    // Returns "success", "failure", or "pending".
+    function interpretPaymentResult(result) {
+        const data = getPaymentData(result);
+        const status = extractPaymentStatus(result);
+
+        if (SUCCESS_STATUSES.has(status)) return "success";
+        if (FAILURE_STATUSES.has(status)) return "failure";
+
+        const resultCode = firstDefined(
+            data.ResultCode,
+            data.resultCode,
+            data.result_code,
+            result?.ResultCode,
+            result?.resultCode,
+            result?.result_code
+        );
+
+        if (resultCode !== undefined) {
+            const code = Number(resultCode);
+            if (Number.isFinite(code)) {
+                return code === 0 ? "success" : "failure";
+            }
+        }
+
+        return "pending";
+    }
 
     // ============================================================
     // PAYMENT STEPS
@@ -638,11 +691,19 @@
     // POLL PAYMENT STATUS
     // ============================================================
     // Sequential requests (not setInterval) so requests never overlap.
+    // runStatusChecks() is shared by the automatic post-STK-push poll
+    // and the manual "Check Status Again" button, so both go through
+    // the exact same success/failure handling.
 
     async function pollPaymentStatus() {
         state.pollAttempts = 0;
+        await runStatusChecks(CONFIG.MAX_POLL_ATTEMPTS);
+    }
 
-        while (state.pollAttempts < CONFIG.MAX_POLL_ATTEMPTS) {
+    async function runStatusChecks(maxAttempts) {
+        const startAttempt = state.pollAttempts;
+
+        while (state.pollAttempts - startAttempt < maxAttempts) {
             state.pollAttempts++;
 
             try {
@@ -651,14 +712,17 @@
                     { method: "GET" }
                 );
 
-                const paymentStatus = extractPaymentStatus(result);
+                state.lastStatusResult = result;
+                U.log("payment.js: status poll result", result);
 
-                if (SUCCESS_STATUSES.has(paymentStatus)) {
+                const outcome = interpretPaymentResult(result);
+
+                if (outcome === "success") {
                     await handlePaymentSuccess(result);
                     return;
                 }
 
-                if (FAILURE_STATUSES.has(paymentStatus)) {
+                if (outcome === "failure") {
                     await handlePaymentFailed(result);
                     return;
                 }
@@ -675,11 +739,11 @@
                 }
             } catch (err) {
                 U.warn("payment.js: payment polling error:", err);
+                state.lastStatusError = err;
+            }
 
-                if (state.pollAttempts >= CONFIG.MAX_POLL_ATTEMPTS) {
-                    handlePollingTimeout(err);
-                    return;
-                }
+            if (state.pollAttempts - startAttempt >= maxAttempts) {
+                break;
             }
 
             await U.sleep(CONFIG.POLL_INTERVAL);
@@ -689,28 +753,132 @@
     }
 
     // ============================================================
-    // POLLING TIMEOUT
+    // POLLING TIMEOUT — outcome still unknown
+    // ============================================================
+    // IMPORTANT: we do NOT know at this point whether the STK push
+    // succeeded or failed — only that the status endpoint hasn't told
+    // us either way yet. The old behavior reverted to the payment form
+    // with a button labeled "Retry Payment", which re-calls the STK
+    // push endpoint. If the original payment actually went through,
+    // that charges the member a second time. Instead we stay on the
+    // processing card and offer:
+    //   - "Check Status Again" — re-polls the SAME checkout request,
+    //     never sends a new STK push.
+    //   - "Start New Payment" — explicit, confirmed opt-in, for when
+    //     the person is sure the first attempt did not go through.
+
+    function handlePollingTimeout() {
+        U.error(
+            "payment.js: payment verification inconclusive after polling.",
+            "checkout_request_id:",
+            state.checkoutRequestId,
+            "last error:",
+            state.lastStatusError || "none"
+        );
+
+        if (el.processingTitle) {
+            el.processingTitle.textContent = "Still Confirming Your Payment";
+        }
+
+        if (el.processingMessage) {
+            el.processingMessage.textContent =
+                "We haven't received confirmation yet. If M-Pesa already deducted the " +
+                "amount from your phone, do not start a new payment — tap \"Check Status " +
+                "Again\" instead. This can take a few minutes.";
+        }
+
+        if (el.cancelPaymentBtn) el.cancelPaymentBtn.style.display = "none";
+        if (el.timeoutActions) el.timeoutActions.style.display = "block";
+        if (el.timeoutReference && state.checkoutRequestId) {
+            el.timeoutReference.textContent = state.checkoutRequestId;
+        }
+
+        // Keep isProcessing true and the beforeunload warning active —
+        // the person should not casually navigate away while we still
+        // don't know if money moved.
+    }
+
+    // ============================================================
+    // MANUAL STATUS RECHECK (safe — never sends a new STK push)
     // ============================================================
 
-    function handlePollingTimeout(err) {
-        U.error("payment.js: payment verification timed out.", err || "");
+    async function manualStatusCheck() {
+        if (!state.checkoutRequestId) {
+            showAlert("No payment reference is available to check.", "error");
+            return;
+        }
 
-        updateStep(3, "error");
+        if (el.recheckStatusBtn) {
+            el.recheckStatusBtn.disabled = true;
+            el.recheckStatusBtn.innerHTML = '<span class="spinner"></span> Checking...';
+        }
+        if (el.newPaymentBtn) el.newPaymentBtn.disabled = true;
+        if (el.timeoutActions) el.timeoutActions.style.display = "none";
 
+        if (el.processingTitle) el.processingTitle.textContent = "Checking Payment Status";
+        if (el.processingMessage) el.processingMessage.textContent = "Please wait...";
+
+        try {
+            await runStatusChecks(CONFIG.MANUAL_RECHECK_ATTEMPTS);
+        } finally {
+            if (el.recheckStatusBtn) {
+                el.recheckStatusBtn.disabled = false;
+                el.recheckStatusBtn.textContent = "Check Status Again";
+            }
+            if (el.newPaymentBtn) el.newPaymentBtn.disabled = false;
+        }
+    }
+
+    // ============================================================
+    // START A NEW PAYMENT (explicit opt-in, after timeout only)
+    // ============================================================
+    // This is the only path, after a timeout, that returns to the
+    // payment form and re-enables the Pay Now button — and therefore
+    // the only path that can trigger a second STK push. It requires an
+    // explicit confirmation naming that risk.
+
+    function startNewPaymentAfterTimeout() {
+        const confirmed = confirm(
+            "Only continue if you're sure the previous M-Pesa payment did NOT go " +
+                "through. Starting a new payment will send another STK push and, if the " +
+                "first one also succeeds, may charge you twice. Continue?"
+        );
+
+        if (!confirmed) return;
+
+        resetToPaymentForm(
+            "Starting a new payment. If the earlier attempt also went through, please " +
+                "contact support with both M-Pesa messages so we can reconcile it.",
+            "warning"
+        );
+    }
+
+    // ============================================================
+    // Shared reset back to the payment form
+    // ============================================================
+
+    function resetToPaymentForm(message, type) {
         if (el.processingCard) el.processingCard.style.display = "none";
+        if (el.timeoutActions) el.timeoutActions.style.display = "none";
+        if (el.cancelPaymentBtn) el.cancelPaymentBtn.style.display = "";
         if (el.paymentCard) el.paymentCard.style.display = "block";
 
         if (el.payNowBtn) {
             el.payNowBtn.disabled = false;
-            el.payNowBtn.textContent = "Retry Payment";
+            el.payNowBtn.textContent = "Pay Now";
         }
 
         state.isProcessing = false;
+        state.checkoutRequestId = null;
+        state.paymentId = null;
+        state.lastStatusResult = null;
+        state.lastStatusError = null;
 
-        showAlert(
-            "Payment verification timed out. Please check your M-Pesa messages before trying again.",
-            "warning"
-        );
+        updateStep(2, "");
+        updateStep(3, "");
+        updateStep(1, "completed");
+
+        if (message) showAlert(message, type || "info");
     }
 
     // ============================================================
@@ -733,6 +901,7 @@
         await U.sleep(800);
 
         if (el.processingCard) el.processingCard.style.display = "none";
+        if (el.timeoutActions) el.timeoutActions.style.display = "none";
         if (el.successCard) el.successCard.style.display = "block";
 
         const paymentData = getPaymentData(result);
@@ -812,47 +981,34 @@
     // ============================================================
 
     async function handlePaymentFailed(result) {
+        // This path only runs when the backend explicitly confirmed
+        // failure (a recognized failure status, or ResultCode !== 0) —
+        // i.e. Safaricom told us no money moved. "Retry Payment" here
+        // is a legitimate fresh attempt, unlike the timeout case above
+        // where the outcome is unknown.
         U.error("payment.js: payment failed", result);
 
         updateStep(3, "error");
 
         const reason = extractPaymentMessage(result);
 
-        showAlert("Payment failed: " + (reason || "Please try again."), "error");
+        await U.sleep(400);
 
-        await U.sleep(1200);
+        resetToPaymentForm("Payment failed: " + (reason || "Please try again."), "error");
 
-        if (el.processingCard) el.processingCard.style.display = "none";
-        if (el.paymentCard) el.paymentCard.style.display = "block";
-
-        if (el.payNowBtn) {
-            el.payNowBtn.disabled = false;
-            el.payNowBtn.textContent = "Retry Payment";
-        }
-
-        state.isProcessing = false;
+        if (el.payNowBtn) el.payNowBtn.textContent = "Retry Payment";
     }
 
     // ============================================================
     // CANCEL PAYMENT
     // ============================================================
+    // Only reachable before we've heard back either way (the button is
+    // hidden once handlePollingTimeout shows the recheck actions), so
+    // it's still accurate to call this a "cancel" rather than an
+    // unknown outcome.
 
     function cancelPayment() {
-        if (el.processingCard) el.processingCard.style.display = "none";
-        if (el.paymentCard) el.paymentCard.style.display = "block";
-
-        if (el.payNowBtn) {
-            el.payNowBtn.disabled = false;
-            el.payNowBtn.textContent = "Pay Now";
-        }
-
-        state.isProcessing = false;
-
-        updateStep(2, "");
-        updateStep(3, "");
-        updateStep(1, "completed");
-
-        showAlert(
+        resetToPaymentForm(
             "Payment was cancelled. If you already approved the M-Pesa prompt, please wait for confirmation before attempting another payment.",
             "info"
         );
@@ -937,6 +1093,20 @@
             });
         }
 
+        if (el.recheckStatusBtn) {
+            el.recheckStatusBtn.addEventListener("click", event => {
+                event.preventDefault();
+                manualStatusCheck();
+            });
+        }
+
+        if (el.newPaymentBtn) {
+            el.newPaymentBtn.addEventListener("click", event => {
+                event.preventDefault();
+                startNewPaymentAfterTimeout();
+            });
+        }
+
         window.addEventListener("beforeunload", event => {
             if (state.isProcessing && !state.paymentCompleted) {
                 event.preventDefault();
@@ -960,6 +1130,8 @@
 
         if (el.successCard) el.successCard.style.display = "none";
         if (el.processingCard) el.processingCard.style.display = "none";
+        if (el.timeoutActions) el.timeoutActions.style.display = "none";
+        if (el.cancelPaymentBtn) el.cancelPaymentBtn.style.display = "";
         if (el.paymentCard) el.paymentCard.style.display = "block";
 
         resetSteps();
