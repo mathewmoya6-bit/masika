@@ -22,50 +22,43 @@ router = APIRouter()
 @router.post("/mpesa")
 async def mpesa_webhook(request: Request):
     """
-    M-Pesa STK Push callback.
-    Called by Safaricom when a payment attempt completes (success or failure).
+    M-Pesa STK Push callback -- NOT USED AS THE SOURCE OF TRUTH.
 
-    IMPORTANT: this must delegate to payment_service.handle_mpesa_webhook(),
-    which knows the real Safaricom STK callback shape:
+    Safaricom requires every STK push request to include a CallBackURL,
+    so this endpoint has to exist and return a well-formed ACK, or
+    Safaricom will retry delivery repeatedly. But this app deliberately
+    does NOT act on what arrives here.
 
-        {
-          "Body": {
-            "stkCallback": {
-              "MerchantRequestID": "...",
-              "CheckoutRequestID": "ws_CO_...",
-              "ResultCode": 0,
-              "ResultDesc": "...",
-              "CallbackMetadata": { "Item": [...] }
-            }
-          }
-        }
+    The single source of truth for payment status is
+    payment_service.query_stk_status(), called from the polling route
+    GET /api/public/payment/status/{checkout_request_id}. That function
+    independently queries Safaricom's stkpushquery API, updates the
+    payment row, and marks the member paid -- so nothing in this app's
+    actual payment-confirmation flow depends on this webhook firing,
+    firing on time, or being parsed correctly.
 
-    A previous version of this route parsed the body into a flat
-    MpesaWebhookData model (transaction_type/transaction_id/amount/phone/
-    receipt/date/status) that Safaricom never actually sends. Every real
-    callback failed Pydantic validation, was swallowed by the broad
-    except-block below, and silently returned success=False with no
-    payment ever confirmed -- even though the money had already been
-    deducted from the customer. Fixed 2026-09-07.
+    Rationale: this callback's payload shape and field types have
+    caused repeated production bugs (a flat-schema mismatch that failed
+    validation on every real call, then a ResultCode int-vs-string
+    comparison bug once the shape was fixed). Rather than keep chasing
+    edge cases in a fire-and-forget callback we don't strictly need,
+    we just log it for visibility/debugging and always ACK.
 
-    We also always ACK with HTTP 200 + ResultCode 0 regardless of the
-    underlying payment's outcome (success or failure) -- that field
-    only tells Safaricom "callback received", not "payment succeeded".
-    Returning anything else causes Safaricom to retry delivery.
+    If you want to reinstate the webhook as an active confirmation path
+    later (e.g. to avoid polling delay), route this to
+    payment_service.handle_mpesa_webhook(body) instead -- that method
+    still exists and is fully correct.
     """
     try:
         body = await request.json()
-        logger.info(f"M-Pesa webhook received: {body}")
-
-        result = await payment_service.handle_mpesa_webhook(body)
-
-        return result
-
+        logger.info(f"M-Pesa webhook received (logged only, not processed): {body}")
     except Exception as e:
-        logger.error(f"M-Pesa webhook error: {e}")
-        # Still ACK with 200/ResultCode 0 so Safaricom doesn't retry-storm
-        # us; the real failure is already logged above for investigation.
-        return {"ResultCode": 0, "ResultDesc": "Received"}
+        logger.error(f"M-Pesa webhook error reading body: {e}")
+
+    # Always ACK with 200 + ResultCode 0 regardless of payload content --
+    # this only tells Safaricom "callback received", not "payment
+    # succeeded". Anything else causes Safaricom to retry delivery.
+    return {"ResultCode": 0, "ResultDesc": "Received"}
 
 
 # ============================================================
