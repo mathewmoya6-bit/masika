@@ -765,6 +765,28 @@
                     <h3 id="processingTitle">Processing Payment</h3>
                     <p id="processingMessage">Please check your phone for the M-Pesa STK push prompt.</p>
                     <button type="button" id="cancelPaymentBtn" class="btn btn-secondary">Cancel</button>
+
+                    <!--
+                        FIX (2026-09-07): payment.js's handlePollingTimeout()
+                        looks up #timeoutActions / #recheckStatusBtn /
+                        #newPaymentBtn / #timeoutReference, none of which
+                        existed in this file. Without them, a payment whose
+                        outcome is still unknown after ~3 minutes of polling
+                        left the member staring at a spinner with no way to
+                        safely recheck status or (with explicit confirmation)
+                        start a new attempt. #recheckStatusBtn never sends a
+                        new STK push; #newPaymentBtn does, and only after the
+                        JS-side confirm() dialog warning about double charges.
+                    -->
+                    <div id="timeoutActions" style="display:none; margin-top: 16px;">
+                        <p class="help-text" style="margin-bottom: 14px;">
+                            Reference: <strong id="timeoutReference">—</strong>
+                        </p>
+                        <div class="button-row">
+                            <button type="button" id="recheckStatusBtn" class="btn btn-primary">Check Status Again</button>
+                            <button type="button" id="newPaymentBtn" class="btn btn-secondary">Start New Payment</button>
+                        </div>
+                    </div>
                 </div>
             </div>
 
