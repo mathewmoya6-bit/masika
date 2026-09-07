@@ -31,6 +31,13 @@ class PaymentService:
         self.supabase = get_supabase()
         self._access_token = None
         self._token_expiry = None
+
+        # See query_stk_status() rate-limit guard: tracks last time we
+        # actually hit Safaricom's stkpushquery endpoint per
+        # checkout_request_id, so rapid frontend polling doesn't trip
+        # Safaricom's spike-arrest burst limit.
+        self._last_stk_query_at: Dict[str, float] = {}
+        self.MIN_QUERY_INTERVAL_SECONDS = 5.0
         
         # M-Pesa API Configuration (Production)
         self.CONSUMER_KEY = os.getenv("MPESA_CONSUMER_KEY")
@@ -296,6 +303,51 @@ class PaymentService:
                 "status": "confirmed",
                 "payment": existing.data[0]
             }
+
+        # Also short-circuit on an already-recorded failure. Without this,
+        # once the real webhook records a genuine failure, every
+        # subsequent frontend poll (every few seconds) would keep hitting
+        # Safaricom's query API for a result that's already known --
+        # needlessly burning into the rate limit below.
+        if existing.data and existing.data[0].get("status") == "failed":
+            return {
+                "result_code": "FAILED",
+                "result_desc": existing.data[0].get("notes") or "Payment failed",
+                "status": "failed",
+                "payment": existing.data[0]
+            }
+
+        # ------------------------------------------------------------
+        # RATE LIMIT GUARD
+        #
+        # Safaricom's stkpushquery endpoint enforces a very tight "spike
+        # arrest" burst limit (maxBurstMessageCount=2.5). The frontend
+        # polls this status endpoint every few seconds while a payment
+        # is pending, and previously EVERY poll triggered a fresh call
+        # to Safaricom -- a handful of polls in quick succession (plus
+        # any concurrent users) is enough to trip
+        # "policies.ratelimit.SpikeArrestViolation" and get back a 429.
+        #
+        # When that happened, the code below returned status="failed"
+        # to the frontend purely because OUR OWN polling got throttled --
+        # not because the payment actually failed. The real webhook may
+        # still be about to arrive with the true result.
+        #
+        # Fix: only actually call Safaricom at most once every
+        # MIN_QUERY_INTERVAL_SECONDS per checkout_request_id. Polls that
+        # land inside that window just return the current DB status
+        # (usually "pending") instead of re-querying Safaricom.
+        # ------------------------------------------------------------
+        now = time.time()
+        last_queried = self._last_stk_query_at.get(checkout_request_id)
+        if last_queried is not None and (now - last_queried) < self.MIN_QUERY_INTERVAL_SECONDS:
+            current_status = existing.data[0].get("status") if existing.data else "pending"
+            return {
+                "result_code": None,
+                "result_desc": "Awaiting confirmation",
+                "status": current_status
+            }
+        self._last_stk_query_at[checkout_request_id] = now
         
         # Get access token
         access_token = await self._get_access_token()
@@ -327,6 +379,20 @@ class PaymentService:
                     }
                 )
                 
+                if response.status_code == 429:
+                    # Safaricom's spike-arrest limit — this tells us
+                    # nothing about the payment itself. Report "pending"
+                    # (not "failed") so the frontend keeps waiting for
+                    # the real webhook instead of showing a false
+                    # decline to the user.
+                    logger.warning(f"STK Query rate-limited (429): {response.text}")
+                    current_status = existing.data[0].get("status") if existing.data else "pending"
+                    return {
+                        "result_code": None,
+                        "result_desc": "Awaiting confirmation",
+                        "status": current_status if current_status != "failed" else "pending"
+                    }
+
                 if response.status_code != 200:
                     logger.error(f"STK Query Failed: {response.text}")
                     return {
