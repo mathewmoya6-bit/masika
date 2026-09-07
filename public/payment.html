@@ -1,19 +1,36 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Complete Payment | Masika Benevolent</title>
-    <meta name="description" content="Complete your Masika Benevolent registration payment via M-Pesa.">
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Register | Masika Benevolent</title>
+    <meta name="description" content="Register for Masika Benevolent family protection and benevolent support." />
 
     <link rel="icon" type="image/svg+xml" href="assets/branding/favicon.svg" />
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+        href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap"
+        rel="stylesheet"
+    />
+
+    <!-- =========================================================
+         EXTERNAL JS - ALIGNED WITH SUPABASE/BACKEND
+         ========================================================= -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.3/papaparse.min.js"></script>
+    
+    <!-- Masika JS Modules -->
+    <script src="js/config.js"></script>
+    <script src="js/supabase.js"></script>
+    <script src="js/auth.js"></script>
+    <script src="js/masika-utils.js"></script>
 
     <style>
-        /* ===== RESET & VARIABLES ===== */
+        /* =========================================================
+           ALL STYLES - Same as before
+           ========================================================= */
         :root {
             --primary: #173f35;
             --primary-dark: #0e2c25;
@@ -33,8 +50,6 @@
 
         * {
             box-sizing: border-box;
-            margin: 0;
-            padding: 0;
         }
 
         html {
@@ -47,7 +62,6 @@
             background: var(--cream);
             color: var(--text);
             line-height: 1.6;
-            min-height: 100vh;
         }
 
         a {
@@ -63,11 +77,10 @@
         }
 
         .container {
-            width: min(680px, calc(100% - 32px));
+            width: min(1180px, calc(100% - 32px));
             margin: 0 auto;
         }
 
-        /* ===== HEADER ===== */
         .site-header {
             background: var(--primary);
             color: white;
@@ -76,6 +89,7 @@
             z-index: 1000;
             box-shadow: 0 5px 20px rgba(0, 0, 0, .10);
         }
+
         .header-inner {
             min-height: 74px;
             display: flex;
@@ -83,11 +97,13 @@
             justify-content: space-between;
             gap: 20px;
         }
+
         .brand {
             display: flex;
             align-items: center;
             gap: 12px;
         }
+
         .brand-mark {
             width: 44px;
             height: 44px;
@@ -99,54 +115,69 @@
             font-size: 22px;
             font-weight: 800;
         }
+
         img.brand-mark {
             background: transparent;
             object-fit: contain;
             padding: 2px;
         }
+
         .brand-text {
             line-height: 1.1;
         }
+
         .brand-text strong {
             display: block;
             font-size: 17px;
             letter-spacing: .08em;
         }
+
         .brand-text small {
             color: #ead9b3;
             font-size: 11px;
             letter-spacing: .12em;
             text-transform: uppercase;
         }
+
         .nav {
             display: flex;
             align-items: center;
             gap: 22px;
         }
+
         .nav a {
-            color: rgba(255, 255, 255, .9);
+            color: rgba(255,255,255,.9);
             font-size: 14px;
             font-weight: 600;
-            transition: color 0.2s;
         }
+
         .nav a:hover {
             color: white;
         }
+
         .nav-register {
             background: var(--gold);
             padding: 10px 17px;
             border-radius: 9px;
         }
 
-        /* ===== HERO ===== */
         .hero {
-            background: linear-gradient(135deg, rgba(23, 63, 53, .98), rgba(14, 44, 37, .94));
+            background: linear-gradient(
+                135deg,
+                rgba(23,63,53,.98),
+                rgba(14,44,37,.94)
+            );
             color: white;
-            padding: 50px 0 60px;
+            padding: 65px 0 85px;
         }
-        .hero-content {
-            text-align: center;
+
+        .hero-grid {
+            display: grid;
+            grid-template-columns: 1.2fr .8fr;
+            gap: 45px;
+            align-items: center;
         }
+
         .eyebrow {
             color: #e8c56d;
             text-transform: uppercase;
@@ -155,201 +186,333 @@
             font-weight: 800;
             margin-bottom: 12px;
         }
+
         .hero h1 {
-            margin: 0 0 12px;
-            font-size: clamp(28px, 4vw, 38px);
+            margin: 0 0 18px;
+            font-size: clamp(34px, 5vw, 58px);
             line-height: 1.08;
         }
+
         .hero p {
-            max-width: 580px;
-            margin: 0 auto;
-            color: rgba(255, 255, 255, .82);
+            max-width: 680px;
+            color: rgba(255,255,255,.82);
             font-size: 17px;
+            margin: 0;
         }
 
-        /* ===== MAIN ===== */
+        .hero-card {
+            background: rgba(255,255,255,.08);
+            border: 1px solid rgba(255,255,255,.15);
+            border-radius: 22px;
+            padding: 28px;
+            backdrop-filter: blur(8px);
+        }
+
+        .hero-card h3 {
+            margin-top: 0;
+            color: #fff;
+        }
+
+        .hero-card ul {
+            padding-left: 20px;
+            margin-bottom: 0;
+            color: rgba(255,255,255,.85);
+        }
+
         .main {
-            padding: 40px 0 80px;
+            padding: 50px 0 80px;
         }
 
-        /* ===== CARD ===== */
+        .registration-layout {
+            display: grid;
+            grid-template-columns: minmax(0,1fr) 340px;
+            gap: 30px;
+            align-items: start;
+        }
+
         .card {
             background: var(--white);
             border-radius: var(--radius);
             box-shadow: var(--shadow);
             border: 1px solid var(--border);
+        }
+
+        .form-card {
             padding: 32px;
+        }
+
+        .side-card {
+            padding: 25px;
+            position: sticky;
+            top: 100px;
+        }
+
+        .section-heading {
             margin-bottom: 24px;
         }
 
-        /* ===== STATUS STEPS ===== */
-        .status-steps {
-            display: flex;
-            justify-content: space-between;
-            margin: 0 0 28px;
-            position: relative;
-            padding: 0 10px;
+        .section-heading h2 {
+            margin: 0 0 7px;
+            font-size: 24px;
         }
-        .status-steps::before {
-            content: '';
-            position: absolute;
-            top: 16px;
-            left: 12%;
-            right: 12%;
-            height: 2px;
-            background: var(--border);
-            z-index: 0;
+
+        .section-heading p {
+            margin: 0;
+            color: var(--muted);
+            font-size: 14px;
         }
-        .status-step {
+
+        .mode-switch {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+            background: #f1f4f2;
+            border-radius: 13px;
+            padding: 6px;
+            margin-bottom: 30px;
+        }
+
+        .mode-button {
+            border: 0;
+            background: transparent;
+            border-radius: 9px;
+            padding: 13px;
+            cursor: pointer;
+            font-weight: 700;
+            color: var(--muted);
+        }
+
+        .mode-button.active {
+            background: var(--primary);
+            color: white;
+            box-shadow: 0 5px 15px rgba(23,63,53,.18);
+        }
+
+        .form-section {
+            margin-bottom: 35px;
+        }
+
+        .form-section-title {
             display: flex;
-            flex-direction: column;
             align-items: center;
-            gap: 6px;
-            position: relative;
-            z-index: 1;
-            flex: 1;
+            gap: 10px;
+            margin-bottom: 18px;
+            padding-bottom: 10px;
+            border-bottom: 1px solid var(--border);
         }
-        .status-step .circle {
-            width: 32px;
-            height: 32px;
+
+        .step-number {
+            width: 28px;
+            height: 28px;
             border-radius: 50%;
-            background: var(--border);
+            background: var(--primary);
+            color: white;
             display: grid;
             place-items: center;
-            font-size: 13px;
+            font-size: 12px;
             font-weight: 800;
-            color: white;
-            transition: all 0.4s ease;
-        }
-        .status-step .circle.active {
-            background: var(--gold);
-            box-shadow: 0 0 0 4px rgba(201, 154, 62, .2);
-        }
-        .status-step .circle.completed {
-            background: var(--success);
-        }
-        .status-step .circle.error {
-            background: var(--danger);
-        }
-        .status-step .label {
-            font-size: 11px;
-            color: var(--muted);
-            text-align: center;
-            font-weight: 600;
-            transition: color 0.3s;
-        }
-        .status-step .label.active {
-            color: var(--primary);
-        }
-
-        /* ===== SUMMARY ===== */
-        .summary {
-            background: #f6f8f6;
-            border-radius: 12px;
-            padding: 20px 24px;
-            margin-bottom: 24px;
-        }
-        .summary-row {
-            display: flex;
-            justify-content: space-between;
-            padding: 10px 0;
-            border-bottom: 1px solid var(--border);
-            gap: 15px;
-        }
-        .summary-row:last-child {
-            border-bottom: 0;
-        }
-        .summary-row .label {
-            color: var(--muted);
-            font-size: 14px;
-        }
-        .summary-row .value {
-            font-weight: 600;
-            font-size: 15px;
-            text-align: right;
-            word-break: break-word;
-        }
-        .summary-row.total {
-            padding-top: 14px;
-            margin-top: 6px;
-            border-top: 2px solid var(--primary);
-        }
-        .summary-row.total .value {
-            font-size: 24px;
-            font-weight: 800;
-            color: var(--primary);
-        }
-
-        /* ===== MPESA BADGE ===== */
-        .mpesa-badge {
-            display: flex;
-            align-items: center;
-            gap: 12px;
-            background: #f0f7f4;
-            border: 1px solid #c5dcd0;
-            border-radius: 10px;
-            padding: 12px 16px;
-            margin-bottom: 24px;
-            font-size: 14px;
-            color: var(--primary);
-        }
-        .mpesa-badge .icon {
-            font-size: 24px;
             flex-shrink: 0;
         }
 
-        /* ===== FORM ===== */
+        .form-section-title h3 {
+            margin: 0;
+            font-size: 17px;
+        }
+
+        .form-grid {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0,1fr));
+            gap: 17px;
+        }
+
         .form-group {
             display: flex;
             flex-direction: column;
-            gap: 6px;
-            margin-bottom: 20px;
+            gap: 7px;
         }
+
+        .form-group.full {
+            grid-column: 1 / -1;
+        }
+
         label {
             font-size: 13px;
             font-weight: 700;
             color: #34423e;
         }
+
         label .required {
             color: var(--danger);
         }
-        input {
+
+        input,
+        select,
+        textarea {
             width: 100%;
             border: 1px solid var(--border);
             background: white;
             border-radius: 9px;
-            padding: 13px 14px;
+            padding: 12px 13px;
             outline: none;
             color: var(--text);
-            font-size: 15px;
-            transition: 0.2s;
+            transition: .2s;
         }
-        input:focus {
+
+        input:focus,
+        select:focus,
+        textarea:focus {
             border-color: var(--gold);
-            box-shadow: 0 0 0 3px rgba(201, 154, 62, .12);
+            box-shadow: 0 0 0 3px rgba(201,154,62,.12);
         }
-        input:disabled {
-            background: #f5f7f6;
-            cursor: not-allowed;
+
+        textarea {
+            min-height: 90px;
+            resize: vertical;
         }
-        input.input-error {
-            border-color: var(--danger);
-            box-shadow: 0 0 0 3px rgba(192, 57, 43, .10);
-        }
+
         .help-text {
             font-size: 12px;
             color: var(--muted);
         }
-        .error-text {
-            font-size: 12px;
-            color: var(--danger);
-            display: none;
-        }
-        .error-text.show {
-            display: block;
+
+        .plans-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 12px;
         }
 
-        /* ===== BUTTONS ===== */
+        .plan-option {
+            position: relative;
+        }
+
+        .plan-option input {
+            position: absolute;
+            opacity: 0;
+            pointer-events: none;
+        }
+
+        .plan-label {
+            display: block;
+            border: 2px solid var(--border);
+            border-radius: 13px;
+            padding: 17px;
+            cursor: pointer;
+            height: 100%;
+            transition: .2s;
+        }
+
+        .plan-label:hover {
+            border-color: #c9d1ce;
+        }
+
+        .plan-option input:checked + .plan-label {
+            border-color: var(--gold);
+            background: #fffaf0;
+            box-shadow: 0 7px 20px rgba(201,154,62,.12);
+        }
+
+        .plan-name {
+            font-weight: 800;
+            font-size: 16px;
+            margin-bottom: 5px;
+        }
+
+        .plan-description {
+            color: var(--muted);
+            font-size: 12px;
+            min-height: 38px;
+        }
+
+        .plan-price {
+            margin-top: 12px;
+            color: var(--primary);
+            font-weight: 800;
+        }
+
+        .plan-price small {
+            font-weight: 500;
+            color: var(--muted);
+        }
+
+        .dependant-list {
+            display: grid;
+            gap: 15px;
+        }
+
+        .dependant-card {
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 18px;
+            background: #fbfcfb;
+        }
+
+        .dependant-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 14px;
+        }
+
+        .dependant-header strong {
+            font-size: 14px;
+        }
+
+        .remove-dependant {
+            border: 0;
+            background: #fbe9e7;
+            color: var(--danger);
+            border-radius: 7px;
+            padding: 7px 10px;
+            cursor: pointer;
+            font-size: 12px;
+            font-weight: 700;
+        }
+
+        .add-button {
+            margin-top: 14px;
+            border: 1px dashed #aebbb6;
+            background: white;
+            color: var(--primary);
+            border-radius: 9px;
+            padding: 11px 15px;
+            cursor: pointer;
+            font-weight: 700;
+        }
+
+        .add-button:hover {
+            border-color: var(--primary);
+        }
+
+        .summary {
+            background: #f6f8f6;
+            border-radius: 13px;
+            padding: 20px;
+        }
+
+        .summary-row {
+            display: flex;
+            justify-content: space-between;
+            gap: 15px;
+            padding: 8px 0;
+            font-size: 14px;
+        }
+
+        .summary-row.total {
+            border-top: 1px solid var(--border);
+            margin-top: 10px;
+            padding-top: 15px;
+            font-size: 18px;
+            font-weight: 800;
+            color: var(--primary);
+        }
+
+        .button-row {
+            display: flex;
+            justify-content: flex-end;
+            gap: 12px;
+            margin-top: 28px;
+        }
+
         .btn {
             border: 0;
             border-radius: 9px;
@@ -357,60 +520,36 @@
             cursor: pointer;
             font-weight: 800;
             transition: .2s;
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-            gap: 10px;
-            font-size: 15px;
         }
-        .btn:hover:not(:disabled) {
-            transform: translateY(-2px);
-            box-shadow: 0 5px 20px rgba(0, 0, 0, .12);
-        }
-        .btn:disabled {
-            opacity: .55;
-            cursor: not-allowed;
-            transform: none !important;
-        }
+
         .btn-primary {
             background: var(--primary);
             color: white;
         }
-        .btn-primary:hover:not(:disabled) {
+
+        .btn-primary:hover {
             background: var(--primary-dark);
         }
+
         .btn-gold {
             background: var(--gold);
             color: white;
         }
-        .btn-gold:hover:not(:disabled) {
+
+        .btn-gold:hover {
             background: var(--gold-dark);
         }
+
         .btn-secondary {
             background: #eef2f0;
             color: var(--primary);
         }
-        .btn-secondary:hover:not(:disabled) {
-            background: #dfe6e3;
-        }
-        .btn-success {
-            background: var(--success);
-            color: white;
-        }
-        .btn-success:hover:not(:disabled) {
-            background: #146c43;
+
+        .btn:disabled {
+            opacity: .55;
+            cursor: not-allowed;
         }
 
-        .button-row {
-            display: flex;
-            gap: 12px;
-            margin-top: 8px;
-        }
-        .button-row .btn {
-            flex: 1;
-        }
-
-        /* ===== ALERTS ===== */
         .alert {
             display: none;
             border-radius: 10px;
@@ -419,118 +558,168 @@
             font-size: 14px;
             font-weight: 600;
         }
+
         .alert.show {
             display: block;
         }
+
         .alert.success {
             background: #eaf7ef;
             color: #17683d;
             border: 1px solid #bce5cc;
         }
+
         .alert.error {
             background: #fcebea;
             color: #922b21;
             border: 1px solid #f0c4bf;
         }
+
         .alert.warning {
             background: #fff7df;
             color: #8a6116;
             border: 1px solid #ead49a;
         }
+
         .alert.info {
             background: #edf5fa;
             color: #245b79;
             border: 1px solid #c5deec;
         }
 
-        /* ===== LOADING ===== */
+        .loading {
+            display: none;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+            color: var(--primary);
+            font-weight: 700;
+            padding: 10px;
+        }
+
+        .loading.show {
+            display: flex;
+        }
+
         .spinner {
-            display: inline-block;
             width: 19px;
             height: 19px;
-            border: 3px solid rgba(255, 255, 255, .3);
-            border-top-color: white;
+            border: 3px solid #dce4e0;
+            border-top-color: var(--primary);
             border-radius: 50%;
             animation: spin .8s linear infinite;
         }
-        .spinner-dark {
-            border-color: #dce4e0;
-            border-top-color: var(--primary);
-        }
+
         @keyframes spin {
-            to { transform: rotate(360deg); }
+            to {
+                transform: rotate(360deg);
+            }
         }
 
-        /* ===== PROCESSING CARD ===== */
-        .processing-content {
-            text-align: center;
-            padding: 20px 0;
-        }
-        .processing-content .big-spinner {
-            width: 48px;
-            height: 48px;
-            border: 4px solid #dce4e0;
-            border-top-color: var(--primary);
-            border-radius: 50%;
-            animation: spin .8s linear infinite;
-            margin: 0 auto 16px;
-        }
-        .processing-content h3 {
-            margin: 0 0 8px;
-            font-size: 20px;
-        }
-        .processing-content p {
-            color: var(--muted);
-            margin: 0 0 20px;
+        .chama-only {
+            display: none;
         }
 
-        /* ===== SUCCESS CARD ===== */
-        .success-content {
+        .chama-only.show {
+            display: block;
+        }
+
+        .csv-box {
+            border: 2px dashed #bbc8c3;
+            border-radius: 13px;
+            padding: 25px;
             text-align: center;
-            padding: 10px 0;
+            background: #fafcfb;
         }
-        .success-content .checkmark {
-            font-size: 56px;
-            margin-bottom: 12px;
+
+        .csv-box input {
+            border: 0;
+            padding: 0;
+            max-width: 350px;
+            margin-top: 12px;
         }
-        .success-content h2 {
-            color: var(--success);
-            margin: 0 0 8px;
-        }
-        .success-content .subtitle {
-            color: var(--muted);
-            margin: 0 0 16px;
-        }
-        .success-details {
-            background: #f6f8f6;
+
+        .csv-preview {
+            display: none;
+            margin-top: 18px;
+            overflow-x: auto;
+            border: 1px solid var(--border);
             border-radius: 10px;
-            padding: 16px 20px;
-            margin: 16px 0 20px;
+        }
+
+        .csv-preview.show {
+            display: block;
+        }
+
+        .csv-preview table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 12px;
+            background: white;
+        }
+
+        .csv-preview th,
+        .csv-preview td {
+            padding: 9px;
+            border-bottom: 1px solid var(--border);
             text-align: left;
+            white-space: nowrap;
         }
-        .success-details .detail-row {
+
+        .csv-preview th {
+            background: #f4f7f5;
+        }
+
+        .csv-count {
+            margin-top: 10px;
+            font-size: 13px;
+            font-weight: 700;
+        }
+
+        .side-card h3 {
+            margin-top: 0;
+            color: var(--primary);
+        }
+
+        .side-item {
             display: flex;
-            justify-content: space-between;
-            padding: 6px 0;
-            gap: 15px;
+            gap: 12px;
+            padding: 13px 0;
+            border-bottom: 1px solid var(--border);
         }
-        .success-details .detail-row .detail-label {
-            color: var(--muted);
+
+        .side-item:last-child {
+            border-bottom: 0;
+        }
+
+        .side-icon {
+            width: 35px;
+            height: 35px;
+            border-radius: 50%;
+            background: #edf3ef;
+            display: grid;
+            place-items: center;
+            color: var(--primary);
+            font-weight: 800;
+            flex-shrink: 0;
+        }
+
+        .side-item strong {
+            display: block;
             font-size: 13px;
         }
-        .success-details .detail-row .detail-value {
-            font-weight: 600;
-            font-size: 14px;
-            text-align: right;
-            word-break: break-word;
+
+        .side-item span {
+            color: var(--muted);
+            font-size: 12px;
         }
 
-        /* ===== FOOTER ===== */
         footer {
             background: var(--primary-dark);
-            color: rgba(255, 255, 255, .8);
+            color: rgba(255,255,255,.8);
             padding: 35px 0;
         }
+
         .footer-inner {
             display: flex;
             justify-content: space-between;
@@ -539,303 +728,981 @@
             font-size: 13px;
         }
 
-        .footer-links {
-            text-align: center;
-            font-size: 13px;
-            color: var(--muted);
-            margin-top: 8px;
-        }
-        .footer-links a {
-            color: var(--primary);
-            font-weight: 600;
-            text-decoration: none;
-        }
-        .footer-links a:hover {
-            text-decoration: underline;
+        @media (max-width: 900px) {
+            .hero-grid,
+            .registration-layout {
+                grid-template-columns: 1fr;
+            }
+
+            .side-card {
+                position: static;
+            }
+
+            .plans-grid {
+                grid-template-columns: 1fr;
+            }
         }
 
-        /* ===== RESPONSIVE ===== */
         @media (max-width: 650px) {
             .nav {
                 display: none;
             }
-            .card {
+
+            .form-card {
                 padding: 20px;
             }
-            .summary {
-                padding: 16px;
+
+            .form-grid {
+                grid-template-columns: 1fr;
             }
-            .summary-row.total .value {
-                font-size: 20px;
+
+            .form-group.full {
+                grid-column: auto;
             }
+
+            .hero {
+                padding: 45px 0 55px;
+            }
+
             .button-row {
                 flex-direction: column;
             }
+
             .button-row .btn {
                 width: 100%;
             }
-            .status-steps {
-                flex-direction: column;
-                gap: 12px;
-                align-items: flex-start;
-                padding: 0;
-            }
-            .status-steps::before {
-                display: none;
-            }
-            .status-step {
-                flex-direction: row;
-                width: 100%;
-                gap: 12px;
-            }
-            .status-step .circle {
-                width: 28px;
-                height: 28px;
-                font-size: 11px;
-            }
-            .hero {
-                padding: 35px 0 45px;
-            }
+
             .footer-inner {
                 flex-direction: column;
                 text-align: center;
             }
         }
 
-        @media (max-width: 480px) {
-            .header-inner {
-                min-height: 64px;
-            }
-            .brand-text strong {
-                font-size: 14px;
-            }
-            .brand-text small {
-                font-size: 10px;
-            }
-            .brand-mark {
-                width: 36px;
-                height: 36px;
-                font-size: 18px;
-            }
-            .card {
-                padding: 16px;
-            }
-            .summary {
-                padding: 12px 14px;
-            }
-            .summary-row {
-                padding: 6px 0;
-                font-size: 13px;
-            }
-            .summary-row.total .value {
-                font-size: 18px;
-            }
-            .mpesa-badge {
-                font-size: 13px;
-                padding: 10px 12px;
-            }
-            .mpesa-badge .icon {
-                font-size: 20px;
-            }
-            .success-content .checkmark {
-                font-size: 40px;
-            }
+        .county-select {
+            appearance: none;
+            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%23475569' stroke-width='2' fill='none'/%3E%3C/svg%3E");
+            background-repeat: no-repeat;
+            background-position: right 16px center;
+            background-size: 14px;
+        }
+
+        .county-select option {
+            padding: 6px;
         }
     </style>
+
 </head>
 
 <body>
 
-    <!-- ===== HEADER ===== -->
-    <header class="site-header">
-        <div class="container header-inner">
-            <a href="index.html" class="brand">
-                <img src="assets/branding/favicon.svg" alt="Masika Benevolent" class="brand-mark" />
-                <span class="brand-text">
-                    <strong>MASIKA</strong>
-                    <small>Benevolent</small>
-                </span>
-            </a>
-            <nav class="nav">
-                <a href="index.html">Home</a>
-                <a href="plans.html">Plans</a>
-                <a href="login.html">Staff Login</a>
-                <a href="register.html" class="nav-register">Register</a>
-            </nav>
-        </div>
-    </header>
+<header class="site-header">
+    <div class="container header-inner">
+        <a href="index.html" class="brand">
+            <img
+                src="assets/branding/favicon.svg"
+                alt="Masika Benevolent"
+                class="brand-mark"
+            />
 
-    <!-- ===== HERO ===== -->
-    <section class="hero">
-        <div class="container">
-            <div class="hero-content">
-                <div class="eyebrow">Secure Payment</div>
-                <h1>Complete Your Registration</h1>
-                <p>Confirm your details and pay the registration fee via M-Pesa.</p>
-            </div>
-        </div>
-    </section>
+            <span class="brand-text">
+                <strong>MASIKA</strong>
+                <small>Benevolent</small>
+            </span>
+        </a>
 
-    <!-- ===== MAIN ===== -->
-    <main class="main">
-        <div class="container">
+        <nav class="nav">
+            <a href="index.html">Home</a>
+            <a href="#plans">Plans</a>
+            <a href="login.html">Staff Login</a>
+            <a href="register.html" class="nav-register">Register</a>
+        </nav>
+    </div>
+</header>
 
-            <!-- Status Steps -->
-            <div class="status-steps" id="statusSteps">
-                <div class="status-step">
-                    <div class="circle active" id="step1Circle">1</div>
-                    <span class="label active" id="step1Label">Confirm</span>
-                </div>
-                <div class="status-step">
-                    <div class="circle" id="step2Circle">2</div>
-                    <span class="label" id="step2Label">Pay</span>
-                </div>
-                <div class="status-step">
-                    <div class="circle" id="step3Circle">3</div>
-                    <span class="label" id="step3Label">Verify</span>
-                </div>
-                <div class="status-step">
-                    <div class="circle" id="step4Circle">4</div>
-                    <span class="label" id="step4Label">Complete</span>
-                </div>
-            </div>
+<section class="hero">
+    <div class="container hero-grid">
 
-            <!-- Alert -->
-            <div id="alertBox" class="alert" role="alert" aria-live="assertive"></div>
+        <div>
+            <div class="eyebrow">Masika Benevolent</div>
 
-            <!-- ===== PAYMENT CARD ===== -->
-            <div class="card" id="paymentCard">
-                <div class="summary">
-                    <div class="summary-row">
-                        <span class="label">Member</span>
-                        <span class="value" id="memberName">Loading…</span>
-                    </div>
-                    <div class="summary-row">
-                        <span class="label">Member Number</span>
-                        <span class="value" id="memberNumber">Loading…</span>
-                    </div>
-                    <div class="summary-row">
-                        <span class="label">Registration Type</span>
-                        <span class="value" id="registrationType">Individual</span>
-                    </div>
-                    <div class="summary-row">
-                        <span class="label">Plan</span>
-                        <span class="value" id="memberPlan">—</span>
-                    </div>
-                    <div class="summary-row total">
-                        <span class="label">Amount to Pay</span>
-                        <span class="value" id="paymentAmount">KES 0</span>
-                    </div>
-                </div>
+            <h1>
+                Protect your family with dignity and peace of mind.
+            </h1>
 
-                <div class="mpesa-badge">
-                    <span class="icon">📱</span>
-                    <span>You'll receive an M-Pesa STK push prompt on the phone number you enter below.</span>
-                </div>
-
-                <form id="paymentForm" novalidate>
-                    <div class="form-group">
-                        <label for="mpesaPhone">M-Pesa Phone Number <span class="required">*</span></label>
-                        <input
-                            type="tel"
-                            id="mpesaPhone"
-                            name="phone"
-                            placeholder="e.g. 0712345678"
-                            autocomplete="tel"
-                            required
-                            maxlength="14"
-                        />
-                        <span class="help-text">Enter the phone number registered with M-Pesa (e.g., 0712345678 or 254712345678).</span>
-                        <span class="error-text" id="phoneError">Please enter a valid M-Pesa phone number.</span>
-                    </div>
-
-                    <div class="button-row">
-                        <button type="button" id="backBtn" class="btn btn-secondary">Back</button>
-                        <button type="submit" id="payNowBtn" class="btn btn-gold" disabled>
-                            Pay Now
-                        </button>
-                    </div>
-                </form>
-            </div>
-
-            <!-- ===== PROCESSING CARD ===== -->
-            <div class="card" id="processingCard" style="display:none;">
-                <div class="processing-content">
-                    <div class="big-spinner"></div>
-                    <h3 id="processingTitle">Processing Payment</h3>
-                    <p id="processingMessage">Please check your phone for the M-Pesa STK push prompt.</p>
-                    <button type="button" id="cancelPaymentBtn" class="btn btn-secondary">Cancel</button>
-
-                    <!--
-                        FIX (2026-09-07): payment.js's handlePollingTimeout()
-                        looks up #timeoutActions / #recheckStatusBtn /
-                        #newPaymentBtn / #timeoutReference, none of which
-                        existed in this file. Without them, a payment whose
-                        outcome is still unknown after ~3 minutes of polling
-                        left the member staring at a spinner with no way to
-                        safely recheck status or (with explicit confirmation)
-                        start a new attempt. #recheckStatusBtn never sends a
-                        new STK push; #newPaymentBtn does, and only after the
-                        JS-side confirm() dialog warning about double charges.
-                    -->
-                    <div id="timeoutActions" style="display:none; margin-top: 16px;">
-                        <p class="help-text" style="margin-bottom: 14px;">
-                            Reference: <strong id="timeoutReference">—</strong>
-                        </p>
-                        <div class="button-row">
-                            <button type="button" id="recheckStatusBtn" class="btn btn-primary">Check Status Again</button>
-                            <button type="button" id="newPaymentBtn" class="btn btn-secondary">Start New Payment</button>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <!-- ===== SUCCESS CARD ===== -->
-            <div class="card" id="successCard" style="display:none; border-color: var(--success);">
-                <div class="success-content">
-                    <div class="checkmark">✅</div>
-                    <h2>Payment Successful!</h2>
-                    <p class="subtitle">Your registration has been finalized.</p>
-
-                    <div class="success-details">
-                        <div class="detail-row">
-                            <span class="detail-label">Member Number</span>
-                            <span class="detail-value" id="successMemberNumber">—</span>
-                        </div>
-                        <div class="detail-row">
-                            <span class="detail-label">Transaction ID</span>
-                            <span class="detail-value" id="successTransactionId">—</span>
-                        </div>
-                        <div class="detail-row">
-                            <span class="detail-label">Amount Paid</span>
-                            <span class="detail-value" id="successAmount">—</span>
-                        </div>
-                    </div>
-
-                    <div class="button-row">
-                        <a href="#" class="btn btn-primary" id="viewMemberBtn">View Details</a>
-                        <a href="index.html" class="btn btn-secondary">Return Home</a>
-                    </div>
-                </div>
-            </div>
-
-            <p class="footer-links">
-                Having trouble? <a href="index.html">Return home</a> or <a href="mailto:support@masika.co.ke">contact support</a>.
+            <p>
+                Complete your registration below. Your registration will remain
+                pending until the required payment is successfully completed.
             </p>
+        </div>
+
+        <div class="hero-card">
+            <h3>How registration works</h3>
+
+            <ul>
+                <li>Complete the registration form.</li>
+                <li>Submit your details.</li>
+                <li>Proceed to secure M-Pesa payment.</li>
+                <li>Payment is verified automatically.</li>
+                <li>Your membership is then finalized.</li>
+                <li>Your membership number, receipt and membership identity card can then be generated.</li>
+            </ul>
+        </div>
+
+    </div>
+</section>
+
+<main class="main">
+    <div class="container">
+
+        <div class="registration-layout">
+
+            <section class="card form-card">
+
+                <div id="alertBox" class="alert" role="alert" aria-live="assertive"></div>
+
+                <div id="loadingBox" class="loading">
+                    <span class="spinner"></span>
+                    <span id="loadingText">Processing...</span>
+                </div>
+
+                <div class="mode-switch">
+                    <button
+                        type="button"
+                        id="individualModeBtn"
+                        class="mode-button active"
+                    >
+                        Individual / Family
+                    </button>
+
+                    <button
+                        type="button"
+                        id="chamaModeBtn"
+                        class="mode-button"
+                    >
+                        Chama / Group
+                    </button>
+                </div>
+
+                <!-- =====================================================
+                     INDIVIDUAL REGISTRATION
+                     ===================================================== -->
+
+                <form id="registrationForm" novalidate>
+
+                    <div class="form-section">
+
+                        <div class="form-section-title">
+                            <span class="step-number">1</span>
+                            <h3>Principal Member Details</h3>
+                        </div>
+
+                        <div class="form-grid">
+
+                            <div class="form-group">
+                                <label for="firstName">
+                                    First Name <span class="required">*</span>
+                                </label>
+                                <input
+                                    type="text"
+                                    id="firstName"
+                                    name="first_name"
+                                    autocomplete="given-name"
+                                    required
+                                />
+                            </div>
+
+                            <div class="form-group">
+                                <label for="lastName">
+                                    Last Name <span class="required">*</span>
+                                </label>
+                                <input
+                                    type="text"
+                                    id="lastName"
+                                    name="last_name"
+                                    autocomplete="family-name"
+                                    required
+                                />
+                            </div>
+
+                            <div class="form-group">
+                                <label for="otherName">Other Name</label>
+                                <input
+                                    type="text"
+                                    id="otherName"
+                                    name="other_name"
+                                    autocomplete="additional-name"
+                                />
+                            </div>
+
+                            <div class="form-group">
+                                <label for="idNumber">
+                                    National ID / Passport
+                                    <span class="required">*</span>
+                                </label>
+                                <input
+                                    type="text"
+                                    id="idNumber"
+                                    name="id_number"
+                                    required
+                                />
+                            </div>
+
+                            <div class="form-group">
+                                <label for="dateOfBirth">
+                                    Date of Birth <span class="required">*</span>
+                                </label>
+                                <input
+                                    type="date"
+                                    id="dateOfBirth"
+                                    name="date_of_birth"
+                                    required
+                                />
+                            </div>
+
+                            <div class="form-group">
+                                <label for="gender">
+                                    Gender <span class="required">*</span>
+                                </label>
+
+                                <select
+                                    id="gender"
+                                    name="gender"
+                                    required
+                                >
+                                    <option value="">Select gender</option>
+                                    <option value="MALE">Male</option>
+                                    <option value="FEMALE">Female</option>
+                                </select>
+                            </div>
+
+                            <div class="form-group">
+                                <label for="phone">
+                                    Phone Number <span class="required">*</span>
+                                </label>
+
+                                <input
+                                    type="tel"
+                                    id="phone"
+                                    name="phone"
+                                    placeholder="07XXXXXXXX or 2547XXXXXXXX"
+                                    autocomplete="tel"
+                                    required
+                                />
+                            </div>
+
+                            <div class="form-group">
+                                <label for="alternativePhone">
+                                    Alternative Phone
+                                </label>
+
+                                <input
+                                    type="tel"
+                                    id="alternativePhone"
+                                    name="alternative_phone"
+                                    placeholder="Optional"
+                                />
+                            </div>
+
+                            <div class="form-group">
+                                <label for="email">Email Address</label>
+
+                                <input
+                                    type="email"
+                                    id="email"
+                                    name="email"
+                                    autocomplete="email"
+                                    placeholder="Optional"
+                                />
+
+                                <span class="help-text">
+                                    Optional. If provided, enter a valid email address.
+                                </span>
+                            </div>
+
+                            <div class="form-group">
+                                <label for="county">
+                                    County <span class="required">*</span>
+                                </label>
+
+                                <select
+                                    id="county"
+                                    name="county"
+                                    class="county-select"
+                                    required
+                                >
+                                    <option value="">— Select your county —</option>
+                                    <option value="Mombasa">Mombasa</option>
+                                    <option value="Kwale">Kwale</option>
+                                    <option value="Kilifi">Kilifi</option>
+                                    <option value="Tana River">Tana River</option>
+                                    <option value="Lamu">Lamu</option>
+                                    <option value="Taita-Taveta">Taita-Taveta</option>
+                                    <option value="Garissa">Garissa</option>
+                                    <option value="Wajir">Wajir</option>
+                                    <option value="Mandera">Mandera</option>
+                                    <option value="Marsabit">Marsabit</option>
+                                    <option value="Isiolo">Isiolo</option>
+                                    <option value="Meru">Meru</option>
+                                    <option value="Tharaka-Nithi">Tharaka-Nithi</option>
+                                    <option value="Embu">Embu</option>
+                                    <option value="Kitui">Kitui</option>
+                                    <option value="Machakos">Machakos</option>
+                                    <option value="Makueni">Makueni</option>
+                                    <option value="Nyandarua">Nyandarua</option>
+                                    <option value="Nyeri">Nyeri</option>
+                                    <option value="Kirinyaga">Kirinyaga</option>
+                                    <option value="Murang'a">Murang'a</option>
+                                    <option value="Kiambu">Kiambu</option>
+                                    <option value="Turkana">Turkana</option>
+                                    <option value="West Pokot">West Pokot</option>
+                                    <option value="Samburu">Samburu</option>
+                                    <option value="Trans-Nzoia">Trans-Nzoia</option>
+                                    <option value="Uasin Gishu">Uasin Gishu</option>
+                                    <option value="Elgeyo-Marakwet">Elgeyo-Marakwet</option>
+                                    <option value="Nandi">Nandi</option>
+                                    <option value="Baringo">Baringo</option>
+                                    <option value="Laikipia">Laikipia</option>
+                                    <option value="Nakuru">Nakuru</option>
+                                    <option value="Narok">Narok</option>
+                                    <option value="Kajiado">Kajiado</option>
+                                    <option value="Kericho">Kericho</option>
+                                    <option value="Bomet">Bomet</option>
+                                    <option value="Kakamega">Kakamega</option>
+                                    <option value="Vihiga">Vihiga</option>
+                                    <option value="Bungoma">Bungoma</option>
+                                    <option value="Busia">Busia</option>
+                                    <option value="Siaya">Siaya</option>
+                                    <option value="Kisumu">Kisumu</option>
+                                    <option value="Homa Bay">Homa Bay</option>
+                                    <option value="Migori">Migori</option>
+                                    <option value="Kisii">Kisii</option>
+                                    <option value="Nyamira">Nyamira</option>
+                                    <option value="Nairobi">Nairobi</option>
+                                </select>
+                            </div>
+
+                            <div class="form-group">
+                                <label for="location">Location / Area</label>
+                                <input
+                                    type="text"
+                                    id="location"
+                                    name="location"
+                                />
+                            </div>
+
+                            <div class="form-group">
+                                <label for="town">Town</label>
+                                <input
+                                    type="text"
+                                    id="town"
+                                    name="town"
+                                    autocomplete="address-level2"
+                                />
+                            </div>
+
+                            <div class="form-group full">
+                                <label for="address">
+                                    Physical / Postal Address
+                                </label>
+
+                                <textarea
+                                    id="address"
+                                    name="address"
+                                ></textarea>
+                            </div>
+
+                        </div>
+                    </div>
+
+                    <!-- PLAN -->
+
+                    <div class="form-section">
+
+                        <div class="form-section-title">
+                            <span class="step-number">2</span>
+                            <h3>Select Membership Plan</h3>
+                        </div>
+
+                        <div
+                            id="plansContainer"
+                            class="plans-grid"
+                        >
+                            <div class="help-text">
+                                Loading available plans...
+                            </div>
+                        </div>
+
+                        <div
+                            id="planHelp"
+                            class="help-text"
+                            style="margin-top:12px;"
+                        >
+                            Select a plan to continue.
+                        </div>
+
+                    </div>
+
+                    <!-- SOURCE -->
+
+                    <div class="form-section">
+
+                        <div class="form-section-title">
+                            <span class="step-number">3</span>
+                            <h3>Registration Source</h3>
+                        </div>
+
+                        <div class="form-grid">
+
+                            <div class="form-group">
+                                <label for="salesCode">
+                                    Sales Agent Code
+                                </label>
+
+                                <select
+                                    id="salesCode"
+                                    name="sales_code"
+                                >
+                                    <option value="">
+                                        Select sales agent
+                                    </option>
+                                </select>
+
+                                <span
+                                    class="help-text"
+                                    id="salesCodeHelp"
+                                >
+                                    Select the agent who assisted with your registration.
+                                </span>
+                            </div>
+
+                            <div class="form-group">
+                                <label for="benefitOption">
+                                    Benefit Option
+                                    <span class="required">*</span>
+                                </label>
+
+                                <select
+                                    id="benefitOption"
+                                    name="benefit_option"
+                                    required
+                                >
+                                    <option value="">
+                                        Select benefit option
+                                    </option>
+
+                                    <option value="service">
+                                        Service
+                                    </option>
+
+                                    <option value="cash">
+                                        Cash
+                                    </option>
+                                </select>
+
+                                <span class="help-text">
+                                    Select how the applicable benevolent benefit is to be provided.
+                                </span>
+                            </div>
+
+                        </div>
+                    </div>
+
+                    <!-- DEPENDANTS -->
+
+                    <div class="form-section">
+
+                        <div class="form-section-title">
+                            <span class="step-number">4</span>
+                            <h3>Dependants</h3>
+                        </div>
+
+                        <p class="help-text">
+                            You may add eligible spouse, children or parents according to the selected plan.
+                        </p>
+
+                        <div
+                            id="dependantsContainer"
+                            class="dependant-list"
+                        ></div>
+
+                        <button
+                            type="button"
+                            id="addDependantBtn"
+                            class="add-button"
+                        >
+                            + Add Dependant
+                        </button>
+
+                    </div>
+
+                    <!-- SUMMARY -->
+
+                    <div class="form-section">
+
+                        <div class="form-section-title">
+                            <span class="step-number">5</span>
+                            <h3>Registration Summary</h3>
+                        </div>
+
+                        <div class="summary">
+
+                            <div class="summary-row">
+                                <span>Plan</span>
+                                <strong id="summaryPlan">—</strong>
+                            </div>
+
+                            <div class="summary-row">
+                                <span>Principal registration</span>
+                                <strong id="summaryPrincipal">
+                                    KES 0
+                                </strong>
+                            </div>
+
+                            <div class="summary-row">
+                                <span>Dependant registration</span>
+                                <strong id="summaryDependants">
+                                    KES 0
+                                </strong>
+                            </div>
+
+                            <div class="summary-row total">
+                                <span>Amount to pay now</span>
+                                <strong id="summaryTotal">
+                                    KES 0
+                                </strong>
+                            </div>
+
+                        </div>
+                    </div>
+
+                    <div class="button-row">
+
+                        <button
+                            type="button"
+                            id="resetBtn"
+                            class="btn btn-secondary"
+                        >
+                            Reset
+                        </button>
+
+                        <button
+                            type="submit"
+                            id="submitBtn"
+                            class="btn btn-primary"
+                        >
+                            Continue to Payment
+                        </button>
+
+                    </div>
+
+                </form>
+
+                <!-- =====================================================
+                     CHAMA REGISTRATION
+                     ===================================================== -->
+
+                <section
+                    id="chamaSection"
+                    class="chama-only"
+                >
+
+                    <div class="section-heading">
+
+                        <h2>Chama / Group Registration</h2>
+
+                        <p>
+                            Upload a CSV containing the members of your chama/group.
+                            A minimum of 30 members is required.
+                        </p>
+
+                    </div>
+
+                    <form
+                        id="chamaForm"
+                        novalidate
+                    >
+
+                        <div class="form-section">
+
+                            <div class="form-section-title">
+                                <span class="step-number">1</span>
+                                <h3>Group Details</h3>
+                            </div>
+
+                            <div class="form-grid">
+
+                                <div class="form-group">
+
+                                    <label for="chamaName">
+                                        Chama / Group Name
+                                        <span class="required">*</span>
+                                    </label>
+
+                                    <input
+                                        type="text"
+                                        id="chamaName"
+                                        required
+                                    />
+
+                                </div>
+
+                                <div class="form-group">
+
+                                    <label for="chamaPhone">
+                                        Group Contact Phone
+                                        <span class="required">*</span>
+                                    </label>
+
+                                    <input
+                                        type="tel"
+                                        id="chamaPhone"
+                                        placeholder="07XXXXXXXX"
+                                        required
+                                    />
+
+                                </div>
+
+                            </div>
+                        </div>
+
+                        <div class="form-section">
+
+                            <div class="form-section-title">
+                                <span class="step-number">2</span>
+                                <h3>Group Officials</h3>
+                            </div>
+
+                            <div class="form-grid">
+
+                                <div class="form-group">
+                                    <label for="chairpersonName">
+                                        Chairperson Name
+                                        <span class="required">*</span>
+                                    </label>
+
+                                    <input
+                                        type="text"
+                                        id="chairpersonName"
+                                        required
+                                    />
+                                </div>
+
+                                <div class="form-group">
+                                    <label for="chairpersonPhone">
+                                        Chairperson Phone
+                                        <span class="required">*</span>
+                                    </label>
+
+                                    <input
+                                        type="tel"
+                                        id="chairpersonPhone"
+                                        required
+                                    />
+                                </div>
+
+                                <div class="form-group">
+                                    <label for="chairpersonId">
+                                        Chairperson ID
+                                        <span class="required">*</span>
+                                    </label>
+
+                                    <input
+                                        type="text"
+                                        id="chairpersonId"
+                                        required
+                                    />
+                                </div>
+
+                                <div class="form-group">
+                                    <label for="treasurerName">
+                                        Treasurer Name
+                                        <span class="required">*</span>
+                                    </label>
+
+                                    <input
+                                        type="text"
+                                        id="treasurerName"
+                                        required
+                                    />
+                                </div>
+
+                                <div class="form-group">
+                                    <label for="treasurerPhone">
+                                        Treasurer Phone
+                                        <span class="required">*</span>
+                                    </label>
+
+                                    <input
+                                        type="tel"
+                                        id="treasurerPhone"
+                                        required
+                                    />
+                                </div>
+
+                                <div class="form-group">
+                                    <label for="treasurerId">
+                                        Treasurer ID
+                                        <span class="required">*</span>
+                                    </label>
+
+                                    <input
+                                        type="text"
+                                        id="treasurerId"
+                                        required
+                                    />
+                                </div>
+
+                                <div class="form-group">
+                                    <label for="secretaryName">
+                                        Secretary Name
+                                        <span class="required">*</span>
+                                    </label>
+
+                                    <input
+                                        type="text"
+                                        id="secretaryName"
+                                        required
+                                    />
+                                </div>
+
+                                <div class="form-group">
+                                    <label for="secretaryPhone">
+                                        Secretary Phone
+                                        <span class="required">*</span>
+                                    </label>
+
+                                    <input
+                                        type="tel"
+                                        id="secretaryPhone"
+                                        required
+                                    />
+                                </div>
+
+                                <div class="form-group">
+                                    <label for="secretaryId">
+                                        Secretary ID
+                                        <span class="required">*</span>
+                                    </label>
+
+                                    <input
+                                        type="text"
+                                        id="secretaryId"
+                                        required
+                                    />
+                                </div>
+
+                            </div>
+                        </div>
+
+                        <div class="form-section">
+
+                            <div class="form-section-title">
+                                <span class="step-number">3</span>
+                                <h3>Upload Members CSV</h3>
+                            </div>
+
+                            <div class="csv-box">
+
+                                <strong>
+                                    Upload your chama member list
+                                </strong>
+
+                                <p class="help-text">
+                                    Required columns:
+                                    first_name, last_name, phone,
+                                    id_number, date_of_birth, gender
+                                </p>
+
+                                <input
+                                    type="file"
+                                    id="chamaCsv"
+                                    accept=".csv,text/csv"
+                                />
+
+                            </div>
+
+                            <div
+                                id="csvCount"
+                                class="csv-count"
+                            ></div>
+
+                            <div
+                                id="csvPreview"
+                                class="csv-preview"
+                            ></div>
+
+                        </div>
+
+                        <div class="form-section">
+
+                            <div class="summary">
+
+                                <div class="summary-row">
+                                    <span>Members</span>
+                                    <strong id="chamaMemberCount">
+                                        0
+                                    </strong>
+                                </div>
+
+                                <div class="summary-row">
+                                    <span>Registration rate</span>
+                                    <strong>
+                                        KES 100 per member
+                                    </strong>
+                                </div>
+
+                                <div class="summary-row total">
+                                    <span>Amount to pay</span>
+                                    <strong id="chamaTotal">
+                                        KES 0
+                                    </strong>
+                                </div>
+
+                            </div>
+
+                        </div>
+
+                        <div class="button-row">
+
+                            <button
+                                type="button"
+                                id="chamaResetBtn"
+                                class="btn btn-secondary"
+                            >
+                                Reset
+                            </button>
+
+                            <button
+                                type="submit"
+                                id="chamaSubmitBtn"
+                                class="btn btn-primary"
+                            >
+                                Continue to Payment
+                            </button>
+
+                        </div>
+
+                    </form>
+
+                </section>
+
+            </section>
+
+            <aside class="card side-card">
+
+                <h3>Registration Information</h3>
+
+                <div class="side-item">
+                    <div class="side-icon">1</div>
+                    <div>
+                        <strong>Registration first</strong>
+                        <span>
+                            Your details are created as a pending registration.
+                        </span>
+                    </div>
+                </div>
+
+                <div class="side-item">
+                    <div class="side-icon">2</div>
+                    <div>
+                        <strong>Pay securely</strong>
+                        <span>
+                            You will proceed to the M-Pesa payment page.
+                        </span>
+                    </div>
+                </div>
+
+                <div class="side-item">
+                    <div class="side-icon">3</div>
+                    <div>
+                        <strong>Automatic verification</strong>
+                        <span>
+                            M-Pesa callback confirms the transaction.
+                        </span>
+                    </div>
+                </div>
+
+                <div class="side-item">
+                    <div class="side-icon">4</div>
+                    <div>
+                        <strong>Membership finalized</strong>
+                        <span>
+                            The backend activates the membership after successful payment.
+                        </span>
+                    </div>
+                </div>
+
+                <div class="side-item">
+                    <div class="side-icon">5</div>
+                    <div>
+                        <strong>Membership number</strong>
+                        <span>
+                            The final member number is generated during finalization.
+                        </span>
+                    </div>
+                </div>
+
+                <div class="side-item">
+                    <div class="side-icon">✓</div>
+                    <div>
+                        <strong>Receipt &amp; ID card</strong>
+                        <span>
+                            Your finalized membership can be used for receipt and identity-card generation.
+                        </span>
+                    </div>
+                </div>
+
+            </aside>
 
         </div>
-    </main>
+    </div>
+</main>
 
-    <!-- ===== FOOTER ===== -->
-    <footer>
-        <div class="container footer-inner">
-            <div>© <span id="year"></span> Masika Benevolent. All rights reserved.</div>
-            <div>Dignity. Support. Together.</div>
+<footer>
+    <div class="container footer-inner">
+
+        <div>
+            © <span id="year"></span> Masika Benevolent.
+            All rights reserved.
         </div>
-    </footer>
 
-    <script src="js/masika-utils.js"></script>
-    <script src="js/payment.js"></script>
+        <div>
+            Dignity. Support. Together.
+        </div>
+
+    </div>
+</footer>
+
+<!-- =========================================================
+     ALIGNED JAVASCRIPT
+     ========================================================= -->
+
+<script>
+    // =========================================================
+    // SET YEAR IN FOOTER
+    // =========================================================
+    document.getElementById('year').textContent = new Date().getFullYear();
+
+    // =========================================================
+    // CHECK IF ALREADY LOGGED IN
+    // =========================================================
+    document.addEventListener('DOMContentLoaded', function() {
+        if (typeof authManager !== 'undefined' && authManager.isAuthenticated) {
+            window.location.href = CONFIG.ROUTES.DASHBOARD;
+            return;
+        }
+        
+        // Initialize registration
+        if (typeof initRegistration === 'function') {
+            initRegistration();
+        } else {
+            console.warn('register.js not loaded properly');
+        }
+    });
+</script>
+
+<!-- Register JS - Main registration logic -->
+<script src="js/register.js"></script>
 
 </body>
 </html>
