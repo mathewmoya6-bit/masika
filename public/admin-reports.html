@@ -5,114 +5,761 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Reports | Masika Benevolent</title>
     <link rel="icon" type="image/png" href="../assets/favicon-32x32.png">
+
+    <!-- =========================================================
+         SUPABASE & EXTERNAL JS
+         ========================================================= -->
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <style>
-        * { margin:0; padding:0; box-sizing:border-box; }
-        :root {
-            --primary:#0b5d3b; --primary-dark:#06452c; --gold:#d4a843;
-            --danger:#dc3545; --success:#198754; --info:#0dcaf0;
-            --text:#1f2933; --text-light:#6b7280;
-            --gray-100:#f3f4f6; --gray-200:#e5e7eb;
-            --shadow:0 2px 12px rgba(0,0,0,0.08);
-            --radius:12px; --transition:all 0.3s ease;
-        }
-        body { font-family:'Segoe UI',Arial,sans-serif; background:#f0f4f2; color:var(--text); min-height:100vh; }
-        .admin-layout { display:flex; min-height:100vh; }
-        .sidebar { width:260px; background:var(--primary); color:white; padding:24px 0; position:fixed; height:100vh; overflow-y:auto; z-index:100; }
-        .sidebar-brand { padding:0 24px 24px; border-bottom:1px solid rgba(255,255,255,0.1); margin-bottom:20px; }
-        .sidebar-brand .logo { display:flex; align-items:center; gap:12px; text-decoration:none; color:white; }
-        .sidebar-brand .logo-icon { width:40px; height:40px; background:white; border-radius:50%; display:flex; align-items:center; justify-content:center; font-weight:900; color:var(--primary); font-size:18px; }
-        .sidebar-brand .logo-text { font-weight:700; font-size:18px; }
-        .sidebar-brand .logo-sub { font-size:11px; opacity:0.7; display:block; }
-        .sidebar-nav { list-style:none; padding:0 12px; }
-        .sidebar-nav li { margin-bottom:2px; }
-        .sidebar-nav a { display:flex; align-items:center; gap:12px; padding:12px 16px; border-radius:8px; color:rgba(255,255,255,0.7); text-decoration:none; font-size:14px; font-weight:500; }
-        .sidebar-nav a:hover { background:rgba(255,255,255,0.1); color:white; }
-        .sidebar-nav a.active { background:rgba(255,255,255,0.15); color:white; }
-        .sidebar-nav a i { width:20px; text-align:center; }
-        .sidebar-nav .badge { margin-left:auto; background:var(--gold); color:white; padding:2px 10px; border-radius:12px; font-size:11px; font-weight:600; }
-        .sidebar-footer { padding:20px 24px; border-top:1px solid rgba(255,255,255,0.1); margin-top:20px; }
-        .sidebar-footer .user-info { display:flex; align-items:center; gap:12px; }
-        .sidebar-footer .user-avatar { width:36px; height:36px; border-radius:50%; background:var(--gold); display:flex; align-items:center; justify-content:center; font-weight:700; font-size:14px; }
-        .sidebar-footer .user-name { font-weight:600; font-size:14px; }
-        .sidebar-footer .user-role { font-size:12px; opacity:0.6; }
-        .sidebar-footer .logout-btn { display:block; width:100%; margin-top:12px; padding:10px; border:1px solid rgba(255,255,255,0.2); border-radius:8px; background:transparent; color:rgba(255,255,255,0.7); cursor:pointer; font-family:inherit; font-size:14px; font-weight:500; }
-        .sidebar-footer .logout-btn:hover { background:rgba(255,255,255,0.1); color:white; }
-        .main-content { margin-left:260px; padding:24px 32px; flex:1; width:calc(100% - 260px); }
-        .topbar { margin-bottom:24px; }
-        .topbar h1 { font-size:26px; font-weight:800; }
-        .topbar h1 small { font-size:14px; font-weight:400; color:var(--text-light); display:block; }
-        .report-grid { display:grid; grid-template-columns:repeat(auto-fit, minmax(320px, 1fr)); gap:20px; }
-        .card { background:white; border-radius:var(--radius); padding:24px; box-shadow:var(--shadow); }
-        .card-header { display:flex; align-items:center; gap:10px; margin-bottom:16px; padding-bottom:12px; border-bottom:1px solid var(--gray-200); }
-        .card-header h3 { font-size:17px; font-weight:700; }
-        .card-header i { font-size:18px; }
-        .filter-group { margin-bottom:14px; }
-        .filter-group label { display:block; font-size:13px; font-weight:600; margin-bottom:6px; color:var(--text-light); }
-        .filter-group input, .filter-group select {
-            width:100%; padding:9px 12px; border:1px solid var(--gray-200); border-radius:8px; font-family:inherit; font-size:14px;
-        }
-        .filter-row { display:grid; grid-template-columns:1fr 1fr; gap:10px; }
-        .btn-sm { padding:10px 18px; font-size:14px; border:none; border-radius:8px; cursor:pointer; font-family:inherit; font-weight:600; transition:var(--transition); width:100%; }
-        .btn-sm:hover { transform:translateY(-1px); }
-        .btn-sm:disabled { opacity:0.6; cursor:not-allowed; transform:none; }
-        .btn-sm.primary { background:var(--primary); color:white; }
-        .btn-sm.primary:hover { background:var(--primary-dark); }
-        .btn-sm.gold { background:var(--gold); color:white; }
-        .btn-sm.info { background:var(--info); color:white; }
-        .report-status { font-size:13px; margin-top:10px; min-height:18px; }
-        .report-status.error { color:var(--danger); }
-        .report-status.success { color:var(--success); }
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
 
-        @media (max-width:768px) {
-            .sidebar { transform:translateX(-100%); }
-            .sidebar.open { transform:translateX(0); }
-            .main-content { margin-left:0; width:100%; padding:16px; }
-            .filter-row { grid-template-columns:1fr; }
+    <style>
+        /* ============================================================
+           REPORTS STYLES
+           ============================================================ */
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        :root {
+            --primary: #0b5d3b;
+            --primary-dark: #06452c;
+            --primary-light: #e8f5ee;
+            --gold: #d4a843;
+            --gold-light: #f5e6b8;
+            --danger: #dc3545;
+            --danger-light: #fce4e8;
+            --success: #198754;
+            --success-light: #d4edda;
+            --warning: #ffc107;
+            --warning-light: #fff3cd;
+            --info: #0dcaf0;
+            --info-light: #d1f0f9;
+            --text: #1f2933;
+            --text-light: #6b7280;
+            --text-lighter: #9ca3af;
+            --white: #ffffff;
+            --gray-50: #f9fafb;
+            --gray-100: #f3f4f6;
+            --gray-200: #e5e7eb;
+            --gray-300: #d1d5db;
+            --gray-400: #9ca3af;
+            --shadow: 0 2px 12px rgba(0,0,0,0.08);
+            --shadow-hover: 0 4px 24px rgba(0,0,0,0.12);
+            --radius: 12px;
+            --radius-lg: 16px;
+            --transition: all 0.3s ease;
+        }
+
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif;
+            background: #f0f4f2;
+            color: var(--text);
+            min-height: 100vh;
+        }
+
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        ::-webkit-scrollbar-track { background: var(--gray-100); border-radius: 10px; }
+        ::-webkit-scrollbar-thumb { background: var(--gray-300); border-radius: 10px; }
+        ::-webkit-scrollbar-thumb:hover { background: var(--gray-400); }
+
+        .admin-layout { display: flex; min-height: 100vh; }
+
+        /* ============================================================
+           SIDEBAR
+           ============================================================ */
+
+        .sidebar {
+            width: 280px;
+            background: var(--primary);
+            color: white;
+            padding: 24px 0;
+            position: fixed;
+            height: 100vh;
+            overflow-y: auto;
+            transition: var(--transition);
+            z-index: 100;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .sidebar::-webkit-scrollbar { width: 4px; }
+        .sidebar::-webkit-scrollbar-track { background: rgba(255,255,255,0.05); }
+        .sidebar::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.2); border-radius: 10px; }
+
+        .sidebar-brand {
+            padding: 0 24px 24px;
+            border-bottom: 1px solid rgba(255,255,255,0.08);
+            margin-bottom: 20px;
+            flex-shrink: 0;
+        }
+
+        .sidebar-brand .logo {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            text-decoration: none;
+            color: white;
+        }
+
+        .sidebar-brand .logo-icon {
+            width: 44px;
+            height: 44px;
+            background: var(--gold);
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 900;
+            color: var(--white);
+            font-size: 20px;
+        }
+
+        .sidebar-brand .logo-text {
+            font-weight: 800;
+            font-size: 20px;
+            letter-spacing: -0.5px;
+        }
+
+        .sidebar-brand .logo-sub {
+            font-size: 11px;
+            opacity: 0.6;
+            display: block;
+            font-weight: 400;
+            letter-spacing: 0.5px;
+            text-transform: uppercase;
+        }
+
+        .sidebar-nav {
+            list-style: none;
+            padding: 0 12px;
+            flex: 1;
+        }
+
+        .sidebar-nav li { margin-bottom: 2px; }
+
+        .sidebar-nav .nav-label {
+            font-size: 10px;
+            text-transform: uppercase;
+            letter-spacing: 0.8px;
+            color: rgba(255,255,255,0.3);
+            padding: 12px 16px 6px;
+            font-weight: 700;
+        }
+
+        .sidebar-nav a {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 11px 16px;
+            border-radius: 10px;
+            color: rgba(255,255,255,0.65);
+            text-decoration: none;
+            transition: var(--transition);
+            font-size: 14px;
+            font-weight: 500;
+            position: relative;
+        }
+
+        .sidebar-nav a:hover {
+            background: rgba(255,255,255,0.08);
+            color: white;
+        }
+
+        .sidebar-nav a.active {
+            background: rgba(255,255,255,0.12);
+            color: white;
+        }
+
+        .sidebar-nav a.active::before {
+            content: '';
+            position: absolute;
+            left: 0;
+            top: 20%;
+            height: 60%;
+            width: 3px;
+            background: var(--gold);
+            border-radius: 0 3px 3px 0;
+        }
+
+        .sidebar-nav a i {
+            width: 20px;
+            text-align: center;
+            font-size: 16px;
+        }
+
+        .sidebar-nav .badge {
+            margin-left: auto;
+            background: var(--gold);
+            color: white;
+            padding: 1px 10px;
+            border-radius: 12px;
+            font-size: 11px;
+            font-weight: 700;
+            min-width: 20px;
+            text-align: center;
+        }
+
+        .sidebar-footer {
+            padding: 16px 24px;
+            border-top: 1px solid rgba(255,255,255,0.08);
+            margin-top: auto;
+            flex-shrink: 0;
+        }
+
+        .sidebar-footer .user-info {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .sidebar-footer .user-avatar {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            background: var(--gold);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 700;
+            font-size: 16px;
+            color: white;
+            flex-shrink: 0;
+        }
+
+        .sidebar-footer .user-name {
+            font-weight: 600;
+            font-size: 14px;
+        }
+
+        .sidebar-footer .user-role {
+            font-size: 12px;
+            opacity: 0.5;
+        }
+
+        .sidebar-footer .logout-btn {
+            display: block;
+            width: 100%;
+            margin-top: 12px;
+            padding: 10px;
+            border: 1px solid rgba(255,255,255,0.15);
+            border-radius: 10px;
+            background: transparent;
+            color: rgba(255,255,255,0.6);
+            cursor: pointer;
+            transition: var(--transition);
+            font-family: inherit;
+            font-size: 14px;
+            font-weight: 500;
+        }
+
+        .sidebar-footer .logout-btn:hover {
+            background: rgba(255,255,255,0.08);
+            color: white;
+            border-color: rgba(255,255,255,0.3);
+        }
+
+        /* ============================================================
+           SIDEBAR BACKDROP
+           ============================================================ */
+
+        .sidebar-backdrop {
+            display: none;
+            position: fixed;
+            inset: 0;
+            background: rgba(0,0,0,0.5);
+            backdrop-filter: blur(4px);
+            z-index: 99;
+        }
+
+        .sidebar-backdrop.show { display: block; }
+
+        /* ============================================================
+           MAIN CONTENT
+           ============================================================ */
+
+        .main-content {
+            margin-left: 280px;
+            padding: 24px 32px 40px;
+            flex: 1;
+            width: calc(100% - 280px);
+            min-height: 100vh;
+        }
+
+        /* ============================================================
+           TOPBAR
+           ============================================================ */
+
+        .topbar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 28px;
+            flex-wrap: wrap;
+            gap: 12px;
+        }
+
+        .topbar-left {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+        }
+
+        .topbar h1 {
+            font-size: 28px;
+            font-weight: 800;
+            letter-spacing: -0.5px;
+        }
+
+        .topbar h1 small {
+            font-size: 14px;
+            font-weight: 400;
+            color: var(--text-light);
+            display: block;
+            margin-top: 2px;
+        }
+
+        .topbar .actions {
+            display: flex;
+            gap: 12px;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+
+        .topbar .actions .date-time {
+            font-size: 14px;
+            color: var(--text-light);
+            font-weight: 500;
+        }
+
+        /* ============================================================
+           BUTTONS
+           ============================================================ */
+
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 10px 20px;
+            border: none;
+            border-radius: 8px;
+            font-weight: 600;
+            font-size: 14px;
+            cursor: pointer;
+            transition: var(--transition);
+            font-family: inherit;
+            text-decoration: none;
+        }
+
+        .btn-primary {
+            background: var(--primary);
+            color: white;
+        }
+        .btn-primary:hover {
+            background: var(--primary-dark);
+            transform: translateY(-2px);
+            box-shadow: 0 4px 16px rgba(11, 93, 59, 0.3);
+        }
+
+        .btn-gold {
+            background: var(--gold);
+            color: white;
+        }
+        .btn-gold:hover {
+            background: #c49a3a;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 16px rgba(212, 168, 67, 0.3);
+        }
+
+        .btn-success {
+            background: var(--success);
+            color: white;
+        }
+        .btn-success:hover {
+            background: #157347;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 16px rgba(25, 135, 84, 0.3);
+        }
+
+        .btn-danger {
+            background: var(--danger);
+            color: white;
+        }
+        .btn-danger:hover {
+            background: #c82333;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 16px rgba(220, 53, 69, 0.3);
+        }
+
+        .btn-info {
+            background: var(--info);
+            color: white;
+        }
+        .btn-info:hover {
+            background: #0bb5d8;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 16px rgba(13, 202, 240, 0.3);
+        }
+
+        .btn-outline {
+            background: transparent;
+            border: 2px solid var(--gray-200);
+            color: var(--text-light);
+        }
+        .btn-outline:hover {
+            border-color: var(--primary);
+            color: var(--primary);
+            transform: translateY(-2px);
+        }
+
+        .btn-sm {
+            padding: 8px 16px;
+            font-size: 13px;
+            border-radius: 6px;
+        }
+
+        .btn-block { width: 100%; justify-content: center; }
+        .btn:disabled { opacity: 0.6; cursor: not-allowed; transform: none !important; }
+
+        /* ============================================================
+           REPORT GRID
+           ============================================================ */
+
+        .report-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(340px, 1fr));
+            gap: 24px;
+        }
+
+        /* ============================================================
+           CARDS
+           ============================================================ */
+
+        .card {
+            background: white;
+            border-radius: var(--radius-lg);
+            padding: 24px;
+            box-shadow: var(--shadow);
+            transition: var(--transition);
+        }
+
+        .card:hover {
+            box-shadow: var(--shadow-hover);
+        }
+
+        .card-header {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 16px;
+            padding-bottom: 12px;
+            border-bottom: 1px solid var(--gray-200);
+        }
+
+        .card-header h3 {
+            font-size: 17px;
+            font-weight: 700;
+        }
+
+        .card-header i {
+            font-size: 20px;
+            width: 36px;
+            height: 36px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+        }
+
+        .card-header i.payments-icon { background: var(--success); }
+        .card-header i.members-icon { background: var(--gold); }
+        .card-header i.dependants-icon { background: var(--info); }
+
+        /* ============================================================
+           FILTERS
+           ============================================================ */
+
+        .filter-group {
+            margin-bottom: 14px;
+        }
+
+        .filter-group label {
+            display: block;
+            font-size: 13px;
+            font-weight: 600;
+            margin-bottom: 6px;
+            color: var(--text-light);
+        }
+
+        .filter-group input,
+        .filter-group select {
+            width: 100%;
+            padding: 9px 12px;
+            border: 2px solid var(--gray-200);
+            border-radius: 8px;
+            font-family: inherit;
+            font-size: 14px;
+            transition: var(--transition);
+            background: white;
+        }
+
+        .filter-group input:focus,
+        .filter-group select:focus {
+            outline: none;
+            border-color: var(--primary);
+            box-shadow: 0 0 0 4px rgba(11, 93, 59, 0.1);
+        }
+
+        .filter-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 12px;
+        }
+
+        /* ============================================================
+           STATUS MESSAGE
+           ============================================================ */
+
+        .report-status {
+            font-size: 13px;
+            margin-top: 10px;
+            min-height: 20px;
+            padding: 8px 12px;
+            border-radius: 6px;
+        }
+
+        .report-status.error {
+            color: var(--danger);
+            background: var(--danger-light);
+        }
+
+        .report-status.success {
+            color: var(--success);
+            background: var(--success-light);
+        }
+
+        .report-status.info {
+            color: #055160;
+            background: var(--info-light);
+        }
+
+        .report-status.warning {
+            color: #856404;
+            background: var(--warning-light);
+        }
+
+        /* ============================================================
+           TOAST NOTIFICATIONS
+           ============================================================ */
+
+        .toast-container {
+            position: fixed;
+            bottom: 30px;
+            right: 30px;
+            z-index: 9999;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            max-width: 420px;
+        }
+
+        .toast {
+            padding: 14px 20px;
+            border-radius: 12px;
+            color: white;
+            font-weight: 600;
+            font-size: 14px;
+            animation: slideIn 0.4s ease;
+            box-shadow: 0 12px 48px rgba(0,0,0,0.15);
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .toast:hover { transform: scale(1.02); }
+        .toast.success { background: var(--success); }
+        .toast.error { background: var(--danger); }
+        .toast.info { background: var(--info); color: var(--text); }
+        .toast.warning { background: var(--warning); color: var(--text); }
+
+        .toast .toast-close {
+            background: none;
+            border: none;
+            color: rgba(255,255,255,0.7);
+            cursor: pointer;
+            font-size: 18px;
+            margin-left: auto;
+            padding: 0 4px;
+        }
+
+        .toast .toast-close:hover { color: white; }
+
+        @keyframes slideIn {
+            from { transform: translateX(100px); opacity: 0; }
+            to { transform: translateX(0); opacity: 1; }
+        }
+
+        /* ============================================================
+           RESPONSIVE
+           ============================================================ */
+
+        .sidebar-toggle {
+            display: none;
+            background: var(--primary);
+            color: white;
+            border: none;
+            padding: 8px 14px;
+            border-radius: 10px;
+            font-size: 20px;
+            cursor: pointer;
+            transition: var(--transition);
+        }
+
+        .sidebar-toggle:hover { background: var(--primary-dark); }
+
+        @media (max-width: 1024px) {
+            .report-grid {
+                grid-template-columns: 1fr 1fr;
+            }
+        }
+
+        @media (max-width: 768px) {
+            .sidebar {
+                transform: translateX(-100%);
+                width: 280px;
+            }
+
+            .sidebar.open {
+                transform: translateX(0);
+            }
+
+            .main-content {
+                margin-left: 0;
+                width: 100%;
+                padding: 16px;
+            }
+
+            .sidebar-toggle {
+                display: block;
+            }
+
+            .topbar .actions .date-time {
+                display: none;
+            }
+
+            .topbar h1 {
+                font-size: 22px;
+            }
+
+            .report-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .filter-row {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        @media (max-width: 480px) {
+            .topbar {
+                flex-direction: column;
+                align-items: stretch;
+            }
+
+            .topbar .actions {
+                justify-content: flex-start;
+            }
         }
     </style>
 </head>
 <body>
+
     <div class="admin-layout">
+
+        <!-- ============================================================
+        SIDEBAR BACKDROP
+        ============================================================ -->
+        <div class="sidebar-backdrop" id="sidebarBackdrop"></div>
+
+        <!-- ============================================================
+        SIDEBAR
+        ============================================================ -->
+
         <aside class="sidebar" id="sidebar">
             <div class="sidebar-brand">
                 <a href="admin-dashboard.html" class="logo">
                     <div class="logo-icon">MB</div>
-                    <div><span class="logo-text">Masika</span><span class="logo-sub">Admin Panel</span></div>
+                    <div>
+                        <span class="logo-text">Masika</span>
+                        <span class="logo-sub">Admin Panel</span>
+                    </div>
                 </a>
             </div>
+
             <ul class="sidebar-nav">
+                <li class="nav-label">Main</li>
                 <li><a href="admin-dashboard.html"><i class="fas fa-chart-pie"></i> Dashboard</a></li>
-                <li><a href="admin-agents.html"><i class="fas fa-user-tie"></i> Agents <span class="badge" id="agentCountBadge">0</span></a></li>
                 <li><a href="admin-members.html"><i class="fas fa-users"></i> Members</a></li>
-                <li><a href="admin-payments.html"><i class="fas fa-credit-card"></i> Payments</a></li>
-                <li><a href="admin-pricing.html"><i class="fas fa-tags"></i> Pricing</a></li>
+                <li><a href="admin-agents.html"><i class="fas fa-user-tie"></i> Agents</a></li>
+
+                <li class="nav-label">Finance</li>
+                <li><a href="admin-collectpayments.html"><i class="fas fa-credit-card"></i> Payments</a></li>
+                <li><a href="admin-revenue.html"><i class="fas fa-chart-line"></i> Revenue</a></li>
+
+                <li class="nav-label">Settings</li>
                 <li><a href="admin-reports.html" class="active"><i class="fas fa-file-alt"></i> Reports</a></li>
+                <li><a href="admin-pricing.html"><i class="fas fa-tags"></i> Pricing</a></li>
                 <li><a href="admin-settings.html"><i class="fas fa-cog"></i> Settings</a></li>
             </ul>
+
             <div class="sidebar-footer">
                 <div class="user-info">
                     <div class="user-avatar" id="adminAvatar">A</div>
-                    <div><div class="user-name" id="adminName">Admin</div><div class="user-role" id="adminRole">Administrator</div></div>
+                    <div>
+                        <div class="user-name" id="adminName">Admin</div>
+                        <div class="user-role" id="adminRole">Administrator</div>
+                    </div>
                 </div>
-                <button class="logout-btn" onclick="handleLogout()"><i class="fas fa-sign-out-alt"></i> Logout</button>
+                <button class="logout-btn" onclick="handleLogout()">
+                    <i class="fas fa-sign-out-alt"></i> Logout
+                </button>
             </div>
         </aside>
 
+        <!-- ============================================================
+        MAIN CONTENT
+        ============================================================ -->
+
         <main class="main-content">
+
+            <!-- Topbar -->
             <div class="topbar">
-                <h1>Reports <small>Export data as CSV</small></h1>
+                <div class="topbar-left">
+                    <button class="sidebar-toggle" id="sidebarToggle" aria-label="Toggle menu">
+                        <i class="fas fa-bars"></i>
+                    </button>
+                    <h1>
+                        Reports
+                        <small>Export data as CSV for analysis</small>
+                    </h1>
+                </div>
+                <div class="actions">
+                    <span class="date-time" id="currentDateTime"></span>
+                </div>
             </div>
 
+            <!-- Report Grid -->
             <div class="report-grid">
 
                 <!-- Payments Report -->
                 <div class="card">
                     <div class="card-header">
-                        <i class="fas fa-credit-card" style="color:var(--success);"></i>
+                        <i class="fas fa-credit-card payments-icon"></i>
                         <h3>Payments</h3>
                     </div>
+
                     <div class="filter-row">
                         <div class="filter-group">
                             <label>From</label>
@@ -123,18 +770,20 @@
                             <input type="date" id="paymentsTo">
                         </div>
                     </div>
+
                     <div class="filter-group">
                         <label>Status</label>
                         <select id="paymentsStatus">
                             <option value="">All statuses</option>
-                            <option value="SUCCESSFUL">Successful</option>
-                            <option value="PENDING">Pending</option>
-                            <option value="FAILED">Failed</option>
-                            <option value="REVERSED">Reversed</option>
-                            <option value="PARTIAL">Partial</option>
+                            <option value="completed">Completed</option>
+                            <option value="pending">Pending</option>
+                            <option value="failed">Failed</option>
+                            <option value="refunded">Refunded</option>
+                            <option value="unassigned">Unassigned</option>
                         </select>
                     </div>
-                    <button class="btn-sm primary" onclick="exportPaymentsCsv()" id="exportPaymentsBtn">
+
+                    <button class="btn btn-success btn-block" onclick="exportPaymentsCsv()" id="exportPaymentsBtn">
                         <i class="fas fa-download"></i> Export Payments CSV
                     </button>
                     <div class="report-status" id="paymentsStatusMsg"></div>
@@ -143,9 +792,10 @@
                 <!-- Members Report -->
                 <div class="card">
                     <div class="card-header">
-                        <i class="fas fa-users" style="color:var(--gold);"></i>
+                        <i class="fas fa-users members-icon"></i>
                         <h3>Members</h3>
                     </div>
+
                     <div class="filter-row">
                         <div class="filter-group">
                             <label>Registered From</label>
@@ -156,6 +806,7 @@
                             <input type="date" id="membersTo">
                         </div>
                     </div>
+
                     <div class="filter-group">
                         <label>Status</label>
                         <select id="membersStatus">
@@ -167,7 +818,18 @@
                             <option value="PENDING">Pending</option>
                         </select>
                     </div>
-                    <button class="btn-sm gold" onclick="exportMembersCsv()" id="exportMembersBtn">
+
+                    <div class="filter-group">
+                        <label>Plan Type</label>
+                        <select id="membersPlan">
+                            <option value="">All Plans</option>
+                            <option value="comfort">Comfort</option>
+                            <option value="dignity">Dignity</option>
+                            <option value="wazazi">Wazazi</option>
+                        </select>
+                    </div>
+
+                    <button class="btn btn-gold btn-block" onclick="exportMembersCsv()" id="exportMembersBtn">
                         <i class="fas fa-download"></i> Export Members CSV
                     </button>
                     <div class="report-status" id="membersStatusMsg"></div>
@@ -176,32 +838,486 @@
                 <!-- Dependants Report -->
                 <div class="card">
                     <div class="card-header">
-                        <i class="fas fa-people-roof" style="color:var(--info);"></i>
+                        <i class="fas fa-people-roof dependants-icon"></i>
                         <h3>Dependants</h3>
                     </div>
+
+                    <div class="filter-row">
+                        <div class="filter-group">
+                            <label>From</label>
+                            <input type="date" id="dependantsFrom">
+                        </div>
+                        <div class="filter-group">
+                            <label>To</label>
+                            <input type="date" id="dependantsTo">
+                        </div>
+                    </div>
+
                     <div class="filter-group">
-                        <label>Membership Status</label>
-                        <select id="dependantsStatus">
-                            <option value="">All statuses</option>
-                            <option value="ACTIVE">Active</option>
-                            <option value="DORMANT">Dormant</option>
-                            <option value="SUSPENDED">Suspended</option>
-                            <option value="CANCELLED">Cancelled</option>
-                            <option value="PENDING">Pending</option>
+                        <label>Relationship</label>
+                        <select id="dependantsRelationship">
+                            <option value="">All Relationships</option>
+                            <option value="spouse">Spouse</option>
+                            <option value="child">Child</option>
+                            <option value="parent">Parent</option>
+                            <option value="in_law">In-Law</option>
                         </select>
                     </div>
-                    <button class="btn-sm info" onclick="exportDependantsCsv()" id="exportDependantsBtn">
+
+                    <button class="btn btn-info btn-block" onclick="exportDependantsCsv()" id="exportDependantsBtn">
                         <i class="fas fa-download"></i> Export Dependants CSV
                     </button>
                     <div class="report-status" id="dependantsStatusMsg"></div>
                 </div>
 
             </div>
+
         </main>
+
     </div>
 
-    <script src="../js/supabase-config.js"></script>
-    <script src="../js/admin-auth.js"></script>
-    <script src="../js/admin-reports.js"></script>
+    <!-- ============================================================
+    TOAST CONTAINER
+    ============================================================ -->
+    <div class="toast-container" id="toastContainer"></div>
+
+    <!-- ============================================================
+    JAVASCRIPT - ALIGNED WITH SUPABASE
+    ============================================================ -->
+    <script>
+        // ============================================================
+        // SUPABASE CONFIG
+        // ============================================================
+
+        const SUPABASE_URL = 'https://wpxzlcdrirlcyvfiquld.supabase.co';
+        const SUPABASE_ANON_KEY = 'YOUR_SUPABASE_ANON_KEY';
+
+        const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+        // ============================================================
+        // STATE
+        // ============================================================
+
+        let currentUser = null;
+
+        // ============================================================
+        // INITIALIZATION
+        // ============================================================
+
+        document.addEventListener('DOMContentLoaded', async function() {
+            await checkAuth();
+            setupSidebarToggle();
+            updateClock();
+            setDefaultDates();
+        });
+
+        // ============================================================
+        // AUTH CHECK
+        // ============================================================
+
+        async function checkAuth() {
+            try {
+                const { data: { session }, error } = await supabase.auth.getSession();
+
+                if (error || !session) {
+                    window.location.href = 'admin-login.html';
+                    return;
+                }
+
+                const { data: admin, error: adminError } = await supabase
+                    .from('admins')
+                    .select('*')
+                    .eq('id', session.user.id)
+                    .single();
+
+                if (adminError || !admin) {
+                    window.location.href = 'admin-login.html';
+                    return;
+                }
+
+                currentUser = admin;
+                document.getElementById('adminName').textContent = admin.full_name || 'Admin';
+                document.getElementById('adminRole').textContent = admin.role || 'Administrator';
+                document.getElementById('adminAvatar').textContent = (admin.full_name || 'A').charAt(0).toUpperCase();
+
+            } catch (error) {
+                console.error('Auth check error:', error);
+                showToast('error', 'Authentication error');
+            }
+        }
+
+        // ============================================================
+        // SET DEFAULT DATES
+        // ============================================================
+
+        function setDefaultDates() {
+            const today = new Date();
+            const thirtyDaysAgo = new Date(today);
+            thirtyDaysAgo.setDate(today.getDate() - 30);
+
+            const formatDate = (date) => date.toISOString().split('T')[0];
+
+            document.getElementById('paymentsFrom').value = formatDate(thirtyDaysAgo);
+            document.getElementById('paymentsTo').value = formatDate(today);
+            document.getElementById('membersFrom').value = formatDate(thirtyDaysAgo);
+            document.getElementById('membersTo').value = formatDate(today);
+            document.getElementById('dependantsFrom').value = formatDate(thirtyDaysAgo);
+            document.getElementById('dependantsTo').value = formatDate(today);
+        }
+
+        // ============================================================
+        // EXPORT PAYMENTS CSV
+        // ============================================================
+
+        async function exportPaymentsCsv() {
+            const btn = document.getElementById('exportPaymentsBtn');
+            const statusMsg = document.getElementById('paymentsStatusMsg');
+
+            btn.disabled = true;
+            btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Exporting...';
+            statusMsg.className = 'report-status info';
+            statusMsg.textContent = 'Fetching payment data...';
+
+            try {
+                const from = document.getElementById('paymentsFrom').value;
+                const to = document.getElementById('paymentsTo').value;
+                const status = document.getElementById('paymentsStatus').value;
+
+                let query = supabase.from('payments').select('*');
+
+                if (from) {
+                    query = query.gte('created_at', `${from}T00:00:00`);
+                }
+                if (to) {
+                    query = query.lte('created_at', `${to}T23:59:59`);
+                }
+                if (status) {
+                    query = query.eq('status', status);
+                }
+
+                const { data, error } = await query.order('created_at', { ascending: false });
+
+                if (error) throw error;
+
+                if (!data || data.length === 0) {
+                    statusMsg.className = 'report-status warning';
+                    statusMsg.textContent = 'No payments found for the selected filters.';
+                    btn.disabled = false;
+                    btn.innerHTML = '<i class="fas fa-download"></i> Export Payments CSV';
+                    return;
+                }
+
+                // Generate CSV
+                const headers = ['ID', 'Member Name', 'Membership #', 'Amount', 'Payment Type', 'Status', 'M-Pesa Code', 'Date'];
+                const rows = data.map(p => [
+                    p.id || '',
+                    p.member_name || p.membership_number || '',
+                    p.membership_number || '',
+                    p.amount || 0,
+                    p.payment_type || '',
+                    p.status || '',
+                    p.mpesa_code || p.mpesa_receipt || '',
+                    p.created_at ? new Date(p.created_at).toLocaleString('en-KE') : ''
+                ]);
+
+                downloadCSV(headers, rows, `payments_${new Date().toISOString().split('T')[0]}`);
+
+                statusMsg.className = 'report-status success';
+                statusMsg.textContent = `✅ ${data.length} payments exported successfully!`;
+
+                showToast('success', `${data.length} payments exported`);
+
+            } catch (error) {
+                console.error('Export payments error:', error);
+                statusMsg.className = 'report-status error';
+                statusMsg.textContent = '❌ Failed to export payments. Please try again.';
+                showToast('error', 'Failed to export payments');
+            } finally {
+                btn.disabled = false;
+                btn.innerHTML = '<i class="fas fa-download"></i> Export Payments CSV';
+            }
+        }
+
+        // ============================================================
+        // EXPORT MEMBERS CSV
+        // ============================================================
+
+        async function exportMembersCsv() {
+            const btn = document.getElementById('exportMembersBtn');
+            const statusMsg = document.getElementById('membersStatusMsg');
+
+            btn.disabled = true;
+            btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Exporting...';
+            statusMsg.className = 'report-status info';
+            statusMsg.textContent = 'Fetching member data...';
+
+            try {
+                const from = document.getElementById('membersFrom').value;
+                const to = document.getElementById('membersTo').value;
+                const status = document.getElementById('membersStatus').value;
+                const plan = document.getElementById('membersPlan').value;
+
+                let query = supabase.from('members').select('*');
+
+                if (from) {
+                    query = query.gte('created_at', `${from}T00:00:00`);
+                }
+                if (to) {
+                    query = query.lte('created_at', `${to}T23:59:59`);
+                }
+                if (status) {
+                    query = query.eq('status', status);
+                }
+                if (plan) {
+                    query = query.eq('plan_type', plan);
+                }
+
+                const { data, error } = await query.order('created_at', { ascending: false });
+
+                if (error) throw error;
+
+                if (!data || data.length === 0) {
+                    statusMsg.className = 'report-status warning';
+                    statusMsg.textContent = 'No members found for the selected filters.';
+                    btn.disabled = false;
+                    btn.innerHTML = '<i class="fas fa-download"></i> Export Members CSV';
+                    return;
+                }
+
+                // Generate CSV
+                const headers = ['Membership #', 'First Name', 'Last Name', 'Phone', 'Email', 'Plan', 'Status', 'County', 'Town', 'Joined'];
+                const rows = data.map(m => [
+                    m.membership_number || '',
+                    m.first_name || '',
+                    m.last_name || '',
+                    m.phone || '',
+                    m.email || '',
+                    m.plan_type || '',
+                    m.status || '',
+                    m.county || '',
+                    m.town || '',
+                    m.created_at ? new Date(m.created_at).toLocaleDateString('en-KE') : ''
+                ]);
+
+                downloadCSV(headers, rows, `members_${new Date().toISOString().split('T')[0]}`);
+
+                statusMsg.className = 'report-status success';
+                statusMsg.textContent = `✅ ${data.length} members exported successfully!`;
+
+                showToast('success', `${data.length} members exported`);
+
+            } catch (error) {
+                console.error('Export members error:', error);
+                statusMsg.className = 'report-status error';
+                statusMsg.textContent = '❌ Failed to export members. Please try again.';
+                showToast('error', 'Failed to export members');
+            } finally {
+                btn.disabled = false;
+                btn.innerHTML = '<i class="fas fa-download"></i> Export Members CSV';
+            }
+        }
+
+        // ============================================================
+        // EXPORT DEPENDANTS CSV
+        // ============================================================
+
+        async function exportDependantsCsv() {
+            const btn = document.getElementById('exportDependantsBtn');
+            const statusMsg = document.getElementById('dependantsStatusMsg');
+
+            btn.disabled = true;
+            btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Exporting...';
+            statusMsg.className = 'report-status info';
+            statusMsg.textContent = 'Fetching dependant data...';
+
+            try {
+                const from = document.getElementById('dependantsFrom').value;
+                const to = document.getElementById('dependantsTo').value;
+                const relationship = document.getElementById('dependantsRelationship').value;
+
+                let query = supabase.from('dependants').select('*, members(first_name, last_name, membership_number)');
+
+                if (from) {
+                    query = query.gte('created_at', `${from}T00:00:00`);
+                }
+                if (to) {
+                    query = query.lte('created_at', `${to}T23:59:59`);
+                }
+                if (relationship) {
+                    query = query.eq('relationship', relationship);
+                }
+
+                const { data, error } = await query.order('created_at', { ascending: false });
+
+                if (error) throw error;
+
+                if (!data || data.length === 0) {
+                    statusMsg.className = 'report-status warning';
+                    statusMsg.textContent = 'No dependants found for the selected filters.';
+                    btn.disabled = false;
+                    btn.innerHTML = '<i class="fas fa-download"></i> Export Dependants CSV';
+                    return;
+                }
+
+                // Generate CSV
+                const headers = ['Member Name', 'Membership #', 'Dependant Name', 'Relationship', 'Date of Birth', 'Added'];
+                const rows = data.map(d => [
+                    d.members ? `${d.members.first_name || ''} ${d.members.last_name || ''}`.trim() : '',
+                    d.members ? d.members.membership_number || '' : '',
+                    `${d.first_name || ''} ${d.last_name || ''}`.trim(),
+                    d.relationship || '',
+                    d.date_of_birth || '',
+                    d.created_at ? new Date(d.created_at).toLocaleDateString('en-KE') : ''
+                ]);
+
+                downloadCSV(headers, rows, `dependants_${new Date().toISOString().split('T')[0]}`);
+
+                statusMsg.className = 'report-status success';
+                statusMsg.textContent = `✅ ${data.length} dependants exported successfully!`;
+
+                showToast('success', `${data.length} dependants exported`);
+
+            } catch (error) {
+                console.error('Export dependants error:', error);
+                statusMsg.className = 'report-status error';
+                statusMsg.textContent = '❌ Failed to export dependants. Please try again.';
+                showToast('error', 'Failed to export dependants');
+            } finally {
+                btn.disabled = false;
+                btn.innerHTML = '<i class="fas fa-download"></i> Export Dependants CSV';
+            }
+        }
+
+        // ============================================================
+        // DOWNLOAD CSV HELPER
+        // ============================================================
+
+        function downloadCSV(headers, rows, filename) {
+            let csv = headers.join(',') + '\n';
+
+            rows.forEach(row => {
+                csv += row.map(cell => `"${String(cell).replace(/"/g, '""')}"`).join(',') + '\n';
+            });
+
+            const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `${filename}.csv`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+        }
+
+        // ============================================================
+        // SIDEBAR TOGGLE
+        // ============================================================
+
+        function setupSidebarToggle() {
+            const sidebar = document.getElementById('sidebar');
+            const backdrop = document.getElementById('sidebarBackdrop');
+            const toggleBtn = document.getElementById('sidebarToggle');
+
+            if (toggleBtn) {
+                toggleBtn.addEventListener('click', function() {
+                    sidebar.classList.toggle('open');
+                    backdrop.classList.toggle('show');
+                });
+            }
+
+            if (backdrop) {
+                backdrop.addEventListener('click', function() {
+                    sidebar.classList.remove('open');
+                    backdrop.classList.remove('show');
+                });
+            }
+
+            document.querySelectorAll('.sidebar-nav a').forEach(function(link) {
+                link.addEventListener('click', function() {
+                    sidebar.classList.remove('open');
+                    backdrop.classList.remove('show');
+                });
+            });
+        }
+
+        // ============================================================
+        // CLOCK
+        // ============================================================
+
+        function updateClock() {
+            const clockEl = document.getElementById('currentDateTime');
+            if (clockEl) {
+                const now = new Date();
+                clockEl.textContent = now.toLocaleString('en-KE', {
+                    weekday: 'short',
+                    day: '2-digit',
+                    month: 'short',
+                    year: 'numeric',
+                    hour: '2-digit',
+                    minute: '2-digit'
+                });
+            }
+            setTimeout(updateClock, 30000);
+        }
+
+        // ============================================================
+        // TOAST NOTIFICATIONS
+        // ============================================================
+
+        function showToast(type, message) {
+            const container = document.getElementById('toastContainer');
+
+            const icons = {
+                success: 'fa-check-circle',
+                error: 'fa-exclamation-circle',
+                warning: 'fa-triangle-exclamation',
+                info: 'fa-info-circle'
+            };
+
+            const toast = document.createElement('div');
+            toast.className = `toast ${type}`;
+            toast.innerHTML = `
+                <i class="fas ${icons[type] || icons.info}"></i>
+                <span>${message}</span>
+                <button class="toast-close" onclick="this.parentElement.remove()">&times;</button>
+            `;
+
+            container.appendChild(toast);
+
+            setTimeout(() => {
+                toast.style.opacity = '0';
+                toast.style.transform = 'translateX(100px)';
+                toast.style.transition = 'all 0.4s ease';
+                setTimeout(() => toast.remove(), 400);
+            }, 4000);
+        }
+
+        // ============================================================
+        // LOGOUT
+        // ============================================================
+
+        async function handleLogout() {
+            try {
+                await supabase.auth.signOut();
+                sessionStorage.clear();
+                window.location.href = 'admin-login.html';
+            } catch (error) {
+                console.error('Logout error:', error);
+                showToast('error', 'Failed to logout');
+            }
+        }
+
+        // ============================================================
+        // EXPOSE FUNCTIONS
+        // ============================================================
+
+        window.exportPaymentsCsv = exportPaymentsCsv;
+        window.exportMembersCsv = exportMembersCsv;
+        window.exportDependantsCsv = exportDependantsCsv;
+        window.handleLogout = handleLogout;
+        window.showToast = showToast;
+    </script>
+
 </body>
 </html>
