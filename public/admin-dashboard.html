@@ -15,36 +15,1215 @@
 
     <style>
         /* ============================================================
-           STYLES - Keep all your existing styles here
+           IMPROVED ADMIN DASHBOARD STYLES
            ============================================================ */
-        /* ... (your existing styles) ... */
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        :root {
+            --primary: #0b5d3b;
+            --primary-dark: #06452c;
+            --primary-light: #e8f5ee;
+            --primary-50: #f0f7f3;
+            --gold: #d4a843;
+            --gold-light: #f5e6b8;
+            --gold-50: #fcf8ed;
+            --danger: #dc3545;
+            --danger-light: #fce4e8;
+            --success: #198754;
+            --success-light: #d4edda;
+            --warning: #ffc107;
+            --warning-light: #fff3cd;
+            --info: #0dcaf0;
+            --info-light: #d1f0f9;
+            --text: #1f2933;
+            --text-light: #6b7280;
+            --text-lighter: #9ca3af;
+            --white: #ffffff;
+            --gray-50: #f9fafb;
+            --gray-100: #f3f4f6;
+            --gray-200: #e5e7eb;
+            --gray-300: #d1d5db;
+            --gray-400: #9ca3af;
+            --shadow: 0 2px 12px rgba(0,0,0,0.08);
+            --shadow-hover: 0 4px 24px rgba(0,0,0,0.12);
+            --shadow-lg: 0 8px 40px rgba(0,0,0,0.15);
+            --radius: 12px;
+            --radius-lg: 16px;
+            --transition: all 0.3s ease;
+        }
+
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif;
+            background: #f0f4f2;
+            color: var(--text);
+            min-height: 100vh;
+        }
+
+        /* ============================================================
+           SCROLLBAR
+           ============================================================ */
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        ::-webkit-scrollbar-track { background: var(--gray-100); border-radius: 10px; }
+        ::-webkit-scrollbar-thumb { background: var(--gray-300); border-radius: 10px; }
+        ::-webkit-scrollbar-thumb:hover { background: var(--gray-400); }
+
+        /* ============================================================
+           SIDEBAR
+           ============================================================ */
+
+        .admin-layout {
+            display: flex;
+            min-height: 100vh;
+        }
+
+        .sidebar {
+            width: 280px;
+            background: var(--primary);
+            color: white;
+            padding: 24px 0;
+            position: fixed;
+            height: 100vh;
+            overflow-y: auto;
+            transition: var(--transition);
+            z-index: 100;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .sidebar::-webkit-scrollbar { width: 4px; }
+        .sidebar::-webkit-scrollbar-track { background: rgba(255,255,255,0.05); }
+        .sidebar::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.2); border-radius: 10px; }
+
+        .sidebar-brand {
+            padding: 0 24px 24px;
+            border-bottom: 1px solid rgba(255,255,255,0.08);
+            margin-bottom: 20px;
+            flex-shrink: 0;
+        }
+
+        .sidebar-brand .logo {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            text-decoration: none;
+            color: white;
+        }
+
+        .sidebar-brand .logo-icon {
+            width: 44px;
+            height: 44px;
+            background: var(--gold);
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 900;
+            color: var(--white);
+            font-size: 20px;
+        }
+
+        .sidebar-brand .logo-text {
+            font-weight: 800;
+            font-size: 20px;
+            letter-spacing: -0.5px;
+        }
+
+        .sidebar-brand .logo-sub {
+            font-size: 11px;
+            opacity: 0.6;
+            display: block;
+            font-weight: 400;
+            letter-spacing: 0.5px;
+            text-transform: uppercase;
+        }
+
+        .sidebar-nav {
+            list-style: none;
+            padding: 0 12px;
+            flex: 1;
+        }
+
+        .sidebar-nav li {
+            margin-bottom: 2px;
+        }
+
+        .sidebar-nav .nav-label {
+            font-size: 10px;
+            text-transform: uppercase;
+            letter-spacing: 0.8px;
+            color: rgba(255,255,255,0.3);
+            padding: 12px 16px 6px;
+            font-weight: 700;
+        }
+
+        .sidebar-nav a {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 11px 16px;
+            border-radius: 10px;
+            color: rgba(255,255,255,0.65);
+            text-decoration: none;
+            transition: var(--transition);
+            font-size: 14px;
+            font-weight: 500;
+            position: relative;
+        }
+
+        .sidebar-nav a:hover {
+            background: rgba(255,255,255,0.08);
+            color: white;
+        }
+
+        .sidebar-nav a.active {
+            background: rgba(255,255,255,0.12);
+            color: white;
+        }
+
+        .sidebar-nav a.active::before {
+            content: '';
+            position: absolute;
+            left: 0;
+            top: 20%;
+            height: 60%;
+            width: 3px;
+            background: var(--gold);
+            border-radius: 0 3px 3px 0;
+        }
+
+        .sidebar-nav a i {
+            width: 20px;
+            text-align: center;
+            font-size: 16px;
+        }
+
+        .sidebar-nav .badge {
+            margin-left: auto;
+            background: var(--gold);
+            color: white;
+            padding: 1px 10px;
+            border-radius: 12px;
+            font-size: 11px;
+            font-weight: 700;
+            min-width: 20px;
+            text-align: center;
+        }
+
+        .sidebar-footer {
+            padding: 16px 24px;
+            border-top: 1px solid rgba(255,255,255,0.08);
+            margin-top: auto;
+            flex-shrink: 0;
+        }
+
+        .sidebar-footer .user-info {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .sidebar-footer .user-avatar {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            background: var(--gold);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 700;
+            font-size: 16px;
+            color: white;
+            flex-shrink: 0;
+        }
+
+        .sidebar-footer .user-name {
+            font-weight: 600;
+            font-size: 14px;
+        }
+
+        .sidebar-footer .user-role {
+            font-size: 12px;
+            opacity: 0.5;
+        }
+
+        .sidebar-footer .logout-btn {
+            display: block;
+            width: 100%;
+            margin-top: 12px;
+            padding: 10px;
+            border: 1px solid rgba(255,255,255,0.15);
+            border-radius: 10px;
+            background: transparent;
+            color: rgba(255,255,255,0.6);
+            cursor: pointer;
+            transition: var(--transition);
+            font-family: inherit;
+            font-size: 14px;
+            font-weight: 500;
+        }
+
+        .sidebar-footer .logout-btn:hover {
+            background: rgba(255,255,255,0.08);
+            color: white;
+            border-color: rgba(255,255,255,0.3);
+        }
+
+        /* ============================================================
+           SIDEBAR BACKDROP (mobile)
+           ============================================================ */
+
+        .sidebar-backdrop {
+            display: none;
+            position: fixed;
+            inset: 0;
+            background: rgba(0,0,0,0.5);
+            backdrop-filter: blur(4px);
+            z-index: 99;
+        }
+
+        .sidebar-backdrop.show {
+            display: block;
+        }
+
+        /* ============================================================
+           MAIN CONTENT
+           ============================================================ */
+
+        .main-content {
+            margin-left: 280px;
+            padding: 24px 32px 40px;
+            flex: 1;
+            width: calc(100% - 280px);
+            min-height: 100vh;
+        }
+
+        /* ============================================================
+           TOPBAR
+           ============================================================ */
+
+        .topbar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 28px;
+            flex-wrap: wrap;
+            gap: 12px;
+        }
+
+        .topbar-left {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+        }
+
+        .topbar h1 {
+            font-size: 28px;
+            font-weight: 800;
+            letter-spacing: -0.5px;
+        }
+
+        .topbar h1 small {
+            font-size: 14px;
+            font-weight: 400;
+            color: var(--text-light);
+            display: block;
+            margin-top: 2px;
+        }
+
+        .topbar .actions {
+            display: flex;
+            gap: 12px;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+
+        .topbar .actions .date-time {
+            font-size: 14px;
+            color: var(--text-light);
+            font-weight: 500;
+        }
+
+        /* ============================================================
+           BUTTONS
+           ============================================================ */
+
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 8px 18px;
+            border: none;
+            border-radius: 8px;
+            font-weight: 600;
+            font-size: 13px;
+            cursor: pointer;
+            transition: var(--transition);
+            font-family: inherit;
+            text-decoration: none;
+        }
+
+        .btn-primary {
+            background: var(--primary);
+            color: white;
+        }
+        .btn-primary:hover {
+            background: var(--primary-dark);
+            transform: translateY(-2px);
+            box-shadow: 0 4px 16px rgba(11, 93, 59, 0.3);
+        }
+
+        .btn-gold {
+            background: var(--gold);
+            color: white;
+        }
+        .btn-gold:hover {
+            background: #c49a3a;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 16px rgba(212, 168, 67, 0.3);
+        }
+
+        .btn-success {
+            background: var(--success);
+            color: white;
+        }
+        .btn-success:hover {
+            background: #157347;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 16px rgba(25, 135, 84, 0.3);
+        }
+
+        .btn-danger {
+            background: var(--danger);
+            color: white;
+        }
+        .btn-danger:hover {
+            background: #c82333;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 16px rgba(220, 53, 69, 0.3);
+        }
+
+        .btn-outline {
+            background: transparent;
+            border: 2px solid var(--gray-200);
+            color: var(--text-light);
+        }
+        .btn-outline:hover {
+            border-color: var(--primary);
+            color: var(--primary);
+            transform: translateY(-2px);
+        }
+
+        .btn-sm {
+            padding: 4px 12px;
+            font-size: 12px;
+            border-radius: 6px;
+        }
+
+        .btn-xs {
+            padding: 2px 10px;
+            font-size: 11px;
+            border-radius: 4px;
+        }
+
+        .btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none !important;
+        }
+
+        /* ============================================================
+           STATS GRID
+           ============================================================ */
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 16px;
+            margin-bottom: 28px;
+        }
+
+        .stat-card {
+            background: white;
+            border-radius: var(--radius);
+            padding: 20px 24px;
+            box-shadow: var(--shadow);
+            transition: var(--transition);
+            border-left: 4px solid var(--primary);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .stat-card::after {
+            content: '';
+            position: absolute;
+            top: -50%;
+            right: -20%;
+            width: 80px;
+            height: 80px;
+            background: rgba(11, 93, 59, 0.03);
+            border-radius: 50%;
+        }
+
+        .stat-card:hover {
+            box-shadow: var(--shadow-hover);
+            transform: translateY(-2px);
+        }
+
+        .stat-card .stat-icon {
+            font-size: 22px;
+            margin-bottom: 6px;
+            display: block;
+        }
+
+        .stat-card .stat-value {
+            font-size: 30px;
+            font-weight: 800;
+            color: var(--text);
+            letter-spacing: -0.5px;
+        }
+
+        .stat-card .stat-label {
+            font-size: 13px;
+            color: var(--text-light);
+            font-weight: 500;
+        }
+
+        .stat-card .stat-sub {
+            font-size: 12px;
+            color: var(--text-lighter);
+            margin-top: 4px;
+        }
+
+        .stat-card .stat-change {
+            font-size: 12px;
+            font-weight: 600;
+            margin-top: 4px;
+        }
+
+        .stat-card .stat-change.up { color: var(--success); }
+        .stat-card .stat-change.down { color: var(--danger); }
+
+        .stat-card.gold { border-left-color: var(--gold); }
+        .stat-card.blue { border-left-color: var(--info); }
+        .stat-card.danger { border-left-color: var(--danger); }
+        .stat-card.success { border-left-color: var(--success); }
+        .stat-card.warning { border-left-color: var(--warning); }
+
+        .stat-card.gold::after { background: rgba(212, 168, 67, 0.05); }
+        .stat-card.blue::after { background: rgba(13, 202, 240, 0.05); }
+        .stat-card.danger::after { background: rgba(220, 53, 69, 0.05); }
+
+        /* ============================================================
+           CARDS
+           ============================================================ */
+
+        .card {
+            background: white;
+            border-radius: var(--radius);
+            padding: 24px;
+            box-shadow: var(--shadow);
+            margin-bottom: 24px;
+            transition: var(--transition);
+        }
+
+        .card:hover {
+            box-shadow: var(--shadow-hover);
+        }
+
+        .card-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 16px;
+            padding-bottom: 12px;
+            border-bottom: 1px solid var(--gray-200);
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+
+        .card-header h3 {
+            font-size: 18px;
+            font-weight: 700;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .card-header .card-actions {
+            display: flex;
+            gap: 8px;
+        }
+
+        .grid-2 {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 24px;
+        }
+
+        .grid-3 {
+            display: grid;
+            grid-template-columns: 1fr 1fr 1fr;
+            gap: 24px;
+        }
+
+        /* ============================================================
+           TABLES
+           ============================================================ */
+
+        .table-wrapper {
+            overflow-x: auto;
+            border-radius: 8px;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 14px;
+        }
+
+        table thead {
+            background: var(--gray-50);
+        }
+
+        table thead th {
+            padding: 10px 14px;
+            text-align: left;
+            font-weight: 600;
+            font-size: 12px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            color: var(--text-light);
+            white-space: nowrap;
+        }
+
+        table tbody td {
+            padding: 10px 14px;
+            border-bottom: 1px solid var(--gray-100);
+            vertical-align: middle;
+        }
+
+        table tbody tr {
+            transition: var(--transition);
+        }
+
+        table tbody tr:hover {
+            background: var(--gray-50);
+        }
+
+        table tbody tr:last-child td {
+            border-bottom: none;
+        }
+
+        /* ============================================================
+           STATUS BADGES
+           ============================================================ */
+
+        .status-badge {
+            display: inline-block;
+            padding: 3px 12px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: 600;
+            white-space: nowrap;
+        }
+
+        .status-badge.active { background: var(--success-light); color: var(--success); }
+        .status-badge.inactive { background: var(--danger-light); color: var(--danger); }
+        .status-badge.pending { background: var(--warning-light); color: #856404; }
+        .status-badge.successful { background: var(--success-light); color: var(--success); }
+        .status-badge.failed { background: var(--danger-light); color: var(--danger); }
+        .status-badge.paid { background: var(--success-light); color: var(--success); }
+        .status-badge.unpaid { background: var(--warning-light); color: #856404; }
+        .status-badge.completed { background: var(--success-light); color: var(--success); }
+
+        /* ============================================================
+           EMPTY & ERROR STATES
+           ============================================================ */
+
+        .empty-state {
+            text-align: center;
+            padding: 40px 16px;
+            color: var(--text-light);
+            font-size: 14px;
+        }
+
+        .empty-state i {
+            font-size: 40px;
+            color: var(--gray-300);
+            display: block;
+            margin-bottom: 12px;
+        }
+
+        .empty-state .btn {
+            margin-top: 12px;
+        }
+
+        .error-state {
+            text-align: center;
+            padding: 24px 16px;
+            color: var(--danger);
+            font-size: 14px;
+        }
+
+        /* ============================================================
+           LOADING
+           ============================================================ */
+
+        .loading-spinner {
+            text-align: center;
+            padding: 40px;
+        }
+
+        .loading-spinner .spinner {
+            display: inline-block;
+            width: 36px;
+            height: 36px;
+            border: 4px solid var(--gray-200);
+            border-top-color: var(--primary);
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        .loading-spinner p {
+            color: var(--text-light);
+            margin-top: 12px;
+            font-size: 14px;
+        }
+
+        .fa-sync.spinning {
+            animation: spin 0.8s linear infinite;
+        }
+
+        /* ============================================================
+           LIVE INDICATOR
+           ============================================================ */
+
+        .live-indicator {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 12px;
+            font-weight: 600;
+            color: var(--text-light);
+            padding: 4px 12px;
+            border-radius: 20px;
+            background: var(--gray-50);
+        }
+
+        .live-indicator .dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: var(--gray-300);
+            transition: all 0.3s ease;
+        }
+
+        .live-indicator.connected .dot {
+            background: var(--success);
+            box-shadow: 0 0 0 rgba(25, 135, 84, 0.4);
+            animation: pulse-dot 1.8s infinite;
+        }
+
+        .live-indicator.connected { color: var(--success); }
+
+        .live-indicator.error .dot { background: var(--danger); }
+        .live-indicator.error { color: var(--danger); }
+
+        @keyframes pulse-dot {
+            0%   { box-shadow: 0 0 0 0 rgba(25, 135, 84, 0.4); }
+            70%  { box-shadow: 0 0 0 6px rgba(25, 135, 84, 0); }
+            100% { box-shadow: 0 0 0 0 rgba(25, 135, 84, 0); }
+        }
+
+        /* ============================================================
+           QUICK ACTIONS
+           ============================================================ */
+
+        .quick-actions {
+            display: flex;
+            gap: 12px;
+            flex-wrap: wrap;
+        }
+
+        .quick-actions .btn {
+            padding: 10px 20px;
+            font-size: 14px;
+            border-radius: 10px;
+        }
+
+        /* ============================================================
+           RESPONSIVE
+           ============================================================ */
+
+        .sidebar-toggle {
+            display: none;
+            background: var(--primary);
+            color: white;
+            border: none;
+            padding: 8px 14px;
+            border-radius: 10px;
+            font-size: 20px;
+            cursor: pointer;
+            transition: var(--transition);
+        }
+
+        .sidebar-toggle:hover {
+            background: var(--primary-dark);
+        }
+
+        @media (max-width: 1200px) {
+            .grid-3 {
+                grid-template-columns: 1fr 1fr;
+            }
+        }
+
+        @media (max-width: 1024px) {
+            .grid-2 {
+                grid-template-columns: 1fr;
+            }
+            .grid-3 {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        @media (max-width: 768px) {
+            .sidebar {
+                transform: translateX(-100%);
+                width: 280px;
+            }
+
+            .sidebar.open {
+                transform: translateX(0);
+            }
+
+            .main-content {
+                margin-left: 0;
+                width: 100%;
+                padding: 16px;
+            }
+
+            .sidebar-toggle {
+                display: block;
+            }
+
+            .stats-grid {
+                grid-template-columns: 1fr 1fr;
+            }
+
+            .topbar .actions .date-time {
+                display: none;
+            }
+
+            .topbar h1 {
+                font-size: 22px;
+            }
+
+            .quick-actions .btn {
+                font-size: 13px;
+                padding: 8px 16px;
+            }
+        }
+
+        @media (max-width: 480px) {
+            .stats-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .card {
+                padding: 16px;
+            }
+
+            .topbar {
+                flex-direction: column;
+                align-items: stretch;
+            }
+
+            .topbar .actions {
+                justify-content: flex-start;
+            }
+        }
+
+        /* ============================================================
+           TOAST NOTIFICATIONS
+           ============================================================ */
+
+        .toast-container {
+            position: fixed;
+            bottom: 30px;
+            right: 30px;
+            z-index: 9999;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            max-width: 420px;
+        }
+
+        .toast {
+            padding: 14px 20px;
+            border-radius: 12px;
+            color: white;
+            font-weight: 600;
+            font-size: 14px;
+            animation: slideIn 0.4s ease;
+            box-shadow: var(--shadow-lg);
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .toast:hover { transform: scale(1.02); }
+        .toast.success { background: var(--success); }
+        .toast.error { background: var(--danger); }
+        .toast.info { background: var(--info); color: var(--text); }
+        .toast.warning { background: var(--warning); color: var(--text); }
+
+        .toast .toast-close {
+            background: none;
+            border: none;
+            color: rgba(255,255,255,0.7);
+            cursor: pointer;
+            font-size: 18px;
+            margin-left: auto;
+            padding: 0 4px;
+        }
+
+        .toast .toast-close:hover { color: white; }
+
+        @keyframes slideIn {
+            from { transform: translateX(100px); opacity: 0; }
+            to { transform: translateX(0); opacity: 1; }
+        }
+
+        /* ============================================================
+           PAYMENT ROW
+           ============================================================ */
+
+        .payment-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 12px 0;
+            border-bottom: 1px solid var(--gray-100);
+            flex-wrap: wrap;
+            gap: 8px;
+        }
+
+        .payment-row:last-child {
+            border-bottom: none;
+        }
+
+        .payment-row small {
+            display: block;
+            font-size: 12px;
+            color: var(--text-light);
+        }
+
+        /* ============================================================
+           MISC
+           ============================================================ */
+
+        .mt-2 { margin-top: 8px; }
+        .mt-3 { margin-top: 12px; }
+        .mt-4 { margin-top: 16px; }
+        .mb-2 { margin-bottom: 8px; }
+        .mb-3 { margin-bottom: 12px; }
+        .mb-4 { margin-bottom: 16px; }
+
+        .text-center { text-align: center; }
+        .text-right { text-align: right; }
+        .text-muted { color: var(--text-light); }
+        .text-success { color: var(--success); }
+        .text-danger { color: var(--danger); }
+        .text-gold { color: var(--gold); }
+
+        .fw-600 { font-weight: 600; }
+        .fw-700 { font-weight: 700; }
+        .fw-800 { font-weight: 800; }
+
+        .d-flex { display: flex; }
+        .align-center { align-items: center; }
+        .gap-2 { gap: 8px; }
+        .gap-3 { gap: 12px; }
+        .gap-4 { gap: 16px; }
+
+        .flex-wrap { flex-wrap: wrap; }
+        .flex-1 { flex: 1; }
     </style>
 </head>
 <body>
 
-    <!-- ============================================================
-    YOUR EXISTING HTML - Keep everything the same
-    ============================================================ -->
+    <div class="admin-layout">
+
+        <!-- ============================================================
+        SIDEBAR BACKDROP
+        ============================================================ -->
+        <div class="sidebar-backdrop" id="sidebarBackdrop"></div>
+
+        <!-- ============================================================
+        SIDEBAR
+        ============================================================ -->
+
+        <aside class="sidebar" id="sidebar">
+            <div class="sidebar-brand">
+                <a href="admin-dashboard.html" class="logo">
+                    <div class="logo-icon">MB</div>
+                    <div>
+                        <span class="logo-text">Masika</span>
+                        <span class="logo-sub">Admin Panel</span>
+                    </div>
+                </a>
+            </div>
+
+            <ul class="sidebar-nav">
+                <li class="nav-label">Main</li>
+                <li><a href="admin-dashboard.html" class="active"><i class="fas fa-chart-pie"></i> Dashboard</a></li>
+                <li><a href="admin-members.html"><i class="fas fa-users"></i> Members <span class="badge" id="memberCountBadge">0</span></a></li>
+                <li><a href="admin-agents.html"><i class="fas fa-user-tie"></i> Agents <span class="badge" id="pendingAgentsBadge">0</span></a></li>
+
+                <li class="nav-label">Finance</li>
+                <li><a href="admin-collectpayments.html"><i class="fas fa-credit-card"></i> Payments</a></li>
+                <li><a href="admin-revenue.html"><i class="fas fa-chart-line"></i> Revenue</a></li>
+
+                <li class="nav-label">Settings</li>
+                <li><a href="admin-pricing.html"><i class="fas fa-tags"></i> Pricing</a></li>
+                <li><a href="admin-reports.html"><i class="fas fa-file-alt"></i> Reports</a></li>
+                <li><a href="admin-settings.html"><i class="fas fa-cog"></i> Settings</a></li>
+            </ul>
+
+            <div class="sidebar-footer">
+                <div class="user-info">
+                    <div class="user-avatar" id="adminAvatar">A</div>
+                    <div>
+                        <div class="user-name" id="adminName">Admin</div>
+                        <div class="user-role" id="adminRole">Administrator</div>
+                    </div>
+                </div>
+                <button class="logout-btn" onclick="handleLogout()">
+                    <i class="fas fa-sign-out-alt"></i> Logout
+                </button>
+            </div>
+        </aside>
+
+        <!-- ============================================================
+        MAIN CONTENT
+        ============================================================ -->
+
+        <main class="main-content">
+
+            <!-- Topbar -->
+            <div class="topbar">
+                <div class="topbar-left">
+                    <button class="sidebar-toggle" id="sidebarToggle" aria-label="Toggle menu">
+                        <i class="fas fa-bars"></i>
+                    </button>
+                    <h1>
+                        Dashboard
+                        <small>Welcome back, <span id="welcomeName">Admin</span>!</small>
+                    </h1>
+                </div>
+                <div class="actions">
+                    <span class="live-indicator" id="liveIndicator">
+                        <span class="dot"></span>
+                        <span id="liveIndicatorLabel">Connecting…</span>
+                    </span>
+                    <span class="date-time" id="currentDateTime"></span>
+                    <button onclick="refreshData()" class="btn btn-primary btn-sm" id="refreshBtn">
+                        <i class="fas fa-sync" id="refreshIcon"></i> Refresh
+                    </button>
+                </div>
+            </div>
+
+            <!-- Stats -->
+            <div class="stats-grid" id="statsGrid">
+                <div class="stat-card">
+                    <span class="stat-icon">👥</span>
+                    <div class="stat-value" id="totalMembers">0</div>
+                    <div class="stat-label">Total Members</div>
+                </div>
+                <div class="stat-card gold">
+                    <span class="stat-icon">🤝</span>
+                    <div class="stat-value" id="totalAgents">0</div>
+                    <div class="stat-label">Total Agents</div>
+                </div>
+                <div class="stat-card success">
+                    <span class="stat-icon">✅</span>
+                    <div class="stat-value" id="activeAgents">0</div>
+                    <div class="stat-label">Active Agents</div>
+                </div>
+                <div class="stat-card blue">
+                    <span class="stat-icon">📅</span>
+                    <div class="stat-value" id="dailyRevenue">KES 0</div>
+                    <div class="stat-label">Today's Revenue</div>
+                    <div class="stat-sub" id="dailyRevenueCount">0 payments</div>
+                </div>
+                <div class="stat-card gold">
+                    <span class="stat-icon">📆</span>
+                    <div class="stat-value" id="monthRevenue">KES 0</div>
+                    <div class="stat-label">This Month</div>
+                    <div class="stat-sub" id="monthRevenueCount">0 payments</div>
+                </div>
+                <div class="stat-card success">
+                    <span class="stat-icon">💰</span>
+                    <div class="stat-value" id="totalRevenue">KES 0</div>
+                    <div class="stat-label">Total Revenue</div>
+                    <div class="stat-sub" id="totalRevenueCount">All time</div>
+                </div>
+                <div class="stat-card warning">
+                    <span class="stat-icon">⚠️</span>
+                    <div class="stat-value" id="unassignedCount">0</div>
+                    <div class="stat-label">Unassigned Payments</div>
+                    <div class="stat-sub" id="unassignedAmount">KES 0 unmatched</div>
+                </div>
+                <div class="stat-card danger">
+                    <span class="stat-icon">🔄</span>
+                    <div class="stat-value" id="pendingPayments">0</div>
+                    <div class="stat-label">Pending Payments</div>
+                    <div class="stat-sub" id="pendingAmount">KES 0</div>
+                </div>
+            </div>
+
+            <!-- Quick Actions -->
+            <div class="card">
+                <div class="card-header">
+                    <h3><i class="fas fa-bolt" style="color:var(--gold);"></i> Quick Actions</h3>
+                </div>
+                <div class="quick-actions">
+                    <a href="admin-members.html?action=add" class="btn btn-primary">
+                        <i class="fas fa-user-plus"></i> Add Member
+                    </a>
+                    <a href="admin-agents.html?action=add" class="btn btn-gold">
+                        <i class="fas fa-user-tie"></i> Add Agent
+                    </a>
+                    <a href="admin-collectpayments.html" class="btn btn-success">
+                        <i class="fas fa-money-bill-wave"></i> Manual Payment
+                    </a>
+                    <a href="admin-reports.html" class="btn btn-outline">
+                        <i class="fas fa-download"></i> Export Data
+                    </a>
+                </div>
+            </div>
+
+            <!-- Recent Activity -->
+            <div class="grid-2">
+                <div class="card">
+                    <div class="card-header">
+                        <h3><i class="fas fa-clock" style="color:var(--primary);"></i> Recent Registrations</h3>
+                        <a href="admin-members.html" class="btn btn-primary btn-sm">View All →</a>
+                    </div>
+                    <div id="recentMembers">
+                        <div class="table-wrapper">
+                            <table>
+                                <thead>
+                                    <tr>
+                                        <th>Name</th>
+                                        <th>Phone</th>
+                                        <th>Date</th>
+                                        <th>Status</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="recentMembersBody">
+                                    <tr>
+                                        <td colspan="4" class="empty-state">Loading…</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="card">
+                    <div class="card-header">
+                        <h3><i class="fas fa-user-clock" style="color:var(--gold);"></i> Recent Agents</h3>
+                        <a href="admin-agents.html" class="btn btn-primary btn-sm">View All →</a>
+                    </div>
+                    <div id="pendingAgents">
+                        <div class="table-wrapper">
+                            <table>
+                                <thead>
+                                    <tr>
+                                        <th>Name</th>
+                                        <th>Phone</th>
+                                        <th>Date</th>
+                                        <th>Status</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="pendingAgentsBody">
+                                    <tr>
+                                        <td colspan="4" class="empty-state">Loading…</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Recent Payments -->
+            <div class="card">
+                <div class="card-header">
+                    <h3><i class="fas fa-credit-card" style="color:var(--success);"></i> Recent Payments</h3>
+                    <a href="admin-collectpayments.html" class="btn btn-primary btn-sm">View All →</a>
+                </div>
+                <div id="recentPayments">
+                    <div class="loading-spinner">
+                        <div class="spinner"></div>
+                        <p>Loading payments...</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Unassigned Payments -->
+            <div class="card">
+                <div class="card-header">
+                    <h3><i class="fas fa-triangle-exclamation" style="color:var(--warning);"></i> Unassigned Payments</h3>
+                    <span class="status-badge pending" id="unassignedBadge">0</span>
+                </div>
+                <div id="unassignedPaymentsList">
+                    <div class="loading-spinner">
+                        <div class="spinner"></div>
+                        <p>Loading...</p>
+                    </div>
+                </div>
+            </div>
+
+        </main>
+
+    </div>
 
     <!-- ============================================================
-    JAVASCRIPT - COMPLETE FIXED VERSION (No duplicate declarations)
+    TOAST CONTAINER
+    ============================================================ -->
+    <div class="toast-container" id="toastContainer"></div>
+
+    <!-- ============================================================
+    JAVASCRIPT - COMPLETE FIXED VERSION (Using Staff Table)
     ============================================================ -->
     <script>
         // ============================================================
-        // SUPABASE CONFIG - Use a unique variable name
+        // SUPABASE CONFIG
         // ============================================================
-        const MASIKA_SUPABASE_URL = 'https://wpxzlcdrirlcyvfiquld.supabase.co';
-        const MASIKA_SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6IndweHpsY2RyaXJsY3l2ZmlxdWxkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODc5Mjc4MDcsImV4cCI6MjEwMzUwMzgwN30.OUP9pmPbrML_egpHflZtDfLv1_UDM37_BYjtb842xjg';
+        const SUPABASE_URL = 'https://wpxzlcdrirlcyvfiquld.supabase.co';
+        const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6IndweHpsY2RyaXJsY3l2ZmlxdWxkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODc5Mjc4MDcsImV4cCI6MjEwMzUwMzgwN30.OUP9pmPbrML_egpHflZtDfLv1_UDM37_BYjtb842xjg';
 
         console.log('🚀 Dashboard script loaded');
 
-        // Create Supabase client with unique variable name
-        const masikaSupabase = window.supabase.createClient(MASIKA_SUPABASE_URL, MASIKA_SUPABASE_ANON_KEY);
+        const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
         // ============================================================
         // STATE
         // ============================================================
-        let currentAdmin = null;
+        let currentStaff = null;
         let refreshTimeout = null;
 
         // ============================================================
@@ -52,11 +1231,27 @@
         // ============================================================
         document.addEventListener('DOMContentLoaded', async function() {
             console.log('📄 DOM loaded');
-            
+
+            // Check localStorage first
+            const storedStaff = localStorage.getItem('admin_user');
+            if (storedStaff) {
+                try {
+                    currentStaff = JSON.parse(storedStaff);
+                    console.log('✅ Staff loaded from localStorage:', currentStaff.full_name);
+                    updateAdminUI(currentStaff);
+                    await loadDashboardData();
+                    setupRealtime();
+                    setupAutoRefresh();
+                    return;
+                } catch (e) {
+                    console.warn('⚠️ Invalid stored staff data');
+                }
+            }
+
             try {
                 const authResult = await checkAuth();
                 console.log('✅ Auth result:', authResult);
-                
+
                 if (authResult) {
                     await loadDashboardData();
                     setupRealtime();
@@ -69,13 +1264,13 @@
         });
 
         // ============================================================
-        // AUTH CHECK
+        // AUTH CHECK - Using Staff Table with Roles
         // ============================================================
         async function checkAuth() {
             console.log('🔐 Checking authentication...');
-            
+
             try {
-                const { data: { session }, error } = await masikaSupabase.auth.getSession();
+                const { data: { session }, error } = await supabaseClient.auth.getSession();
 
                 if (error) {
                     console.error('❌ Session error:', error);
@@ -91,36 +1286,95 @@
 
                 console.log('✅ User authenticated:', session.user.email);
 
-                const { data: admin, error: adminError } = await masikaSupabase
-                    .from('admins')
-                    .select('*')
-                    .eq('id', session.user.id)
-                    .single();
+                // Look up staff record with role
+                const { data: staff, error: staffError } = await supabaseClient
+                    .from('staff')
+                    .select(`
+                        id,
+                        auth_user_id,
+                        full_name,
+                        email,
+                        phone,
+                        role_id,
+                        branch_id,
+                        status,
+                        sales_code,
+                        roles:role_id (
+                            id,
+                            role_code,
+                            role_name,
+                            is_active
+                        )
+                    `)
+                    .eq('auth_user_id', session.user.id)
+                    .maybeSingle();
 
-                if (adminError) {
-                    console.error('❌ Admin check error:', adminError);
+                if (staffError) {
+                    console.error('❌ Staff lookup error:', staffError);
+                    // Check if maybe using admins table
+                    const { data: admin, error: adminError } = await supabaseClient
+                        .from('admins')
+                        .select('*')
+                        .eq('id', session.user.id)
+                        .single();
+
+                    if (admin) {
+                        console.log('✅ Found in admins table (legacy)');
+                        currentStaff = admin;
+                        localStorage.setItem('admin_user', JSON.stringify(admin));
+                        updateAdminUI(admin);
+                        return true;
+                    }
+
                     window.location.href = 'admin-login.html';
                     return false;
                 }
 
-                if (!admin) {
-                    console.log('⚠️ Not an admin user');
+                if (!staff) {
+                    console.log('⚠️ No staff record found');
+                    // Check admins table as fallback
+                    const { data: admin, error: adminError } = await supabaseClient
+                        .from('admins')
+                        .select('*')
+                        .eq('id', session.user.id)
+                        .single();
+
+                    if (admin) {
+                        console.log('✅ Found in admins table (legacy)');
+                        currentStaff = admin;
+                        localStorage.setItem('admin_user', JSON.stringify(admin));
+                        updateAdminUI(admin);
+                        return true;
+                    }
+
+                    await supabaseClient.auth.signOut();
                     window.location.href = 'admin-login.html';
                     return false;
                 }
 
-                console.log('✅ Admin verified:', admin.full_name);
-                currentAdmin = admin;
+                // Check if Super Admin
+                const roleCode = staff.roles?.role_code;
+                const roleActive = staff.roles?.is_active === true;
+                const staffActive = staff.status === 'ACTIVE';
 
-                // Update UI
-                document.getElementById('adminName').textContent = admin.full_name || 'Admin';
-                document.getElementById('adminRole').textContent = admin.role || 'Administrator';
-                document.getElementById('welcomeName').textContent = admin.full_name || 'Admin';
-                document.getElementById('adminAvatar').textContent = (admin.full_name || 'A').charAt(0).toUpperCase();
+                // Also check if role_code is SUPER_ADMIN or if using admins table
+                const isAdmin = roleCode === 'SUPER_ADMIN' || roleCode === 'ADMIN';
 
-                document.getElementById('liveIndicator').classList.add('connected');
-                document.getElementById('liveIndicatorLabel').textContent = 'Connected';
+                if (!isAdmin || !roleActive || !staffActive) {
+                    console.warn('⚠️ Not authorized:', { roleCode, roleActive, staffActive });
+                    await supabaseClient.auth.signOut();
+                    window.location.href = 'admin-login.html';
+                    return false;
+                }
 
+                console.log('✅ Super Admin verified:', staff.full_name);
+                currentStaff = staff;
+
+                // Store in localStorage
+                localStorage.setItem('admin_user', JSON.stringify(staff));
+                localStorage.setItem('admin_session', JSON.stringify(session));
+
+                updateAdminUI(staff);
                 return true;
 
             } catch (error) {
@@ -128,6 +1382,22 @@
                 showToast('error', 'Authentication error');
                 return false;
             }
+        }
+
+        // ============================================================
+        // UPDATE ADMIN UI
+        // ============================================================
+        function updateAdminUI(staff) {
+            const name = staff.full_name || staff.name || 'Admin';
+            const role = staff.roles?.role_name || staff.role || 'Administrator';
+
+            document.getElementById('adminName').textContent = name;
+            document.getElementById('adminRole').textContent = role;
+            document.getElementById('welcomeName').textContent = name;
+            document.getElementById('adminAvatar').textContent = name.charAt(0).toUpperCase();
+
+            document.getElementById('liveIndicator').classList.add('connected');
+            document.getElementById('liveIndicatorLabel').textContent = 'Connected';
         }
 
         // ============================================================
@@ -163,7 +1433,7 @@
         function setLiveStatus(status) {
             const indicator = document.getElementById('liveIndicator');
             const label = document.getElementById('liveIndicatorLabel');
-            
+
             if (indicator) {
                 indicator.className = 'live-indicator';
                 if (status === 'Live' || status === 'Connected') {
@@ -188,7 +1458,7 @@
                 // ============================================
                 // 1. MEMBERS COUNT
                 // ============================================
-                const { count: membersCount, error: membersError } = await masikaSupabase
+                const { count: membersCount, error: membersError } = await supabaseClient
                     .from('members')
                     .select('*', { count: 'exact', head: true });
 
@@ -201,7 +1471,7 @@
                 // ============================================
                 // 2. AGENTS COUNT
                 // ============================================
-                const { count: agentsCount, error: agentsError } = await masikaSupabase
+                const { count: agentsCount, error: agentsError } = await supabaseClient
                     .from('sales_agents')
                     .select('*', { count: 'exact', head: true });
 
@@ -214,7 +1484,7 @@
                 // ============================================
                 // 3. ACTIVE AGENTS
                 // ============================================
-                const { count: activeAgentsCount, error: activeError } = await masikaSupabase
+                const { count: activeAgentsCount, error: activeError } = await supabaseClient
                     .from('sales_agents')
                     .select('*', { count: 'exact', head: true })
                     .ilike('status', 'active');
@@ -228,7 +1498,7 @@
                 // ============================================
                 // 4. PAYMENTS
                 // ============================================
-                const { data: allPayments, error: paymentsError } = await masikaSupabase
+                const { data: allPayments, error: paymentsError } = await supabaseClient
                     .from('payments')
                     .select('*');
 
@@ -250,16 +1520,16 @@
                 // ============================================
                 // 6. REVENUE CALCULATIONS
                 // ============================================
-                const completedPayments = payments.filter(p => 
-                    p.payment_status === 'SUCCESSFUL' || 
-                    p.status === 'completed' || 
+                const completedPayments = payments.filter(p =>
+                    p.payment_status === 'SUCCESSFUL' ||
+                    p.status === 'completed' ||
                     p.status === 'confirmed'
                 );
                 const totalRevenue = completedPayments.reduce((sum, p) => sum + (p.amount || 0), 0);
 
                 // Today
                 const today = new Date().toDateString();
-                const todayPayments = completedPayments.filter(p => 
+                const todayPayments = completedPayments.filter(p =>
                     p.created_at && new Date(p.created_at).toDateString() === today
                 );
                 const todayRevenue = todayPayments.reduce((sum, p) => sum + (p.amount || 0), 0);
@@ -267,26 +1537,25 @@
                 // This month
                 const now = new Date();
                 const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
-                const monthPayments = completedPayments.filter(p => 
+                const monthPayments = completedPayments.filter(p =>
                     p.created_at && new Date(p.created_at) >= monthStart
                 );
                 const monthRevenue = monthPayments.reduce((sum, p) => sum + (p.amount || 0), 0);
 
-                // Unassigned (SUCCESSFUL payments with no member_id)
-                const unassignedPayments = payments.filter(p => 
-                    (p.payment_status === 'SUCCESSFUL' || p.status === 'completed') && 
+                // Unassigned
+                const unassignedPayments = payments.filter(p =>
+                    (p.payment_status === 'SUCCESSFUL' || p.status === 'completed') &&
                     !p.member_id
                 );
                 const unassignedTotal = unassignedPayments.reduce((sum, p) => sum + (p.amount || 0), 0);
 
                 // Pending
-                const pendingPayments = payments.filter(p => 
+                const pendingPayments = payments.filter(p =>
                     p.payment_status === 'PENDING' || p.status === 'pending'
                 );
                 const pendingTotal = pendingPayments.reduce((sum, p) => sum + (p.amount || 0), 0);
 
                 console.log('💰 Revenue - Today:', todayRevenue, 'Month:', monthRevenue, 'Total:', totalRevenue);
-                console.log('📋 Unassigned:', unassignedPayments.length, 'Pending:', pendingPayments.length);
 
                 // ============================================
                 // 7. UPDATE REVENUE STATS
@@ -332,9 +1601,9 @@
         // ============================================================
         async function loadRecentMembers() {
             console.log('📋 Loading recent members...');
-            
+
             try {
-                const { data, error } = await masikaSupabase
+                const { data, error } = await supabaseClient
                     .from('members')
                     .select('*')
                     .order('created_at', { ascending: false })
@@ -380,9 +1649,9 @@
         // ============================================================
         async function loadRecentAgents() {
             console.log('📋 Loading recent agents...');
-            
+
             try {
-                const { data, error } = await masikaSupabase
+                const { data, error } = await supabaseClient
                     .from('sales_agents')
                     .select('*')
                     .order('created_at', { ascending: false })
@@ -411,7 +1680,7 @@
 
                 tbody.innerHTML = data.map(a => {
                     const agentStatus = String(a.status || '').toLowerCase();
-                    const badgeClass = agentStatus === 'active' ? 'active' : 
+                    const badgeClass = agentStatus === 'active' ? 'active' :
                                      agentStatus === 'inactive' ? 'inactive' : 'pending';
 
                     return `
@@ -434,9 +1703,9 @@
         // ============================================================
         async function loadRecentPayments() {
             console.log('📋 Loading recent payments...');
-            
+
             try {
-                const { data, error } = await masikaSupabase
+                const { data, error } = await supabaseClient
                     .from('payments')
                     .select(`
                         id,
@@ -500,7 +1769,7 @@
                                 ${data.map(payment => {
                                     const paymentStatus = String(payment.payment_status || payment.status || '').toUpperCase();
                                     let badgeClass = 'pending';
-                                    
+
                                     if (paymentStatus === 'SUCCESSFUL' || paymentStatus === 'COMPLETED' || paymentStatus === 'CONFIRMED') {
                                         badgeClass = 'successful';
                                     } else if (paymentStatus === 'FAILED') {
@@ -551,9 +1820,9 @@
         // ============================================================
         async function loadUnassignedPayments() {
             console.log('📋 Loading unassigned payments...');
-            
+
             try {
-                const { data, error } = await masikaSupabase
+                const { data, error } = await supabaseClient
                     .from('payments')
                     .select(`
                         id,
@@ -660,7 +1929,7 @@
             if (!memberNumber) return;
 
             try {
-                const { data: member, error: memberError } = await masikaSupabase
+                const { data: member, error: memberError } = await supabaseClient
                     .from('members')
                     .select('id, membership_number, first_name, last_name')
                     .eq('membership_number', memberNumber)
@@ -671,7 +1940,7 @@
                     return;
                 }
 
-                const { data, error: updateError } = await masikaSupabase
+                const { data, error: updateError } = await supabaseClient
                     .from('payments')
                     .update({
                         member_id: member.id,
@@ -724,8 +1993,8 @@
         // ============================================================
         function setupRealtime() {
             console.log('🔌 Setting up real-time subscriptions...');
-            
-            const channel = masikaSupabase.channel('dashboard-changes')
+
+            const channel = supabaseClient.channel('dashboard-changes')
                 .on(
                     'postgres_changes',
                     { event: '*', schema: 'public', table: 'payments' },
@@ -800,7 +2069,9 @@
         // ============================================================
         window.handleLogout = async function() {
             try {
-                await masikaSupabase.auth.signOut();
+                await supabaseClient.auth.signOut();
+                localStorage.removeItem('admin_user');
+                localStorage.removeItem('admin_session');
                 sessionStorage.clear();
                 window.location.href = 'admin-login.html';
             } catch (error) {
@@ -872,7 +2143,7 @@
         window.loadDashboardData = loadDashboardData;
         window.formatKES = formatKES;
         window.formatDate = formatDate;
-        
+
         console.log('✅ All functions registered');
         console.log('📌 Open browser console to see debug output');
     </script>
