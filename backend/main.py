@@ -1,21 +1,28 @@
 # ============================================================
 # MAIN ENTRY POINT - backend/main.py
+# Complete Production-Ready FastAPI Application
 # Render runs: uvicorn main:app
 # ============================================================
 
 import sys
 import os
 from pathlib import Path
-from fastapi import FastAPI, HTTPException, status
+from fastapi import FastAPI, HTTPException, status, Query, Request, Depends
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.openapi.utils import get_openapi
-from typing import Optional, List
+from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
+from typing import Optional, List, Dict, Any
 from datetime import datetime, date, timedelta
 import logging
 import hashlib
 import secrets
 import re
+import json
+import base64
+import hmac
+import requests
 from enum import Enum
+from contextlib import asynccontextmanager
 
 # ============================================================
 # PYDANTIC IMPORTS
@@ -53,6 +60,29 @@ logger = logging.getLogger(__name__)
 
 SUPABASE_URL = os.getenv("SUPABASE_URL", "https://wpxzlcdrirlcyvfiquld.supabase.co")
 SUPABASE_KEY = os.getenv("SUPABASE_KEY", "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6IndweHpsY2RyaXJsY3l2ZmlxdWxkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODc5Mjc4MDcsImV4cCI6MjEwMzUwMzgwN30.OUP9pmPbrML_egpHflZtDfLv1_UDM37_BYjtb842xjg")
+
+# JWT Configuration
+SECRET_KEY = os.getenv("SECRET_KEY", "your-secret-key-change-in-production")
+ALGORITHM = os.getenv("ALGORITHM", "HS256")
+ACCESS_TOKEN_EXPIRE_MINUTES = int(os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES", "1440"))
+
+# M-Pesa Configuration
+MPESA_CONSUMER_KEY = os.getenv("MPESA_CONSUMER_KEY", "")
+MPESA_CONSUMER_SECRET = os.getenv("MPESA_CONSUMER_SECRET", "")
+MPESA_PASSKEY = os.getenv("MPESA_PASSKEY", "")
+MPESA_SHORTCODE = os.getenv("MPESA_SHORTCODE", "174379")
+MPESA_ENVIRONMENT = os.getenv("MPESA_ENVIRONMENT", "sandbox")
+BASE_URL = os.getenv("BASE_URL", "https://masika-c921.onrender.com")
+
+# M-Pesa URLs
+if MPESA_ENVIRONMENT == "production":
+    MPESA_BASE_URL = "https://api.safaricom.co.ke"
+else:
+    MPESA_BASE_URL = "https://sandbox.safaricom.co.ke"
+
+MPESA_AUTH_URL = f"{MPESA_BASE_URL}/oauth/v1/generate?grant_type=client_credentials"
+MPESA_STK_PUSH_URL = f"{MPESA_BASE_URL}/mpesa/stkpush/v1/processrequest"
+MPESA_STK_QUERY_URL = f"{MPESA_BASE_URL}/mpesa/stkpushquery/v1/query"
 
 # ============================================================
 # SUPABASE CLIENT
@@ -95,74 +125,270 @@ class RelationshipEnum(str, Enum):
     PARENT = "parent"
     IN_LAW = "in_law"
 
+class PaymentStatusEnum(str, Enum):
+    PENDING = "pending"
+    COMPLETED = "completed"
+    FAILED = "failed"
+    REFUNDED = "refunded"
+
+class PaymentTypeEnum(str, Enum):
+    REGISTRATION = "registration"
+    MONTHLY = "monthly"
+    TOPUP = "topup"
+    ADDON = "addon"
+
+class ClaimStatusEnum(str, Enum):
+    PENDING = "pending"
+    APPROVED = "approved"
+    REJECTED = "rejected"
+    PAID = "paid"
+    CANCELLED = "cancelled"
+
 # ============================================================
 # PYDANTIC MODELS
 # ============================================================
 
-class DependantBase(BaseModel):
-    first_name: str
-    last_name: str
-    relationship: RelationshipEnum
-    date_of_birth: str
-    phone: Optional[str] = None
-    email: Optional[EmailStr] = None
+# === Auth Models ===
+class LoginRequest(BaseModel):
+    identifier: str = Field(..., description="Member number, username, or email")
+    password: str = Field(..., min_length=1)
 
-class MemberBase(BaseModel):
-    first_name: str
-    last_name: str
-    other_name: Optional[str] = None
+class LoginResponse(BaseModel):
+    success: bool
+    user: dict
+    message: str
+    token: Optional[str] = None
+    refresh_token: Optional[str] = None
+
+class RegisterRequest(MemberBase):
+    password: str = Field(..., min_length=8, max_length=50)
+    dependants: List[DependantBase] = []
+    accept_terms: bool = Field(True, description="Accept terms and conditions")
+
+class RefreshTokenRequest(BaseModel):
+    refresh_token: str
+
+class ForgotPasswordRequest(BaseModel):
     email: EmailStr
-    phone: str
-    alternative_phone: Optional[str] = None
-    id_number: str
+
+class ResetPasswordRequest(BaseModel):
+    token: str
+    new_password: str = Field(..., min_length=8, max_length=50)
+
+# === Member Models ===
+class MemberBase(BaseModel):
+    first_name: str = Field(..., min_length=2, max_length=50)
+    last_name: str = Field(..., min_length=2, max_length=50)
+    other_name: Optional[str] = Field(None, max_length=50)
+    email: EmailStr
+    phone: str = Field(..., pattern=r"^(\+254|0)[0-9]{9,10}$")
+    alternative_phone: Optional[str] = Field(None, pattern=r"^(\+254|0)[0-9]{9,10}$")
+    id_number: str = Field(..., min_length=5, max_length=20)
     date_of_birth: str
     gender: GenderEnum
-    county: str
-    location: Optional[str] = None
-    town: Optional[str] = None
+    county: str = Field(..., min_length=2, max_length=50)
+    location: Optional[str] = Field(None, max_length=100)
+    town: Optional[str] = Field(None, max_length=50)
     address: Optional[str] = None
     plan: PlanEnum
     benefit_option: BenefitOptionEnum
-    sales_code: Optional[str] = None
+    sales_code: Optional[str] = Field(None, max_length=20)
 
 class MemberCreate(MemberBase):
     password: str
     dependants: List[DependantBase] = []
 
 class MemberUpdate(BaseModel):
-    first_name: Optional[str] = None
-    last_name: Optional[str] = None
-    other_name: Optional[str] = None
-    phone: Optional[str] = None
-    alternative_phone: Optional[str] = None
+    first_name: Optional[str] = Field(None, min_length=2, max_length=50)
+    last_name: Optional[str] = Field(None, min_length=2, max_length=50)
+    other_name: Optional[str] = Field(None, max_length=50)
+    phone: Optional[str] = Field(None, pattern=r"^(\+254|0)[0-9]{9,10}$")
+    alternative_phone: Optional[str] = Field(None, pattern=r"^(\+254|0)[0-9]{9,10}$")
     address: Optional[str] = None
-    location: Optional[str] = None
-    town: Optional[str] = None
+    location: Optional[str] = Field(None, max_length=100)
+    town: Optional[str] = Field(None, max_length=50)
     plan: Optional[PlanEnum] = None
+    benefit_option: Optional[BenefitOptionEnum] = None
 
-class LoginRequest(BaseModel):
-    identifier: str
-    password: str
+class MemberResponse(BaseModel):
+    id: str
+    member_number: str
+    username: str
+    first_name: str
+    last_name: str
+    other_name: Optional[str]
+    email: str
+    phone: str
+    alternative_phone: Optional[str]
+    id_number: str
+    date_of_birth: str
+    gender: str
+    county: str
+    location: Optional[str]
+    town: Optional[str]
+    address: Optional[str]
+    plan: str
+    benefit_option: str
+    sales_code: Optional[str]
+    member_status: str
+    is_active: bool
+    registration_date: str
+    waiting_period_months: int
+    registration_fee_paid: bool
+    created_at: datetime
+    updated_at: datetime
+    last_login: Optional[datetime]
 
-class LoginResponse(BaseModel):
-    success: bool
-    user: dict
-    message: str
-    credentials: Optional[dict] = None
+# === Dependant Models ===
+class DependantBase(BaseModel):
+    first_name: str = Field(..., min_length=2, max_length=50)
+    last_name: str = Field(..., min_length=2, max_length=50)
+    relationship: RelationshipEnum
+    date_of_birth: str
+    phone: Optional[str] = Field(None, pattern=r"^(\+254|0)[0-9]{9,10}$")
+    email: Optional[EmailStr] = None
 
+class DependantCreate(DependantBase):
+    member_id: str
+
+class DependantUpdate(BaseModel):
+    first_name: Optional[str] = Field(None, min_length=2, max_length=50)
+    last_name: Optional[str] = Field(None, min_length=2, max_length=50)
+    relationship: Optional[RelationshipEnum] = None
+    date_of_birth: Optional[str] = None
+    phone: Optional[str] = Field(None, pattern=r"^(\+254|0)[0-9]{9,10}$")
+    email: Optional[EmailStr] = None
+    is_active: Optional[bool] = None
+
+# === Payment Models ===
 class PaymentCreate(BaseModel):
-    amount: float
-    payment_type: str
-    mpesa_receipt: str
-    payment_method: str = "mpesa"
+    amount: float = Field(..., gt=0, description="Amount to pay in KES")
+    payment_type: PaymentTypeEnum
+    phone: str = Field(..., description="M-Pesa phone number")
+    member_id: str = Field(..., description="Member ID")
+    description: Optional[str] = None
 
 class PaymentUpdate(BaseModel):
-    status: str
+    status: PaymentStatusEnum
     mpesa_receipt: Optional[str] = None
+    checkout_request_id: Optional[str] = None
+
+class PaymentResponse(BaseModel):
+    id: str
+    member_number: str
+    amount: float
+    payment_type: str
+    payment_method: str
+    mpesa_receipt: Optional[str]
+    status: str
+    payment_date: str
+    created_at: datetime
+
+# === STK Push Models ===
+class STKPushRequest(BaseModel):
+    phone: str = Field(..., description="M-Pesa phone number (2547XXXXXXXX)")
+    amount: float = Field(..., gt=0, description="Amount to pay in KES")
+    account_reference: str = Field(..., description="Account reference (member number)")
+    transaction_desc: str = Field("Payment to Masika Benevolent", description="Transaction description")
+    member_id: str = Field(..., description="Member ID")
+    payment_type: PaymentTypeEnum = PaymentTypeEnum.REGISTRATION
+
+class STKPushResponse(BaseModel):
+    success: bool
+    message: str
+    checkout_request_id: Optional[str] = None
+    merchant_request_id: Optional[str] = None
+    response_code: Optional[str] = None
+
+# === Plan Models ===
+class PlanResponse(BaseModel):
+    slug: str
+    name: str
+    description: str
+    registration_fee: float
+    monthly_fee: float
+    waiting_period_months: int
+
+# === Agent Models ===
+class AgentResponse(BaseModel):
+    id: str
+    agent_code: str
+    full_name: str
+    email: Optional[str] = None
+    phone: Optional[str] = None
+    branch: Optional[str] = None
+    status: str
+    commission_rate: Optional[float] = None
+
+class AgentCreate(BaseModel):
+    agent_code: str
+    full_name: str
+    email: EmailStr
+    phone: str
+    branch_id: Optional[str] = None
+    commission_rate: float = 5.0
+
+# === Branch Models ===
+class BranchResponse(BaseModel):
+    id: str
+    name: str
+    code: str
+    location: Optional[str] = None
+    phone: Optional[str] = None
+    email: Optional[str] = None
+    is_active: bool
+
+# === Claim Models ===
+class ClaimBase(BaseModel):
+    member_number: str
+    claim_type: str
+    amount: float = Field(..., gt=0)
+    incident_date: str
+    incident_description: str
+    beneficiary_name: str
+    beneficiary_relationship: str
+    beneficiary_phone: str
+    beneficiary_id_number: str
+
+class ClaimCreate(ClaimBase):
+    supporting_documents: Optional[List[str]] = []
+
+class ClaimUpdate(BaseModel):
+    status: Optional[ClaimStatusEnum] = None
+    approval_notes: Optional[str] = None
+    amount: Optional[float] = Field(None, gt=0)
+
+class ClaimResponse(ClaimBase):
+    id: str
+    claim_number: str
+    status: str
+    created_at: datetime
+    updated_at: datetime
+    approved_by: Optional[str]
+    approval_date: Optional[datetime]
+    payment_id: Optional[str]
+    paid_date: Optional[datetime]
+
+# === Dashboard Models ===
+class DashboardStats(BaseModel):
+    member_id: str
+    member_number: str
+    plan: str
+    benefit_option: str
+    dependants_count: int
+    payments_count: int
+    total_payments: float
+    last_payment_date: Optional[str]
+    coverage_status: str
+    registration_date: str
+    waiting_period_months: int
+    active_dependants: int
 
 # ============================================================
-# HELPER FUNCTIONS
+# SECURITY HELPERS
 # ============================================================
+
+security = HTTPBearer()
 
 def hash_password(password: str) -> str:
     """Hash a password using SHA256"""
@@ -179,7 +405,6 @@ def generate_member_number() -> str:
     
     try:
         result = supabase.table("members").select("member_number").order("member_number", desc=True).limit(1).execute()
-        
         if result.data and len(result.data) > 0:
             last_number = result.data[0]["member_number"]
             match = re.search(r"MSK-(\d+)", last_number)
@@ -195,6 +420,52 @@ def generate_password() -> str:
     """Generate a secure random password"""
     chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789!@#$%^&*"
     return ''.join(secrets.choice(chars) for _ in range(12))
+
+def generate_jwt_token(user_id: str, email: str) -> str:
+    """Generate JWT token"""
+    import jwt
+    payload = {
+        "sub": user_id,
+        "email": email,
+        "exp": datetime.utcnow() + timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
+    }
+    return jwt.encode(payload, SECRET_KEY, algorithm=ALGORITHM)
+
+def verify_jwt_token(token: str) -> Optional[dict]:
+    """Verify JWT token"""
+    try:
+        import jwt
+        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+        return payload
+    except jwt.ExpiredSignatureError:
+        return None
+    except jwt.InvalidTokenError:
+        return None
+
+async def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(security)):
+    """Get current user from JWT token"""
+    token = credentials.credentials
+    payload = verify_jwt_token(token)
+    if not payload:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid or expired token",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+    
+    user_id = payload.get("sub")
+    if not user_id:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid token payload",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+    
+    return user_id
+
+# ============================================================
+# DATABASE HELPER FUNCTIONS
+# ============================================================
 
 def find_member_by_identifier(identifier: str) -> Optional[dict]:
     """Find member by member_number, username, or email"""
@@ -222,17 +493,120 @@ def find_member_by_identifier(identifier: str) -> Optional[dict]:
         logger.error(f"Error finding member: {e}")
         return None
 
+def find_member_by_id(member_id: str) -> Optional[dict]:
+    """Find member by ID"""
+    if not supabase:
+        return None
+    
+    try:
+        result = supabase.table("members").select("*").eq("id", member_id).execute()
+        if result.data and len(result.data) > 0:
+            return result.data[0]
+        return None
+    except Exception as e:
+        logger.error(f"Error finding member by ID: {e}")
+        return None
+
+def get_member_safe(member: dict) -> dict:
+    """Remove sensitive fields from member dict"""
+    return {k: v for k, v in member.items() 
+            if k not in ["password_hash", "temp_password"]}
+
+# ============================================================
+# M-PESA HELPER FUNCTIONS
+# ============================================================
+
+def get_mpesa_access_token() -> Optional[str]:
+    """Get M-Pesa access token"""
+    if not MPESA_CONSUMER_KEY or not MPESA_CONSUMER_SECRET:
+        logger.error("M-Pesa credentials not configured")
+        return None
+    
+    try:
+        auth = base64.b64encode(
+            f"{MPESA_CONSUMER_KEY}:{MPESA_CONSUMER_SECRET}".encode()
+        ).decode()
+        
+        headers = {
+            "Authorization": f"Basic {auth}",
+            "Content-Type": "application/json"
+        }
+        
+        response = requests.get(MPESA_AUTH_URL, headers=headers, timeout=30)
+        
+        if response.status_code == 200:
+            data = response.json()
+            return data.get("access_token")
+        else:
+            logger.error(f"Failed to get access token: {response.text}")
+            return None
+    except Exception as e:
+        logger.error(f"Error getting access token: {e}")
+        return None
+
+def generate_mpesa_password(shortcode: str, passkey: str, timestamp: str) -> str:
+    """Generate M-Pesa password"""
+    data = f"{shortcode}{passkey}{timestamp}"
+    return base64.b64encode(data.encode()).decode()
+
+def generate_timestamp() -> str:
+    """Generate M-Pesa timestamp"""
+    return datetime.now().strftime("%Y%m%d%H%M%S")
+
+def format_phone_number(phone: str) -> str:
+    """Format phone number for M-Pesa (2547XXXXXXXX)"""
+    phone = re.sub(r'\D', '', phone)
+    if phone.startswith('0'):
+        phone = '254' + phone[1:]
+    elif phone.startswith('7'):
+        phone = '254' + phone
+    elif phone.startswith('+254'):
+        phone = phone[1:]
+    return phone
+
 # ============================================================
 # CREATE FASTAPI APP
 # ============================================================
 
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """Lifespan context manager for startup/shutdown events"""
+    logger.info("🚀 Starting Masika Benevolent API...")
+    if supabase:
+        try:
+            result = supabase.table("members").select("count", count="exact").limit(1).execute()
+            logger.info("✅ Database connection successful")
+        except Exception as e:
+            logger.error(f"❌ Database connection failed: {e}")
+    yield
+    logger.info("🛑 Shutting down Masika Benevolent API...")
+
 app = FastAPI(
     title="Masika Benevolent API",
-    description="Masika Benevolent Membership Management System",
+    description="""
+    ## Masika Benevolent Membership Management System
+    
+    ### Features
+    - Member Registration & Management
+    - Dependant Management
+    - Payment Processing with M-Pesa
+    - Dashboard Analytics
+    - Claims Management
+    - Agent & Branch Management
+    
+    ### Authentication
+    Most endpoints require Bearer token authentication.
+    
+    ### M-Pesa Integration
+    - STK Push for payments
+    - Callback handling for payment confirmation
+    - Payment status query
+    """,
     version="2.0.0",
     docs_url="/api/docs",
     redoc_url="/api/redoc",
-    openapi_url="/api/openapi.json"
+    openapi_url="/api/openapi.json",
+    lifespan=lifespan
 )
 
 # ============================================================
@@ -241,10 +615,18 @@ app = FastAPI(
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=[
+        "http://localhost:3000",
+        "http://localhost:8000",
+        "https://masika.co.ke",
+        "https://*.masika.co.ke",
+        "https://masika-c921.onrender.com",
+        "*"  # For development only
+    ],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
+    expose_headers=["X-Total-Count", "X-Page", "X-Limit"],
 )
 
 # ============================================================
@@ -257,7 +639,9 @@ async def root():
         "service": "Masika Benevolent API",
         "version": "2.0.0",
         "status": "healthy",
-        "docs": "/api/docs"
+        "docs": "/api/docs",
+        "redoc": "/api/redoc",
+        "openapi": "/api/openapi.json"
     }
 
 @app.get("/health", tags=["Health"])
@@ -266,18 +650,171 @@ async def health_check():
         "status": "healthy",
         "service": "masika-benevolent-api",
         "version": "2.0.0",
-        "database": "connected" if supabase else "disconnected"
+        "database": "connected" if supabase else "disconnected",
+        "mpesa": "configured" if MPESA_CONSUMER_KEY else "not configured",
+        "timestamp": datetime.now().isoformat()
+    }
+
+@app.get("/api", tags=["Root"])
+async def api_info():
+    return {
+        "name": "Masika Benevolent API",
+        "version": "2.0.0",
+        "description": "Complete membership management system with M-Pesa",
+        "endpoints": {
+            "auth": {
+                "login": "POST /api/auth/login",
+                "register": "POST /api/auth/register",
+                "verify": "POST /api/auth/verify",
+                "refresh": "POST /api/auth/refresh",
+                "logout": "POST /api/auth/logout",
+                "me": "GET /api/auth/me",
+                "forgot-password": "POST /api/auth/forgot-password",
+                "reset-password": "POST /api/auth/reset-password"
+            },
+            "public": {
+                "plans": "GET /api/public/plans",
+                "agents": "GET /api/public/agents",
+                "branches": "GET /api/public/branches"
+            },
+            "members": {
+                "get": "GET /api/members/{member_id}",
+                "by_number": "GET /api/members/by-number/{member_number}",
+                "update": "PUT /api/members/{member_id}",
+                "stats": "GET /api/members/{member_id}/stats",
+                "list": "GET /api/members"
+            },
+            "dependants": {
+                "list": "GET /api/dependants/member/{member_id}",
+                "create": "POST /api/dependants",
+                "get": "GET /api/dependants/{dependant_id}",
+                "update": "PUT /api/dependants/{dependant_id}",
+                "delete": "DELETE /api/dependants/{dependant_id}"
+            },
+            "payments": {
+                "list": "GET /api/payments/member/{member_id}",
+                "create": "POST /api/payments",
+                "update": "PUT /api/payments/{payment_id}"
+            },
+            "mpesa": {
+                "stk_push": "POST /api/mpesa/stk-push",
+                "stk_query": "GET /api/mpesa/stk-query/{checkout_request_id}",
+                "callback": "POST /api/mpesa/callback"
+            },
+            "claims": {
+                "create": "POST /api/claims",
+                "list": "GET /api/claims/member/{member_id}",
+                "get": "GET /api/claims/{claim_id}",
+                "update": "PUT /api/claims/{claim_id}"
+            },
+            "dashboard": {
+                "summary": "GET /api/dashboard/summary/{member_id}",
+                "recent": "GET /api/dashboard/recent/{member_id}"
+            }
+        }
     }
 
 # ============================================================
-# AUTH ROUTES
+# PUBLIC ROUTES
 # ============================================================
 
-from fastapi import APIRouter
+public_router = APIRouter(prefix="/api/public", tags=["Public"])
+
+@public_router.get("/plans", response_model=List[PlanResponse])
+async def get_public_plans():
+    """Get all available membership plans for registration"""
+    plans = [
+        {
+            "slug": "comfort",
+            "name": "Comfort Plan",
+            "description": "Affordable individual membership protection for you and your family.",
+            "registration_fee": 200.00,
+            "monthly_fee": 300.00,
+            "waiting_period_months": 4
+        },
+        {
+            "slug": "dignity",
+            "name": "Dignity Plan",
+            "description": "Enhanced membership protection with premium benefits for your entire family.",
+            "registration_fee": 300.00,
+            "monthly_fee": 1000.00,
+            "waiting_period_months": 6
+        },
+        {
+            "slug": "wazazi",
+            "name": "Wazazi Plan",
+            "description": "Membership protection specifically designed for parents and elders.",
+            "registration_fee": 250.00,
+            "monthly_fee": 350.00,
+            "waiting_period_months": 6
+        }
+    ]
+    return plans
+
+@public_router.get("/agents", response_model=List[AgentResponse])
+async def get_public_agents(
+    branch_id: Optional[str] = Query(None, description="Filter agents by branch")
+):
+    """Get all active sales agents"""
+    if not supabase:
+        return []
+    
+    try:
+        query = supabase.table("sales_agents").select("*").eq("status", "active")
+        if branch_id:
+            query = query.eq("branch_id", branch_id)
+        
+        result = query.execute()
+        
+        agents = []
+        if result.data:
+            for agent in result.data:
+                agents.append({
+                    "id": agent.get("id"),
+                    "agent_code": agent.get("agent_code", ""),
+                    "full_name": agent.get("full_name", ""),
+                    "email": agent.get("email"),
+                    "phone": agent.get("phone"),
+                    "branch": agent.get("branch"),
+                    "status": agent.get("status", "active"),
+                    "commission_rate": agent.get("commission_rate", 5.0)
+                })
+        
+        return agents
+    except Exception as e:
+        logger.error(f"Error fetching agents: {e}")
+        return []
+
+@public_router.get("/branches", response_model=List[BranchResponse])
+async def get_public_branches():
+    """Get all branches"""
+    if not supabase:
+        return [
+            {"id": "1", "name": "Nairobi", "code": "NBO", "location": "Nairobi CBD", "phone": "0712345678", "email": "nairobi@masika.co.ke", "is_active": True},
+            {"id": "2", "name": "Mombasa", "code": "MBS", "location": "Mombasa CBD", "phone": "0712345679", "email": "mombasa@masika.co.ke", "is_active": True},
+            {"id": "3", "name": "Kisumu", "code": "KSM", "location": "Kisumu CBD", "phone": "0712345680", "email": "kisumu@masika.co.ke", "is_active": True},
+            {"id": "4", "name": "Nakuru", "code": "NKR", "location": "Nakuru CBD", "phone": "0712345681", "email": "nakuru@masika.co.ke", "is_active": True},
+            {"id": "5", "name": "Eldoret", "code": "ELD", "location": "Eldoret CBD", "phone": "0712345682", "email": "eldoret@masika.co.ke", "is_active": True}
+        ]
+    
+    try:
+        result = supabase.table("branches").select("*").eq("is_active", True).execute()
+        if result.data:
+            return result.data
+        return []
+    except Exception as e:
+        logger.error(f"Error fetching branches: {e}")
+        return []
+
+app.include_router(public_router)
+
+# ============================================================
+# AUTHENTICATION ROUTES
+# ============================================================
 
 auth_router = APIRouter(prefix="/api/auth", tags=["Authentication"])
 
-@auth_router.post("/login")
+@auth_router.post("/login", response_model=LoginResponse)
 async def login(request: LoginRequest):
     """Login with member number, username, or email"""
     if not supabase:
@@ -298,18 +835,24 @@ async def login(request: LoginRequest):
         else:
             raise HTTPException(status_code=401, detail="Invalid credentials")
         
+        # Update last login
         supabase.table("members").update({
             "last_login": datetime.now().isoformat()
         }).eq("id", member["id"]).execute()
         
-        safe_member = {k: v for k, v in member.items() 
-                      if k not in ["password_hash", "temp_password"]}
+        # Generate token
+        token = generate_jwt_token(member["id"], member["email"])
+        refresh_token = secrets.token_urlsafe(32)
         
-        return {
-            "success": True,
-            "user": safe_member,
-            "message": "Login successful"
-        }
+        safe_member = get_member_safe(member)
+        
+        return LoginResponse(
+            success=True,
+            user=safe_member,
+            message="Login successful",
+            token=token,
+            refresh_token=refresh_token
+        )
     except HTTPException:
         raise
     except Exception as e:
@@ -317,7 +860,7 @@ async def login(request: LoginRequest):
         raise HTTPException(status_code=400, detail=str(e))
 
 @auth_router.post("/register")
-async def register(member_data: MemberCreate):
+async def register(member_data: RegisterRequest):
     """Register a new member with auto-generated credentials"""
     if not supabase:
         raise HTTPException(status_code=500, detail="Database not available")
@@ -338,6 +881,14 @@ async def register(member_data: MemberCreate):
         password = generate_password()
         password_hash = hash_password(password)
         username = member_number
+        
+        # Get waiting period based on plan
+        waiting_periods = {
+            "comfort": 4,
+            "dignity": 6,
+            "wazazi": 6
+        }
+        waiting_period = waiting_periods.get(member_data.plan.value, 4)
         
         member_record = {
             "member_number": member_number,
@@ -363,7 +914,7 @@ async def register(member_data: MemberCreate):
             "member_status": "PENDING",
             "is_active": True,
             "registration_date": datetime.now().date().isoformat(),
-            "waiting_period_months": 6 if member_data.plan == PlanEnum.DIGNITY else 4,
+            "waiting_period_months": waiting_period,
             "registration_fee_paid": False,
             "created_at": datetime.now().isoformat(),
             "updated_at": datetime.now().isoformat()
@@ -400,356 +951,4 @@ async def register(member_data: MemberCreate):
                 "last_name": new_member["last_name"],
                 "email": new_member["email"],
                 "phone": new_member["phone"],
-                "plan": new_member["plan"],
-                "member_status": new_member["member_status"]
-            },
-            "credentials": {
-                "member_number": member_number,
-                "username": username,
-                "password": password
-            },
-            "message": "Registration successful"
-        }
-    except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
-    except Exception as e:
-        logger.error(f"Registration error: {str(e)}")
-        raise HTTPException(status_code=400, detail=str(e))
-
-@auth_router.post("/verify")
-async def verify_member(identifier: str):
-    """Verify if a member exists"""
-    try:
-        member = find_member_by_identifier(identifier)
-        if not member:
-            raise HTTPException(status_code=404, detail="Member not found")
-        
-        return {
-            "success": True,
-            "member": {
-                "id": member.get("id"),
-                "member_number": member.get("member_number"),
-                "username": member.get("username"),
-                "email": member.get("email"),
-                "first_name": member.get("first_name"),
-                "last_name": member.get("last_name")
-            }
-        }
-    except HTTPException:
-        raise
-    except Exception as e:
-        raise HTTPException(status_code=400, detail=str(e))
-
-app.include_router(auth_router)
-
-# ============================================================
-# MEMBERS ROUTES
-# ============================================================
-
-members_router = APIRouter(prefix="/api/members", tags=["Members"])
-
-@members_router.get("/{member_id}")
-async def get_member(member_id: str):
-    """Get member by ID"""
-    if not supabase:
-        raise HTTPException(status_code=500, detail="Database not available")
-    
-    try:
-        result = supabase.table("members").select("*").eq("id", member_id).execute()
-        if not result.data or len(result.data) == 0:
-            raise HTTPException(status_code=404, detail="Member not found")
-        
-        member = result.data[0]
-        safe_member = {k: v for k, v in member.items() 
-                      if k not in ["password_hash", "temp_password"]}
-        return safe_member
-    except HTTPException:
-        raise
-    except Exception as e:
-        raise HTTPException(status_code=400, detail=str(e))
-
-@members_router.get("/by-number/{member_number}")
-async def get_member_by_number(member_number: str):
-    """Get member by member number"""
-    if not supabase:
-        raise HTTPException(status_code=500, detail="Database not available")
-    
-    try:
-        result = supabase.table("members").select("*").eq("member_number", member_number).execute()
-        if not result.data or len(result.data) == 0:
-            raise HTTPException(status_code=404, detail="Member not found")
-        
-        member = result.data[0]
-        safe_member = {k: v for k, v in member.items() 
-                      if k not in ["password_hash", "temp_password"]}
-        return safe_member
-    except HTTPException:
-        raise
-    except Exception as e:
-        raise HTTPException(status_code=400, detail=str(e))
-
-@members_router.get("/{member_id}/stats")
-async def get_member_stats(member_id: str):
-    """Get member statistics"""
-    if not supabase:
-        raise HTTPException(status_code=500, detail="Database not available")
-    
-    try:
-        member = supabase.table("members").select("*").eq("id", member_id).execute()
-        if not member.data or len(member.data) == 0:
-            raise HTTPException(status_code=404, detail="Member not found")
-        
-        member = member.data[0]
-        member_number = member.get("member_number")
-        
-        dependants = supabase.table("dependants").select("count", count="exact").eq("principal_member_id", member_id).execute()
-        payments = supabase.table("payments").select("*").eq("member_number", member_number).eq("status", "completed").execute()
-        total_payments = sum(float(p.get("amount", 0)) for p in (payments.data or []))
-        
-        waiting_months = member.get("waiting_period_months", 4)
-        reg_date = member.get("registration_date")
-        coverage_status = "Pending"
-        if reg_date:
-            reg_date = datetime.fromisoformat(reg_date) if isinstance(reg_date, str) else reg_date
-            wait_end = reg_date + timedelta(days=waiting_months * 30)
-            coverage_status = "Active" if datetime.now() >= wait_end else "Waiting"
-        
-        return {
-            "member_id": member.get("id"),
-            "member_number": member.get("member_number"),
-            "plan": member.get("plan"),
-            "benefit_option": member.get("benefit_option"),
-            "dependants_count": dependants.count or 0,
-            "payments_count": len(payments.data or []),
-            "total_payments": total_payments,
-            "last_payment_date": payments.data[0].get("payment_date") if payments.data and len(payments.data) > 0 else None,
-            "coverage_status": coverage_status,
-            "registration_date": member.get("registration_date"),
-            "waiting_period_months": member.get("waiting_period_months")
-        }
-    except HTTPException:
-        raise
-    except Exception as e:
-        raise HTTPException(status_code=400, detail=str(e))
-
-app.include_router(members_router)
-
-# ============================================================
-# DEPENDANTS ROUTES
-# ============================================================
-
-dependants_router = APIRouter(prefix="/api/dependants", tags=["Dependants"])
-
-@dependants_router.get("/member/{member_id}")
-async def get_dependants(member_id: str):
-    """Get all dependants for a member"""
-    if not supabase:
-        raise HTTPException(status_code=500, detail="Database not available")
-    
-    try:
-        result = supabase.table("dependants").select("*").eq("principal_member_id", member_id).execute()
-        return {
-            "success": True,
-            "data": result.data or [],
-            "count": len(result.data or [])
-        }
-    except Exception as e:
-        raise HTTPException(status_code=400, detail=str(e))
-
-@dependants_router.post("/")
-async def create_dependant(member_id: str, dependant: DependantBase):
-    """Add a dependant to a member"""
-    if not supabase:
-        raise HTTPException(status_code=500, detail="Database not available")
-    
-    try:
-        member = supabase.table("members").select("id").eq("id", member_id).execute()
-        if not member.data or len(member.data) == 0:
-            raise HTTPException(status_code=404, detail="Member not found")
-        
-        dep_record = {
-            "principal_member_id": member_id,
-            "first_name": dependant.first_name,
-            "last_name": dependant.last_name,
-            "relationship": dependant.relationship.value,
-            "date_of_birth": dependant.date_of_birth,
-            "phone": dependant.phone,
-            "email": dependant.email,
-            "is_active": True,
-            "created_at": datetime.now().isoformat()
-        }
-        
-        result = supabase.table("dependants").insert(dep_record).execute()
-        return {
-            "success": True,
-            "data": result.data[0] if result.data else None,
-            "message": "Dependant added successfully"
-        }
-    except HTTPException:
-        raise
-    except Exception as e:
-        raise HTTPException(status_code=400, detail=str(e))
-
-@dependants_router.delete("/{dependant_id}")
-async def delete_dependant(dependant_id: str):
-    """Delete a dependant (soft delete)"""
-    if not supabase:
-        raise HTTPException(status_code=500, detail="Database not available")
-    
-    try:
-        result = supabase.table("dependants").update({
-            "deleted_at": datetime.now().isoformat(),
-            "is_active": False
-        }).eq("id", dependant_id).execute()
-        
-        if not result.data or len(result.data) == 0:
-            raise HTTPException(status_code=404, detail="Dependant not found")
-        
-        return {
-            "success": True,
-            "message": "Dependant removed successfully"
-        }
-    except HTTPException:
-        raise
-    except Exception as e:
-        raise HTTPException(status_code=400, detail=str(e))
-
-app.include_router(dependants_router)
-
-# ============================================================
-# PAYMENTS ROUTES
-# ============================================================
-
-payments_router = APIRouter(prefix="/api/payments", tags=["Payments"])
-
-@payments_router.get("/member/{member_id}")
-async def get_member_payments(member_id: str, limit: int = 10, offset: int = 0):
-    """Get all payments for a member"""
-    if not supabase:
-        raise HTTPException(status_code=500, detail="Database not available")
-    
-    try:
-        member = supabase.table("members").select("member_number").eq("id", member_id).execute()
-        if not member.data or len(member.data) == 0:
-            raise HTTPException(status_code=404, detail="Member not found")
-        
-        member_number = member.data[0]["member_number"]
-        
-        result = supabase.table("payments").select("*")\
-            .eq("member_number", member_number)\
-            .order("created_at", desc=True)\
-            .range(offset, offset + limit - 1)\
-            .execute()
-        
-        return {
-            "success": True,
-            "data": result.data or [],
-            "count": len(result.data or []),
-            "limit": limit,
-            "offset": offset
-        }
-    except HTTPException:
-        raise
-    except Exception as e:
-        raise HTTPException(status_code=400, detail=str(e))
-
-@payments_router.post("/")
-async def create_payment(member_id: str, payment: PaymentCreate):
-    """Create a new payment for a member"""
-    if not supabase:
-        raise HTTPException(status_code=500, detail="Database not available")
-    
-    try:
-        member = supabase.table("members").select("member_number").eq("id", member_id).execute()
-        if not member.data or len(member.data) == 0:
-            raise HTTPException(status_code=404, detail="Member not found")
-        
-        member_number = member.data[0]["member_number"]
-        
-        payment_record = {
-            "member_number": member_number,
-            "amount": payment.amount,
-            "payment_type": payment.payment_type,
-            "payment_method": payment.payment_method,
-            "mpesa_receipt": payment.mpesa_receipt,
-            "status": "completed",
-            "payment_date": datetime.now().date().isoformat(),
-            "created_at": datetime.now().isoformat(),
-            "updated_at": datetime.now().isoformat()
-        }
-        
-        result = supabase.table("payments").insert(payment_record).execute()
-        
-        if payment.payment_type == "registration":
-            supabase.table("members").update({
-                "registration_fee_paid": True,
-                "updated_at": datetime.now().isoformat()
-            }).eq("id", member_id).execute()
-        
-        return {
-            "success": True,
-            "data": result.data[0] if result.data else None,
-            "message": "Payment recorded successfully"
-        }
-    except HTTPException:
-        raise
-    except Exception as e:
-        raise HTTPException(status_code=400, detail=str(e))
-
-app.include_router(payments_router)
-
-# ============================================================
-# DASHBOARD ROUTES
-# ============================================================
-
-dashboard_router = APIRouter(prefix="/api/dashboard", tags=["Dashboard"])
-
-@dashboard_router.get("/summary/{member_id}")
-async def get_dashboard_summary(member_id: str):
-    """Get complete dashboard summary for a member"""
-    if not supabase:
-        raise HTTPException(status_code=500, detail="Database not available")
-    
-    try:
-        member = supabase.table("members").select("*").eq("id", member_id).execute()
-        if not member.data or len(member.data) == 0:
-            raise HTTPException(status_code=404, detail="Member not found")
-        
-        member = member.data[0]
-        member_number = member.get("member_number")
-        
-        dependants = supabase.table("dependants").select("*").eq("principal_member_id", member_id).execute()
-        payments = supabase.table("payments").select("*").eq("member_number", member_number).order("created_at", desc=True).limit(5).execute()
-        all_payments = supabase.table("payments").select("*").eq("member_number", member_number).eq("status", "completed").execute()
-        total_payments = sum(float(p.get("amount", 0)) for p in (all_payments.data or []))
-        
-        waiting_months = member.get("waiting_period_months", 4)
-        reg_date = member.get("registration_date")
-        coverage_status = "Pending"
-        if reg_date:
-            reg_date = datetime.fromisoformat(reg_date) if isinstance(reg_date, str) else reg_date
-            wait_end = reg_date + timedelta(days=waiting_months * 30)
-            coverage_status = "Active" if datetime.now() >= wait_end else "Waiting"
-        
-        safe_member = {k: v for k, v in member.items() 
-                      if k not in ["password_hash", "temp_password"]}
-        
-        return {
-            "success": True,
-            "member": safe_member,
-            "dependants": dependants.data or [],
-            "dependants_count": len(dependants.data or []),
-            "recent_payments": payments.data or [],
-            "total_payments": total_payments,
-            "coverage_status": coverage_status
-        }
-    except HTTPException:
-        raise
-    except Exception as e:
-        raise HTTPException(status_code=400, detail=str(e))
-
-app.include_router(dashboard_router)
-
-# ============================================================
-# THIS IS WHAT UVICORN WILL IMPORT AS "main:app"
-# ============================================================
+                "plan": new_m
