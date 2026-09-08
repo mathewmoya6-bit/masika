@@ -16,7 +16,7 @@
     <script src="js/config.js"></script>
     <script src="js/supabase.js"></script>
     <script src="js/auth.js"></script>
-    <script src="js/masika-utils.js"></script>
+    <script src="js/dashboard.js"></script>
     
     <style>
         /* =========================================================
@@ -568,47 +568,6 @@
             color: var(--white);
         }
 
-        /* ===== MEMBER LIST ===== */
-        .member-list { list-style: none; padding: 0; }
-
-        .member-list li {
-            display: flex;
-            align-items: center;
-            gap: 12px;
-            padding: 10px 0;
-            border-bottom: 1px solid #f0f4f2;
-            font-size: 14px;
-            transition: var(--transition);
-        }
-        .member-list li:hover { background: #fafcfb; padding: 10px 8px; border-radius: 8px; }
-        .member-list li:last-child { border-bottom: none; }
-
-        .member-list .member-avatar {
-            width: 32px;
-            height: 32px;
-            border-radius: 50%;
-            background: var(--primary-100);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-weight: 700;
-            color: var(--primary-700);
-            font-size: 13px;
-            flex-shrink: 0;
-        }
-
-        .member-list .member-name { flex: 1; font-weight: 500; }
-        .member-list .member-relation { color: var(--text-gray); font-size: 12px; }
-
-        .member-list .member-status {
-            font-size: 10px;
-            padding: 2px 8px;
-            border-radius: 8px;
-            font-weight: 600;
-        }
-        .member-status.active-status { background: #e8f5e9; color: var(--success); }
-        .member-status.inactive-status { background: #fce4ec; color: var(--danger); }
-
         /* ===== MODAL ===== */
         .modal-overlay {
             display: none;
@@ -797,6 +756,88 @@
             margin: 4px;
         }
 
+        /* ===== FAMILY TABLE STYLES ===== */
+        .family-table-wrapper {
+            overflow-x: auto;
+        }
+
+        .family-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 13px;
+        }
+
+        .family-table thead tr {
+            border-bottom: 2px solid #f0f4f2;
+            text-align: left;
+        }
+
+        .family-table thead th {
+            padding: 12px 8px;
+            font-weight: 600;
+            color: var(--text-gray);
+        }
+
+        .family-table tbody tr {
+            border-bottom: 1px solid #f0f4f2;
+            transition: var(--transition);
+        }
+
+        .family-table tbody tr:hover {
+            background: #fafcfb;
+        }
+
+        .family-table tbody td {
+            padding: 14px 8px;
+        }
+
+        .family-member-avatar {
+            width: 36px;
+            height: 36px;
+            min-width: 36px;
+            border-radius: 50%;
+            background: var(--primary-100);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 700;
+            color: var(--primary-700);
+        }
+
+        .family-member-info {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .family-member-name {
+            font-weight: 700;
+            color: var(--text-dark);
+        }
+
+        .family-member-label {
+            font-size: 11px;
+            color: var(--text-gray);
+        }
+
+        .family-relationship {
+            color: var(--text-gray);
+        }
+
+        .family-dob {
+            color: var(--text-gray);
+        }
+
+        .status-badge {
+            display: inline-block;
+            padding: 4px 10px;
+            border-radius: 12px;
+            background: #e8f5e9;
+            color: var(--success);
+            font-size: 11px;
+            font-weight: 700;
+        }
+
         /* ===== RESPONSIVE ===== */
         @media (max-width: 1024px) {
             .dashboard-grid { grid-template-columns: 1fr; }
@@ -826,6 +867,8 @@
             .navbar .container { flex-wrap: wrap; gap: 8px; }
             .nav-actions { width: 100%; justify-content: center; flex-wrap: wrap; }
             .btn-back, .btn-logout { font-size: 12px; padding: 6px 12px; }
+            .family-table tbody td { padding: 10px 6px; }
+            .family-table thead th { padding: 8px 6px; font-size: 11px; }
         }
     </style>
 </head>
@@ -980,8 +1023,8 @@
                             </div>
                             <div id="memberListContainer">
                                 <div class="empty-state">
-                                    <i class="fas fa-user-plus"></i>
-                                    <p>No dependants added yet.</p>
+                                    <i class="fas fa-users"></i>
+                                    <p>No family members have been added yet.</p>
                                 </div>
                             </div>
                         </div>
@@ -1095,559 +1138,6 @@
          TOAST CONTAINER
          ========================================================= -->
     <div class="toast-container" id="toastContainer"></div>
-
-    <!-- =========================================================
-         JAVASCRIPT - COMPLETE FIXED VERSION
-         ========================================================= -->
-    <script>
-        // =========================================================
-        // CONFIG
-        // =========================================================
-        const CONFIG = window.CONFIG || {
-            ROUTES: { LOGIN: 'login.html', PAYMENT: 'payment.html' }
-        };
-
-        // =========================================================
-        // INITIALIZATION
-        // =========================================================
-        document.addEventListener('DOMContentLoaded', async function() {
-            console.log('📄 Dashboard loaded');
-            
-            try {
-                // Check authentication
-                if (typeof authManager !== 'undefined') {
-                    if (!authManager.isAuthenticated) {
-                        window.location.href = CONFIG.ROUTES.LOGIN || 'login.html';
-                        return;
-                    }
-                    await loadDashboard();
-                } else {
-                    // Fallback to localStorage
-                    const user = localStorage.getItem('masika_user');
-                    if (!user) {
-                        window.location.href = 'login.html';
-                        return;
-                    }
-                    await loadDashboardFallback();
-                }
-            } catch (error) {
-                console.error('❌ Init error:', error);
-                showToast('error', 'Failed to load dashboard');
-            }
-        });
-
-        // =========================================================
-        // LOAD DASHBOARD - IMPROVED WITH ERROR HANDLING
-        // =========================================================
-        async function loadDashboard() {
-            try {
-                console.log('🔄 Loading dashboard...');
-                
-                const user = authManager.getUser();
-                
-                if (!user) {
-                    console.warn('⚠️ No user found');
-                    showToast('error', 'Please login again');
-                    window.location.href = CONFIG.ROUTES.LOGIN;
-                    return;
-                }
-
-                console.log('👤 User:', user.email);
-
-                // Get member profile - handle PGRST116 gracefully
-                const memberResult = await supabaseClient.getMember(user.id);
-                
-                console.log('📋 Member result:', memberResult);
-
-                // Check for PGRST116 error (no member found)
-                if (!memberResult.success) {
-                    console.warn('⚠️ Member not found:', memberResult.error);
-                    
-                    // Check if this is a new user without member record
-                    if (memberResult.error && (
-                        memberResult.error.includes('PGRST116') || 
-                        memberResult.error.includes('0 rows')
-                    )) {
-                        console.log('ℹ️ New user detected - showing registration prompt');
-                        showWelcomeCard();
-                        return;
-                    }
-                    
-                    showToast('error', 'Failed to load member profile');
-                    document.getElementById('loadingScreen').style.display = 'none';
-                    return;
-                }
-
-                const member = memberResult.data;
-                
-                if (!member) {
-                    console.log('ℹ️ No member record found');
-                    showWelcomeCard();
-                    return;
-                }
-
-                console.log('✅ Member found:', member.membership_number);
-
-                // Store member in localStorage
-                localStorage.setItem(CONFIG.STORAGE.MEMBER, JSON.stringify(member));
-
-                // Render dashboard
-                renderDashboard(member);
-
-                // Load dependants
-                const depsResult = await supabaseClient.getMemberDependants(member.id);
-                if (depsResult.success) {
-                    renderFamilyMembers(depsResult.data || []);
-                    document.getElementById('dependantCount').textContent = (depsResult.data || []).length;
-                }
-
-                // Load payments
-                const paymentsResult = await supabaseClient.getMemberPayments(
-                    member.membership_number,
-                    5
-                );
-                if (paymentsResult.success) {
-                    renderPayments(paymentsResult.data || []);
-                }
-
-                // Show content
-                document.getElementById('loadingScreen').style.display = 'none';
-                document.getElementById('dashboardContent').style.display = 'block';
-                document.getElementById('welcomeCard').style.display = 'none';
-
-            } catch (error) {
-                console.error('❌ Dashboard load error:', error);
-                showToast('error', 'Failed to load dashboard');
-                document.getElementById('loadingScreen').style.display = 'none';
-            }
-        }
-
-        // =========================================================
-        // SHOW WELCOME CARD (No Member)
-        // =========================================================
-        function showWelcomeCard() {
-            document.getElementById('loadingScreen').style.display = 'none';
-            document.getElementById('dashboardContent').style.display = 'none';
-            document.getElementById('welcomeCard').style.display = 'block';
-            
-            // Update user name if available
-            const user = authManager.getUser();
-            if (user) {
-                document.getElementById('userNameDisplay').textContent = 
-                    user.user_metadata?.first_name || user.email?.split('@')[0] || 'Member';
-            }
-        }
-
-        // =========================================================
-        // RENDER DASHBOARD
-        // =========================================================
-        function renderDashboard(member) {
-            const fullName = `${member.first_name || ''} ${member.last_name || ''}`.trim() || 'Member';
-            
-            // Welcome
-            document.getElementById('userNameDisplay').textContent = member.first_name || 'Member';
-            document.getElementById('welcomeName').textContent = fullName;
-            document.getElementById('memberNumberDisplay').textContent = member.membership_number || '---';
-            document.getElementById('paymentMemberNumber').textContent = member.membership_number || 'Your Membership Number';
-            
-            // Plan
-            const planMap = {
-                'comfort': { name: 'Comfort Plan', benefit: 'KES 110,000' },
-                'dignity': { name: 'Dignity Plan', benefit: 'KES 110,000' },
-                'wazazi': { name: 'Wazazi Plan', benefit: 'KES 110,000' }
-            };
-            const plan = planMap[member.plan_type] || planMap['comfort'];
-            
-            document.getElementById('planDisplay').textContent = plan.name;
-            document.getElementById('benefitAmount').textContent = plan.benefit;
-            
-            // Coverage status
-            if (member.waiting_period_end) {
-                const waitEnd = new Date(member.waiting_period_end);
-                const today = new Date();
-                const isActive = today >= waitEnd;
-                
-                document.getElementById('coverageStatusText').textContent = isActive ? 'Active' : 'Waiting';
-                document.getElementById('coverageStatusBadge').textContent = isActive ? 'Coverage Active' : 'Waiting Period';
-                document.getElementById('coverageStatusBadge').className = `stat-status ${isActive ? 'active' : 'pending'}`;
-            }
-            
-            // Welcome subtext
-            const joinDate = member.registration_date ? new Date(member.registration_date) : new Date();
-            document.getElementById('welcomeSubtext').textContent = 
-                `Member since ${joinDate.toLocaleDateString('en-KE', { year: 'numeric', month: 'long', day: 'numeric' })}`;
-            
-            // Plan details
-            renderPlanDetails(member, plan);
-        }
-
-        function renderPlanDetails(member, plan) {
-            const container = document.getElementById('planDetailsContainer');
-            const planMap = {
-                'comfort': { name: 'Comfort Plan', price: 'KES 300', waiting: '4 months' },
-                'dignity': { name: 'Dignity Plan', price: 'KES 1,000', waiting: '6 months' },
-                'wazazi': { name: 'Wazazi Plan', price: 'KES 350', waiting: '6 months' }
-            };
-            const details = planMap[member.plan_type] || planMap['comfort'];
-
-            container.innerHTML = `
-                <div class="plan-detail-item">
-                    <span class="label">Plan Name</span>
-                    <span class="value gold">${details.name}</span>
-                </div>
-                <div class="plan-detail-item">
-                    <span class="label">Monthly Premium</span>
-                    <span class="value green">${details.price}</span>
-                </div>
-                <div class="plan-detail-item">
-                    <span class="label">Benefit Option</span>
-                    <span class="value">${member.benefit_option === 'cash' ? 'Cash Benefit (KES 110,000)' : 'Service Benefit'}</span>
-                </div>
-                <div class="plan-detail-item">
-                    <span class="label">Waiting Period</span>
-                    <span class="value">${details.waiting}</span>
-                </div>
-                <div class="plan-detail-item">
-                    <span class="label">Status</span>
-                    <span class="value green">● Active</span>
-                </div>
-            `;
-        }
-
-        function renderFamilyMembers(deps) {
-            const container = document.getElementById('memberListContainer');
-            
-            if (!deps || deps.length === 0) {
-                container.innerHTML = `
-                    <div class="empty-state">
-                        <i class="fas fa-user-plus"></i>
-                        <p>No dependants added yet.</p>
-                        <button onclick="openDependantModal()" class="btn btn-primary btn-sm">
-                            <i class="fas fa-plus"></i> Add Dependant
-                        </button>
-                    </div>
-                `;
-                return;
-            }
-
-            let html = '<ul class="member-list">';
-            deps.slice(0, 5).forEach(dep => {
-                const initials = `${(dep.first_name || '?').charAt(0)}${(dep.last_name || '?').charAt(0)}`;
-                const relationshipMap = {
-                    'spouse': '💑', 'child': '👶', 'parent': '👴', 'in_law': '👨‍👩‍👦'
-                };
-                const icon = relationshipMap[dep.relationship] || '👤';
-                
-                html += `
-                    <li>
-                        <div class="member-avatar">${initials}</div>
-                        <span class="member-name">${dep.first_name || ''} ${dep.last_name || ''}</span>
-                        <span class="member-relation">${icon} ${dep.relationship || 'Family'}</span>
-                        <span class="member-status active-status">Active</span>
-                    </li>
-                `;
-            });
-            if (deps.length > 5) {
-                html += `<li style="text-align:center;color:var(--text-gray);font-size:13px;justify-content:center;">
-                    <i class="fas fa-ellipsis-h"></i> +${deps.length - 5} more
-                </li>`;
-            }
-            html += '</ul>';
-            container.innerHTML = html;
-        }
-
-        function renderPayments(payments) {
-            const container = document.getElementById('paymentListContainer');
-            
-            if (!payments || payments.length === 0) {
-                container.innerHTML = `
-                    <div class="empty-state">
-                        <i class="fas fa-receipt"></i>
-                        <p>No payments recorded yet.</p>
-                        <a href="payment.html" class="btn btn-gold btn-sm">
-                            <i class="fas fa-plus"></i> Make Payment
-                        </a>
-                    </div>
-                `;
-                return;
-            }
-
-            let html = '<ul class="payment-list">';
-            payments.forEach(pay => {
-                const statusClass = pay.status === 'completed' ? 'paid' : 
-                                   pay.status === 'pending' ? 'pending' : 'failed';
-                const statusText = pay.status === 'completed' ? 'Paid' : 
-                                  pay.status === 'pending' ? 'Pending' : 'Failed';
-                const typeLabel = {
-                    'registration': 'Registration Fee',
-                    'monthly': 'Monthly Premium',
-                    'topup': 'Top-up',
-                    'addon': 'Add-on'
-                }[pay.payment_type] || pay.payment_type || 'Payment';
-                
-                const date = pay.created_at ? new Date(pay.created_at).toLocaleDateString('en-KE', {
-                    year: 'numeric', month: 'short', day: 'numeric'
-                }) : 'N/A';
-
-                html += `
-                    <li>
-                        <div class="payment-info">
-                            <div class="p-icon"><i class="fas fa-mobile-screen-button"></i></div>
-                            <div class="p-details">
-                                <div class="p-title">${typeLabel}</div>
-                                <div class="p-date">${date} ${pay.mpesa_receipt ? '• ' + pay.mpesa_receipt : ''}</div>
-                            </div>
-                        </div>
-                        <div style="text-align:right;">
-                            <span class="payment-status ${statusClass}">${statusText}</span>
-                            <div class="payment-amount">KES ${parseFloat(pay.amount || 0).toLocaleString()}</div>
-                        </div>
-                    </li>
-                `;
-            });
-            html += '</ul>';
-            container.innerHTML = html;
-        }
-
-        // =========================================================
-        // MODAL FUNCTIONS
-        // =========================================================
-        function openDependantModal() {
-            document.getElementById('dependantModal').classList.add('show');
-            document.getElementById('dependantForm').reset();
-        }
-
-        function openPaymentModal() {
-            document.getElementById('paymentModal').classList.add('show');
-            document.getElementById('paymentForm').reset();
-        }
-
-        function closeModal(id) {
-            document.getElementById(id).classList.remove('show');
-        }
-
-        // Close modal on overlay click
-        document.querySelectorAll('.modal-overlay').forEach(overlay => {
-            overlay.addEventListener('click', function(e) {
-                if (e.target === this) this.classList.remove('show');
-            });
-        });
-
-        // =========================================================
-        // HANDLE ADD DEPENDANT
-        // =========================================================
-        async function handleAddDependant(event) {
-            event.preventDefault();
-            
-            const firstName = document.getElementById('depFirstName').value.trim();
-            const lastName = document.getElementById('depLastName').value.trim();
-            const dob = document.getElementById('depDob').value;
-            const relationship = document.getElementById('depRelationship').value;
-
-            if (!firstName || !lastName || !dob || !relationship) {
-                showToast('error', 'Please fill in all fields');
-                return;
-            }
-
-            const submitBtn = document.getElementById('depSubmitBtn');
-            submitBtn.disabled = true;
-            submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Adding...';
-
-            try {
-                const member = authManager.getMember();
-                
-                if (!member) {
-                    showToast('error', 'Member profile not found. Please complete registration first.');
-                    submitBtn.disabled = false;
-                    submitBtn.innerHTML = '<i class="fas fa-plus"></i> Add Dependant';
-                    return;
-                }
-                
-                const result = await supabaseClient.createDependant({
-                    member_id: member.id,
-                    first_name: firstName,
-                    last_name: lastName,
-                    date_of_birth: dob,
-                    relationship: relationship
-                });
-
-                if (!result.success) throw new Error(result.error);
-
-                // Refresh dependants
-                const depsResult = await supabaseClient.getMemberDependants(member.id);
-                if (depsResult.success) {
-                    renderFamilyMembers(depsResult.data || []);
-                    document.getElementById('dependantCount').textContent = (depsResult.data || []).length;
-                }
-
-                closeModal('dependantModal');
-                showToast('success', `${firstName} ${lastName} added successfully!`);
-
-            } catch (error) {
-                console.error('Add dependant error:', error);
-                showToast('error', error.message || 'Failed to add dependant');
-            } finally {
-                submitBtn.disabled = false;
-                submitBtn.innerHTML = '<i class="fas fa-plus"></i> Add Dependant';
-            }
-        }
-
-        // =========================================================
-        // HANDLE PAYMENT
-        // =========================================================
-        async function handlePayment(event) {
-            event.preventDefault();
-            
-            const amount = parseFloat(document.getElementById('paymentAmount').value);
-            const paymentType = document.getElementById('paymentType').value;
-            const mpesaReceipt = document.getElementById('mpesaReceipt').value.trim();
-
-            if (!amount || amount < 100) {
-                showToast('error', 'Please enter a valid amount (minimum KES 100)');
-                return;
-            }
-            if (!mpesaReceipt) {
-                showToast('error', 'Please enter the M-Pesa confirmation code');
-                return;
-            }
-
-            const submitBtn = document.getElementById('paymentSubmitBtn');
-            submitBtn.disabled = true;
-            submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Confirming...';
-
-            try {
-                const member = authManager.getMember();
-                
-                if (!member) {
-                    showToast('error', 'Member profile not found. Please complete registration first.');
-                    submitBtn.disabled = false;
-                    submitBtn.innerHTML = '<i class="fas fa-check"></i> Confirm Payment';
-                    return;
-                }
-                
-                const result = await supabaseClient.createPayment({
-                    membership_number: member.membership_number,
-                    amount: amount,
-                    payment_type: paymentType,
-                    status: 'completed',
-                    mpesa_receipt: mpesaReceipt
-                });
-
-                if (!result.success) throw new Error(result.error);
-
-                // Refresh payments
-                const paymentsResult = await supabaseClient.getMemberPayments(
-                    member.membership_number,
-                    5
-                );
-                if (paymentsResult.success) {
-                    renderPayments(paymentsResult.data || []);
-                }
-
-                closeModal('paymentModal');
-                showToast('success', `Payment of KES ${amount.toLocaleString()} confirmed successfully!`);
-
-            } catch (error) {
-                console.error('Payment error:', error);
-                showToast('error', error.message || 'Failed to confirm payment');
-            } finally {
-                submitBtn.disabled = false;
-                submitBtn.innerHTML = '<i class="fas fa-check"></i> Confirm Payment';
-            }
-        }
-
-        // =========================================================
-        // QUICK ACTIONS
-        // =========================================================
-        function downloadStatement() {
-            const member = authManager.getMember();
-            const membershipNumber = member?.membership_number || 'unknown';
-            showToast('info', `Generating statement for ${membershipNumber}...`);
-            window.open(`/api/v1/members/${membershipNumber}/statement`, '_blank');
-        }
-
-        function fileClaim() {
-            showToast('info', 'Opening claims form...');
-            window.location.href = 'claims.html';
-        }
-
-        // =========================================================
-        // LOGOUT
-        // =========================================================
-        async function handleLogout() {
-            try {
-                await authManager.logout();
-                window.location.href = 'index.html';
-            } catch (error) {
-                console.error('Logout error:', error);
-                showToast('error', 'Failed to logout');
-            }
-        }
-
-        // =========================================================
-        // TOAST NOTIFICATIONS
-        // =========================================================
-        function showToast(type, message) {
-            const container = document.getElementById('toastContainer');
-            
-            const icons = {
-                success: 'fa-check-circle',
-                error: 'fa-exclamation-circle',
-                warning: 'fa-triangle-exclamation',
-                info: 'fa-info-circle'
-            };
-            
-            const toast = document.createElement('div');
-            toast.className = `toast ${type}`;
-            toast.innerHTML = `
-                <span class="toast-icon"><i class="fas ${icons[type] || icons.info}"></i></span>
-                <span>${message}</span>
-                <button class="toast-close" onclick="this.parentElement.remove()">&times;</button>
-            `;
-            
-            container.appendChild(toast);
-            
-            setTimeout(() => {
-                toast.style.opacity = '0';
-                toast.style.transform = 'translateX(100px)';
-                toast.style.transition = 'all 0.4s ease';
-                setTimeout(() => toast.remove(), 400);
-            }, 4000);
-        }
-
-        // =========================================================
-        // KEYBOARD SHORTCUTS
-        // =========================================================
-        document.addEventListener('keydown', function(e) {
-            if (e.key === 'Escape') {
-                document.querySelectorAll('.modal-overlay.show').forEach(modal => {
-                    modal.classList.remove('show');
-                });
-            }
-            if (e.ctrlKey && e.key === 'p') {
-                e.preventDefault();
-                openPaymentModal();
-            }
-            if (e.ctrlKey && e.key === 'd') {
-                e.preventDefault();
-                openDependantModal();
-            }
-        });
-
-        // =========================================================
-        // EXPOSE FUNCTIONS GLOBALLY
-        // =========================================================
-        window.openDependantModal = openDependantModal;
-        window.openPaymentModal = openPaymentModal;
-        window.closeModal = closeModal;
-        window.handleAddDependant = handleAddDependant;
-        window.handlePayment = handlePayment;
-        window.handleLogout = handleLogout;
-        window.showToast = showToast;
-        window.downloadStatement = downloadStatement;
-        window.fileClaim = fileClaim;
-        window.loadDashboard = loadDashboard;
-    </script>
 
 </body>
 </html>
