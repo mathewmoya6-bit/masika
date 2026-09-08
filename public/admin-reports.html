@@ -882,68 +882,176 @@
     <div class="toast-container" id="toastContainer"></div>
 
     <!-- ============================================================
-    JAVASCRIPT - ALIGNED WITH SUPABASE
+    JAVASCRIPT - COMPLETE FIXED VERSION
     ============================================================ -->
     <script>
         // ============================================================
-        // SUPABASE CONFIG
+        // SUPABASE CONFIG - CORRECT ANON KEY
         // ============================================================
 
         const SUPABASE_URL = 'https://wpxzlcdrirlcyvfiquld.supabase.co';
-        const SUPABASE_ANON_KEY = 'YOUR_SUPABASE_ANON_KEY';
+        const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6IndweHpsY2RyaXJsY3l2ZmlxdWxkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODc5Mjc4MDcsImV4cCI6MjEwMzUwMzgwN30.OUP9pmPbrML_egpHflZtDfLv1_UDM37_BYjtb842xjg';
 
-        const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+        console.log('🚀 Reports script loaded');
+        console.log('📡 Supabase URL:', SUPABASE_URL);
+
+        // Use unique variable name
+        const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
         // ============================================================
         // STATE
         // ============================================================
 
-        let currentUser = null;
+        let currentStaff = null;
 
         // ============================================================
         // INITIALIZATION
         // ============================================================
 
         document.addEventListener('DOMContentLoaded', async function() {
-            await checkAuth();
-            setupSidebarToggle();
-            updateClock();
-            setDefaultDates();
+            console.log('📄 DOM loaded');
+
+            // Check localStorage first
+            const storedStaff = localStorage.getItem('admin_user');
+            if (storedStaff) {
+                try {
+                    currentStaff = JSON.parse(storedStaff);
+                    console.log('✅ Staff loaded from localStorage:', currentStaff.full_name);
+                    updateAdminUI(currentStaff);
+                    setupSidebarToggle();
+                    updateClock();
+                    setDefaultDates();
+                    return;
+                } catch (e) {
+                    console.warn('⚠️ Invalid stored staff data');
+                }
+            }
+
+            const authResult = await checkAuth();
+            console.log('✅ Auth result:', authResult);
+
+            if (authResult) {
+                setupSidebarToggle();
+                updateClock();
+                setDefaultDates();
+            }
         });
 
         // ============================================================
-        // AUTH CHECK
+        // AUTH CHECK - Using Staff Table
         // ============================================================
 
         async function checkAuth() {
+            console.log('🔐 Checking authentication...');
+
             try {
-                const { data: { session }, error } = await supabase.auth.getSession();
+                const { data: { session }, error } = await supabaseClient.auth.getSession();
 
-                if (error || !session) {
+                if (error) {
+                    console.error('❌ Session error:', error);
                     window.location.href = 'admin-login.html';
-                    return;
+                    return false;
                 }
 
-                const { data: admin, error: adminError } = await supabase
-                    .from('admins')
-                    .select('*')
-                    .eq('id', session.user.id)
-                    .single();
-
-                if (adminError || !admin) {
+                if (!session) {
+                    console.log('⚠️ No session found');
                     window.location.href = 'admin-login.html';
-                    return;
+                    return false;
                 }
 
-                currentUser = admin;
-                document.getElementById('adminName').textContent = admin.full_name || 'Admin';
-                document.getElementById('adminRole').textContent = admin.role || 'Administrator';
-                document.getElementById('adminAvatar').textContent = (admin.full_name || 'A').charAt(0).toUpperCase();
+                console.log('✅ User authenticated:', session.user.email);
+
+                // Look up staff record with role
+                const { data: staff, error: staffError } = await supabaseClient
+                    .from('staff')
+                    .select(`
+                        id,
+                        auth_user_id,
+                        full_name,
+                        email,
+                        phone,
+                        role_id,
+                        branch_id,
+                        status,
+                        sales_code,
+                        roles:role_id (
+                            id,
+                            role_code,
+                            role_name,
+                            is_active
+                        )
+                    `)
+                    .eq('auth_user_id', session.user.id)
+                    .maybeSingle();
+
+                if (staffError) {
+                    console.error('❌ Staff lookup error:', staffError);
+                    // Check admins table as fallback
+                    const { data: admin, error: adminError } = await supabaseClient
+                        .from('admins')
+                        .select('*')
+                        .eq('id', session.user.id)
+                        .single();
+
+                    if (admin) {
+                        console.log('✅ Found in admins table (legacy)');
+                        currentStaff = admin;
+                        localStorage.setItem('admin_user', JSON.stringify(admin));
+                        updateAdminUI(admin);
+                        return true;
+                    }
+
+                    window.location.href = 'admin-login.html';
+                    return false;
+                }
+
+                if (!staff) {
+                    console.log('⚠️ No staff record found');
+                    window.location.href = 'admin-login.html';
+                    return false;
+                }
+
+                // Check if Super Admin
+                const roleCode = staff.roles?.role_code;
+                const roleActive = staff.roles?.is_active === true;
+                const staffActive = staff.status === 'ACTIVE';
+
+                const isAdmin = roleCode === 'SUPER_ADMIN' || roleCode === 'ADMIN';
+
+                if (!isAdmin || !roleActive || !staffActive) {
+                    console.warn('⚠️ Not authorized:', { roleCode, roleActive, staffActive });
+                    await supabaseClient.auth.signOut();
+                    window.location.href = 'admin-login.html';
+                    return false;
+                }
+
+                console.log('✅ Admin verified:', staff.full_name);
+                currentStaff = staff;
+
+                localStorage.setItem('admin_user', JSON.stringify(staff));
+                localStorage.setItem('admin_session', JSON.stringify(session));
+
+                updateAdminUI(staff);
+                return true;
 
             } catch (error) {
-                console.error('Auth check error:', error);
+                console.error('❌ Auth check error:', error);
                 showToast('error', 'Authentication error');
+                return false;
             }
+        }
+
+        // ============================================================
+        // UPDATE ADMIN UI
+        // ============================================================
+
+        function updateAdminUI(staff) {
+            const name = staff.full_name || staff.name || 'Admin';
+            const role = staff.roles?.role_name || staff.role || 'Administrator';
+
+            document.getElementById('adminName').textContent = name;
+            document.getElementById('adminRole').textContent = role;
+            document.getElementById('adminAvatar').textContent = name.charAt(0).toUpperCase();
         }
 
         // ============================================================
@@ -969,7 +1077,7 @@
         // EXPORT PAYMENTS CSV
         // ============================================================
 
-        async function exportPaymentsCsv() {
+        window.exportPaymentsCsv = async function() {
             const btn = document.getElementById('exportPaymentsBtn');
             const statusMsg = document.getElementById('paymentsStatusMsg');
 
@@ -983,7 +1091,7 @@
                 const to = document.getElementById('paymentsTo').value;
                 const status = document.getElementById('paymentsStatus').value;
 
-                let query = supabase.from('payments').select('*');
+                let query = supabaseClient.from('payments').select('*');
 
                 if (from) {
                     query = query.gte('created_at', `${from}T00:00:00`);
@@ -1036,13 +1144,13 @@
                 btn.disabled = false;
                 btn.innerHTML = '<i class="fas fa-download"></i> Export Payments CSV';
             }
-        }
+        };
 
         // ============================================================
         // EXPORT MEMBERS CSV
         // ============================================================
 
-        async function exportMembersCsv() {
+        window.exportMembersCsv = async function() {
             const btn = document.getElementById('exportMembersBtn');
             const statusMsg = document.getElementById('membersStatusMsg');
 
@@ -1057,7 +1165,7 @@
                 const status = document.getElementById('membersStatus').value;
                 const plan = document.getElementById('membersPlan').value;
 
-                let query = supabase.from('members').select('*');
+                let query = supabaseClient.from('members').select('*');
 
                 if (from) {
                     query = query.gte('created_at', `${from}T00:00:00`);
@@ -1115,13 +1223,13 @@
                 btn.disabled = false;
                 btn.innerHTML = '<i class="fas fa-download"></i> Export Members CSV';
             }
-        }
+        };
 
         // ============================================================
         // EXPORT DEPENDANTS CSV
         // ============================================================
 
-        async function exportDependantsCsv() {
+        window.exportDependantsCsv = async function() {
             const btn = document.getElementById('exportDependantsBtn');
             const statusMsg = document.getElementById('dependantsStatusMsg');
 
@@ -1135,7 +1243,7 @@
                 const to = document.getElementById('dependantsTo').value;
                 const relationship = document.getElementById('dependantsRelationship').value;
 
-                let query = supabase.from('dependants').select('*, members(first_name, last_name, membership_number)');
+                let query = supabaseClient.from('dependants').select('*, members(first_name, last_name, membership_number)');
 
                 if (from) {
                     query = query.gte('created_at', `${from}T00:00:00`);
@@ -1186,7 +1294,7 @@
                 btn.disabled = false;
                 btn.innerHTML = '<i class="fas fa-download"></i> Export Dependants CSV';
             }
-        }
+        };
 
         // ============================================================
         // DOWNLOAD CSV HELPER
@@ -1297,15 +1405,31 @@
         // LOGOUT
         // ============================================================
 
-        async function handleLogout() {
+        window.handleLogout = async function() {
             try {
-                await supabase.auth.signOut();
+                await supabaseClient.auth.signOut();
+                localStorage.removeItem('admin_user');
+                localStorage.removeItem('admin_session');
                 sessionStorage.clear();
                 window.location.href = 'admin-login.html';
             } catch (error) {
                 console.error('Logout error:', error);
                 showToast('error', 'Failed to logout');
             }
+        };
+
+        // ============================================================
+        // ESCAPE HTML
+        // ============================================================
+
+        function escapeHtml(value) {
+            if (!value) return '';
+            return String(value)
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;')
+                .replace(/'/g, '&#039;');
         }
 
         // ============================================================
@@ -1317,6 +1441,7 @@
         window.exportDependantsCsv = exportDependantsCsv;
         window.handleLogout = handleLogout;
         window.showToast = showToast;
+        window.setDefaultDates = setDefaultDates;
     </script>
 
 </body>
