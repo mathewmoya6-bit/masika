@@ -2,20 +2,41 @@
 // SUPABASE CLIENT - js/supabase.js
 // ============================================================
 
+// Use the global CONFIG object
 const { createClient } = supabase;
 
 class SupabaseClient {
     constructor() {
-        this.client = createClient(
-            CONFIG.SUPABASE.URL,
-            CONFIG.SUPABASE.ANON_KEY
-        );
+        // Get config from window.CONFIG
+        const config = window.CONFIG || {
+            SUPABASE: {
+                URL: 'https://wpxzlcdrirlcyvfiquld.supabase.co',
+                ANON_KEY: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6IndweHpsY2RyaXJsY3l2ZmlxdWxkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODc5Mjc4MDcsImV4cCI6MjEwMzUwMzgwN30.OUP9pmPbrML_egpHflZtDfLv1_UDM37_BYjtb842xjg'
+            }
+        };
+        
+        console.log('🔐 Initializing Supabase client...');
+        console.log('📡 URL:', config.SUPABASE.URL);
+        console.log('🔑 ANON_KEY exists:', !!config.SUPABASE.ANON_KEY);
+        
+        try {
+            this.client = createClient(
+                config.SUPABASE.URL,
+                config.SUPABASE.ANON_KEY
+            );
+            console.log('✅ Supabase client created successfully');
+        } catch (error) {
+            console.error('❌ Failed to create Supabase client:', error);
+            throw error;
+        }
+        
         this.session = null;
         this.user = null;
         this.member = null;
         
         // Listen for auth changes
         this.client.auth.onAuthStateChange((event, session) => {
+            console.log('🔐 Auth state changed:', event);
             this.session = session;
             this.user = session?.user || null;
             
@@ -40,12 +61,17 @@ class SupabaseClient {
 
     async signUp(email, password, metadata = {}) {
         try {
+            console.log('📝 Signing up user:', email);
             const { data, error } = await this.client.auth.signUp({
                 email,
                 password,
                 options: { data: metadata }
             });
-            if (error) throw error;
+            if (error) {
+                console.error('❌ Sign up error:', error);
+                throw error;
+            }
+            console.log('✅ User signed up:', data.user?.email);
             return { success: true, data };
         } catch (error) {
             console.error('Sign up error:', error);
@@ -55,11 +81,16 @@ class SupabaseClient {
 
     async signIn(email, password) {
         try {
+            console.log('🔐 Signing in user:', email);
             const { data, error } = await this.client.auth.signInWithPassword({
                 email,
                 password
             });
-            if (error) throw error;
+            if (error) {
+                console.error('❌ Sign in error:', error);
+                throw error;
+            }
+            console.log('✅ User signed in:', data.user?.email);
             return { success: true, data };
         } catch (error) {
             console.error('Sign in error:', error);
@@ -69,8 +100,10 @@ class SupabaseClient {
 
     async signOut() {
         try {
+            console.log('🚪 Signing out...');
             const { error } = await this.client.auth.signOut();
             if (error) throw error;
+            console.log('✅ Signed out');
             return { success: true };
         } catch (error) {
             console.error('Sign out error:', error);
@@ -89,18 +122,34 @@ class SupabaseClient {
         }
     }
 
+    async getSession() {
+        try {
+            const { data, error } = await this.client.auth.getSession();
+            if (error) throw error;
+            return { success: true, data: data.session };
+        } catch (error) {
+            console.error('Get session error:', error);
+            return { success: false, error: error.message };
+        }
+    }
+
     // ============================================================
     // MEMBER METHODS
     // ============================================================
 
     async createMember(memberData) {
         try {
+            console.log('📝 Creating member:', memberData.email);
             const { data, error } = await this.client
                 .from('members')
                 .insert([memberData])
                 .select()
                 .single();
-            if (error) throw error;
+            if (error) {
+                console.error('❌ Create member error:', error);
+                throw error;
+            }
+            console.log('✅ Member created:', data.membership_number);
             return { success: true, data };
         } catch (error) {
             console.error('Create member error:', error);
@@ -155,6 +204,40 @@ class SupabaseClient {
     }
 
     // ============================================================
+    // DEPENDANT METHODS
+    // ============================================================
+
+    async createDependant(dependantData) {
+        try {
+            const { data, error } = await this.client
+                .from('dependants')
+                .insert([dependantData])
+                .select()
+                .single();
+            if (error) throw error;
+            return { success: true, data };
+        } catch (error) {
+            console.error('Create dependant error:', error);
+            return { success: false, error: error.message };
+        }
+    }
+
+    async getMemberDependants(memberId) {
+        try {
+            const { data, error } = await this.client
+                .from('dependants')
+                .select('*')
+                .eq('member_id', memberId)
+                .order('created_at', { ascending: false });
+            if (error) throw error;
+            return { success: true, data };
+        } catch (error) {
+            console.error('Get dependants error:', error);
+            return { success: false, error: error.message };
+        }
+    }
+
+    // ============================================================
     // PAYMENT METHODS
     // ============================================================
 
@@ -192,6 +275,44 @@ class SupabaseClient {
             return { success: true, data };
         } catch (error) {
             console.error('Get member payments error:', error);
+            return { success: false, error: error.message };
+        }
+    }
+
+    // ============================================================
+    // AGENT METHODS
+    // ============================================================
+
+    async getAgents() {
+        try {
+            const { data, error } = await this.client
+                .from('sales_agents')
+                .select('*')
+                .eq('status', 'active')
+                .order('full_name', { ascending: true });
+            if (error) throw error;
+            return { success: true, data };
+        } catch (error) {
+            console.error('Get agents error:', error);
+            return { success: false, error: error.message };
+        }
+    }
+
+    // ============================================================
+    // PLAN METHODS
+    // ============================================================
+
+    async getPlans() {
+        try {
+            const { data, error } = await this.client
+                .from('plans')
+                .select('*')
+                .eq('is_active', true)
+                .order('monthly_fee', { ascending: true });
+            if (error) throw error;
+            return { success: true, data };
+        } catch (error) {
+            console.error('Get plans error:', error);
             return { success: false, error: error.message };
         }
     }
@@ -245,6 +366,27 @@ class SupabaseClient {
             subscription.unsubscribe();
         }
     }
+
+    // Test connection
+    async testConnection() {
+        try {
+            console.log('🔍 Testing Supabase connection...');
+            const { data, error } = await this.client
+                .from('members')
+                .select('count', { count: 'exact', head: true });
+            
+            if (error) {
+                console.error('❌ Connection test failed:', error);
+                return { success: false, error: error.message };
+            }
+            
+            console.log('✅ Supabase connection successful!');
+            return { success: true, data };
+        } catch (error) {
+            console.error('❌ Connection test error:', error);
+            return { success: false, error: error.message };
+        }
+    }
 }
 
 // Create singleton instance
@@ -255,4 +397,10 @@ if (typeof module !== 'undefined' && module.exports) {
     module.exports = supabaseClient;
 } else {
     window.supabaseClient = supabaseClient;
+    console.log('✅ Supabase client initialized');
+    
+    // Test connection on load
+    setTimeout(() => {
+        supabaseClient.testConnection();
+    }, 1000);
 }
