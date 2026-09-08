@@ -1,1708 +1,1692 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Register | Masika Benevolent</title>
-    <meta name="description" content="Register for Masika Benevolent family protection and benevolent support." />
-
-    <link rel="icon" type="image/svg+xml" href="assets/branding/favicon.svg" />
-
-    <link rel="preconnect" href="https://fonts.googleapis.com" />
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link
-        href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap"
-        rel="stylesheet"
-    />
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Collect Payment | Masika Benevolent</title>
+    <link rel="icon" type="image/png" href="../assets/favicon-32x32.png">
 
     <!-- =========================================================
          EXTERNAL JS - ALIGNED WITH SUPABASE/BACKEND
          ========================================================= -->
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-    <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.3/papaparse.min.js"></script>
-    
-    <!-- Masika JS Modules -->
-    <script src="js/config.js"></script>
-    <script src="js/supabase.js"></script>
-    <script src="js/auth.js"></script>
-    <script src="js/masika-utils.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
 
     <style>
-        /* =========================================================
-           ALL STYLES - Same as before
-           ========================================================= */
+        /* ============================================================
+           COLLECT PAYMENT STYLES
+           ============================================================ */
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
         :root {
-            --primary: #173f35;
-            --primary-dark: #0e2c25;
-            --gold: #c99a3e;
-            --gold-dark: #a77b27;
-            --cream: #f8f5ee;
-            --white: #ffffff;
-            --text: #17211f;
-            --muted: #66736f;
-            --border: #dfe5e2;
+            --primary: #0b5d3b;
+            --primary-dark: #06452c;
+            --primary-light: #e8f5ee;
+            --gold: #d4a843;
+            --gold-light: #f5e6b8;
+            --danger: #dc3545;
+            --danger-light: #fce4e8;
             --success: #198754;
-            --danger: #c0392b;
-            --warning: #b7791f;
-            --shadow: 0 15px 45px rgba(20, 45, 38, 0.10);
-            --radius: 16px;
-        }
-
-        * {
-            box-sizing: border-box;
-        }
-
-        html {
-            scroll-behavior: smooth;
+            --success-light: #d4edda;
+            --warning: #ffc107;
+            --warning-light: #fff3cd;
+            --info: #0dcaf0;
+            --info-light: #d1f0f9;
+            --text: #1f2933;
+            --text-light: #6b7280;
+            --text-lighter: #9ca3af;
+            --white: #ffffff;
+            --gray-50: #f9fafb;
+            --gray-100: #f3f4f6;
+            --gray-200: #e5e7eb;
+            --gray-300: #d1d5db;
+            --gray-400: #9ca3af;
+            --shadow: 0 2px 12px rgba(0,0,0,0.08);
+            --shadow-hover: 0 4px 24px rgba(0,0,0,0.12);
+            --radius: 12px;
+            --radius-lg: 16px;
+            --transition: all 0.3s ease;
         }
 
         body {
-            margin: 0;
-            font-family: "Inter", Arial, sans-serif;
-            background: var(--cream);
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif;
+            background: #f0f4f2;
             color: var(--text);
-            line-height: 1.6;
+            min-height: 100vh;
         }
 
-        a {
-            color: inherit;
-            text-decoration: none;
-        }
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        ::-webkit-scrollbar-track { background: var(--gray-100); border-radius: 10px; }
+        ::-webkit-scrollbar-thumb { background: var(--gray-300); border-radius: 10px; }
+        ::-webkit-scrollbar-thumb:hover { background: var(--gray-400); }
 
-        button,
-        input,
-        select,
-        textarea {
-            font: inherit;
-        }
+        .admin-layout { display: flex; min-height: 100vh; }
 
-        .container {
-            width: min(1180px, calc(100% - 32px));
-            margin: 0 auto;
-        }
+        /* ============================================================
+           SIDEBAR
+           ============================================================ */
 
-        .site-header {
+        .sidebar {
+            width: 280px;
             background: var(--primary);
             color: white;
-            position: sticky;
-            top: 0;
-            z-index: 1000;
-            box-shadow: 0 5px 20px rgba(0, 0, 0, .10);
-        }
-
-        .header-inner {
-            min-height: 74px;
+            padding: 24px 0;
+            position: fixed;
+            height: 100vh;
+            overflow-y: auto;
+            transition: var(--transition);
+            z-index: 100;
             display: flex;
-            align-items: center;
-            justify-content: space-between;
-            gap: 20px;
+            flex-direction: column;
         }
 
-        .brand {
-            display: flex;
-            align-items: center;
-            gap: 12px;
-        }
+        .sidebar::-webkit-scrollbar { width: 4px; }
+        .sidebar::-webkit-scrollbar-track { background: rgba(255,255,255,0.05); }
+        .sidebar::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.2); border-radius: 10px; }
 
-        .brand-mark {
-            width: 44px;
-            height: 44px;
-            border-radius: 50%;
-            background: var(--gold);
-            color: white;
-            display: grid;
-            place-items: center;
-            font-size: 22px;
-            font-weight: 800;
-        }
-
-        img.brand-mark {
-            background: transparent;
-            object-fit: contain;
-            padding: 2px;
-        }
-
-        .brand-text {
-            line-height: 1.1;
-        }
-
-        .brand-text strong {
-            display: block;
-            font-size: 17px;
-            letter-spacing: .08em;
-        }
-
-        .brand-text small {
-            color: #ead9b3;
-            font-size: 11px;
-            letter-spacing: .12em;
-            text-transform: uppercase;
-        }
-
-        .nav {
-            display: flex;
-            align-items: center;
-            gap: 22px;
-        }
-
-        .nav a {
-            color: rgba(255,255,255,.9);
-            font-size: 14px;
-            font-weight: 600;
-        }
-
-        .nav a:hover {
-            color: white;
-        }
-
-        .nav-register {
-            background: var(--gold);
-            padding: 10px 17px;
-            border-radius: 9px;
-        }
-
-        .hero {
-            background: linear-gradient(
-                135deg,
-                rgba(23,63,53,.98),
-                rgba(14,44,37,.94)
-            );
-            color: white;
-            padding: 65px 0 85px;
-        }
-
-        .hero-grid {
-            display: grid;
-            grid-template-columns: 1.2fr .8fr;
-            gap: 45px;
-            align-items: center;
-        }
-
-        .eyebrow {
-            color: #e8c56d;
-            text-transform: uppercase;
-            letter-spacing: .15em;
-            font-size: 12px;
-            font-weight: 800;
-            margin-bottom: 12px;
-        }
-
-        .hero h1 {
-            margin: 0 0 18px;
-            font-size: clamp(34px, 5vw, 58px);
-            line-height: 1.08;
-        }
-
-        .hero p {
-            max-width: 680px;
-            color: rgba(255,255,255,.82);
-            font-size: 17px;
-            margin: 0;
-        }
-
-        .hero-card {
-            background: rgba(255,255,255,.08);
-            border: 1px solid rgba(255,255,255,.15);
-            border-radius: 22px;
-            padding: 28px;
-            backdrop-filter: blur(8px);
-        }
-
-        .hero-card h3 {
-            margin-top: 0;
-            color: #fff;
-        }
-
-        .hero-card ul {
-            padding-left: 20px;
-            margin-bottom: 0;
-            color: rgba(255,255,255,.85);
-        }
-
-        .main {
-            padding: 50px 0 80px;
-        }
-
-        .registration-layout {
-            display: grid;
-            grid-template-columns: minmax(0,1fr) 340px;
-            gap: 30px;
-            align-items: start;
-        }
-
-        .card {
-            background: var(--white);
-            border-radius: var(--radius);
-            box-shadow: var(--shadow);
-            border: 1px solid var(--border);
-        }
-
-        .form-card {
-            padding: 32px;
-        }
-
-        .side-card {
-            padding: 25px;
-            position: sticky;
-            top: 100px;
-        }
-
-        .section-heading {
-            margin-bottom: 24px;
-        }
-
-        .section-heading h2 {
-            margin: 0 0 7px;
-            font-size: 24px;
-        }
-
-        .section-heading p {
-            margin: 0;
-            color: var(--muted);
-            font-size: 14px;
-        }
-
-        .mode-switch {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 10px;
-            background: #f1f4f2;
-            border-radius: 13px;
-            padding: 6px;
-            margin-bottom: 30px;
-        }
-
-        .mode-button {
-            border: 0;
-            background: transparent;
-            border-radius: 9px;
-            padding: 13px;
-            cursor: pointer;
-            font-weight: 700;
-            color: var(--muted);
-        }
-
-        .mode-button.active {
-            background: var(--primary);
-            color: white;
-            box-shadow: 0 5px 15px rgba(23,63,53,.18);
-        }
-
-        .form-section {
-            margin-bottom: 35px;
-        }
-
-        .form-section-title {
-            display: flex;
-            align-items: center;
-            gap: 10px;
-            margin-bottom: 18px;
-            padding-bottom: 10px;
-            border-bottom: 1px solid var(--border);
-        }
-
-        .step-number {
-            width: 28px;
-            height: 28px;
-            border-radius: 50%;
-            background: var(--primary);
-            color: white;
-            display: grid;
-            place-items: center;
-            font-size: 12px;
-            font-weight: 800;
+        .sidebar-brand {
+            padding: 0 24px 24px;
+            border-bottom: 1px solid rgba(255,255,255,0.08);
+            margin-bottom: 20px;
             flex-shrink: 0;
         }
 
-        .form-section-title h3 {
-            margin: 0;
-            font-size: 17px;
-        }
-
-        .form-grid {
-            display: grid;
-            grid-template-columns: repeat(2, minmax(0,1fr));
-            gap: 17px;
-        }
-
-        .form-group {
+        .sidebar-brand .logo {
             display: flex;
-            flex-direction: column;
-            gap: 7px;
-        }
-
-        .form-group.full {
-            grid-column: 1 / -1;
-        }
-
-        label {
-            font-size: 13px;
-            font-weight: 700;
-            color: #34423e;
-        }
-
-        label .required {
-            color: var(--danger);
-        }
-
-        input,
-        select,
-        textarea {
-            width: 100%;
-            border: 1px solid var(--border);
-            background: white;
-            border-radius: 9px;
-            padding: 12px 13px;
-            outline: none;
-            color: var(--text);
-            transition: .2s;
-        }
-
-        input:focus,
-        select:focus,
-        textarea:focus {
-            border-color: var(--gold);
-            box-shadow: 0 0 0 3px rgba(201,154,62,.12);
-        }
-
-        textarea {
-            min-height: 90px;
-            resize: vertical;
-        }
-
-        .help-text {
-            font-size: 12px;
-            color: var(--muted);
-        }
-
-        .plans-grid {
-            display: grid;
-            grid-template-columns: repeat(3, 1fr);
+            align-items: center;
             gap: 12px;
+            text-decoration: none;
+            color: white;
         }
 
-        .plan-option {
+        .sidebar-brand .logo-icon {
+            width: 44px;
+            height: 44px;
+            background: var(--gold);
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 900;
+            color: var(--white);
+            font-size: 20px;
+        }
+
+        .sidebar-brand .logo-text {
+            font-weight: 800;
+            font-size: 20px;
+            letter-spacing: -0.5px;
+        }
+
+        .sidebar-brand .logo-sub {
+            font-size: 11px;
+            opacity: 0.6;
+            display: block;
+            font-weight: 400;
+            letter-spacing: 0.5px;
+            text-transform: uppercase;
+        }
+
+        .sidebar-nav {
+            list-style: none;
+            padding: 0 12px;
+            flex: 1;
+        }
+
+        .sidebar-nav li { margin-bottom: 2px; }
+
+        .sidebar-nav .nav-label {
+            font-size: 10px;
+            text-transform: uppercase;
+            letter-spacing: 0.8px;
+            color: rgba(255,255,255,0.3);
+            padding: 12px 16px 6px;
+            font-weight: 700;
+        }
+
+        .sidebar-nav a {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 11px 16px;
+            border-radius: 10px;
+            color: rgba(255,255,255,0.65);
+            text-decoration: none;
+            transition: var(--transition);
+            font-size: 14px;
+            font-weight: 500;
             position: relative;
         }
 
-        .plan-option input {
+        .sidebar-nav a:hover {
+            background: rgba(255,255,255,0.08);
+            color: white;
+        }
+
+        .sidebar-nav a.active {
+            background: rgba(255,255,255,0.12);
+            color: white;
+        }
+
+        .sidebar-nav a.active::before {
+            content: '';
             position: absolute;
-            opacity: 0;
-            pointer-events: none;
+            left: 0;
+            top: 20%;
+            height: 60%;
+            width: 3px;
+            background: var(--gold);
+            border-radius: 0 3px 3px 0;
         }
 
-        .plan-label {
-            display: block;
-            border: 2px solid var(--border);
-            border-radius: 13px;
-            padding: 17px;
-            cursor: pointer;
-            height: 100%;
-            transition: .2s;
-        }
-
-        .plan-label:hover {
-            border-color: #c9d1ce;
-        }
-
-        .plan-option input:checked + .plan-label {
-            border-color: var(--gold);
-            background: #fffaf0;
-            box-shadow: 0 7px 20px rgba(201,154,62,.12);
-        }
-
-        .plan-name {
-            font-weight: 800;
+        .sidebar-nav a i {
+            width: 20px;
+            text-align: center;
             font-size: 16px;
-            margin-bottom: 5px;
         }
 
-        .plan-description {
-            color: var(--muted);
-            font-size: 12px;
-            min-height: 38px;
-        }
-
-        .plan-price {
-            margin-top: 12px;
-            color: var(--primary);
-            font-weight: 800;
-        }
-
-        .plan-price small {
-            font-weight: 500;
-            color: var(--muted);
-        }
-
-        .dependant-list {
-            display: grid;
-            gap: 15px;
-        }
-
-        .dependant-card {
-            border: 1px solid var(--border);
+        .sidebar-nav .badge {
+            margin-left: auto;
+            background: var(--gold);
+            color: white;
+            padding: 1px 10px;
             border-radius: 12px;
-            padding: 18px;
-            background: #fbfcfb;
+            font-size: 11px;
+            font-weight: 700;
+            min-width: 20px;
+            text-align: center;
         }
 
-        .dependant-header {
+        .sidebar-footer {
+            padding: 16px 24px;
+            border-top: 1px solid rgba(255,255,255,0.08);
+            margin-top: auto;
+            flex-shrink: 0;
+        }
+
+        .sidebar-footer .user-info {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .sidebar-footer .user-avatar {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            background: var(--gold);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 700;
+            font-size: 16px;
+            color: white;
+            flex-shrink: 0;
+        }
+
+        .sidebar-footer .user-name {
+            font-weight: 600;
+            font-size: 14px;
+        }
+
+        .sidebar-footer .user-role {
+            font-size: 12px;
+            opacity: 0.5;
+        }
+
+        .sidebar-footer .logout-btn {
+            display: block;
+            width: 100%;
+            margin-top: 12px;
+            padding: 10px;
+            border: 1px solid rgba(255,255,255,0.15);
+            border-radius: 10px;
+            background: transparent;
+            color: rgba(255,255,255,0.6);
+            cursor: pointer;
+            transition: var(--transition);
+            font-family: inherit;
+            font-size: 14px;
+            font-weight: 500;
+        }
+
+        .sidebar-footer .logout-btn:hover {
+            background: rgba(255,255,255,0.08);
+            color: white;
+            border-color: rgba(255,255,255,0.3);
+        }
+
+        /* ============================================================
+           SIDEBAR BACKDROP
+           ============================================================ */
+
+        .sidebar-backdrop {
+            display: none;
+            position: fixed;
+            inset: 0;
+            background: rgba(0,0,0,0.5);
+            backdrop-filter: blur(4px);
+            z-index: 99;
+        }
+
+        .sidebar-backdrop.show { display: block; }
+
+        /* ============================================================
+           MAIN CONTENT
+           ============================================================ */
+
+        .main-content {
+            margin-left: 280px;
+            padding: 24px 32px 40px;
+            flex: 1;
+            width: calc(100% - 280px);
+            min-height: 100vh;
+        }
+
+        /* ============================================================
+           TOPBAR
+           ============================================================ */
+
+        .topbar {
             display: flex;
             justify-content: space-between;
             align-items: center;
-            margin-bottom: 14px;
+            margin-bottom: 28px;
+            flex-wrap: wrap;
+            gap: 12px;
         }
 
-        .dependant-header strong {
+        .topbar-left {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+        }
+
+        .topbar h1 {
+            font-size: 28px;
+            font-weight: 800;
+            letter-spacing: -0.5px;
+        }
+
+        .topbar h1 small {
             font-size: 14px;
+            font-weight: 400;
+            color: var(--text-light);
+            display: block;
+            margin-top: 2px;
         }
 
-        .remove-dependant {
-            border: 0;
-            background: #fbe9e7;
-            color: var(--danger);
-            border-radius: 7px;
-            padding: 7px 10px;
-            cursor: pointer;
-            font-size: 12px;
-            font-weight: 700;
+        .topbar .actions {
+            display: flex;
+            gap: 12px;
+            align-items: center;
+            flex-wrap: wrap;
         }
 
-        .add-button {
-            margin-top: 14px;
-            border: 1px dashed #aebbb6;
+        .topbar .actions .date-time {
+            font-size: 14px;
+            color: var(--text-light);
+            font-weight: 500;
+        }
+
+        /* ============================================================
+           CARDS
+           ============================================================ */
+
+        .card {
             background: white;
-            color: var(--primary);
-            border-radius: 9px;
-            padding: 11px 15px;
-            cursor: pointer;
-            font-weight: 700;
+            border-radius: var(--radius);
+            padding: 24px;
+            box-shadow: var(--shadow);
+            margin-bottom: 24px;
+            transition: var(--transition);
         }
 
-        .add-button:hover {
-            border-color: var(--primary);
-        }
+        .card:hover { box-shadow: var(--shadow-hover); }
 
-        .summary {
-            background: #f6f8f6;
-            border-radius: 13px;
-            padding: 20px;
-        }
-
-        .summary-row {
+        .card-header {
             display: flex;
             justify-content: space-between;
-            gap: 15px;
-            padding: 8px 0;
-            font-size: 14px;
+            align-items: center;
+            margin-bottom: 16px;
+            padding-bottom: 12px;
+            border-bottom: 1px solid var(--gray-200);
+            flex-wrap: wrap;
+            gap: 10px;
         }
 
-        .summary-row.total {
-            border-top: 1px solid var(--border);
-            margin-top: 10px;
-            padding-top: 15px;
+        .card-header h3 {
             font-size: 18px;
-            font-weight: 800;
-            color: var(--primary);
+            font-weight: 700;
+            display: flex;
+            align-items: center;
+            gap: 10px;
         }
 
-        .button-row {
-            display: flex;
-            justify-content: flex-end;
-            gap: 12px;
-            margin-top: 28px;
-        }
+        /* ============================================================
+           BUTTONS
+           ============================================================ */
 
         .btn {
-            border: 0;
-            border-radius: 9px;
-            padding: 13px 20px;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 10px 20px;
+            border: none;
+            border-radius: 8px;
+            font-weight: 600;
+            font-size: 14px;
             cursor: pointer;
-            font-weight: 800;
-            transition: .2s;
+            transition: var(--transition);
+            font-family: inherit;
+            text-decoration: none;
         }
 
         .btn-primary {
             background: var(--primary);
             color: white;
         }
-
         .btn-primary:hover {
             background: var(--primary-dark);
+            transform: translateY(-2px);
+            box-shadow: 0 4px 16px rgba(11, 93, 59, 0.3);
         }
 
         .btn-gold {
             background: var(--gold);
             color: white;
         }
-
         .btn-gold:hover {
-            background: var(--gold-dark);
+            background: #c49a3a;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 16px rgba(212, 168, 67, 0.3);
         }
 
-        .btn-secondary {
-            background: #eef2f0;
+        .btn-success {
+            background: var(--success);
+            color: white;
+        }
+        .btn-success:hover {
+            background: #157347;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 16px rgba(25, 135, 84, 0.3);
+        }
+
+        .btn-danger {
+            background: var(--danger);
+            color: white;
+        }
+        .btn-danger:hover {
+            background: #c82333;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 16px rgba(220, 53, 69, 0.3);
+        }
+
+        .btn-outline {
+            background: transparent;
+            border: 2px solid var(--gray-200);
+            color: var(--text-light);
+        }
+        .btn-outline:hover {
+            border-color: var(--primary);
             color: var(--primary);
+            transform: translateY(-2px);
         }
 
-        .btn:disabled {
-            opacity: .55;
+        .btn-sm {
+            padding: 6px 14px;
+            font-size: 12px;
+            border-radius: 6px;
+        }
+
+        .btn-block { width: 100%; justify-content: center; }
+        .btn:disabled { opacity: 0.6; cursor: not-allowed; transform: none !important; }
+
+        /* ============================================================
+           FORM ELEMENTS
+           ============================================================ */
+
+        .form-group { margin-bottom: 16px; }
+
+        .form-group label {
+            display: block;
+            font-size: 13px;
+            font-weight: 600;
+            color: var(--text-light);
+            margin-bottom: 6px;
+        }
+
+        .form-group input {
+            width: 100%;
+            padding: 11px 14px;
+            border: 2px solid var(--gray-200);
+            border-radius: 8px;
+            font-family: inherit;
+            font-size: 15px;
+            transition: var(--transition);
+        }
+
+        .form-group input:focus {
+            outline: none;
+            border-color: var(--primary);
+            box-shadow: 0 0 0 4px rgba(11, 93, 59, 0.1);
+        }
+
+        .form-group input:disabled {
+            background: var(--gray-100);
             cursor: not-allowed;
         }
 
-        .alert {
-            display: none;
-            border-radius: 10px;
-            padding: 13px 15px;
-            margin-bottom: 20px;
+        /* ============================================================
+           SEARCH
+           ============================================================ */
+
+        .search-row {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 12px;
+        }
+
+        .search-row input {
+            flex: 1;
+            padding: 10px 14px;
+            border: 2px solid var(--gray-200);
+            border-radius: 8px;
+            font-family: inherit;
             font-size: 14px;
-            font-weight: 600;
+            transition: var(--transition);
         }
 
-        .alert.show {
-            display: block;
+        .search-row input:focus {
+            outline: none;
+            border-color: var(--primary);
+            box-shadow: 0 0 0 4px rgba(11, 93, 59, 0.1);
         }
 
-        .alert.success {
-            background: #eaf7ef;
-            color: #17683d;
-            border: 1px solid #bce5cc;
+        #searchResults {
+            max-height: 260px;
+            overflow-y: auto;
+            border: 1px solid var(--gray-200);
+            border-radius: 8px;
+            margin-bottom: 4px;
         }
 
-        .alert.error {
-            background: #fcebea;
-            color: #922b21;
-            border: 1px solid #f0c4bf;
+        .search-result-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 10px 14px;
+            border-bottom: 1px solid var(--gray-200);
+            cursor: pointer;
+            transition: var(--transition);
         }
 
-        .alert.warning {
-            background: #fff7df;
-            color: #8a6116;
-            border: 1px solid #ead49a;
+        .search-result-row:last-child { border-bottom: none; }
+        .search-result-row:hover { background: var(--gray-100); }
+
+        .search-result-row .name { font-weight: 600; font-size: 14px; }
+        .search-result-row .meta { font-size: 12px; color: var(--text-light); }
+
+        .search-empty {
+            padding: 14px;
+            text-align: center;
+            color: var(--text-light);
+            font-size: 13px;
         }
 
-        .alert.info {
-            background: #edf5fa;
-            color: #245b79;
-            border: 1px solid #c5deec;
-        }
+        /* ============================================================
+           SELECTED MEMBER
+           ============================================================ */
 
-        .loading {
+        #selectedMember {
             display: none;
             align-items: center;
-            justify-content: center;
-            gap: 10px;
-            color: var(--primary);
-            font-weight: 700;
-            padding: 10px;
+            justify-content: space-between;
+            background: var(--primary-light);
+            border-radius: 8px;
+            padding: 12px 16px;
+            margin-bottom: 20px;
         }
 
-        .loading.show {
-            display: flex;
-        }
+        #selectedMember.show { display: flex; }
 
-        .spinner {
-            width: 19px;
-            height: 19px;
-            border: 3px solid #dce4e0;
-            border-top-color: var(--primary);
-            border-radius: 50%;
-            animation: spin .8s linear infinite;
-        }
+        #selectedMember .name { font-weight: 700; }
+        #selectedMember .num { font-size: 12px; color: var(--text-light); }
 
-        @keyframes spin {
-            to {
-                transform: rotate(360deg);
-            }
-        }
+        /* ============================================================
+           STATUS BADGES
+           ============================================================ */
 
-        .chama-only {
-            display: none;
-        }
-
-        .chama-only.show {
-            display: block;
-        }
-
-        .csv-box {
-            border: 2px dashed #bbc8c3;
-            border-radius: 13px;
-            padding: 25px;
-            text-align: center;
-            background: #fafcfb;
-        }
-
-        .csv-box input {
-            border: 0;
-            padding: 0;
-            max-width: 350px;
-            margin-top: 12px;
-        }
-
-        .csv-preview {
-            display: none;
-            margin-top: 18px;
-            overflow-x: auto;
-            border: 1px solid var(--border);
-            border-radius: 10px;
-        }
-
-        .csv-preview.show {
-            display: block;
-        }
-
-        .csv-preview table {
-            width: 100%;
-            border-collapse: collapse;
+        .status-badge {
+            display: inline-block;
+            padding: 3px 12px;
+            border-radius: 20px;
             font-size: 12px;
-            background: white;
-        }
-
-        .csv-preview th,
-        .csv-preview td {
-            padding: 9px;
-            border-bottom: 1px solid var(--border);
-            text-align: left;
+            font-weight: 600;
             white-space: nowrap;
         }
 
-        .csv-preview th {
-            background: #f4f7f5;
+        .status-badge.active { background: var(--success-light); color: var(--success); }
+        .status-badge.inactive { background: var(--danger-light); color: var(--danger); }
+        .status-badge.pending { background: var(--warning-light); color: #856404; }
+        .status-badge.completed { background: var(--success-light); color: var(--success); }
+        .status-badge.confirmed { background: var(--success-light); color: var(--success); }
+        .status-badge.failed { background: var(--danger-light); color: var(--danger); }
+        .status-badge.unassigned { background: var(--warning-light); color: #856404; }
+
+        /* ============================================================
+           PAYMENT STATUS
+           ============================================================ */
+
+        #paymentStatus {
+            display: none;
+            text-align: center;
+            padding: 20px 0;
         }
 
-        .csv-count {
-            margin-top: 10px;
-            font-size: 13px;
-            font-weight: 700;
-        }
+        .status-icon { font-size: 48px; margin-bottom: 12px; }
+        #statusTitle { font-size: 18px; font-weight: 700; margin-bottom: 6px; }
+        #statusMessage { color: var(--text-light); font-size: 14px; margin-bottom: 16px; }
 
-        .side-card h3 {
-            margin-top: 0;
-            color: var(--primary);
-        }
-
-        .side-item {
+        .status-actions {
             display: flex;
-            gap: 12px;
-            padding: 13px 0;
-            border-bottom: 1px solid var(--border);
+            gap: 10px;
+            justify-content: center;
+            margin-top: 16px;
         }
 
-        .side-item:last-child {
-            border-bottom: 0;
+        /* ============================================================
+           SUCCESS CARD
+           ============================================================ */
+
+        #successCard {
+            display: none;
+            border: 2px solid var(--success);
         }
 
-        .side-icon {
-            width: 35px;
-            height: 35px;
-            border-radius: 50%;
-            background: #edf3ef;
-            display: grid;
-            place-items: center;
-            color: var(--primary);
-            font-weight: 800;
-            flex-shrink: 0;
+        #successCard .check {
+            font-size: 56px;
+            color: var(--success);
+            text-align: center;
+            margin-bottom: 8px;
         }
 
-        .side-item strong {
-            display: block;
-            font-size: 13px;
-        }
+        #successCard h3 { text-align: center; margin-bottom: 20px; }
 
-        .side-item span {
-            color: var(--muted);
-            font-size: 12px;
-        }
-
-        footer {
-            background: var(--primary-dark);
-            color: rgba(255,255,255,.8);
-            padding: 35px 0;
-        }
-
-        .footer-inner {
+        .row {
             display: flex;
             justify-content: space-between;
-            gap: 20px;
+            padding: 8px 0;
+            border-bottom: 1px solid var(--gray-200);
+            font-size: 14px;
+        }
+
+        .row .label { color: var(--text-light); }
+        .row .value.highlight { font-weight: 700; color: var(--primary); }
+
+        .success-actions {
+            display: flex;
+            gap: 10px;
+            margin-top: 20px;
+        }
+
+        /* ============================================================
+           ALERTS
+           ============================================================ */
+
+        .alert {
+            display: none;
+            padding: 12px 16px;
+            border-radius: 8px;
+            font-size: 14px;
+            margin-bottom: 20px;
+        }
+
+        .alert.show { display: block; }
+        .alert.error { background: var(--danger-light); color: var(--danger); }
+        .alert.info { background: var(--info-light); color: #055160; }
+        .alert.success { background: var(--success-light); color: var(--success); }
+        .alert.warning { background: var(--warning-light); color: #856404; }
+
+        /* ============================================================
+           TOAST NOTIFICATIONS
+           ============================================================ */
+
+        .toast-container {
+            position: fixed;
+            bottom: 30px;
+            right: 30px;
+            z-index: 9999;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            max-width: 420px;
+        }
+
+        .toast {
+            padding: 14px 20px;
+            border-radius: 12px;
+            color: white;
+            font-weight: 600;
+            font-size: 14px;
+            animation: slideIn 0.4s ease;
+            box-shadow: 0 12px 48px rgba(0,0,0,0.15);
+            display: flex;
             align-items: center;
-            font-size: 13px;
+            gap: 12px;
+            cursor: pointer;
+            transition: all 0.3s ease;
         }
 
-        @media (max-width: 900px) {
-            .hero-grid,
-            .registration-layout {
-                grid-template-columns: 1fr;
-            }
+        .toast:hover { transform: scale(1.02); }
+        .toast.success { background: var(--success); }
+        .toast.error { background: var(--danger); }
+        .toast.info { background: var(--info); color: var(--text); }
+        .toast.warning { background: var(--warning); color: var(--text); }
 
-            .side-card {
-                position: static;
-            }
-
-            .plans-grid {
-                grid-template-columns: 1fr;
-            }
+        .toast .toast-close {
+            background: none;
+            border: none;
+            color: rgba(255,255,255,0.7);
+            cursor: pointer;
+            font-size: 18px;
+            margin-left: auto;
+            padding: 0 4px;
         }
 
-        @media (max-width: 650px) {
-            .nav {
+        .toast .toast-close:hover { color: white; }
+
+        @keyframes slideIn {
+            from { transform: translateX(100px); opacity: 0; }
+            to { transform: translateX(0); opacity: 1; }
+        }
+
+        /* ============================================================
+           LOADING
+           ============================================================ */
+
+        .loading-spinner {
+            text-align: center;
+            padding: 20px;
+        }
+
+        .loading-spinner .spinner {
+            display: inline-block;
+            width: 30px;
+            height: 30px;
+            border: 4px solid var(--gray-200);
+            border-top-color: var(--primary);
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        /* ============================================================
+           RESPONSIVE
+           ============================================================ */
+
+        .sidebar-toggle {
+            display: none;
+            background: var(--primary);
+            color: white;
+            border: none;
+            padding: 8px 14px;
+            border-radius: 10px;
+            font-size: 20px;
+            cursor: pointer;
+            transition: var(--transition);
+        }
+
+        .sidebar-toggle:hover { background: var(--primary-dark); }
+
+        @media (max-width: 768px) {
+            .sidebar {
+                transform: translateX(-100%);
+                width: 280px;
+            }
+
+            .sidebar.open {
+                transform: translateX(0);
+            }
+
+            .main-content {
+                margin-left: 0;
+                width: 100%;
+                padding: 16px;
+            }
+
+            .sidebar-toggle {
+                display: block;
+            }
+
+            .topbar .actions .date-time {
                 display: none;
             }
 
-            .form-card {
-                padding: 20px;
+            .topbar h1 {
+                font-size: 22px;
             }
 
-            .form-grid {
-                grid-template-columns: 1fr;
-            }
-
-            .form-group.full {
-                grid-column: auto;
-            }
-
-            .hero {
-                padding: 45px 0 55px;
-            }
-
-            .button-row {
+            .search-row {
                 flex-direction: column;
             }
 
-            .button-row .btn {
-                width: 100%;
-            }
-
-            .footer-inner {
+            .success-actions {
                 flex-direction: column;
-                text-align: center;
+            }
+
+            .status-actions {
+                flex-direction: column;
             }
         }
 
-        .county-select {
-            appearance: none;
-            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%23475569' stroke-width='2' fill='none'/%3E%3C/svg%3E");
-            background-repeat: no-repeat;
-            background-position: right 16px center;
-            background-size: 14px;
-        }
+        @media (max-width: 480px) {
+            .topbar {
+                flex-direction: column;
+                align-items: stretch;
+            }
 
-        .county-select option {
-            padding: 6px;
+            .topbar .actions {
+                justify-content: flex-start;
+            }
         }
     </style>
-
 </head>
-
 <body>
 
-<header class="site-header">
-    <div class="container header-inner">
-        <a href="index.html" class="brand">
-            <img
-                src="assets/branding/favicon.svg"
-                alt="Masika Benevolent"
-                class="brand-mark"
-            />
+    <div class="admin-layout">
 
-            <span class="brand-text">
-                <strong>MASIKA</strong>
-                <small>Benevolent</small>
-            </span>
-        </a>
+        <!-- ============================================================
+        SIDEBAR BACKDROP
+        ============================================================ -->
+        <div class="sidebar-backdrop" id="sidebarBackdrop"></div>
 
-        <nav class="nav">
-            <a href="index.html">Home</a>
-            <a href="#plans">Plans</a>
-            <a href="login.html">Staff Login</a>
-            <a href="register.html" class="nav-register">Register</a>
-        </nav>
-    </div>
-</header>
+        <!-- ============================================================
+        SIDEBAR
+        ============================================================ -->
 
-<section class="hero">
-    <div class="container hero-grid">
+        <aside class="sidebar" id="sidebar">
+            <div class="sidebar-brand">
+                <a href="admin-dashboard.html" class="logo">
+                    <div class="logo-icon">MB</div>
+                    <div>
+                        <span class="logo-text">Masika</span>
+                        <span class="logo-sub">Admin Panel</span>
+                    </div>
+                </a>
+            </div>
 
-        <div>
-            <div class="eyebrow">Masika Benevolent</div>
+            <ul class="sidebar-nav">
+                <li class="nav-label">Main</li>
+                <li><a href="admin-dashboard.html"><i class="fas fa-chart-pie"></i> Dashboard</a></li>
+                <li><a href="admin-members.html"><i class="fas fa-users"></i> Members</a></li>
+                <li><a href="admin-agents.html"><i class="fas fa-user-tie"></i> Agents</a></li>
 
-            <h1>
-                Protect your family with dignity and peace of mind.
-            </h1>
+                <li class="nav-label">Finance</li>
+                <li><a href="admin-collectpayments.html" class="active"><i class="fas fa-credit-card"></i> Payments</a></li>
+                <li><a href="admin-revenue.html"><i class="fas fa-chart-line"></i> Revenue</a></li>
 
-            <p>
-                Complete your registration below. Your registration will remain
-                pending until the required payment is successfully completed.
-            </p>
-        </div>
-
-        <div class="hero-card">
-            <h3>How registration works</h3>
-
-            <ul>
-                <li>Complete the registration form.</li>
-                <li>Submit your details.</li>
-                <li>Proceed to secure M-Pesa payment.</li>
-                <li>Payment is verified automatically.</li>
-                <li>Your membership is then finalized.</li>
-                <li>Your membership number, receipt and membership identity card can then be generated.</li>
+                <li class="nav-label">Settings</li>
+                <li><a href="admin-pricing.html"><i class="fas fa-tags"></i> Pricing</a></li>
+                <li><a href="admin-reports.html"><i class="fas fa-file-alt"></i> Reports</a></li>
+                <li><a href="admin-settings.html"><i class="fas fa-cog"></i> Settings</a></li>
             </ul>
-        </div>
 
-    </div>
-</section>
+            <div class="sidebar-footer">
+                <div class="user-info">
+                    <div class="user-avatar" id="adminAvatar">A</div>
+                    <div>
+                        <div class="user-name" id="adminName">Admin</div>
+                        <div class="user-role" id="adminRole">Administrator</div>
+                    </div>
+                </div>
+                <button class="logout-btn" onclick="handleLogout()">
+                    <i class="fas fa-sign-out-alt"></i> Logout
+                </button>
+            </div>
+        </aside>
 
-<main class="main">
-    <div class="container">
+        <!-- ============================================================
+        MAIN CONTENT
+        ============================================================ -->
 
-        <div class="registration-layout">
+        <main class="main-content">
 
-            <section class="card form-card">
+            <!-- Topbar -->
+            <div class="topbar">
+                <div class="topbar-left">
+                    <button class="sidebar-toggle" id="sidebarToggle" aria-label="Toggle menu">
+                        <i class="fas fa-bars"></i>
+                    </button>
+                    <h1>
+                        Collect Payment
+                        <small>Search a member and send an M-Pesa STK push on their behalf</small>
+                    </h1>
+                </div>
+                <div class="actions">
+                    <span class="date-time" id="currentDateTime"></span>
+                    <button onclick="resetForm()" class="btn btn-outline btn-sm">
+                        <i class="fas fa-undo"></i> Reset
+                    </button>
+                </div>
+            </div>
 
-                <div id="alertBox" class="alert" role="alert" aria-live="assertive"></div>
+            <!-- Alert -->
+            <div class="alert" id="alertBox"></div>
 
-                <div id="loadingBox" class="loading">
-                    <span class="spinner"></span>
-                    <span id="loadingText">Processing...</span>
+            <!-- Payment Card -->
+            <div class="card" id="paymentCard">
+                <div class="card-header">
+                    <h3><i class="fas fa-magnifying-glass" style="color:var(--gold);"></i> Find Member</h3>
                 </div>
 
-                <div class="mode-switch">
-                    <button
-                        type="button"
-                        id="individualModeBtn"
-                        class="mode-button active"
-                    >
-                        Individual / Family
-                    </button>
-
-                    <button
-                        type="button"
-                        id="chamaModeBtn"
-                        class="mode-button"
-                    >
-                        Chama / Group
+                <!-- Search -->
+                <div class="search-row">
+                    <input type="text" id="memberSearchInput" placeholder="Search by name, member #, phone, or ID number...">
+                    <button class="btn btn-primary btn-sm" id="memberSearchBtn" type="button">
+                        <i class="fas fa-search"></i> Search
                     </button>
                 </div>
 
-                <!-- =====================================================
-                     INDIVIDUAL REGISTRATION
-                     ===================================================== -->
+                <div id="searchResults"></div>
 
-                <form id="registrationForm" novalidate>
-
-                    <div class="form-section">
-
-                        <div class="form-section-title">
-                            <span class="step-number">1</span>
-                            <h3>Principal Member Details</h3>
-                        </div>
-
-                        <div class="form-grid">
-
-                            <div class="form-group">
-                                <label for="firstName">
-                                    First Name <span class="required">*</span>
-                                </label>
-                                <input
-                                    type="text"
-                                    id="firstName"
-                                    name="first_name"
-                                    autocomplete="given-name"
-                                    required
-                                />
-                            </div>
-
-                            <div class="form-group">
-                                <label for="lastName">
-                                    Last Name <span class="required">*</span>
-                                </label>
-                                <input
-                                    type="text"
-                                    id="lastName"
-                                    name="last_name"
-                                    autocomplete="family-name"
-                                    required
-                                />
-                            </div>
-
-                            <div class="form-group">
-                                <label for="otherName">Other Name</label>
-                                <input
-                                    type="text"
-                                    id="otherName"
-                                    name="other_name"
-                                    autocomplete="additional-name"
-                                />
-                            </div>
-
-                            <div class="form-group">
-                                <label for="idNumber">
-                                    National ID / Passport
-                                    <span class="required">*</span>
-                                </label>
-                                <input
-                                    type="text"
-                                    id="idNumber"
-                                    name="id_number"
-                                    required
-                                />
-                            </div>
-
-                            <div class="form-group">
-                                <label for="dateOfBirth">
-                                    Date of Birth <span class="required">*</span>
-                                </label>
-                                <input
-                                    type="date"
-                                    id="dateOfBirth"
-                                    name="date_of_birth"
-                                    required
-                                />
-                            </div>
-
-                            <div class="form-group">
-                                <label for="gender">
-                                    Gender <span class="required">*</span>
-                                </label>
-
-                                <select
-                                    id="gender"
-                                    name="gender"
-                                    required
-                                >
-                                    <option value="">Select gender</option>
-                                    <option value="MALE">Male</option>
-                                    <option value="FEMALE">Female</option>
-                                </select>
-                            </div>
-
-                            <div class="form-group">
-                                <label for="phone">
-                                    Phone Number <span class="required">*</span>
-                                </label>
-
-                                <input
-                                    type="tel"
-                                    id="phone"
-                                    name="phone"
-                                    placeholder="07XXXXXXXX or 2547XXXXXXXX"
-                                    autocomplete="tel"
-                                    required
-                                />
-                            </div>
-
-                            <div class="form-group">
-                                <label for="alternativePhone">
-                                    Alternative Phone
-                                </label>
-
-                                <input
-                                    type="tel"
-                                    id="alternativePhone"
-                                    name="alternative_phone"
-                                    placeholder="Optional"
-                                />
-                            </div>
-
-                            <div class="form-group">
-                                <label for="email">Email Address</label>
-
-                                <input
-                                    type="email"
-                                    id="email"
-                                    name="email"
-                                    autocomplete="email"
-                                    placeholder="Optional"
-                                />
-
-                                <span class="help-text">
-                                    Optional. If provided, enter a valid email address.
-                                </span>
-                            </div>
-
-                            <div class="form-group">
-                                <label for="county">
-                                    County <span class="required">*</span>
-                                </label>
-
-                                <select
-                                    id="county"
-                                    name="county"
-                                    class="county-select"
-                                    required
-                                >
-                                    <option value="">— Select your county —</option>
-                                    <option value="Mombasa">Mombasa</option>
-                                    <option value="Kwale">Kwale</option>
-                                    <option value="Kilifi">Kilifi</option>
-                                    <option value="Tana River">Tana River</option>
-                                    <option value="Lamu">Lamu</option>
-                                    <option value="Taita-Taveta">Taita-Taveta</option>
-                                    <option value="Garissa">Garissa</option>
-                                    <option value="Wajir">Wajir</option>
-                                    <option value="Mandera">Mandera</option>
-                                    <option value="Marsabit">Marsabit</option>
-                                    <option value="Isiolo">Isiolo</option>
-                                    <option value="Meru">Meru</option>
-                                    <option value="Tharaka-Nithi">Tharaka-Nithi</option>
-                                    <option value="Embu">Embu</option>
-                                    <option value="Kitui">Kitui</option>
-                                    <option value="Machakos">Machakos</option>
-                                    <option value="Makueni">Makueni</option>
-                                    <option value="Nyandarua">Nyandarua</option>
-                                    <option value="Nyeri">Nyeri</option>
-                                    <option value="Kirinyaga">Kirinyaga</option>
-                                    <option value="Murang'a">Murang'a</option>
-                                    <option value="Kiambu">Kiambu</option>
-                                    <option value="Turkana">Turkana</option>
-                                    <option value="West Pokot">West Pokot</option>
-                                    <option value="Samburu">Samburu</option>
-                                    <option value="Trans-Nzoia">Trans-Nzoia</option>
-                                    <option value="Uasin Gishu">Uasin Gishu</option>
-                                    <option value="Elgeyo-Marakwet">Elgeyo-Marakwet</option>
-                                    <option value="Nandi">Nandi</option>
-                                    <option value="Baringo">Baringo</option>
-                                    <option value="Laikipia">Laikipia</option>
-                                    <option value="Nakuru">Nakuru</option>
-                                    <option value="Narok">Narok</option>
-                                    <option value="Kajiado">Kajiado</option>
-                                    <option value="Kericho">Kericho</option>
-                                    <option value="Bomet">Bomet</option>
-                                    <option value="Kakamega">Kakamega</option>
-                                    <option value="Vihiga">Vihiga</option>
-                                    <option value="Bungoma">Bungoma</option>
-                                    <option value="Busia">Busia</option>
-                                    <option value="Siaya">Siaya</option>
-                                    <option value="Kisumu">Kisumu</option>
-                                    <option value="Homa Bay">Homa Bay</option>
-                                    <option value="Migori">Migori</option>
-                                    <option value="Kisii">Kisii</option>
-                                    <option value="Nyamira">Nyamira</option>
-                                    <option value="Nairobi">Nairobi</option>
-                                </select>
-                            </div>
-
-                            <div class="form-group">
-                                <label for="location">Location / Area</label>
-                                <input
-                                    type="text"
-                                    id="location"
-                                    name="location"
-                                />
-                            </div>
-
-                            <div class="form-group">
-                                <label for="town">Town</label>
-                                <input
-                                    type="text"
-                                    id="town"
-                                    name="town"
-                                    autocomplete="address-level2"
-                                />
-                            </div>
-
-                            <div class="form-group full">
-                                <label for="address">
-                                    Physical / Postal Address
-                                </label>
-
-                                <textarea
-                                    id="address"
-                                    name="address"
-                                ></textarea>
-                            </div>
-
-                        </div>
+                <!-- Selected Member -->
+                <div id="selectedMember">
+                    <div>
+                        <div class="name" id="selectedMemberName">—</div>
+                        <div class="num">#<span id="selectedMemberNumber">—</span> · <span id="selectedMemberStatus"></span></div>
                     </div>
+                    <button class="btn btn-outline btn-sm" type="button" onclick="clearSelectedMember()">
+                        <i class="fas fa-times"></i> Change
+                    </button>
+                </div>
 
-                    <!-- PLAN -->
-
-                    <div class="form-section">
-
-                        <div class="form-section-title">
-                            <span class="step-number">2</span>
-                            <h3>Select Membership Plan</h3>
-                        </div>
-
-                        <div
-                            id="plansContainer"
-                            class="plans-grid"
-                        >
-                            <div class="help-text">
-                                Loading available plans...
-                            </div>
-                        </div>
-
-                        <div
-                            id="planHelp"
-                            class="help-text"
-                            style="margin-top:12px;"
-                        >
-                            Select a plan to continue.
-                        </div>
-
+                <!-- Payment Form -->
+                <form id="paymentForm" onsubmit="initiatePayment(event)">
+                    <div class="form-group">
+                        <label for="phoneNumber">M-Pesa Phone Number <span class="required">*</span></label>
+                        <input type="tel" id="phoneNumber" placeholder="07XXXXXXXX" disabled required>
                     </div>
-
-                    <!-- SOURCE -->
-
-                    <div class="form-section">
-
-                        <div class="form-section-title">
-                            <span class="step-number">3</span>
-                            <h3>Registration Source</h3>
-                        </div>
-
-                        <div class="form-grid">
-
-                            <div class="form-group">
-                                <label for="salesCode">
-                                    Sales Agent Code
-                                </label>
-
-                                <select
-                                    id="salesCode"
-                                    name="sales_code"
-                                >
-                                    <option value="">
-                                        Select sales agent
-                                    </option>
-                                </select>
-
-                                <span
-                                    class="help-text"
-                                    id="salesCodeHelp"
-                                >
-                                    Select the agent who assisted with your registration.
-                                </span>
-                            </div>
-
-                            <div class="form-group">
-                                <label for="benefitOption">
-                                    Benefit Option
-                                    <span class="required">*</span>
-                                </label>
-
-                                <select
-                                    id="benefitOption"
-                                    name="benefit_option"
-                                    required
-                                >
-                                    <option value="">
-                                        Select benefit option
-                                    </option>
-
-                                    <option value="service">
-                                        Service
-                                    </option>
-
-                                    <option value="cash">
-                                        Cash
-                                    </option>
-                                </select>
-
-                                <span class="help-text">
-                                    Select how the applicable benevolent benefit is to be provided.
-                                </span>
-                            </div>
-
-                        </div>
+                    <div class="form-group">
+                        <label for="amountInput">Amount (KES) <span class="required">*</span></label>
+                        <input type="number" id="amountInput" placeholder="Enter amount" min="1" disabled required>
                     </div>
-
-                    <!-- DEPENDANTS -->
-
-                    <div class="form-section">
-
-                        <div class="form-section-title">
-                            <span class="step-number">4</span>
-                            <h3>Dependants</h3>
-                        </div>
-
-                        <p class="help-text">
-                            You may add eligible spouse, children or parents according to the selected plan.
-                        </p>
-
-                        <div
-                            id="dependantsContainer"
-                            class="dependant-list"
-                        ></div>
-
-                        <button
-                            type="button"
-                            id="addDependantBtn"
-                            class="add-button"
-                        >
-                            + Add Dependant
-                        </button>
-
+                    <div class="form-group">
+                        <label for="paymentType">Payment Type <span class="required">*</span></label>
+                        <input type="text" id="paymentType" value="Monthly Premium" disabled>
+                        <span style="font-size:12px;color:var(--text-light);">Default: Monthly Premium</span>
                     </div>
-
-                    <!-- SUMMARY -->
-
-                    <div class="form-section">
-
-                        <div class="form-section-title">
-                            <span class="step-number">5</span>
-                            <h3>Registration Summary</h3>
-                        </div>
-
-                        <div class="summary">
-
-                            <div class="summary-row">
-                                <span>Plan</span>
-                                <strong id="summaryPlan">—</strong>
-                            </div>
-
-                            <div class="summary-row">
-                                <span>Principal registration</span>
-                                <strong id="summaryPrincipal">
-                                    KES 0
-                                </strong>
-                            </div>
-
-                            <div class="summary-row">
-                                <span>Dependant registration</span>
-                                <strong id="summaryDependants">
-                                    KES 0
-                                </strong>
-                            </div>
-
-                            <div class="summary-row total">
-                                <span>Amount to pay now</span>
-                                <strong id="summaryTotal">
-                                    KES 0
-                                </strong>
-                            </div>
-
-                        </div>
-                    </div>
-
-                    <div class="button-row">
-
-                        <button
-                            type="button"
-                            id="resetBtn"
-                            class="btn btn-secondary"
-                        >
-                            Reset
-                        </button>
-
-                        <button
-                            type="submit"
-                            id="submitBtn"
-                            class="btn btn-primary"
-                        >
-                            Continue to Payment
-                        </button>
-
-                    </div>
-
+                    <button type="submit" class="btn btn-gold btn-block" id="payBtn" disabled>
+                        <i class="fas fa-mobile-screen-button"></i>
+                        <span class="btn-label">Send STK Push</span>
+                    </button>
                 </form>
 
-                <!-- =====================================================
-                     CHAMA REGISTRATION
-                     ===================================================== -->
-
-                <section
-                    id="chamaSection"
-                    class="chama-only"
-                >
-
-                    <div class="section-heading">
-
-                        <h2>Chama / Group Registration</h2>
-
-                        <p>
-                            Upload a CSV containing the members of your chama/group.
-                            A minimum of 30 members is required.
-                        </p>
-
-                    </div>
-
-                    <form
-                        id="chamaForm"
-                        novalidate
-                    >
-
-                        <div class="form-section">
-
-                            <div class="form-section-title">
-                                <span class="step-number">1</span>
-                                <h3>Group Details</h3>
-                            </div>
-
-                            <div class="form-grid">
-
-                                <div class="form-group">
-
-                                    <label for="chamaName">
-                                        Chama / Group Name
-                                        <span class="required">*</span>
-                                    </label>
-
-                                    <input
-                                        type="text"
-                                        id="chamaName"
-                                        required
-                                    />
-
-                                </div>
-
-                                <div class="form-group">
-
-                                    <label for="chamaPhone">
-                                        Group Contact Phone
-                                        <span class="required">*</span>
-                                    </label>
-
-                                    <input
-                                        type="tel"
-                                        id="chamaPhone"
-                                        placeholder="07XXXXXXXX"
-                                        required
-                                    />
-
-                                </div>
-
-                            </div>
-                        </div>
-
-                        <div class="form-section">
-
-                            <div class="form-section-title">
-                                <span class="step-number">2</span>
-                                <h3>Group Officials</h3>
-                            </div>
-
-                            <div class="form-grid">
-
-                                <div class="form-group">
-                                    <label for="chairpersonName">
-                                        Chairperson Name
-                                        <span class="required">*</span>
-                                    </label>
-
-                                    <input
-                                        type="text"
-                                        id="chairpersonName"
-                                        required
-                                    />
-                                </div>
-
-                                <div class="form-group">
-                                    <label for="chairpersonPhone">
-                                        Chairperson Phone
-                                        <span class="required">*</span>
-                                    </label>
-
-                                    <input
-                                        type="tel"
-                                        id="chairpersonPhone"
-                                        required
-                                    />
-                                </div>
-
-                                <div class="form-group">
-                                    <label for="chairpersonId">
-                                        Chairperson ID
-                                        <span class="required">*</span>
-                                    </label>
-
-                                    <input
-                                        type="text"
-                                        id="chairpersonId"
-                                        required
-                                    />
-                                </div>
-
-                                <div class="form-group">
-                                    <label for="treasurerName">
-                                        Treasurer Name
-                                        <span class="required">*</span>
-                                    </label>
-
-                                    <input
-                                        type="text"
-                                        id="treasurerName"
-                                        required
-                                    />
-                                </div>
-
-                                <div class="form-group">
-                                    <label for="treasurerPhone">
-                                        Treasurer Phone
-                                        <span class="required">*</span>
-                                    </label>
-
-                                    <input
-                                        type="tel"
-                                        id="treasurerPhone"
-                                        required
-                                    />
-                                </div>
-
-                                <div class="form-group">
-                                    <label for="treasurerId">
-                                        Treasurer ID
-                                        <span class="required">*</span>
-                                    </label>
-
-                                    <input
-                                        type="text"
-                                        id="treasurerId"
-                                        required
-                                    />
-                                </div>
-
-                                <div class="form-group">
-                                    <label for="secretaryName">
-                                        Secretary Name
-                                        <span class="required">*</span>
-                                    </label>
-
-                                    <input
-                                        type="text"
-                                        id="secretaryName"
-                                        required
-                                    />
-                                </div>
-
-                                <div class="form-group">
-                                    <label for="secretaryPhone">
-                                        Secretary Phone
-                                        <span class="required">*</span>
-                                    </label>
-
-                                    <input
-                                        type="tel"
-                                        id="secretaryPhone"
-                                        required
-                                    />
-                                </div>
-
-                                <div class="form-group">
-                                    <label for="secretaryId">
-                                        Secretary ID
-                                        <span class="required">*</span>
-                                    </label>
-
-                                    <input
-                                        type="text"
-                                        id="secretaryId"
-                                        required
-                                    />
-                                </div>
-
-                            </div>
-                        </div>
-
-                        <div class="form-section">
-
-                            <div class="form-section-title">
-                                <span class="step-number">3</span>
-                                <h3>Upload Members CSV</h3>
-                            </div>
-
-                            <div class="csv-box">
-
-                                <strong>
-                                    Upload your chama member list
-                                </strong>
-
-                                <p class="help-text">
-                                    Required columns:
-                                    first_name, last_name, phone,
-                                    id_number, date_of_birth, gender
-                                </p>
-
-                                <input
-                                    type="file"
-                                    id="chamaCsv"
-                                    accept=".csv,text/csv"
-                                />
-
-                            </div>
-
-                            <div
-                                id="csvCount"
-                                class="csv-count"
-                            ></div>
-
-                            <div
-                                id="csvPreview"
-                                class="csv-preview"
-                            ></div>
-
-                        </div>
-
-                        <div class="form-section">
-
-                            <div class="summary">
-
-                                <div class="summary-row">
-                                    <span>Members</span>
-                                    <strong id="chamaMemberCount">
-                                        0
-                                    </strong>
-                                </div>
-
-                                <div class="summary-row">
-                                    <span>Registration rate</span>
-                                    <strong>
-                                        KES 100 per member
-                                    </strong>
-                                </div>
-
-                                <div class="summary-row total">
-                                    <span>Amount to pay</span>
-                                    <strong id="chamaTotal">
-                                        KES 0
-                                    </strong>
-                                </div>
-
-                            </div>
-
-                        </div>
-
-                        <div class="button-row">
-
-                            <button
-                                type="button"
-                                id="chamaResetBtn"
-                                class="btn btn-secondary"
-                            >
-                                Reset
-                            </button>
-
-                            <button
-                                type="submit"
-                                id="chamaSubmitBtn"
-                                class="btn btn-primary"
-                            >
-                                Continue to Payment
-                            </button>
-
-                        </div>
-
-                    </form>
-
-                </section>
-
-            </section>
-
-            <aside class="card side-card">
-
-                <h3>Registration Information</h3>
-
-                <div class="side-item">
-                    <div class="side-icon">1</div>
-                    <div>
-                        <strong>Registration first</strong>
-                        <span>
-                            Your details are created as a pending registration.
-                        </span>
+                <!-- Payment Status -->
+                <div id="paymentStatus">
+                    <div class="status-icon" id="statusIcon">⏳</div>
+                    <div id="statusTitle">Payment Sent to Phone</div>
+                    <div id="statusMessage">Waiting for the member to enter their M-Pesa PIN.</div>
+                    <span class="status-badge pending" id="statusBadge">Pending</span>
+                    <div class="status-actions">
+                        <button class="btn btn-primary btn-sm" id="checkStatusBtn" type="button" onclick="checkPaymentStatus()">
+                            <i class="fas fa-sync"></i> Check Status
+                        </button>
+                        <button class="btn btn-outline btn-sm" id="retryBtn" type="button" style="display:none;" onclick="resetPayment()">
+                            <i class="fas fa-rotate-left"></i> Try Again
+                        </button>
                     </div>
                 </div>
+            </div>
 
-                <div class="side-item">
-                    <div class="side-icon">2</div>
-                    <div>
-                        <strong>Pay securely</strong>
-                        <span>
-                            You will proceed to the M-Pesa payment page.
-                        </span>
+            <!-- Success Card -->
+            <div class="card" id="successCard">
+                <div class="check"><i class="fas fa-circle-check"></i></div>
+                <h3>Payment Confirmed!</h3>
+                <div id="successDetails">
+                    <div class="row">
+                        <span class="label">Member Name</span>
+                        <span class="value highlight" id="successName">—</span>
+                    </div>
+                    <div class="row">
+                        <span class="label">Member Number</span>
+                        <span class="value highlight" id="successNumber">—</span>
+                    </div>
+                    <div class="row">
+                        <span class="label">Amount Paid</span>
+                        <span class="value highlight" id="successAmount">KES 0</span>
+                    </div>
+                    <div class="row">
+                        <span class="label">Transaction ID</span>
+                        <span class="value" id="successTransactionId">—</span>
                     </div>
                 </div>
-
-                <div class="side-item">
-                    <div class="side-icon">3</div>
-                    <div>
-                        <strong>Automatic verification</strong>
-                        <span>
-                            M-Pesa callback confirms the transaction.
-                        </span>
-                    </div>
+                <div class="success-actions">
+                    <button class="btn btn-success btn-sm" type="button" onclick="downloadReceipt()">
+                        <i class="fas fa-file-pdf"></i> Download Receipt
+                    </button>
+                    <button class="btn btn-primary btn-sm" type="button" onclick="collectAnotherPayment()">
+                        <i class="fas fa-plus"></i> Collect Another
+                    </button>
                 </div>
+            </div>
 
-                <div class="side-item">
-                    <div class="side-icon">4</div>
-                    <div>
-                        <strong>Membership finalized</strong>
-                        <span>
-                            The backend activates the membership after successful payment.
-                        </span>
-                    </div>
-                </div>
-
-                <div class="side-item">
-                    <div class="side-icon">5</div>
-                    <div>
-                        <strong>Membership number</strong>
-                        <span>
-                            The final member number is generated during finalization.
-                        </span>
-                    </div>
-                </div>
-
-                <div class="side-item">
-                    <div class="side-icon">✓</div>
-                    <div>
-                        <strong>Receipt &amp; ID card</strong>
-                        <span>
-                            Your finalized membership can be used for receipt and identity-card generation.
-                        </span>
-                    </div>
-                </div>
-
-            </aside>
-
-        </div>
-    </div>
-</main>
-
-<footer>
-    <div class="container footer-inner">
-
-        <div>
-            © <span id="year"></span> Masika Benevolent.
-            All rights reserved.
-        </div>
-
-        <div>
-            Dignity. Support. Together.
-        </div>
+        </main>
 
     </div>
-</footer>
 
-<!-- =========================================================
-     ALIGNED JAVASCRIPT
-     ========================================================= -->
+    <!-- ============================================================
+    TOAST CONTAINER
+    ============================================================ -->
+    <div class="toast-container" id="toastContainer"></div>
 
-<script>
-    // =========================================================
-    // SET YEAR IN FOOTER
-    // =========================================================
-    document.getElementById('year').textContent = new Date().getFullYear();
+    <!-- ============================================================
+    JAVASCRIPT - ALIGNED WITH SUPABASE/BACKEND
+    ============================================================ -->
+    <script>
+        // ============================================================
+        // SUPABASE CONFIG
+        // ============================================================
+        const SUPABASE_URL = 'https://wpxzlcdrirlcyvfiquld.supabase.co';
+        const SUPABASE_ANON_KEY = 'YOUR_SUPABASE_ANON_KEY';
 
-    // =========================================================
-    // CHECK IF ALREADY LOGGED IN
-    // =========================================================
-    document.addEventListener('DOMContentLoaded', function() {
-        if (typeof authManager !== 'undefined' && authManager.isAuthenticated) {
-            window.location.href = CONFIG.ROUTES.DASHBOARD;
-            return;
+        const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+        // ============================================================
+        // STATE
+        // ============================================================
+        let currentUser = null;
+        let selectedMember = null;
+        let paymentCheckoutId = null;
+        let paymentData = null;
+        let statusPollInterval = null;
+
+        // ============================================================
+        // INITIALIZATION
+        // ============================================================
+        document.addEventListener('DOMContentLoaded', async function() {
+            await checkAuth();
+            setupEventListeners();
+            setupSidebarToggle();
+            updateClock();
+        });
+
+        // ============================================================
+        // AUTH CHECK
+        // ============================================================
+        async function checkAuth() {
+            try {
+                const { data: { session }, error } = await supabase.auth.getSession();
+
+                if (error || !session) {
+                    window.location.href = 'admin-login.html';
+                    return;
+                }
+
+                const { data: admin, error: adminError } = await supabase
+                    .from('admins')
+                    .select('*')
+                    .eq('id', session.user.id)
+                    .single();
+
+                if (adminError || !admin) {
+                    window.location.href = 'admin-login.html';
+                    return;
+                }
+
+                currentUser = admin;
+                document.getElementById('adminName').textContent = admin.full_name || 'Admin';
+                document.getElementById('adminRole').textContent = admin.role || 'Administrator';
+                document.getElementById('adminAvatar').textContent = (admin.full_name || 'A').charAt(0).toUpperCase();
+
+            } catch (error) {
+                console.error('Auth check error:', error);
+                showToast('error', 'Authentication error');
+            }
         }
-        
-        // Initialize registration
-        if (typeof initRegistration === 'function') {
-            initRegistration();
-        } else {
-            console.warn('register.js not loaded properly');
-        }
-    });
-</script>
 
-<!-- Register JS - Main registration logic -->
-<script src="js/register.js"></script>
+        // ============================================================
+        // SETUP EVENT LISTENERS
+        // ============================================================
+        function setupEventListeners() {
+            // Search button
+            document.getElementById('memberSearchBtn').addEventListener('click', searchMembers);
+
+            // Enter key on search input
+            document.getElementById('memberSearchInput').addEventListener('keypress', function(e) {
+                if (e.key === 'Enter') {
+                    e.preventDefault();
+                    searchMembers();
+                }
+            });
+
+            // Input debounce for search
+            let searchTimeout;
+            document.getElementById('memberSearchInput').addEventListener('input', function() {
+                clearTimeout(searchTimeout);
+                searchTimeout = setTimeout(() => {
+                    if (this.value.length >= 2) {
+                        searchMembers();
+                    } else if (this.value.length === 0) {
+                        document.getElementById('searchResults').innerHTML = '';
+                    }
+                }, 300);
+            });
+        }
+
+        // ============================================================
+        // SEARCH MEMBERS
+        // ============================================================
+        async function searchMembers() {
+            const query = document.getElementById('memberSearchInput').value.trim();
+            const resultsContainer = document.getElementById('searchResults');
+
+            if (!query || query.length < 2) {
+                resultsContainer.innerHTML = `<div class="search-empty">Type at least 2 characters to search</div>`;
+                return;
+            }
+
+            resultsContainer.innerHTML = `
+                <div class="loading-spinner">
+                    <div class="spinner"></div>
+                </div>
+            `;
+
+            try {
+                // Search in members table
+                const { data, error } = await supabase
+                    .from('members')
+                    .select('*')
+                    .or(
+                        `first_name.ilike.%${query}%,` +
+                        `last_name.ilike.%${query}%,` +
+                        `membership_number.ilike.%${query}%,` +
+                        `phone.ilike.%${query}%,` +
+                        `id_number.ilike.%${query}%`
+                    )
+                    .limit(10);
+
+                if (error) throw error;
+
+                if (!data || data.length === 0) {
+                    resultsContainer.innerHTML = `
+                        <div class="search-empty">
+                            <i class="fas fa-user-slash" style="display:block;font-size:24px;margin-bottom:8px;"></i>
+                            No members found matching "<strong>${query}</strong>"
+                        </div>
+                    `;
+                    return;
+                }
+
+                resultsContainer.innerHTML = data.map(member => `
+                    <div class="search-result-row" onclick="selectMember('${member.id}')">
+                        <div>
+                            <div class="name">${member.first_name || ''} ${member.last_name || ''}</div>
+                            <div class="meta">#${member.membership_number || 'N/A'} · ${member.phone || 'N/A'}</div>
+                        </div>
+                        <span class="status-badge ${member.is_active ? 'active' : 'inactive'}">
+                            ${member.is_active ? 'Active' : 'Inactive'}
+                        </span>
+                    </div>
+                `).join('');
+
+            } catch (error) {
+                console.error('Search error:', error);
+                resultsContainer.innerHTML = `
+                    <div class="search-empty" style="color:var(--danger);">
+                        <i class="fas fa-exclamation-triangle" style="display:block;font-size:24px;margin-bottom:8px;"></i>
+                        Failed to search members
+                    </div>
+                `;
+            }
+        }
+
+        // ============================================================
+        // SELECT MEMBER
+        // ============================================================
+        async function selectMember(memberId) {
+            try {
+                const { data: member, error } = await supabase
+                    .from('members')
+                    .select('*')
+                    .eq('id', memberId)
+                    .single();
+
+                if (error) throw error;
+
+                selectedMember = member;
+                document.getElementById('searchResults').innerHTML = '';
+
+                // Show selected member
+                const selectedDiv = document.getElementById('selectedMember');
+                selectedDiv.classList.add('show');
+                document.getElementById('selectedMemberName').textContent =
+                    `${member.first_name || ''} ${member.last_name || ''}`.trim() || 'N/A';
+                document.getElementById('selectedMemberNumber').textContent = member.membership_number || 'N/A';
+                document.getElementById('selectedMemberStatus').innerHTML =
+                    `<span class="status-badge ${member.is_active ? 'active' : 'inactive'}">${member.is_active ? 'Active' : 'Inactive'}</span>`;
+
+                // Enable form fields
+                document.getElementById('phoneNumber').disabled = false;
+                document.getElementById('phoneNumber').value = member.phone || '';
+                document.getElementById('amountInput').disabled = false;
+                document.getElementById('amountInput').focus();
+                document.getElementById('payBtn').disabled = false;
+
+                showToast('success', `Member ${member.first_name || ''} ${member.last_name || ''} selected`);
+
+            } catch (error) {
+                console.error('Select member error:', error);
+                showToast('error', 'Failed to select member');
+            }
+        }
+
+        // ============================================================
+        // CLEAR SELECTED MEMBER
+        // ============================================================
+        function clearSelectedMember() {
+            selectedMember = null;
+            document.getElementById('selectedMember').classList.remove('show');
+            document.getElementById('phoneNumber').disabled = true;
+            document.getElementById('phoneNumber').value = '';
+            document.getElementById('amountInput').disabled = true;
+            document.getElementById('amountInput').value = '';
+            document.getElementById('payBtn').disabled = true;
+            document.getElementById('searchResults').innerHTML = '';
+            document.getElementById('memberSearchInput').value = '';
+            document.getElementById('memberSearchInput').focus();
+        }
+
+        // ============================================================
+        // INITIATE PAYMENT
+        // ============================================================
+        async function initiatePayment(event) {
+            event.preventDefault();
+
+            if (!selectedMember) {
+                showToast('error', 'Please select a member first');
+                return;
+            }
+
+            const phone = document.getElementById('phoneNumber').value.trim();
+            const amount = parseFloat(document.getElementById('amountInput').value);
+
+            if (!phone || phone.length < 10) {
+                showToast('error', 'Please enter a valid phone number');
+                return;
+            }
+
+            if (!amount || amount < 1) {
+                showToast('error', 'Please enter a valid amount');
+                return;
+            }
+
+            const payBtn = document.getElementById('payBtn');
+            const originalText = payBtn.innerHTML;
+            payBtn.disabled = true;
+            payBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Sending...';
+
+            try {
+                // Call backend API to initiate payment
+                const response = await fetch(`${CONFIG?.API?.BASE_URL || 'http://localhost:8000/api/v1'}/payments/mpesa/initiate`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${localStorage.getItem('access_token')}`
+                    },
+                    body: JSON.stringify({
+                        membership_number: selectedMember.membership_number,
+                        phone_number: phone,
+                        amount: amount,
+                        payment_type: 'monthly'
+                    })
+                });
+
+                const data = await response.json();
+
+                if (!response.ok) {
+                    throw new Error(data.detail || 'Payment initiation failed');
+                }
+
+                paymentCheckoutId = data.checkout_request_id;
+                paymentData = data;
+
+                // Show payment status
+                showPaymentStatus('pending', 'Payment Sent to Phone', 'Waiting for member to enter M-Pesa PIN...');
+
+                // Start polling for status
+                startStatusPolling(data.checkout_request_id);
+
+                showToast('success', 'STK Push sent successfully!');
+
+            } catch (error) {
+                console.error('Payment initiation error:', error);
+                showToast('error', error.message || 'Failed to initiate payment');
+                payBtn.disabled = false;
+                payBtn.innerHTML = originalText;
+            }
+        }
+
+        // ============================================================
+        // SHOW PAYMENT STATUS
+        // ============================================================
+        function showPaymentStatus(status, title, message) {
+            const statusDiv = document.getElementById('paymentStatus');
+            statusDiv.style.display = 'block';
+
+            const icons = {
+                pending: '⏳',
+                completed: '✅',
+                failed: '❌'
+            };
+
+            document.getElementById('statusIcon').textContent = icons[status] || '⏳';
+            document.getElementById('statusTitle').textContent = title;
+            document.getElementById('statusMessage').textContent = message;
+
+            const badge = document.getElementById('statusBadge');
+            badge.className = `status-badge ${status}`;
+            badge.textContent = status.charAt(0).toUpperCase() + status.slice(1);
+
+            document.getElementById('retryBtn').style.display = status === 'failed' ? 'inline-flex' : 'none';
+
+            // Hide form
+            document.getElementById('paymentForm').style.display = 'none';
+            document.getElementById('selectedMember').style.display = 'none';
+
+            if (status === 'completed') {
+                showSuccessCard();
+            }
+        }
+
+        // ============================================================
+        // START STATUS POLLING
+        // ============================================================
+        function startStatusPolling(checkoutId) {
+            let attempts = 0;
+            const maxAttempts = 12; // 2 minutes
+
+            if (statusPollInterval) {
+                clearInterval(statusPollInterval);
+            }
+
+            statusPollInterval = setInterval(async () => {
+                attempts++;
+
+                try {
+                    const response = await fetch(`${CONFIG?.API?.BASE_URL || 'http://localhost:8000/api/v1'}/payments/mpesa/status/${checkoutId}`, {
+                        headers: {
+                            'Authorization': `Bearer ${localStorage.getItem('access_token')}`
+                        }
+                    });
+
+                    const data = await response.json();
+
+                    if (data.status === 'completed') {
+                        clearInterval(statusPollInterval);
+                        statusPollInterval = null;
+                        showPaymentStatus('completed', 'Payment Successful!', 'The payment has been confirmed.');
+                        showToast('success', 'Payment completed successfully!');
+                        // Store payment for receipt
+                        paymentData = { ...paymentData, ...data };
+                    } else if (data.status === 'failed') {
+                        clearInterval(statusPollInterval);
+                        statusPollInterval = null;
+                        showPaymentStatus('failed', 'Payment Failed', 'The payment was not completed. Please try again.');
+                        showToast('error', 'Payment failed');
+                    } else if (attempts >= maxAttempts) {
+                        clearInterval(statusPollInterval);
+                        statusPollInterval = null;
+                        showPaymentStatus('pending', 'Payment Taking Longer', 'Please check your phone or try again.');
+                        document.getElementById('retryBtn').style.display = 'inline-flex';
+                        showToast('warning', 'Payment is taking longer than expected');
+                    }
+
+                } catch (error) {
+                    console.error('Status check error:', error);
+                    if (attempts >= maxAttempts) {
+                        clearInterval(statusPollInterval);
+                        statusPollInterval = null;
+                    }
+                }
+            }, 10000); // Check every 10 seconds
+        }
+
+        // ============================================================
+        // CHECK PAYMENT STATUS (Manual)
+        // ============================================================
+        async function checkPaymentStatus() {
+            if (!paymentCheckoutId) {
+                showToast('error', 'No payment to check');
+                return;
+            }
+
+            const btn = document.getElementById('checkStatusBtn');
+            btn.disabled = true;
+            btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Checking...';
+
+            try {
+                const response = await fetch(`${CONFIG?.API?.BASE_URL || 'http://localhost:8000/api/v1'}/payments/mpesa/status/${paymentCheckoutId}`, {
+                    headers: {
+                        'Authorization': `Bearer ${localStorage.getItem('access_token')}`
+                    }
+                });
+
+                const data = await response.json();
+
+                if (data.status === 'completed') {
+                    clearInterval(statusPollInterval);
+                    statusPollInterval = null;
+                    showPaymentStatus('completed', 'Payment Successful!', 'The payment has been confirmed.');
+                    showToast('success', 'Payment completed successfully!');
+                    paymentData = { ...paymentData, ...data };
+                } else if (data.status === 'failed') {
+                    clearInterval(statusPollInterval);
+                    statusPollInterval = null;
+                    showPaymentStatus('failed', 'Payment Failed', 'The payment was not completed. Please try again.');
+                    showToast('error', 'Payment failed');
+                } else {
+                    showToast('info', `Payment status: ${data.status || 'Pending'}`);
+                }
+
+            } catch (error) {
+                console.error('Status check error:', error);
+                showToast('error', 'Failed to check payment status');
+            } finally {
+                btn.disabled = false;
+                btn.innerHTML = '<i class="fas fa-sync"></i> Check Status';
+            }
+        }
+
+        // ============================================================
+        // SHOW SUCCESS CARD
+        // ============================================================
+        function showSuccessCard() {
+            const card = document.getElementById('successCard');
+            card.style.display = 'block';
+
+            const member = selectedMember;
+            document.getElementById('successName').textContent =
+                `${member?.first_name || ''} ${member?.last_name || ''}`.trim() || 'N/A';
+            document.getElementById('successNumber').textContent = member?.membership_number || 'N/A';
+            document.getElementById('successAmount').textContent =
+                `KES ${(paymentData?.amount || 0).toLocaleString()}`;
+            document.getElementById('successTransactionId').textContent =
+                paymentData?.mpesa_receipt_number || paymentData?.checkout_request_id || 'N/A';
+
+            // Hide payment card
+            document.getElementById('paymentCard').style.display = 'none';
+        }
+
+        // ============================================================
+        // RESET PAYMENT
+        // ============================================================
+        function resetPayment() {
+            if (statusPollInterval) {
+                clearInterval(statusPollInterval);
+                statusPollInterval = null;
+            }
+
+            paymentCheckoutId = null;
+            paymentData = null;
+
+            document.getElementById('paymentStatus').style.display = 'none';
+            document.getElementById('paymentForm').style.display = 'block';
+            document.getElementById('selectedMember').style.display = 'flex';
+
+            document.getElementById('payBtn').disabled = false;
+            document.getElementById('payBtn').innerHTML = `
+                <i class="fas fa-mobile-screen-button"></i>
+                <span class="btn-label">Send STK Push</span>
+            `;
+        }
+
+        // ============================================================
+        // COLLECT ANOTHER PAYMENT
+        // ============================================================
+        function collectAnotherPayment() {
+            document.getElementById('successCard').style.display = 'none';
+            document.getElementById('paymentCard').style.display = 'block';
+            document.getElementById('paymentStatus').style.display = 'none';
+            document.getElementById('paymentForm').style.display = 'block';
+            document.getElementById('selectedMember').style.display = 'none';
+
+            paymentCheckoutId = null;
+            paymentData = null;
+            selectedMember = null;
+
+            document.getElementById('phoneNumber').value = '';
+            document.getElementById('phoneNumber').disabled = true;
+            document.getElementById('amountInput').value = '';
+            document.getElementById('amountInput').disabled = true;
+            document.getElementById('payBtn').disabled = true;
+            document.getElementById('memberSearchInput').value = '';
+            document.getElementById('searchResults').innerHTML = '';
+
+            if (statusPollInterval) {
+                clearInterval(statusPollInterval);
+                statusPollInterval = null;
+            }
+
+            document.getElementById('memberSearchInput').focus();
+            showToast('info', 'Ready to collect another payment');
+        }
+
+        // ============================================================
+        // DOWNLOAD RECEIPT (PDF)
+        // ============================================================
+        function downloadReceipt() {
+            try {
+                const { jsPDF } = window.jspdf;
+                const doc = new jsPDF();
+
+                const member = selectedMember;
+
+                // Header
+                doc.setFillColor(11, 93, 59);
+                doc.rect(0, 0, 210, 45, 'F');
+                doc.setTextColor(255, 255, 255);
+                doc.setFontSize(22);
+                doc.text('MASIKA BENEVOLENT', 20, 25);
+                doc.setFontSize(10);
+                doc.text('Payment Receipt', 20, 35);
+
+                // Payment details
+                doc.setTextColor(0, 0, 0);
+                doc.setFontSize(12);
+                const yStart = 55;
+
+                doc.text(`Receipt #: ${paymentData?.checkout_request_id || 'N/A'}`, 20, yStart);
+                doc.text(`Date: ${new Date().toLocaleDateString('en-KE')}`, 20, yStart + 8);
+                doc.text(`Time: ${new Date().toLocaleTimeString('en-KE')}`, 20, yStart + 16);
+
+                // Member details
+                doc.setFontSize(14);
+                doc.setFont('helvetica', 'bold');
+                doc.text('Member Details', 20, yStart + 30);
+                doc.setFont('helvetica', 'normal');
+                doc.setFontSize(12);
+
+                doc.text(`Name: ${member?.first_name || ''} ${member?.last_name || ''}`, 20, yStart + 40);
+                doc.text(`Member #: ${member?.membership_number || 'N/A'}`, 20, yStart + 48);
+                doc.text(`Phone: ${member?.phone || 'N/A'}`, 20, yStart + 56);
+
+                // Payment details
+                doc.setFontSize(14);
+                doc.setFont('helvetica', 'bold');
+                doc.text('Payment Details', 20, yStart + 70);
+                doc.setFont('helvetica', 'normal');
+                doc.setFontSize(12);
+
+                doc.text(`Amount: KES ${(paymentData?.amount || 0).toLocaleString()}`, 20, yStart + 80);
+                doc.text(`Status: Completed`, 20, yStart + 88);
+                doc.text(`Transaction ID: ${paymentData?.mpesa_receipt_number || paymentData?.checkout_request_id || 'N/A'}`, 20, yStart + 96);
+
+                // Footer
+                doc.setDrawColor(200, 200, 200);
+                doc.line(20, yStart + 110, 190, yStart + 110);
+                doc.setFontSize(10);
+                doc.setTextColor(100, 100, 100);
+                doc.text('Thank you for your payment. This is a system-generated receipt.', 20, yStart + 120);
+
+                doc.save(`payment_receipt_${member?.membership_number || 'unknown'}.pdf`);
+                showToast('success', 'Receipt downloaded successfully');
+
+            } catch (error) {
+                console.error('PDF generation error:', error);
+                showToast('error', 'Failed to generate receipt');
+            }
+        }
+
+        // ============================================================
+        // RESET FORM
+        // ============================================================
+        function resetForm() {
+            if (statusPollInterval) {
+                clearInterval(statusPollInterval);
+                statusPollInterval = null;
+            }
+
+            paymentCheckoutId = null;
+            paymentData = null;
+            selectedMember = null;
+
+            document.getElementById('paymentCard').style.display = 'block';
+            document.getElementById('successCard').style.display = 'none';
+            document.getElementById('paymentStatus').style.display = 'none';
+            document.getElementById('paymentForm').style.display = 'block';
+            document.getElementById('selectedMember').style.display = 'none';
+
+            document.getElementById('phoneNumber').value = '';
+            document.getElementById('phoneNumber').disabled = true;
+            document.getElementById('amountInput').value = '';
+            document.getElementById('amountInput').disabled = true;
+            document.getElementById('payBtn').disabled = true;
+            document.getElementById('memberSearchInput').value = '';
+            document.getElementById('searchResults').innerHTML = '';
+
+            document.getElementById('payBtn').innerHTML = `
+                <i class="fas fa-mobile-screen-button"></i>
+                <span class="btn-label">Send STK Push</span>
+            `;
+
+            showToast('info', 'Form reset');
+        }
+
+        // ============================================================
+        // SIDEBAR TOGGLE
+        // ============================================================
+        function setupSidebarToggle() {
+            const sidebar = document.getElementById('sidebar');
+            const backdrop = document.getElementById('sidebarBackdrop');
+            const toggleBtn = document.getElementById('sidebarToggle');
+
+            if (toggleBtn) {
+                toggleBtn.addEventListener('click', function() {
+                    sidebar.classList.toggle('open');
+                    backdrop.classList.toggle('show');
+                });
+            }
+
+            if (backdrop) {
+                backdrop.addEventListener('click', function() {
+                    sidebar.classList.remove('open');
+                    backdrop.classList.remove('show');
+                });
+            }
+
+            document.querySelectorAll('.sidebar-nav a').forEach(function(link) {
+                link.addEventListener('click', function() {
+                    sidebar.classList.remove('open');
+                    backdrop.classList.remove('show');
+                });
+            });
+        }
+
+        // ============================================================
+        // CLOCK
+        // ============================================================
+        function updateClock() {
+            const clockEl = document.getElementById('currentDateTime');
+            if (clockEl) {
+                const now = new Date();
+                clockEl.textContent = now.toLocaleString('en-KE', {
+                    weekday: 'short',
+                    day: '2-digit',
+                    month: 'short',
+                    year: 'numeric',
+                    hour: '2-digit',
+                    minute: '2-digit'
+                });
+            }
+            setTimeout(updateClock, 30000);
+        }
+
+        // ============================================================
+        // TOAST NOTIFICATIONS
+        // ============================================================
+        function showToast(type, message) {
+            const container = document.getElementById('toastContainer');
+
+            const icons = {
+                success: 'fa-check-circle',
+                error: 'fa-exclamation-circle',
+                warning: 'fa-triangle-exclamation',
+                info: 'fa-info-circle'
+            };
+
+            const toast = document.createElement('div');
+            toast.className = `toast ${type}`;
+            toast.innerHTML = `
+                <i class="fas ${icons[type] || icons.info}"></i>
+                <span>${message}</span>
+                <button class="toast-close" onclick="this.parentElement.remove()">&times;</button>
+            `;
+
+            container.appendChild(toast);
+
+            setTimeout(() => {
+                toast.style.opacity = '0';
+                toast.style.transform = 'translateX(100px)';
+                toast.style.transition = 'all 0.4s ease';
+                setTimeout(() => toast.remove(), 400);
+            }, 4000);
+        }
+
+        // ============================================================
+        // LOGOUT
+        // ============================================================
+        async function handleLogout() {
+            try {
+                await supabase.auth.signOut();
+                sessionStorage.clear();
+                window.location.href = 'admin-login.html';
+            } catch (error) {
+                console.error('Logout error:', error);
+                showToast('error', 'Failed to logout');
+            }
+        }
+
+        // ============================================================
+        // EXPOSE FUNCTIONS
+        // ============================================================
+        window.selectMember = selectMember;
+        window.clearSelectedMember = clearSelectedMember;
+        window.initiatePayment = initiatePayment;
+        window.checkPaymentStatus = checkPaymentStatus;
+        window.resetPayment = resetPayment;
+        window.collectAnotherPayment = collectAnotherPayment;
+        window.downloadReceipt = downloadReceipt;
+        window.resetForm = resetForm;
+        window.handleLogout = handleLogout;
+        window.showToast = showToast;
+    </script>
 
 </body>
 </html>
