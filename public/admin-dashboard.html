@@ -518,15 +518,6 @@
         .stat-card.blue::after { background: rgba(13, 202, 240, 0.05); }
         .stat-card.danger::after { background: rgba(220, 53, 69, 0.05); }
 
-        .stat-card.flash {
-            animation: flash-update 1s ease;
-        }
-
-        @keyframes flash-update {
-            0% { background: var(--gold-light); }
-            100% { background: white; }
-        }
-
         /* ============================================================
            CARDS
            ============================================================ */
@@ -644,10 +635,11 @@
         .status-badge.active { background: var(--success-light); color: var(--success); }
         .status-badge.inactive { background: var(--danger-light); color: var(--danger); }
         .status-badge.pending { background: var(--warning-light); color: #856404; }
-        .status-badge.approved { background: var(--success-light); color: var(--success); }
-        .status-badge.rejected { background: var(--danger-light); color: var(--danger); }
+        .status-badge.successful { background: var(--success-light); color: var(--success); }
+        .status-badge.failed { background: var(--danger-light); color: var(--danger); }
         .status-badge.paid { background: var(--success-light); color: var(--success); }
         .status-badge.unpaid { background: var(--warning-light); color: #856404; }
+        .status-badge.completed { background: var(--success-light); color: var(--success); }
 
         /* ============================================================
            EMPTY & ERROR STATES
@@ -914,6 +906,30 @@
         }
 
         /* ============================================================
+           PAYMENT ROW
+           ============================================================ */
+
+        .payment-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 12px 0;
+            border-bottom: 1px solid var(--gray-100);
+            flex-wrap: wrap;
+            gap: 8px;
+        }
+
+        .payment-row:last-child {
+            border-bottom: none;
+        }
+
+        .payment-row small {
+            display: block;
+            font-size: 12px;
+            color: var(--text-light);
+        }
+
+        /* ============================================================
            MISC
            ============================================================ */
 
@@ -1063,7 +1079,7 @@
                     <div class="stat-label">Total Revenue</div>
                     <div class="stat-sub" id="totalRevenueCount">All time</div>
                 </div>
-                <div class="stat-card warning" id="unassignedRevenueCard">
+                <div class="stat-card warning">
                     <span class="stat-icon">⚠️</span>
                     <div class="stat-value" id="unassignedCount">0</div>
                     <div class="stat-label">Unassigned Payments</div>
@@ -1160,23 +1176,9 @@
                     <a href="admin-collectpayments.html" class="btn btn-primary btn-sm">View All →</a>
                 </div>
                 <div id="recentPayments">
-                    <div class="table-wrapper">
-                        <table>
-                            <thead>
-                                <tr>
-                                    <th>Member</th>
-                                    <th>Amount</th>
-                                    <th>M-Pesa Code</th>
-                                    <th>Date</th>
-                                    <th>Status</th>
-                                </tr>
-                            </thead>
-                            <tbody id="recentPaymentsBody">
-                                <tr>
-                                    <td colspan="5" class="empty-state">Loading…</td>
-                                </tr>
-                            </tbody>
-                        </table>
+                    <div class="loading-spinner">
+                        <div class="spinner"></div>
+                        <p>Loading payments...</p>
                     </div>
                 </div>
             </div>
@@ -1187,7 +1189,7 @@
                     <h3><i class="fas fa-triangle-exclamation" style="color:var(--warning);"></i> Unassigned Payments</h3>
                     <span class="status-badge pending" id="unassignedBadge">0</span>
                 </div>
-                <div id="unassignedPayments">
+                <div id="unassignedPaymentsList">
                     <div class="loading-spinner">
                         <div class="spinner"></div>
                         <p>Loading...</p>
@@ -1212,9 +1214,12 @@
         // SUPABASE CONFIG
         // ============================================================
         const SUPABASE_URL = 'https://wpxzlcdrirlcyvfiquld.supabase.co';
-        const SUPABASE_ANON_KEY = 'YOUR_SUPABASE_ANON_KEY';
+        const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6IndweHpsY2RyaXJsY3l2ZmlxdWxkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODc5Mjc4MDcsImV4cCI6MjEwMzUwMzgwN30.OUP9pmPbrML_egpHflZtDfLv1_UDM37_BYjtb842xjg';
 
-        const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+        console.log('🚀 Dashboard script loaded');
+        console.log('📡 Supabase URL:', SUPABASE_URL);
+
+        const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
         // ============================================================
         // STATE
@@ -1226,11 +1231,20 @@
         // INITIALIZATION
         // ============================================================
         document.addEventListener('DOMContentLoaded', async function() {
-            const authResult = await checkAuth();
-            if (authResult) {
-                await loadDashboardData();
-                setupRealtime();
-                setupAutoRefresh();
+            console.log('📄 DOM loaded');
+            
+            try {
+                const authResult = await checkAuth();
+                console.log('✅ Auth result:', authResult);
+                
+                if (authResult) {
+                    await loadDashboardData();
+                    setupRealtime();
+                    setupAutoRefresh();
+                }
+            } catch (error) {
+                console.error('❌ Initialization error:', error);
+                showToast('error', 'Failed to initialize dashboard');
             }
         });
 
@@ -1238,121 +1252,186 @@
         // AUTH CHECK
         // ============================================================
         async function checkAuth() {
+            console.log('🔐 Checking authentication...');
+            
             try {
-                const { data: { session }, error } = await supabase.auth.getSession();
+                const { data: { session }, error } = await supabaseClient.auth.getSession();
 
-                if (error || !session) {
+                if (error) {
+                    console.error('❌ Session error:', error);
                     window.location.href = 'admin-login.html';
                     return false;
                 }
 
-                currentUser = session.user;
+                if (!session) {
+                    console.log('⚠️ No session found');
+                    window.location.href = 'admin-login.html';
+                    return false;
+                }
 
-                // Check if admin
-                const { data: admin, error: adminError } = await supabase
+                console.log('✅ User authenticated:', session.user.email);
+
+                const { data: admin, error: adminError } = await supabaseClient
                     .from('admins')
                     .select('*')
-                    .eq('id', currentUser.id)
+                    .eq('id', session.user.id)
                     .single();
 
-                if (adminError || !admin) {
+                if (adminError) {
+                    console.error('❌ Admin check error:', adminError);
                     window.location.href = 'admin-login.html';
                     return false;
                 }
 
-                // Update UI
+                if (!admin) {
+                    console.log('⚠️ Not an admin user');
+                    window.location.href = 'admin-login.html';
+                    return false;
+                }
+
+                console.log('✅ Admin verified:', admin.full_name);
+
                 document.getElementById('adminName').textContent = admin.full_name || 'Admin';
                 document.getElementById('adminRole').textContent = admin.role || 'Administrator';
                 document.getElementById('welcomeName').textContent = admin.full_name || 'Admin';
                 document.getElementById('adminAvatar').textContent = (admin.full_name || 'A').charAt(0).toUpperCase();
 
-                // Update live indicator
                 document.getElementById('liveIndicator').classList.add('connected');
                 document.getElementById('liveIndicatorLabel').textContent = 'Connected';
 
                 return true;
 
             } catch (error) {
-                console.error('Auth check error:', error);
+                console.error('❌ Auth check error:', error);
                 showToast('error', 'Authentication error');
                 return false;
             }
         }
 
         // ============================================================
-        // LOAD DASHBOARD DATA - FIXED WITH CORRECT TABLE NAMES
+        // HELPER FUNCTIONS
+        // ============================================================
+        function formatKES(amount) {
+            return `KES ${Number(amount || 0).toLocaleString()}`;
+        }
+
+        function formatDate(value) {
+            if (!value) return '—';
+            try {
+                return new Date(value).toLocaleDateString('en-KE', {
+                    day: '2-digit',
+                    month: 'short',
+                    year: 'numeric'
+                });
+            } catch {
+                return '—';
+            }
+        }
+
+        function escapeHtml(value) {
+            if (!value) return '';
+            return String(value)
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;')
+                .replace(/'/g, '&#039;');
+        }
+
+        function setLiveStatus(status) {
+            const indicator = document.getElementById('liveIndicator');
+            const label = document.getElementById('liveIndicatorLabel');
+            
+            if (indicator) {
+                indicator.className = 'live-indicator';
+                if (status === 'Live' || status === 'Connected') {
+                    indicator.classList.add('connected');
+                } else if (status === 'Error') {
+                    indicator.classList.add('error');
+                }
+            }
+            if (label) {
+                label.textContent = status;
+            }
+        }
+
+        // ============================================================
+        // LOAD DASHBOARD DATA - FIXED
         // ============================================================
         async function loadDashboardData() {
             try {
+                setLiveStatus('Loading...');
                 console.log('🔄 Loading dashboard data...');
 
                 // ============================================
-                // MEMBERS - Using 'members' table
+                // 1. MEMBERS COUNT
                 // ============================================
-                const { count: membersCount, error: membersError } = await supabase
+                const { count: membersCount, error: membersError } = await supabaseClient
                     .from('members')
                     .select('*', { count: 'exact', head: true });
 
                 if (membersError) {
-                    console.warn('Members error:', membersError);
+                    console.error('❌ Members error:', membersError);
                 }
                 const totalMembers = membersCount || 0;
                 console.log('✅ Members:', totalMembers);
 
                 // ============================================
-                // AGENTS - Using 'sales_agents' table (FIXED)
+                // 2. AGENTS COUNT - FIXED
                 // ============================================
-                const { count: agentsCount, error: agentsError } = await supabase
+                const { count: agentsCount, error: agentsError } = await supabaseClient
                     .from('sales_agents')
                     .select('*', { count: 'exact', head: true });
 
                 if (agentsError) {
-                    console.warn('Agents error:', agentsError);
+                    console.error('❌ Agents error:', agentsError);
                 }
                 const totalAgents = agentsCount || 0;
-                console.log('✅ Agents:', totalAgents);
+                console.log('✅ Total Agents:', totalAgents);
 
                 // ============================================
-                // ACTIVE AGENTS - Using 'sales_agents' table (FIXED)
+                // 3. ACTIVE AGENTS - FIXED with ilike
                 // ============================================
-                const { data: activeAgentsData, error: activeError } = await supabase
+                const { count: activeAgentsCount, error: activeError } = await supabaseClient
                     .from('sales_agents')
-                    .select('*')
-                    .eq('status', 'active');
+                    .select('*', { count: 'exact', head: true })
+                    .ilike('status', 'active');
 
                 if (activeError) {
-                    console.warn('Active agents error:', activeError);
+                    console.error('❌ Active agents error:', activeError);
                 }
-                const activeAgents = activeAgentsData?.length || 0;
-                console.log('✅ Active agents:', activeAgents);
+                const activeAgents = activeAgentsCount || 0;
+                console.log('✅ Active Agents:', activeAgents);
 
                 // ============================================
-                // PAYMENTS - Using 'payments' table
+                // 4. PAYMENTS - Get all payments
                 // ============================================
-                const { data: allPayments, error: paymentsError } = await supabase
+                const { data: allPayments, error: paymentsError } = await supabaseClient
                     .from('payments')
                     .select('*');
 
                 if (paymentsError) {
-                    console.warn('Payments error:', paymentsError);
+                    console.error('❌ Payments error:', paymentsError);
                 }
                 const payments = allPayments || [];
                 console.log('✅ Total payments:', payments.length);
 
                 // ============================================
-                // UPDATE STATS DISPLAY
+                // 5. UPDATE STATS
                 // ============================================
-                document.getElementById('totalMembers').textContent = totalMembers;
-                document.getElementById('totalAgents').textContent = totalAgents;
-                document.getElementById('activeAgents').textContent = activeAgents;
+                document.getElementById('totalMembers').textContent = totalMembers.toLocaleString();
+                document.getElementById('totalAgents').textContent = totalAgents.toLocaleString();
+                document.getElementById('activeAgents').textContent = activeAgents.toLocaleString();
                 document.getElementById('memberCountBadge').textContent = totalMembers;
-                document.getElementById('pendingAgentsBadge').textContent = totalAgents - activeAgents;
+                document.getElementById('pendingAgentsBadge').textContent = (totalAgents - activeAgents) || 0;
 
                 // ============================================
-                // REVENUE CALCULATIONS
+                // 6. REVENUE CALCULATIONS
                 // ============================================
                 const completedPayments = payments.filter(p => 
-                    p.status === 'completed' || p.status === 'confirmed'
+                    p.payment_status === 'SUCCESSFUL' || 
+                    p.status === 'completed' || 
+                    p.status === 'confirmed'
                 );
                 const totalRevenue = completedPayments.reduce((sum, p) => sum + (p.amount || 0), 0);
 
@@ -1371,46 +1450,58 @@
                 );
                 const monthRevenue = monthPayments.reduce((sum, p) => sum + (p.amount || 0), 0);
 
-                // Unassigned
-                const unassignedPayments = payments.filter(p => p.status === 'unassigned');
+                // Unassigned (SUCCESSFUL payments with no member_id)
+                const unassignedPayments = payments.filter(p => 
+                    (p.payment_status === 'SUCCESSFUL' || p.status === 'completed') && 
+                    !p.member_id
+                );
                 const unassignedTotal = unassignedPayments.reduce((sum, p) => sum + (p.amount || 0), 0);
 
                 // Pending
-                const pendingPayments = payments.filter(p => p.status === 'pending');
+                const pendingPayments = payments.filter(p => 
+                    p.payment_status === 'PENDING' || p.status === 'pending'
+                );
                 const pendingTotal = pendingPayments.reduce((sum, p) => sum + (p.amount || 0), 0);
 
+                console.log('💰 Revenue - Today:', todayRevenue, 'Month:', monthRevenue, 'Total:', totalRevenue);
+                console.log('📋 Unassigned:', unassignedPayments.length, 'Pending:', pendingPayments.length);
+
                 // ============================================
-                // UPDATE REVENUE STATS
+                // 7. UPDATE REVENUE STATS
                 // ============================================
-                document.getElementById('totalRevenue').textContent = `KES ${totalRevenue.toLocaleString()}`;
+                document.getElementById('totalRevenue').textContent = formatKES(totalRevenue);
                 document.getElementById('totalRevenueCount').textContent = `${completedPayments.length} payments`;
 
-                document.getElementById('dailyRevenue').textContent = `KES ${todayRevenue.toLocaleString()}`;
+                document.getElementById('dailyRevenue').textContent = formatKES(todayRevenue);
                 document.getElementById('dailyRevenueCount').textContent = `${todayPayments.length} payments`;
 
-                document.getElementById('monthRevenue').textContent = `KES ${monthRevenue.toLocaleString()}`;
+                document.getElementById('monthRevenue').textContent = formatKES(monthRevenue);
                 document.getElementById('monthRevenueCount').textContent = `${monthPayments.length} payments`;
 
-                document.getElementById('unassignedCount').textContent = unassignedPayments.length;
-                document.getElementById('unassignedAmount').textContent = `KES ${unassignedTotal.toLocaleString()} unmatched`;
+                document.getElementById('unassignedCount').textContent = unassignedPayments.length.toLocaleString();
+                document.getElementById('unassignedAmount').textContent = formatKES(unassignedTotal);
                 document.getElementById('unassignedBadge').textContent = unassignedPayments.length;
 
-                document.getElementById('pendingPayments').textContent = pendingPayments.length;
-                document.getElementById('pendingAmount').textContent = `KES ${pendingTotal.toLocaleString()}`;
+                document.getElementById('pendingPayments').textContent = pendingPayments.length.toLocaleString();
+                document.getElementById('pendingAmount').textContent = formatKES(pendingTotal);
 
                 // ============================================
-                // LOAD RECENT DATA
+                // 8. LOAD RECENT DATA
                 // ============================================
-                await loadRecentMembers();
-                await loadRecentAgents();
-                await loadRecentPayments();
-                await loadUnassignedPayments(unassignedPayments);
+                await Promise.all([
+                    loadRecentMembers(),
+                    loadRecentAgents(),
+                    loadRecentPayments(),
+                    loadUnassignedPayments()
+                ]);
 
-                console.log('✅ Dashboard loaded successfully');
+                setLiveStatus('Live');
+                console.log('✅ Dashboard loaded successfully!');
 
             } catch (error) {
                 console.error('❌ Dashboard error:', error);
-                showToast('error', 'Failed to load dashboard data');
+                setLiveStatus('Error');
+                showToast('error', 'Failed to load dashboard data: ' + error.message);
             }
         }
 
@@ -1418,14 +1509,21 @@
         // LOAD RECENT MEMBERS
         // ============================================================
         async function loadRecentMembers() {
+            console.log('📋 Loading recent members...');
+            
             try {
-                const { data, error } = await supabase
+                const { data, error } = await supabaseClient
                     .from('members')
                     .select('*')
                     .order('created_at', { ascending: false })
                     .limit(5);
 
-                if (error) throw error;
+                if (error) {
+                    console.error('❌ Recent members error:', error);
+                    return;
+                }
+
+                console.log('📋 Recent members:', data?.length || 0);
 
                 const tbody = document.getElementById('recentMembersBody');
 
@@ -1451,22 +1549,29 @@
                 `).join('');
 
             } catch (error) {
-                console.error('Load recent members error:', error);
+                console.error('❌ Load recent members error:', error);
             }
         }
 
         // ============================================================
-        // LOAD RECENT AGENTS - FIXED: Using sales_agents
+        // LOAD RECENT AGENTS - FIXED with proper status handling
         // ============================================================
         async function loadRecentAgents() {
+            console.log('📋 Loading recent agents...');
+            
             try {
-                const { data, error } = await supabase
+                const { data, error } = await supabaseClient
                     .from('sales_agents')
                     .select('*')
                     .order('created_at', { ascending: false })
                     .limit(5);
 
-                if (error) throw error;
+                if (error) {
+                    console.error('❌ Recent agents error:', error);
+                    return;
+                }
+
+                console.log('📋 Recent agents:', data?.length || 0);
 
                 const tbody = document.getElementById('pendingAgentsBody');
 
@@ -1482,147 +1587,297 @@
                     return;
                 }
 
-                tbody.innerHTML = data.map(a => `
-                    <tr onclick="window.location.href='admin-agents.html?id=${a.id}'" style="cursor:pointer;">
-                        <td><strong>${escapeHtml(a.full_name || a.first_name || 'N/A')}</strong></td>
-                        <td>${escapeHtml(a.phone || 'N/A')}</td>
-                        <td>${a.created_at ? new Date(a.created_at).toLocaleDateString('en-KE') : 'N/A'}</td>
-                        <td><span class="status-badge ${a.status === 'active' ? 'active' : 'pending'}">${a.status || 'Pending'}</span></td>
-                    </tr>
-                `).join('');
+                tbody.innerHTML = data.map(a => {
+                    const agentStatus = String(a.status || '').toLowerCase();
+                    const badgeClass = agentStatus === 'active' ? 'active' : 
+                                     agentStatus === 'inactive' ? 'inactive' : 'pending';
+
+                    return `
+                        <tr onclick="window.location.href='admin-agents.html?id=${a.id}'" style="cursor:pointer;">
+                            <td><strong>${escapeHtml(a.full_name || a.first_name || 'N/A')}</strong></td>
+                            <td>${escapeHtml(a.phone || 'N/A')}</td>
+                            <td>${a.created_at ? new Date(a.created_at).toLocaleDateString('en-KE') : 'N/A'}</td>
+                            <td><span class="status-badge ${badgeClass}">${escapeHtml(a.status || 'Pending')}</span></td>
+                        </tr>
+                    `;
+                }).join('');
 
             } catch (error) {
-                console.error('Load recent agents error:', error);
+                console.error('❌ Load recent agents error:', error);
             }
         }
 
         // ============================================================
-        // LOAD RECENT PAYMENTS
+        // LOAD RECENT PAYMENTS - FIXED with real columns
         // ============================================================
         async function loadRecentPayments() {
+            console.log('📋 Loading recent payments...');
+            
             try {
-                const { data, error } = await supabase
+                const { data, error } = await supabaseClient
                     .from('payments')
-                    .select('*')
+                    .select(`
+                        id,
+                        member_id,
+                        membership_id,
+                        amount,
+                        expected_amount,
+                        payment_method,
+                        payment_status,
+                        payment_date,
+                        phone_number,
+                        phone,
+                        mpesa_receipt,
+                        mpesa_receipt_number,
+                        transaction_reference,
+                        account_number,
+                        account_reference,
+                        status,
+                        reference,
+                        created_at
+                    `)
                     .order('created_at', { ascending: false })
                     .limit(10);
 
-                if (error) throw error;
+                if (error) {
+                    console.error('❌ Recent payments error:', error);
+                    return;
+                }
 
-                const tbody = document.getElementById('recentPaymentsBody');
+                console.log('📋 Recent payments:', data?.length || 0);
+
+                const container = document.getElementById('recentPayments');
+
+                if (!container) {
+                    console.warn('⚠️ recentPayments container not found');
+                    return;
+                }
 
                 if (!data || data.length === 0) {
-                    tbody.innerHTML = `
-                        <tr>
-                            <td colspan="5" class="empty-state">
-                                <i class="fas fa-credit-card"></i>
-                                No payments recorded yet
-                            </td>
-                        </tr>
+                    container.innerHTML = `
+                        <div class="empty-state">
+                            <i class="fas fa-credit-card"></i>
+                            <p>No payments recorded yet</p>
+                        </div>
                     `;
                     return;
                 }
 
-                tbody.innerHTML = data.map(p => `
-                    <tr>
-                        <td>${escapeHtml(p.member_name || p.membership_number || 'N/A')}</td>
-                        <td><strong>KES ${(p.amount || 0).toLocaleString()}</strong></td>
-                        <td>${escapeHtml(p.mpesa_code || p.mpesa_receipt || 'N/A')}</td>
-                        <td>${p.created_at ? new Date(p.created_at).toLocaleDateString('en-KE') : 'N/A'}</td>
-                        <td><span class="status-badge ${p.status || 'pending'}">${p.status || 'Pending'}</span></td>
-                    </tr>
-                `).join('');
+                container.innerHTML = `
+                    <div class="table-wrapper">
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>Account / Reference</th>
+                                    <th>Amount</th>
+                                    <th>Status</th>
+                                    <th>Date</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                ${data.map(payment => {
+                                    const paymentStatus = String(payment.payment_status || payment.status || '').toUpperCase();
+                                    let badgeClass = 'pending';
+                                    
+                                    if (paymentStatus === 'SUCCESSFUL' || paymentStatus === 'COMPLETED' || paymentStatus === 'CONFIRMED') {
+                                        badgeClass = 'successful';
+                                    } else if (paymentStatus === 'FAILED') {
+                                        badgeClass = 'failed';
+                                    }
+
+                                    const receipt = payment.mpesa_receipt_number || payment.mpesa_receipt || payment.transaction_reference || payment.reference || '—';
+                                    const phone = payment.phone_number || payment.phone || '—';
+                                    const account = payment.account_number || payment.account_reference || 'Payment';
+
+                                    return `
+                                        <tr>
+                                            <td>
+                                                <strong>${escapeHtml(account)}</strong>
+                                                <small style="display:block;font-size:12px;color:var(--text-light);">${escapeHtml(phone)}</small>
+                                            </td>
+                                            <td>
+                                                <strong>${formatKES(payment.amount)}</strong>
+                                                <small style="display:block;font-size:12px;color:var(--text-light);">${escapeHtml(receipt)}</small>
+                                            </td>
+                                            <td>
+                                                <span class="status-badge ${badgeClass}">
+                                                    ${escapeHtml(payment.payment_status || payment.status || 'UNKNOWN')}
+                                                </span>
+                                            </td>
+                                            <td>${formatDate(payment.payment_date || payment.created_at)}</td>
+                                        </tr>
+                                    `;
+                                }).join('')}
+                            </tbody>
+                        </table>
+                    </div>
+                `;
 
             } catch (error) {
-                console.error('Load recent payments error:', error);
+                console.error('❌ Load recent payments error:', error);
+                document.getElementById('recentPayments').innerHTML = `
+                    <div class="error-state">
+                        <i class="fas fa-exclamation-triangle"></i>
+                        <p>Failed to load payments</p>
+                    </div>
+                `;
             }
         }
 
         // ============================================================
-        // LOAD UNASSIGNED PAYMENTS
+        // LOAD UNASSIGNED PAYMENTS - FIXED
         // ============================================================
-        async function loadUnassignedPayments(unassignedPayments) {
-            const container = document.getElementById('unassignedPayments');
+        async function loadUnassignedPayments() {
+            console.log('📋 Loading unassigned payments...');
+            
+            try {
+                const { data, error } = await supabaseClient
+                    .from('payments')
+                    .select(`
+                        id,
+                        member_id,
+                        membership_id,
+                        amount,
+                        payment_status,
+                        payment_date,
+                        account_number,
+                        account_reference,
+                        phone,
+                        phone_number,
+                        mpesa_receipt,
+                        mpesa_receipt_number,
+                        transaction_reference,
+                        created_at
+                    `)
+                    .eq('payment_status', 'SUCCESSFUL')
+                    .is('member_id', null)
+                    .order('created_at', { ascending: false });
 
-            if (!unassignedPayments || unassignedPayments.length === 0) {
+                if (error) {
+                    console.error('❌ Unassigned payments error:', error);
+                    return;
+                }
+
+                console.log('📋 Unassigned payments:', data?.length || 0);
+
+                const container = document.getElementById('unassignedPaymentsList');
+
+                if (!container) {
+                    console.warn('⚠️ unassignedPaymentsList container not found');
+                    return;
+                }
+
+                if (!data || data.length === 0) {
+                    container.innerHTML = `
+                        <div class="empty-state">
+                            <i class="fas fa-check-circle"></i>
+                            <p>No unassigned successful payments.</p>
+                        </div>
+                    `;
+                    return;
+                }
+
                 container.innerHTML = `
-                    <div class="empty-state">
-                        <i class="fas fa-check-circle"></i>
-                        <p>No unassigned payments. All payments matched!</p>
+                    <div class="table-wrapper">
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>Amount</th>
+                                    <th>Reference / Account</th>
+                                    <th>Date</th>
+                                    <th>Action</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                ${data.map(payment => {
+                                    const receipt = payment.mpesa_receipt_number || payment.mpesa_receipt || payment.transaction_reference || '—';
+                                    const account = payment.account_number || payment.account_reference || 'No account';
+
+                                    return `
+                                        <tr>
+                                            <td><strong>${formatKES(payment.amount)}</strong></td>
+                                            <td>
+                                                ${escapeHtml(receipt)}
+                                                <small style="display:block;font-size:12px;color:var(--text-light);">${escapeHtml(account)}</small>
+                                            </td>
+                                            <td>${formatDate(payment.payment_date || payment.created_at)}</td>
+                                            <td>
+                                                <button onclick="assignPayment('${payment.id}')" class="btn btn-primary btn-sm">
+                                                    <i class="fas fa-link"></i> Assign
+                                                </button>
+                                            </td>
+                                        </tr>
+                                    `;
+                                }).join('')}
+                            </tbody>
+                        </table>
                     </div>
                 `;
+
+            } catch (error) {
+                console.error('❌ Load unassigned payments error:', error);
+                document.getElementById('unassignedPaymentsList').innerHTML = `
+                    <div class="error-state">
+                        <i class="fas fa-exclamation-triangle"></i>
+                        <p>Failed to load unassigned payments</p>
+                    </div>
+                `;
+            }
+        }
+
+        // ============================================================
+        // ASSIGN PAYMENT - FIXED
+        // ============================================================
+        window.assignPayment = async function(paymentId) {
+            if (!paymentId) {
+                showToast('Payment ID is required.', 'error');
                 return;
             }
 
-            container.innerHTML = `
-                <div class="table-wrapper">
-                    <table>
-                        <thead>
-                            <tr>
-                                <th>Amount</th>
-                                <th>M-Pesa Code</th>
-                                <th>Account Number</th>
-                                <th>Date</th>
-                                <th>Action</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            ${unassignedPayments.slice(0, 20).map(p => `
-                                <tr>
-                                    <td><strong>KES ${(p.amount || 0).toLocaleString()}</strong></td>
-                                    <td>${escapeHtml(p.mpesa_code || 'N/A')}</td>
-                                    <td>${escapeHtml(p.account_number || 'N/A')}</td>
-                                    <td>${p.created_at ? new Date(p.created_at).toLocaleDateString('en-KE') : 'N/A'}</td>
-                                    <td>
-                                        <button onclick="assignPayment('${p.id}')" class="btn btn-primary btn-sm">
-                                            <i class="fas fa-link"></i> Assign
-                                        </button>
-                                    </td>
-                                </tr>
-                            `).join('')}
-                        </tbody>
-                    </table>
-                </div>
-            `;
-        }
+            // Show member search prompt
+            const memberNumber = prompt('Enter member number to assign this payment to:');
+            if (!memberNumber) return;
 
-        // ============================================================
-        // ASSIGN PAYMENT
-        // ============================================================
-        window.assignPayment = async function(paymentId) {
             try {
-                const memberNumber = prompt('Enter member number to assign this payment to:');
-                if (!memberNumber) return;
-
-                const { data: member, error: memberError } = await supabase
+                // Find member
+                const { data: member, error: memberError } = await supabaseClient
                     .from('members')
                     .select('id, membership_number, first_name, last_name')
                     .eq('membership_number', memberNumber)
                     .single();
 
                 if (memberError || !member) {
-                    showToast('error', 'Member not found');
+                    showToast('Member not found. Please check the membership number.', 'error');
                     return;
                 }
 
-                const { error: updateError } = await supabase
+                // Update payment with member_id
+                const { data, error: updateError } = await supabaseClient
                     .from('payments')
                     .update({
                         member_id: member.id,
-                        membership_number: member.membership_number,
-                        member_name: `${member.first_name || ''} ${member.last_name || ''}`.trim(),
-                        status: 'completed'
+                        membership_id: member.id,
+                        updated_at: new Date().toISOString()
                     })
-                    .eq('id', paymentId);
+                    .eq('id', paymentId)
+                    .select()
+                    .single();
 
-                if (updateError) throw updateError;
+                if (updateError) {
+                    console.error('Assign payment error:', updateError);
+                    showToast(`Unable to assign payment: ${updateError.message}`, 'error');
+                    return;
+                }
 
-                showToast('success', `Payment assigned to ${member.membership_number}`);
+                console.log('✅ Payment assigned:', data);
+                showToast(`Payment assigned to ${member.membership_number} successfully.`, 'success');
+                
+                // Refresh dashboard
                 await loadDashboardData();
 
             } catch (error) {
-                console.error('Assign payment error:', error);
-                showToast('error', 'Failed to assign payment');
+                console.error('❌ Assign payment error:', error);
+                showToast('Failed to assign payment: ' + error.message, 'error');
             }
         };
 
@@ -1651,7 +1906,9 @@
         // REAL-TIME SUBSCRIPTIONS
         // ============================================================
         function setupRealtime() {
-            const channel = supabase.channel('dashboard-changes')
+            console.log('🔌 Setting up real-time subscriptions...');
+            
+            const channel = supabaseClient.channel('dashboard-changes')
                 .on(
                     'postgres_changes',
                     { event: '*', schema: 'public', table: 'payments' },
@@ -1668,6 +1925,7 @@
                     () => debounceRefresh()
                 )
                 .subscribe((status) => {
+                    console.log('🔌 Subscription status:', status);
                     if (status === 'SUBSCRIBED') {
                         document.getElementById('liveIndicator').classList.add('connected');
                         document.getElementById('liveIndicatorLabel').textContent = 'Live';
@@ -1683,6 +1941,7 @@
         }
 
         function setupAutoRefresh() {
+            console.log('⏰ Setting up auto-refresh (60s)');
             setInterval(() => {
                 loadDashboardData();
             }, 60000);
@@ -1724,7 +1983,7 @@
         // ============================================================
         window.handleLogout = async function() {
             try {
-                await supabase.auth.signOut();
+                await supabaseClient.auth.signOut();
                 sessionStorage.clear();
                 window.location.href = 'admin-login.html';
             } catch (error) {
@@ -1732,19 +1991,6 @@
                 showToast('error', 'Failed to logout');
             }
         };
-
-        // ============================================================
-        // HELPER FUNCTIONS
-        // ============================================================
-        function escapeHtml(value) {
-            if (!value) return '';
-            return String(value)
-                .replace(/&/g, '&amp;')
-                .replace(/</g, '&lt;')
-                .replace(/>/g, '&gt;')
-                .replace(/"/g, '&quot;')
-                .replace(/'/g, '&#039;');
-        }
 
         // ============================================================
         // SHELL BEHAVIOR
@@ -1807,6 +2053,11 @@
         window.showToast = showToast;
         window.assignPayment = assignPayment;
         window.loadDashboardData = loadDashboardData;
+        window.formatKES = formatKES;
+        window.formatDate = formatDate;
+        
+        console.log('✅ All functions registered');
+        console.log('📌 Open browser console to see debug output');
     </script>
 
 </body>
