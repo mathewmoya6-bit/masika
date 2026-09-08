@@ -4,7 +4,7 @@
 
 class AuthManager {
     constructor() {
-        this.supabase = supabaseClient;
+        this.supabase = window.supabaseClient;
         this.currentUser = null;
         this.isAuthenticated = false;
         
@@ -18,10 +18,13 @@ class AuthManager {
 
     async register(userData) {
         try {
+            // Generate a temporary password if not provided
+            const password = userData.password || 'TempPass123!';
+            
             // Create auth user
             const authResult = await this.supabase.signUp(
                 userData.email,
-                userData.password,
+                password,
                 {
                     first_name: userData.first_name,
                     last_name: userData.last_name,
@@ -218,4 +221,5 @@ if (typeof module !== 'undefined' && module.exports) {
     module.exports = authManager;
 } else {
     window.authManager = authManager;
+    console.log('✅ Auth manager initialized');
 }
