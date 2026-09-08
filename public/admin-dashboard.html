@@ -1209,7 +1209,7 @@
     <div class="toast-container" id="toastContainer"></div>
 
     <!-- ============================================================
-    JAVASCRIPT - WITH DELETE FUNCTIONALITY
+    JAVASCRIPT - WITH RPC DELETE FUNCTIONS
     ============================================================ -->
     <script>
         // ============================================================
@@ -1929,108 +1929,131 @@
         }
 
         // ============================================================
-        // DELETE MEMBER
+        // DELETE MEMBER - Uses PostgreSQL RPC
+        // ------------------------------------------------------------
+        // Uses PostgreSQL RPC: delete_member_admin
+        // Do NOT delete dependants/payments manually from JavaScript.
+        // PostgreSQL handles the entire transaction.
         // ============================================================
-        window.deleteMember = async function(memberId) {
-            if (!confirm('⚠️ Are you sure you want to delete this member? This action cannot be undone!')) {
+
+        window.deleteMember = async function (memberId) {
+
+            if (!memberId) {
+                showToast('error', 'Invalid member ID.');
+                return;
+            }
+
+            const confirmed = confirm(
+                '⚠️ DELETE MEMBER\n\n' +
+                'This will permanently delete this member and the ' +
+                'member records allowed by the database deletion policy.\n\n' +
+                'This action cannot be undone.\n\n' +
+                'Are you sure you want to continue?'
+            );
+
+            if (!confirmed) {
                 return;
             }
 
             try {
-                // Show loading
+
                 showToast('info', 'Deleting member...');
 
-                // First check if member has any dependants
-                const { data: dependants, error: depError } = await supabaseClient
-                    .from('dependants')
-                    .select('id')
-                    .eq('member_id', memberId);
-
-                if (depError) {
-                    console.error('Check dependants error:', depError);
-                }
-
-                // Delete dependants first if any
-                if (dependants && dependants.length > 0) {
-                    const { error: deleteDepError } = await supabaseClient
-                        .from('dependants')
-                        .delete()
-                        .eq('member_id', memberId);
-
-                    if (deleteDepError) {
-                        console.error('Delete dependants error:', deleteDepError);
+                const { data, error } = await supabaseClient.rpc(
+                    'delete_member_admin',
+                    {
+                        p_member_id: memberId
                     }
+                );
+
+                if (error) {
+                    console.error('❌ Delete member RPC error:', error);
+                    throw error;
                 }
 
-                // Delete member
-                const { error } = await supabaseClient
-                    .from('members')
-                    .delete()
-                    .eq('id', memberId);
+                console.log('✅ Member deletion result:', data);
 
-                if (error) throw error;
+                showToast(
+                    'success',
+                    'Member deleted successfully.'
+                );
 
-                showToast('✅ Member deleted successfully!', 'success');
-                
                 // Refresh dashboard
                 await loadDashboardData();
 
             } catch (error) {
-                console.error('Delete member error:', error);
-                showToast('❌ Failed to delete member: ' + error.message, 'error');
+
+                console.error('❌ Delete member error:', error);
+
+                showToast(
+                    'error',
+                    'Failed to delete member: ' +
+                    (error?.message || 'Unknown error')
+                );
             }
         };
 
         // ============================================================
-        // DELETE AGENT
+        // DELETE SALES AGENT - Uses PostgreSQL RPC
+        // ------------------------------------------------------------
+        // Uses PostgreSQL RPC: delete_agent_admin
+        // Members assigned to the agent are automatically unassigned
+        // by PostgreSQL before the agent is deleted.
         // ============================================================
-        window.deleteAgent = async function(agentId) {
-            if (!confirm('⚠️ Are you sure you want to delete this agent? This action cannot be undone!')) {
+
+        window.deleteAgent = async function (agentId) {
+
+            if (!agentId) {
+                showToast('error', 'Invalid agent ID.');
+                return;
+            }
+
+            const confirmed = confirm(
+                '⚠️ DELETE SALES AGENT\n\n' +
+                'Members assigned to this agent will be unassigned.\n\n' +
+                'The sales agent will then be permanently deleted.\n\n' +
+                'Are you sure you want to continue?'
+            );
+
+            if (!confirmed) {
                 return;
             }
 
             try {
-                // Show loading
-                showToast('info', 'Deleting agent...');
 
-                // Check if agent has any members assigned
-                const { data: members, error: memError } = await supabaseClient
-                    .from('members')
-                    .select('id')
-                    .eq('agent_id', agentId);
+                showToast('info', 'Deleting sales agent...');
 
-                if (memError) {
-                    console.error('Check members error:', memError);
-                }
-
-                // Update members to remove agent assignment
-                if (members && members.length > 0) {
-                    const { error: updateError } = await supabaseClient
-                        .from('members')
-                        .update({ agent_id: null })
-                        .eq('agent_id', agentId);
-
-                    if (updateError) {
-                        console.error('Update members error:', updateError);
+                const { data, error } = await supabaseClient.rpc(
+                    'delete_agent_admin',
+                    {
+                        p_agent_id: agentId
                     }
+                );
+
+                if (error) {
+                    console.error('❌ Delete agent RPC error:', error);
+                    throw error;
                 }
 
-                // Delete agent
-                const { error } = await supabaseClient
-                    .from('sales_agents')
-                    .delete()
-                    .eq('id', agentId);
+                console.log('✅ Agent deletion result:', data);
 
-                if (error) throw error;
+                showToast(
+                    'success',
+                    'Sales agent deleted successfully.'
+                );
 
-                showToast('✅ Agent deleted successfully!', 'success');
-                
                 // Refresh dashboard
                 await loadDashboardData();
 
             } catch (error) {
-                console.error('Delete agent error:', error);
-                showToast('❌ Failed to delete agent: ' + error.message, 'error');
+
+                console.error('❌ Delete agent error:', error);
+
+                showToast(
+                    'error',
+                    'Failed to delete sales agent: ' +
+                    (error?.message || 'Unknown error')
+                );
             }
         };
 
