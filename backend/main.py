@@ -20,9 +20,24 @@ import re
 import json
 import base64
 import hmac
-import requests
 from enum import Enum
 from contextlib import asynccontextmanager
+
+# ============================================================
+# THIRD PARTY IMPORTS
+# ============================================================
+
+try:
+    import requests
+except ImportError:
+    print("⚠️ requests not installed. M-Pesa features will be disabled.")
+    requests = None
+
+try:
+    import jwt
+except ImportError:
+    print("⚠️ PyJWT not installed. JWT features will be disabled.")
+    jwt = None
 
 # ============================================================
 # PYDANTIC IMPORTS
@@ -137,13 +152,6 @@ class PaymentTypeEnum(str, Enum):
     TOPUP = "topup"
     ADDON = "addon"
 
-class ClaimStatusEnum(str, Enum):
-    PENDING = "pending"
-    APPROVED = "approved"
-    REJECTED = "rejected"
-    PAID = "paid"
-    CANCELLED = "cancelled"
-
 # ============================================================
 # PYDANTIC MODELS
 # ============================================================
@@ -159,11 +167,6 @@ class LoginResponse(BaseModel):
     message: str
     token: Optional[str] = None
     refresh_token: Optional[str] = None
-
-class RegisterRequest(MemberBase):
-    password: str = Field(..., min_length=8, max_length=50)
-    dependants: List[DependantBase] = []
-    accept_terms: bool = Field(True, description="Accept terms and conditions")
 
 class RefreshTokenRequest(BaseModel):
     refresh_token: str
@@ -195,8 +198,9 @@ class MemberBase(BaseModel):
     sales_code: Optional[str] = Field(None, max_length=20)
 
 class MemberCreate(MemberBase):
-    password: str
+    password: str = Field(..., min_length=8, max_length=50)
     dependants: List[DependantBase] = []
+    accept_terms: bool = Field(True, description="Accept terms and conditions")
 
 class MemberUpdate(BaseModel):
     first_name: Optional[str] = Field(None, min_length=2, max_length=50)
@@ -209,35 +213,6 @@ class MemberUpdate(BaseModel):
     town: Optional[str] = Field(None, max_length=50)
     plan: Optional[PlanEnum] = None
     benefit_option: Optional[BenefitOptionEnum] = None
-
-class MemberResponse(BaseModel):
-    id: str
-    member_number: str
-    username: str
-    first_name: str
-    last_name: str
-    other_name: Optional[str]
-    email: str
-    phone: str
-    alternative_phone: Optional[str]
-    id_number: str
-    date_of_birth: str
-    gender: str
-    county: str
-    location: Optional[str]
-    town: Optional[str]
-    address: Optional[str]
-    plan: str
-    benefit_option: str
-    sales_code: Optional[str]
-    member_status: str
-    is_active: bool
-    registration_date: str
-    waiting_period_months: int
-    registration_fee_paid: bool
-    created_at: datetime
-    updated_at: datetime
-    last_login: Optional[datetime]
 
 # === Dependant Models ===
 class DependantBase(BaseModel):
@@ -338,37 +313,6 @@ class BranchResponse(BaseModel):
     email: Optional[str] = None
     is_active: bool
 
-# === Claim Models ===
-class ClaimBase(BaseModel):
-    member_number: str
-    claim_type: str
-    amount: float = Field(..., gt=0)
-    incident_date: str
-    incident_description: str
-    beneficiary_name: str
-    beneficiary_relationship: str
-    beneficiary_phone: str
-    beneficiary_id_number: str
-
-class ClaimCreate(ClaimBase):
-    supporting_documents: Optional[List[str]] = []
-
-class ClaimUpdate(BaseModel):
-    status: Optional[ClaimStatusEnum] = None
-    approval_notes: Optional[str] = None
-    amount: Optional[float] = Field(None, gt=0)
-
-class ClaimResponse(ClaimBase):
-    id: str
-    claim_number: str
-    status: str
-    created_at: datetime
-    updated_at: datetime
-    approved_by: Optional[str]
-    approval_date: Optional[datetime]
-    payment_id: Optional[str]
-    paid_date: Optional[datetime]
-
 # === Dashboard Models ===
 class DashboardStats(BaseModel):
     member_id: str
@@ -423,7 +367,9 @@ def generate_password() -> str:
 
 def generate_jwt_token(user_id: str, email: str) -> str:
     """Generate JWT token"""
-    import jwt
+    if not jwt:
+        return secrets.token_urlsafe(32)
+    
     payload = {
         "sub": user_id,
         "email": email,
@@ -433,8 +379,10 @@ def generate_jwt_token(user_id: str, email: str) -> str:
 
 def verify_jwt_token(token: str) -> Optional[dict]:
     """Verify JWT token"""
+    if not jwt:
+        return None
+    
     try:
-        import jwt
         payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
         return payload
     except jwt.ExpiredSignatureError:
@@ -518,6 +466,10 @@ def get_member_safe(member: dict) -> dict:
 
 def get_mpesa_access_token() -> Optional[str]:
     """Get M-Pesa access token"""
+    if not requests:
+        logger.error("requests module not available. M-Pesa features disabled.")
+        return None
+    
     if not MPESA_CONSUMER_KEY or not MPESA_CONSUMER_SECRET:
         logger.error("M-Pesa credentials not configured")
         return None
@@ -591,7 +543,6 @@ app = FastAPI(
     - Dependant Management
     - Payment Processing with M-Pesa
     - Dashboard Analytics
-    - Claims Management
     - Agent & Branch Management
     
     ### Authentication
@@ -621,7 +572,7 @@ app.add_middleware(
         "https://masika.co.ke",
         "https://*.masika.co.ke",
         "https://masika-c921.onrender.com",
-        "*"  # For development only
+        "*"
     ],
     allow_credentials=True,
     allow_methods=["*"],
@@ -678,11 +629,11 @@ async def api_info():
                 "branches": "GET /api/public/branches"
             },
             "members": {
+                "list": "GET /api/members",
                 "get": "GET /api/members/{member_id}",
                 "by_number": "GET /api/members/by-number/{member_number}",
                 "update": "PUT /api/members/{member_id}",
-                "stats": "GET /api/members/{member_id}/stats",
-                "list": "GET /api/members"
+                "stats": "GET /api/members/{member_id}/stats"
             },
             "dependants": {
                 "list": "GET /api/dependants/member/{member_id}",
@@ -700,12 +651,6 @@ async def api_info():
                 "stk_push": "POST /api/mpesa/stk-push",
                 "stk_query": "GET /api/mpesa/stk-query/{checkout_request_id}",
                 "callback": "POST /api/mpesa/callback"
-            },
-            "claims": {
-                "create": "POST /api/claims",
-                "list": "GET /api/claims/member/{member_id}",
-                "get": "GET /api/claims/{claim_id}",
-                "update": "PUT /api/claims/{claim_id}"
             },
             "dashboard": {
                 "summary": "GET /api/dashboard/summary/{member_id}",
@@ -860,7 +805,7 @@ async def login(request: LoginRequest):
         raise HTTPException(status_code=400, detail=str(e))
 
 @auth_router.post("/register")
-async def register(member_data: RegisterRequest):
+async def register(member_data: MemberCreate):
     """Register a new member with auto-generated credentials"""
     if not supabase:
         raise HTTPException(status_code=500, detail="Database not available")
@@ -996,10 +941,7 @@ async def verify_member(identifier: str):
 @auth_router.post("/refresh")
 async def refresh_token(request: RefreshTokenRequest):
     """Refresh access token"""
-    # In production, validate refresh token from database
     try:
-        # Generate new token
-        # This is simplified - in production, validate the refresh token
         new_token = secrets.token_urlsafe(32)
         return {
             "success": True,
@@ -1042,27 +984,17 @@ async def forgot_password(request: ForgotPasswordRequest):
         raise HTTPException(status_code=500, detail="Database not available")
     
     try:
-        # Check if email exists
         result = supabase.table("members").select("id", "email").eq("email", request.email).execute()
         if not result.data or len(result.data) == 0:
-            # Don't reveal if email exists for security
             return {"success": True, "message": "If your email is registered, you will receive a reset link"}
         
-        member = result.data[0]
-        
-        # Generate reset token
         reset_token = secrets.token_urlsafe(32)
-        
-        # Store reset token in database (simplified - add a reset_tokens table)
-        # In production, store in a separate table with expiration
-        
-        # Send email with reset link (implement email service)
         logger.info(f"Password reset requested for {request.email}. Token: {reset_token}")
         
         return {
             "success": True,
             "message": "Password reset instructions sent to your email",
-            "reset_token": reset_token  # Remove in production, should be sent via email
+            "reset_token": reset_token
         }
     except Exception as e:
         logger.error(f"Forgot password error: {str(e)}")
@@ -1075,15 +1007,12 @@ async def reset_password(request: ResetPasswordRequest):
         raise HTTPException(status_code=500, detail="Database not available")
     
     try:
-        # Validate token and find user (simplified)
-        # In production, validate token from database
         result = supabase.table("members").select("id").eq("reset_token", request.token).execute()
         if not result.data or len(result.data) == 0:
             raise HTTPException(status_code=400, detail="Invalid or expired reset token")
         
         member = result.data[0]
         
-        # Update password
         password_hash = hash_password(request.new_password)
         supabase.table("members").update({
             "password_hash": password_hash,
@@ -1124,7 +1053,6 @@ async def list_members(
     try:
         query = supabase.table("members").select("*", count="exact")
         
-        # Apply filters
         if status:
             query = query.eq("member_status", status)
         if plan:
@@ -1132,7 +1060,6 @@ async def list_members(
         if search:
             query = query.or_(f"first_name.ilike.%{search}%,last_name.ilike.%{search}%,email.ilike.%{search}%,member_number.ilike.%{search}%")
         
-        # Pagination
         offset = (page - 1) * limit
         query = query.range(offset, offset + limit - 1).order("created_at", desc=True)
         
@@ -1189,17 +1116,14 @@ async def update_member(member_id: str, member_update: MemberUpdate):
         raise HTTPException(status_code=500, detail="Database not available")
     
     try:
-        # Check if member exists
         existing = supabase.table("members").select("id").eq("id", member_id).execute()
         if not existing.data or len(existing.data) == 0:
             raise HTTPException(status_code=404, detail="Member not found")
         
-        # Prepare update data
         update_data = member_update.dict(exclude_unset=True)
         if update_data:
             update_data["updated_at"] = datetime.now().isoformat()
             
-            # Convert enums if present
             if "plan" in update_data and update_data["plan"]:
                 update_data["plan"] = update_data["plan"].value
             if "benefit_option" in update_data and update_data["benefit_option"]:
@@ -1230,19 +1154,15 @@ async def get_member_stats(member_id: str):
         member = member.data[0]
         member_number = member.get("member_number")
         
-        # Get dependants
         dependants = supabase.table("dependants").select("count", count="exact").eq("principal_member_id", member_id).execute()
         active_dependants = supabase.table("dependants").select("count", count="exact").eq("principal_member_id", member_id).eq("is_active", True).execute()
         
-        # Get payments
         payments = supabase.table("payments").select("*").eq("member_number", member_number).eq("status", "completed").execute()
         total_payments = sum(float(p.get("amount", 0)) for p in (payments.data or []))
         
-        # Get last payment date
         last_payment = supabase.table("payments").select("payment_date").eq("member_number", member_number).eq("status", "completed").order("payment_date", desc=True).limit(1).execute()
         last_payment_date = last_payment.data[0].get("payment_date") if last_payment.data and len(last_payment.data) > 0 else None
         
-        # Calculate coverage status
         waiting_months = member.get("waiting_period_months", 4)
         reg_date = member.get("registration_date")
         coverage_status = "Pending"
@@ -1317,7 +1237,6 @@ async def create_dependant(dependant: DependantCreate):
         raise HTTPException(status_code=500, detail="Database not available")
     
     try:
-        # Check if member exists
         member = supabase.table("members").select("id").eq("id", dependant.member_id).execute()
         if not member.data or len(member.data) == 0:
             raise HTTPException(status_code=404, detail="Member not found")
@@ -1352,12 +1271,10 @@ async def update_dependant(dependant_id: str, dependant_update: DependantUpdate)
         raise HTTPException(status_code=500, detail="Database not available")
     
     try:
-        # Check if dependant exists
         existing = supabase.table("dependants").select("id").eq("id", dependant_id).execute()
         if not existing.data or len(existing.data) == 0:
             raise HTTPException(status_code=404, detail="Dependant not found")
         
-        # Prepare update data
         update_data = dependant_update.dict(exclude_unset=True)
         if update_data:
             update_data["updated_at"] = datetime.now().isoformat()
@@ -1460,7 +1377,6 @@ async def create_payment(payment: PaymentCreate):
         raise HTTPException(status_code=500, detail="Database not available")
     
     try:
-        # Get member
         member = supabase.table("members").select("member_number").eq("id", payment.member_id).execute()
         if not member.data or len(member.data) == 0:
             raise HTTPException(status_code=404, detail="Member not found")
@@ -1503,7 +1419,6 @@ async def update_payment(payment_id: str, payment_update: PaymentUpdate):
         if not result.data or len(result.data) == 0:
             raise HTTPException(status_code=404, detail="Payment not found")
         
-        # If payment is completed, update member status
         if payment_update.status == PaymentStatusEnum.COMPLETED:
             payment = result.data[0]
             member_number = payment.get("member_number")
@@ -1512,7 +1427,7 @@ async def update_payment(payment_id: str, payment_update: PaymentUpdate):
                 if member.data and len(member.data) > 0:
                     supabase.table("members").update({
                         "registration_fee_paid": True,
-                        "member_status": "ACTIVE" if payment.get("payment_type") == "registration" else "ACTIVE",
+                        "member_status": "ACTIVE",
                         "updated_at": datetime.now().isoformat()
                     }).eq("id", member.data[0]["id"]).execute()
         
@@ -1543,7 +1458,6 @@ async def initiate_stk_push(request: STKPushRequest):
             detail="M-Pesa is not configured. Please check your environment variables."
         )
     
-    # Get access token
     access_token = get_mpesa_access_token()
     if not access_token:
         raise HTTPException(
@@ -1551,7 +1465,6 @@ async def initiate_stk_push(request: STKPushRequest):
             detail="Failed to get M-Pesa access token. Please try again later."
         )
     
-    # Format phone number
     phone = format_phone_number(request.phone)
     if len(phone) != 12 or not phone.startswith('254'):
         raise HTTPException(
@@ -1559,11 +1472,9 @@ async def initiate_stk_push(request: STKPushRequest):
             detail="Invalid phone number. Please use format 2547XXXXXXXX"
         )
     
-    # Generate timestamp and password
     timestamp = generate_timestamp()
     password = generate_mpesa_password(MPESA_SHORTCODE, MPESA_PASSKEY, timestamp)
     
-    # Prepare STK Push payload
     payload = {
         "BusinessShortCode": MPESA_SHORTCODE,
         "Password": password,
@@ -1584,6 +1495,12 @@ async def initiate_stk_push(request: STKPushRequest):
     }
     
     try:
+        if not requests:
+            raise HTTPException(
+                status_code=500,
+                detail="requests module not available for M-Pesa integration."
+            )
+        
         response = requests.post(MPESA_STK_PUSH_URL, json=payload, headers=headers, timeout=30)
         response_data = response.json()
         
@@ -1593,7 +1510,6 @@ async def initiate_stk_push(request: STKPushRequest):
             checkout_request_id = response_data.get("CheckoutRequestID")
             merchant_request_id = response_data.get("MerchantRequestID")
             
-            # Store payment record
             if supabase:
                 try:
                     member = find_member_by_id(request.member_id)
@@ -1675,12 +1591,17 @@ async def query_stk_status(checkout_request_id: str):
     }
     
     try:
+        if not requests:
+            raise HTTPException(
+                status_code=500,
+                detail="requests module not available for M-Pesa integration."
+            )
+        
         response = requests.post(MPESA_STK_QUERY_URL, json=payload, headers=headers, timeout=30)
         response_data = response.json()
         
         logger.info(f"STK Query response: {response_data}")
         
-        # Update payment status
         if supabase:
             try:
                 result = supabase.table("payments").select("*").eq("checkout_request_id", checkout_request_id).execute()
@@ -1699,7 +1620,6 @@ async def query_stk_status(checkout_request_id: str):
                         "updated_at": datetime.now().isoformat()
                     }).eq("id", payment["id"]).execute()
                     
-                    # If completed, update member
                     if status == "completed":
                         member_number = payment.get("member_number")
                         if member_number:
@@ -1736,7 +1656,7 @@ async def mpesa_callback(request: Request):
     """M-Pesa callback endpoint"""
     try:
         callback_data = await request.json()
-        logger.info(f"M-Pesa Callback received: {callback_data}")
+        logger.info(f"M-Pesa Callback received")
         
         body = callback_data.get("Body", {})
         stk_callback = body.get("stkCallback", {})
@@ -1750,8 +1670,6 @@ async def mpesa_callback(request: Request):
         
         amount = None
         mpesa_receipt = None
-        transaction_date = None
-        phone_number = None
         
         for item in items:
             name = item.get("Name")
@@ -1761,12 +1679,7 @@ async def mpesa_callback(request: Request):
                 amount = value
             elif name == "MpesaReceiptNumber":
                 mpesa_receipt = value
-            elif name == "TransactionDate":
-                transaction_date = value
-            elif name == "PhoneNumber":
-                phone_number = value
         
-        # Update payment in database
         if supabase and checkout_request_id:
             try:
                 result = supabase.table("payments").select("*").eq("checkout_request_id", checkout_request_id).execute()
@@ -1797,15 +1710,13 @@ async def mpesa_callback(request: Request):
                                 member = member_result.data[0]
                                 supabase.table("members").update({
                                     "registration_fee_paid": True,
-                                    "member_status": "ACTIVE" if payment.get("payment_type") == "registration" else "ACTIVE",
+                                    "member_status": "ACTIVE",
                                     "updated_at": datetime.now().isoformat()
                                 }).eq("id", member["id"]).execute()
                                 
                                 logger.info(f"Member {member_number} activated after successful payment")
                     
                     logger.info(f"Payment updated: {checkout_request_id} -> {status}")
-                else:
-                    logger.warning(f"Payment record not found for CheckoutRequestID: {checkout_request_id}")
             except Exception as e:
                 logger.error(f"Failed to update payment from callback: {e}")
         
@@ -1816,124 +1727,6 @@ async def mpesa_callback(request: Request):
         return {"ResultCode": 0, "ResultDesc": "Success"}
 
 app.include_router(mpesa_router)
-
-# ============================================================
-# CLAIMS ROUTES
-# ============================================================
-
-claims_router = APIRouter(prefix="/api/claims", tags=["Claims"])
-
-@claims_router.post("/", response_model=ClaimResponse)
-async def create_claim(claim: ClaimCreate):
-    """Create a new claim"""
-    if not supabase:
-        raise HTTPException(status_code=500, detail="Database not available")
-    
-    try:
-        # Check if member exists
-        member = supabase.table("members").select("*").eq("member_number", claim.member_number).execute()
-        if not member.data or len(member.data) == 0:
-            raise HTTPException(status_code=404, detail="Member not found")
-        
-        # Generate claim number
-        claim_number = f"CLM-{datetime.now().strftime('%Y%m')}-{secrets.token_hex(4).upper()}"
-        
-        claim_record = {
-            "member_number": claim.member_number,
-            "claim_number": claim_number,
-            "claim_type": claim.claim_type,
-            "amount": claim.amount,
-            "incident_date": claim.incident_date,
-            "incident_description": claim.incident_description,
-            "beneficiary_name": claim.beneficiary_name,
-            "beneficiary_relationship": claim.beneficiary_relationship,
-            "beneficiary_phone": claim.beneficiary_phone,
-            "beneficiary_id_number": claim.beneficiary_id_number,
-            "supporting_documents": claim.supporting_documents or [],
-            "status": "pending",
-            "created_at": datetime.now().isoformat(),
-            "updated_at": datetime.now().isoformat()
-        }
-        
-        result = supabase.table("claims").insert(claim_record).execute()
-        return result.data[0] if result.data else None
-    except HTTPException:
-        raise
-    except Exception as e:
-        raise HTTPException(status_code=400, detail=str(e))
-
-@claims_router.get("/member/{member_id}")
-async def get_member_claims(member_id: str):
-    """Get all claims for a member"""
-    if not supabase:
-        raise HTTPException(status_code=500, detail="Database not available")
-    
-    try:
-        # Get member number
-        member = supabase.table("members").select("member_number").eq("id", member_id).execute()
-        if not member.data or len(member.data) == 0:
-            raise HTTPException(status_code=404, detail="Member not found")
-        
-        member_number = member.data[0]["member_number"]
-        
-        result = supabase.table("claims").select("*").eq("member_number", member_number).order("created_at", desc=True).execute()
-        return {
-            "success": True,
-            "data": result.data or [],
-            "count": len(result.data or [])
-        }
-    except HTTPException:
-        raise
-    except Exception as e:
-        raise HTTPException(status_code=400, detail=str(e))
-
-@claims_router.get("/{claim_id}")
-async def get_claim(claim_id: str):
-    """Get a specific claim"""
-    if not supabase:
-        raise HTTPException(status_code=500, detail="Database not available")
-    
-    try:
-        result = supabase.table("claims").select("*").eq("id", claim_id).execute()
-        if not result.data or len(result.data) == 0:
-            raise HTTPException(status_code=404, detail="Claim not found")
-        return result.data[0]
-    except HTTPException:
-        raise
-    except Exception as e:
-        raise HTTPException(status_code=400, detail=str(e))
-
-@claims_router.put("/{claim_id}")
-async def update_claim(claim_id: str, claim_update: ClaimUpdate):
-    """Update a claim"""
-    if not supabase:
-        raise HTTPException(status_code=500, detail="Database not available")
-    
-    try:
-        update_data = claim_update.dict(exclude_unset=True)
-        update_data["updated_at"] = datetime.now().isoformat()
-        
-        if "status" in update_data:
-            update_data["status"] = update_data["status"].value
-            if update_data["status"] in ["approved", "rejected"]:
-                update_data["approval_date"] = datetime.now().isoformat()
-        
-        result = supabase.table("claims").update(update_data).eq("id", claim_id).execute()
-        
-        if not result.data or len(result.data) == 0:
-            raise HTTPException(status_code=404, detail="Claim not found")
-        
-        return {
-            "success": True,
-            "data": result.data[0],
-            "message": "Claim updated successfully"
-        }
-    except HTTPException:
-        raise
-    except Exception as e:
-        raise HTTPException(status_code=400, detail=str(e))
-
-app.include_router(claims_router)
 
 # ============================================================
 # DASHBOARD ROUTES
@@ -1999,13 +1792,11 @@ async def get_recent_activity(member_id: str, limit: int = 5):
         
         payments = supabase.table("payments").select("*").eq("member_number", member_number).order("created_at", desc=True).limit(limit).execute()
         dependants = supabase.table("dependants").select("*").eq("principal_member_id", member_id).order("created_at", desc=True).limit(limit).execute()
-        claims = supabase.table("claims").select("*").eq("member_number", member_number).order("created_at", desc=True).limit(limit).execute()
         
         return {
             "success": True,
             "recent_payments": payments.data or [],
-            "recent_dependants": dependants.data or [],
-            "recent_claims": claims.data or []
+            "recent_dependants": dependants.data or []
         }
     except HTTPException:
         raise
