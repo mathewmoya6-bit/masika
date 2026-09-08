@@ -1,0 +1,399 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Login - Masika Benevolent</title>
+    <link rel="icon" type="image/png" href="assets/masika-bird.png">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+    
+    <style>
+        :root {
+            --primary-500: #2d6a4f;
+            --primary-600: #1e5631;
+            --primary-700: #1a472a;
+            --primary-100: #95d5b2;
+            --primary-50: #d8f3dc;
+            --gold-500: #d4a843;
+            --white: #ffffff;
+            --text-dark: #0f172a;
+            --text-gray: #475569;
+            --text-light: #94a3b8;
+            --bg-light: #f0f4f2;
+            --danger: #b3261e;
+            --success: #2e7d32;
+            --shadow: 0 4px 24px rgba(0, 0, 0, 0.08);
+            --radius: 16px;
+            --radius-lg: 24px;
+            --transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            background: var(--bg-light);
+            color: var(--text-dark);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+
+        .login-container {
+            background: var(--white);
+            border-radius: var(--radius-lg);
+            box-shadow: var(--shadow);
+            max-width: 440px;
+            width: 100%;
+            padding: 40px;
+            animation: slideUp 0.5s ease;
+        }
+
+        @keyframes slideUp {
+            from { transform: translateY(30px); opacity: 0; }
+            to { transform: translateY(0); opacity: 1; }
+        }
+
+        .login-header {
+            text-align: center;
+            margin-bottom: 32px;
+        }
+
+        .login-header .logo {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+            text-decoration: none;
+            margin-bottom: 12px;
+        }
+
+        .login-header .logo img { height: 48px; width: auto; }
+        .login-header .logo span {
+            font-weight: 800;
+            font-size: 20px;
+            color: var(--primary-700);
+        }
+
+        .login-header h1 {
+            font-size: 24px;
+            font-weight: 700;
+            color: var(--text-dark);
+        }
+
+        .login-header p {
+            color: var(--text-gray);
+            font-size: 14px;
+            margin-top: 4px;
+        }
+
+        /* ===== SUCCESS BANNER ===== */
+        .success-banner {
+            background: var(--primary-50);
+            border-radius: var(--radius);
+            padding: 16px 20px;
+            margin-bottom: 24px;
+            border-left: 4px solid var(--success);
+            display: none;
+        }
+
+        .success-banner.show {
+            display: block;
+            animation: fadeIn 0.5s ease;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(-10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .success-banner i {
+            color: var(--success);
+            margin-right: 8px;
+        }
+
+        .success-banner strong {
+            display: block;
+            font-size: 13px;
+            margin-top: 4px;
+        }
+
+        /* ===== FORM ===== */
+        .form-group {
+            margin-bottom: 18px;
+        }
+
+        .form-group label {
+            display: block;
+            font-weight: 600;
+            font-size: 13px;
+            color: var(--text-dark);
+            margin-bottom: 4px;
+        }
+
+        .form-group label .required {
+            color: var(--danger);
+        }
+
+        .form-group input {
+            width: 100%;
+            padding: 12px 14px;
+            border: 2px solid #e9ecef;
+            border-radius: 10px;
+            font-size: 14px;
+            font-family: inherit;
+            transition: var(--transition);
+            background: var(--white);
+        }
+
+        .form-group input:focus {
+            outline: none;
+            border-color: var(--primary-500);
+            box-shadow: 0 0 0 4px rgba(45, 106, 79, 0.1);
+        }
+
+        .form-group input.error {
+            border-color: var(--danger);
+        }
+
+        .form-group .error-message {
+            color: var(--danger);
+            font-size: 12px;
+            margin-top: 4px;
+            display: none;
+        }
+
+        .form-group .error-message.show {
+            display: block;
+        }
+
+        /* ===== PASSWORD TOGGLE ===== */
+        .password-wrapper {
+            position: relative;
+        }
+
+        .password-wrapper input {
+            padding-right: 44px;
+        }
+
+        .password-toggle {
+            position: absolute;
+            right: 14px;
+            top: 50%;
+            transform: translateY(-50%);
+            background: none;
+            border: none;
+            color: var(--text-gray);
+            cursor: pointer;
+            padding: 4px;
+            font-size: 16px;
+        }
+
+        .password-toggle:hover {
+            color: var(--text-dark);
+        }
+
+        /* ===== OPTIONS ===== */
+        .login-options {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin: 16px 0 24px;
+            font-size: 13px;
+        }
+
+        .login-options label {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            color: var(--text-gray);
+            cursor: pointer;
+        }
+
+        .login-options label input[type="checkbox"] {
+            width: 16px;
+            height: 16px;
+            accent-color: var(--primary-500);
+        }
+
+        .login-options a {
+            color: var(--primary-500);
+            text-decoration: none;
+            font-weight: 600;
+        }
+        .login-options a:hover {
+            text-decoration: underline;
+        }
+
+        /* ===== BUTTONS ===== */
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            padding: 14px 24px;
+            border: none;
+            border-radius: 10px;
+            font-weight: 600;
+            font-size: 15px;
+            cursor: pointer;
+            transition: var(--transition);
+            font-family: inherit;
+            text-decoration: none;
+            width: 100%;
+        }
+
+        .btn-primary {
+            background: var(--primary-500);
+            color: var(--white);
+        }
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 30px rgba(26, 71, 42, 0.3);
+        }
+        .btn-primary:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .btn-gold {
+            background: linear-gradient(135deg, #b8860b 0%, #d4a843 50%, #e8c85a 100%);
+            color: var(--white);
+        }
+
+        .btn-outline {
+            background: transparent;
+            border: 2px solid #e9ecef;
+            color: var(--text-gray);
+        }
+        .btn-outline:hover {
+            border-color: var(--primary-500);
+            color: var(--primary-500);
+        }
+
+        /* ===== REGISTER LINK ===== */
+        .register-link {
+            text-align: center;
+            margin-top: 20px;
+            font-size: 14px;
+            color: var(--text-gray);
+        }
+
+        .register-link a {
+            color: var(--primary-500);
+            text-decoration: none;
+            font-weight: 600;
+        }
+        .register-link a:hover {
+            text-decoration: underline;
+        }
+
+        /* ===== DEMO CREDENTIALS ===== */
+        .demo-creds {
+            margin-top: 20px;
+            padding: 16px;
+            background: #f8fafc;
+            border-radius: var(--radius);
+            border: 1px dashed #d1d5db;
+            font-size: 13px;
+            color: var(--text-gray);
+        }
+
+        .demo-creds strong {
+            color: var(--text-dark);
+        }
+
+        /* ===== TOAST ===== */
+        .toast-container {
+            position: fixed;
+            bottom: 30px;
+            right: 30px;
+            z-index: 3000;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            max-width: 420px;
+        }
+
+        .toast {
+            padding: 16px 24px;
+            border-radius: 12px;
+            color: var(--white);
+            font-weight: 600;
+            font-size: 14px;
+            animation: toastSlide 0.4s ease;
+            box-shadow: 0 12px 48px rgba(0,0,0,0.15);
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .toast.success { background: var(--success); }
+        .toast.error { background: var(--danger); }
+        .toast.info { background: #2f6fc4; }
+
+        @keyframes toastSlide {
+            from { transform: translateX(100px); opacity: 0; }
+            to { transform: translateX(0); opacity: 1; }
+        }
+
+        /* ===== RESPONSIVE ===== */
+        @media (max-width: 600px) {
+            .login-container {
+                padding: 24px;
+            }
+            .login-header h1 {
+                font-size: 20px;
+            }
+            .login-options {
+                flex-direction: column;
+                gap: 8px;
+                align-items: flex-start;
+            }
+        }
+    </style>
+</head>
+<body>
+
+    <div class="login-container">
+        <!-- Header -->
+        <div class="login-header">
+            <a href="index.html" class="logo">
+                <img src="assets/masika-bird.png" alt="Masika Benevolent">
+                <span>MASIKA</span>
+            </a>
+            <h1>Welcome Back</h1>
+            <p>Sign in to your member account</p>
+        </div>
+
+        <!-- Success Banner (after registration) -->
+        <div class="success-banner" id="successBanner">
+            <i class="fas fa-check-circle"></i> Registration successful!
+            <strong>Please login with your credentials below.</strong>
+        </div>
+
+        <!-- Login Form -->
+        <form id="loginForm" onsubmit="handleLogin(event)">
+            <div class="form-group">
+                <label for="loginEmail">Email Address <span class="required">*</span></label>
+                <input type="email" id="loginEmail" placeholder="you@example.com" required autofocus>
+            </div>
+
+            <div class="form-group">
+                <label for="loginPassword">Password <span class="required">*</span></label>
+                <div class="password-wrapper">
+                    <input type="password" id="loginPassword" placeholder="Enter your password" required>
+                    <button type="button" class="password-toggle" onclick="togglePassword()">
+                        <i class="fas fa-eye" id="passwordIcon"></i>
+                    </button>
+                </div>
+                <div class="error-message" id="passwordError">Invalid email or password</div>
+            </div>
+
+            <div class="login-options">
+                <label>
+                    <input type="checkbox"
