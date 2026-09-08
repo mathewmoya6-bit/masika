@@ -1205,7 +1205,7 @@
     <div class="toast-container" id="toastContainer"></div>
 
     <!-- ============================================================
-    JAVASCRIPT
+    JAVASCRIPT - FIXED TABLE NAMES
     ============================================================ -->
     <script>
         // ============================================================
@@ -1220,14 +1220,18 @@
         // STATE
         // ============================================================
         let currentUser = null;
+        let refreshTimeout = null;
 
         // ============================================================
         // INITIALIZATION
         // ============================================================
         document.addEventListener('DOMContentLoaded', async function() {
-            await checkAuth();
-            await loadDashboardData();
-            setupRealtime();
+            const authResult = await checkAuth();
+            if (authResult) {
+                await loadDashboardData();
+                setupRealtime();
+                setupAutoRefresh();
+            }
         });
 
         // ============================================================
@@ -1239,7 +1243,7 @@
 
                 if (error || !session) {
                     window.location.href = 'admin-login.html';
-                    return;
+                    return false;
                 }
 
                 currentUser = session.user;
@@ -1253,7 +1257,7 @@
 
                 if (adminError || !admin) {
                     window.location.href = 'admin-login.html';
-                    return;
+                    return false;
                 }
 
                 // Update UI
@@ -1266,46 +1270,76 @@
                 document.getElementById('liveIndicator').classList.add('connected');
                 document.getElementById('liveIndicatorLabel').textContent = 'Connected';
 
+                return true;
+
             } catch (error) {
                 console.error('Auth check error:', error);
                 showToast('error', 'Authentication error');
+                return false;
             }
         }
 
         // ============================================================
-        // LOAD DASHBOARD DATA
+        // LOAD DASHBOARD DATA - FIXED TABLE NAMES
         // ============================================================
         async function loadDashboardData() {
             try {
-                // Get all counts
-                const [members, agents, payments, unassigned] = await Promise.all([
-                    supabase.from('members').select('*', { count: 'exact', head: true }),
-                    supabase.from('agents').select('*', { count: 'exact', head: true }),
-                    supabase.from('payments').select('*'),
-                    supabase.from('payments').select('*').eq('status', 'unassigned')
-                ]);
+                console.log('Loading dashboard data...');
 
-                // Update stats
-                const totalMembers = members.count || 0;
-                const totalAgents = agents.count || 0;
-                const allPayments = payments.data || [];
-                const unassignedPayments = unassigned.data || [];
+                // Get members count - CORRECT TABLE
+                const { count: membersCount, error: membersError } = await supabase
+                    .from('members')
+                    .select('*', { count: 'exact', head: true });
 
-                document.getElementById('totalMembers').textContent = totalMembers;
-                document.getElementById('totalAgents').textContent = totalAgents;
-                document.getElementById('memberCountBadge').textContent = totalMembers;
+                if (membersError) {
+                    console.warn('Members count error:', membersError);
+                }
+                const totalMembers = membersCount || 0;
+                console.log('Members count:', totalMembers);
 
-                // Active agents
-                const { data: activeAgents } = await supabase
-                    .from('agents')
+                // Get agents count - CORRECT TABLE: sales_agents
+                const { count: agentsCount, error: agentsError } = await supabase
+                    .from('sales_agents')
+                    .select('*', { count: 'exact', head: true });
+
+                if (agentsError) {
+                    console.warn('Agents count error:', agentsError);
+                }
+                const totalAgents = agentsCount || 0;
+                console.log('Agents count:', totalAgents);
+
+                // Get active agents - CORRECT TABLE: sales_agents
+                const { data: activeAgentsData, error: activeError } = await supabase
+                    .from('sales_agents')
                     .select('*')
                     .eq('status', 'active');
 
-                document.getElementById('activeAgents').textContent = activeAgents?.length || 0;
-                document.getElementById('pendingAgentsBadge').textContent = (totalAgents - (activeAgents?.length || 0)) || 0;
+                if (activeError) {
+                    console.warn('Active agents error:', activeError);
+                }
+                const activeAgents = activeAgentsData?.length || 0;
+                console.log('Active agents:', activeAgents);
+
+                // Get all payments
+                const { data: allPayments, error: paymentsError } = await supabase
+                    .from('payments')
+                    .select('*');
+
+                if (paymentsError) {
+                    console.warn('Payments error:', paymentsError);
+                }
+                const payments = allPayments || [];
+                console.log('Total payments:', payments.length);
+
+                // Update stats display
+                document.getElementById('totalMembers').textContent = totalMembers;
+                document.getElementById('totalAgents').textContent = totalAgents;
+                document.getElementById('activeAgents').textContent = activeAgents;
+                document.getElementById('memberCountBadge').textContent = totalMembers;
+                document.getElementById('pendingAgentsBadge').textContent = totalAgents - activeAgents;
 
                 // Revenue calculations
-                const completedPayments = allPayments.filter(p => p.status === 'completed');
+                const completedPayments = payments.filter(p => p.status === 'completed' || p.status === 'confirmed');
                 const totalRevenue = completedPayments.reduce((sum, p) => sum + (p.amount || 0), 0);
 
                 // Today
@@ -1323,6 +1357,15 @@
                 );
                 const monthRevenue = monthPayments.reduce((sum, p) => sum + (p.amount || 0), 0);
 
+                // Unassigned
+                const unassignedPayments = payments.filter(p => p.status === 'unassigned');
+                const unassignedTotal = unassignedPayments.reduce((sum, p) => sum + (p.amount || 0), 0);
+
+                // Pending
+                const pendingPayments = payments.filter(p => p.status === 'pending');
+                const pendingTotal = pendingPayments.reduce((sum, p) => sum + (p.amount || 0), 0);
+
+                // Update revenue stats
                 document.getElementById('totalRevenue').textContent = `KES ${totalRevenue.toLocaleString()}`;
                 document.getElementById('totalRevenueCount').textContent = `${completedPayments.length} payments`;
 
@@ -1332,15 +1375,10 @@
                 document.getElementById('monthRevenue').textContent = `KES ${monthRevenue.toLocaleString()}`;
                 document.getElementById('monthRevenueCount').textContent = `${monthPayments.length} payments`;
 
-                // Unassigned
-                const unassignedTotal = unassignedPayments.reduce((sum, p) => sum + (p.amount || 0), 0);
                 document.getElementById('unassignedCount').textContent = unassignedPayments.length;
                 document.getElementById('unassignedAmount').textContent = `KES ${unassignedTotal.toLocaleString()} unmatched`;
                 document.getElementById('unassignedBadge').textContent = unassignedPayments.length;
 
-                // Pending
-                const pendingPayments = allPayments.filter(p => p.status === 'pending');
-                const pendingTotal = pendingPayments.reduce((sum, p) => sum + (p.amount || 0), 0);
                 document.getElementById('pendingPayments').textContent = pendingPayments.length;
                 document.getElementById('pendingAmount').textContent = `KES ${pendingTotal.toLocaleString()}`;
 
@@ -1350,6 +1388,8 @@
                 await loadRecentPayments();
                 await loadUnassignedPayments();
 
+                console.log('Dashboard loaded successfully');
+
             } catch (error) {
                 console.error('Load dashboard error:', error);
                 showToast('error', 'Failed to load dashboard data');
@@ -1357,7 +1397,7 @@
         }
 
         // ============================================================
-        // LOAD RECENT MEMBERS
+        // LOAD RECENT MEMBERS - CORRECT TABLE
         // ============================================================
         async function loadRecentMembers() {
             try {
@@ -1384,9 +1424,9 @@
                 }
 
                 tbody.innerHTML = data.map(m => `
-                    <tr>
-                        <td><strong>${m.first_name || ''} ${m.last_name || ''}</strong></td>
-                        <td>${m.phone || 'N/A'}</td>
+                    <tr onclick="window.location.href='admin-members.html?id=${m.id}'" style="cursor:pointer;">
+                        <td><strong>${escapeHtml(m.first_name || '')} ${escapeHtml(m.last_name || '')}</strong></td>
+                        <td>${escapeHtml(m.phone || 'N/A')}</td>
                         <td>${m.created_at ? new Date(m.created_at).toLocaleDateString('en-KE') : 'N/A'}</td>
                         <td><span class="status-badge ${m.is_active ? 'active' : 'inactive'}">${m.is_active ? 'Active' : 'Inactive'}</span></td>
                     </tr>
@@ -1403,12 +1443,12 @@
         }
 
         // ============================================================
-        // LOAD RECENT AGENTS
+        // LOAD RECENT AGENTS - CORRECT TABLE: sales_agents
         // ============================================================
         async function loadRecentAgents() {
             try {
                 const { data, error } = await supabase
-                    .from('agents')
+                    .from('sales_agents')
                     .select('*')
                     .order('created_at', { ascending: false })
                     .limit(5);
@@ -1430,9 +1470,9 @@
                 }
 
                 tbody.innerHTML = data.map(a => `
-                    <tr>
-                        <td><strong>${a.full_name || a.first_name || 'N/A'}</strong></td>
-                        <td>${a.phone || 'N/A'}</td>
+                    <tr onclick="window.location.href='admin-agents.html?id=${a.id}'" style="cursor:pointer;">
+                        <td><strong>${escapeHtml(a.full_name || a.first_name || 'N/A')}</strong></td>
+                        <td>${escapeHtml(a.phone || 'N/A')}</td>
                         <td>${a.created_at ? new Date(a.created_at).toLocaleDateString('en-KE') : 'N/A'}</td>
                         <td><span class="status-badge ${a.status === 'active' ? 'active' : 'pending'}">${a.status || 'Pending'}</span></td>
                     </tr>
@@ -1477,9 +1517,9 @@
 
                 tbody.innerHTML = data.map(p => `
                     <tr>
-                        <td>${p.member_name || p.membership_number || 'N/A'}</td>
+                        <td>${escapeHtml(p.member_name || p.membership_number || 'N/A')}</td>
                         <td><strong>KES ${(p.amount || 0).toLocaleString()}</strong></td>
-                        <td>${p.mpesa_code || 'N/A'}</td>
+                        <td>${escapeHtml(p.mpesa_code || p.mpesa_receipt || 'N/A')}</td>
                         <td>${p.created_at ? new Date(p.created_at).toLocaleDateString('en-KE') : 'N/A'}</td>
                         <td><span class="status-badge ${p.status || 'pending'}">${p.status || 'Pending'}</span></td>
                     </tr>
@@ -1537,11 +1577,11 @@
                                 ${data.map(p => `
                                     <tr class="row-mismatch">
                                         <td><strong>KES ${(p.amount || 0).toLocaleString()}</strong></td>
-                                        <td>${p.mpesa_code || 'N/A'}</td>
-                                        <td>${p.account_number || 'N/A'}</td>
+                                        <td>${escapeHtml(p.mpesa_code || 'N/A')}</td>
+                                        <td>${escapeHtml(p.account_number || 'N/A')}</td>
                                         <td>${p.created_at ? new Date(p.created_at).toLocaleDateString('en-KE') : 'N/A'}</td>
                                         <td>
-                                            <button onclick="assignPayment('${p.id}')" class="btn btn-sm btn-primary">
+                                            <button onclick="assignPayment('${p.id}')" class="btn btn-primary btn-sm">
                                                 <i class="fas fa-link"></i> Assign
                                             </button>
                                         </td>
@@ -1568,11 +1608,9 @@
         // ============================================================
         async function assignPayment(paymentId) {
             try {
-                // Show prompt for member search
                 const memberNumber = prompt('Enter member number to assign this payment to:');
                 if (!memberNumber) return;
 
-                // Find member
                 const { data: member, error: memberError } = await supabase
                     .from('members')
                     .select('id, membership_number, first_name, last_name')
@@ -1584,7 +1622,6 @@
                     return;
                 }
 
-                // Update payment
                 const { error: updateError } = await supabase
                     .from('payments')
                     .update({
@@ -1631,22 +1668,21 @@
         // REAL-TIME SUBSCRIPTIONS
         // ============================================================
         function setupRealtime() {
-            // Subscribe to payments changes
             const channel = supabase.channel('dashboard-changes')
                 .on(
                     'postgres_changes',
                     { event: '*', schema: 'public', table: 'payments' },
-                    () => refreshData()
+                    () => debounceRefresh()
                 )
                 .on(
                     'postgres_changes',
                     { event: '*', schema: 'public', table: 'members' },
-                    () => refreshData()
+                    () => debounceRefresh()
                 )
                 .on(
                     'postgres_changes',
-                    { event: '*', schema: 'public', table: 'agents' },
-                    () => refreshData()
+                    { event: '*', schema: 'public', table: 'sales_agents' },
+                    () => debounceRefresh()
                 )
                 .subscribe((status) => {
                     if (status === 'SUBSCRIBED') {
@@ -1654,6 +1690,19 @@
                         document.getElementById('liveIndicatorLabel').textContent = 'Live';
                     }
                 });
+        }
+
+        function debounceRefresh() {
+            clearTimeout(refreshTimeout);
+            refreshTimeout = setTimeout(() => {
+                loadDashboardData();
+            }, 1000);
+        }
+
+        function setupAutoRefresh() {
+            setInterval(() => {
+                loadDashboardData();
+            }, 60000);
         }
 
         // ============================================================
@@ -1699,6 +1748,19 @@
                 console.error('Logout error:', error);
                 showToast('error', 'Failed to logout');
             }
+        }
+
+        // ============================================================
+        // HELPER FUNCTIONS
+        // ============================================================
+        function escapeHtml(value) {
+            if (!value) return '';
+            return String(value)
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;')
+                .replace(/'/g, '&#039;');
         }
 
         // ============================================================
