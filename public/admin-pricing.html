@@ -3,204 +3,207 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-
     <title>Pricing | Masika Benevolent</title>
-
     <link rel="icon" type="image/png" href="../assets/favicon-32x32.png">
 
-    <!-- Supabase -->
+    <!-- =========================================================
+         SUPABASE & EXTERNAL JS
+         ========================================================= -->
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-
-    <!-- Font Awesome -->
-    <link
-        rel="stylesheet"
-        href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"
-    >
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
 
     <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
+        /* ============================================================
+           PRICING STYLES
+           ============================================================ */
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
 
         :root {
             --primary: #0b5d3b;
             --primary-dark: #06452c;
+            --primary-light: #e8f5ef;
             --gold: #d4a843;
-
+            --gold-light: #f5e6b8;
             --danger: #dc3545;
+            --danger-light: #fce4e8;
             --success: #198754;
+            --success-light: #d4edda;
+            --warning: #f59e0b;
+            --warning-light: #fff3cd;
             --info: #0dcaf0;
-
+            --info-light: #d1f0f9;
             --text: #1f2933;
             --text-light: #6b7280;
-
+            --text-lighter: #9ca3af;
+            --white: #ffffff;
+            --gray-50: #f9fafb;
             --gray-100: #f3f4f6;
             --gray-200: #e5e7eb;
-
-            --white: #ffffff;
-
-            --shadow: 0 2px 12px rgba(0, 0, 0, 0.08);
-
+            --gray-300: #d1d5db;
+            --gray-400: #9ca3af;
+            --shadow: 0 2px 12px rgba(0,0,0,0.08);
+            --shadow-hover: 0 4px 24px rgba(0,0,0,0.12);
             --radius: 12px;
+            --radius-lg: 16px;
             --transition: all 0.3s ease;
         }
 
         body {
-            font-family: "Segoe UI", Arial, sans-serif;
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif;
             background: #f0f4f2;
             color: var(--text);
             min-height: 100vh;
         }
 
-        /* =====================================================
-           ADMIN LAYOUT
-        ===================================================== */
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        ::-webkit-scrollbar-track { background: var(--gray-100); border-radius: 10px; }
+        ::-webkit-scrollbar-thumb { background: var(--gray-300); border-radius: 10px; }
+        ::-webkit-scrollbar-thumb:hover { background: var(--gray-400); }
 
-        .admin-layout {
-            display: flex;
-            min-height: 100vh;
-        }
+        .admin-layout { display: flex; min-height: 100vh; }
 
-        /* =====================================================
+        /* ============================================================
            SIDEBAR
-        ===================================================== */
+           ============================================================ */
 
         .sidebar {
-            width: 260px;
+            width: 280px;
             background: var(--primary);
             color: white;
             padding: 24px 0;
-
             position: fixed;
-            left: 0;
-            top: 0;
-
             height: 100vh;
-
             overflow-y: auto;
-
-            z-index: 100;
-
             transition: var(--transition);
+            z-index: 100;
+            display: flex;
+            flex-direction: column;
         }
+
+        .sidebar::-webkit-scrollbar { width: 4px; }
+        .sidebar::-webkit-scrollbar-track { background: rgba(255,255,255,0.05); }
+        .sidebar::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.2); border-radius: 10px; }
 
         .sidebar-brand {
             padding: 0 24px 24px;
-
-            border-bottom: 1px solid
-                rgba(255, 255, 255, 0.1);
-
+            border-bottom: 1px solid rgba(255,255,255,0.08);
             margin-bottom: 20px;
+            flex-shrink: 0;
         }
 
         .sidebar-brand .logo {
             display: flex;
             align-items: center;
             gap: 12px;
-
             text-decoration: none;
             color: white;
         }
 
         .sidebar-brand .logo-icon {
-            width: 40px;
-            height: 40px;
-
-            background: white;
-
-            border-radius: 50%;
-
+            width: 44px;
+            height: 44px;
+            background: var(--gold);
+            border-radius: 12px;
             display: flex;
             align-items: center;
             justify-content: center;
-
             font-weight: 900;
-            color: var(--primary);
-            font-size: 18px;
+            color: var(--white);
+            font-size: 20px;
         }
 
         .sidebar-brand .logo-text {
-            font-weight: 700;
-            font-size: 18px;
+            font-weight: 800;
+            font-size: 20px;
+            letter-spacing: -0.5px;
         }
 
         .sidebar-brand .logo-sub {
             font-size: 11px;
-            opacity: 0.7;
+            opacity: 0.6;
             display: block;
+            font-weight: 400;
+            letter-spacing: 0.5px;
+            text-transform: uppercase;
         }
 
         .sidebar-nav {
             list-style: none;
             padding: 0 12px;
+            flex: 1;
         }
 
-        .sidebar-nav li {
-            margin-bottom: 2px;
+        .sidebar-nav li { margin-bottom: 2px; }
+
+        .sidebar-nav .nav-label {
+            font-size: 10px;
+            text-transform: uppercase;
+            letter-spacing: 0.8px;
+            color: rgba(255,255,255,0.3);
+            padding: 12px 16px 6px;
+            font-weight: 700;
         }
 
         .sidebar-nav a {
             display: flex;
             align-items: center;
-
             gap: 12px;
-
-            padding: 12px 16px;
-
-            border-radius: 8px;
-
-            color: rgba(255, 255, 255, 0.7);
-
+            padding: 11px 16px;
+            border-radius: 10px;
+            color: rgba(255,255,255,0.65);
             text-decoration: none;
-
+            transition: var(--transition);
             font-size: 14px;
             font-weight: 500;
-
-            transition: var(--transition);
+            position: relative;
         }
 
         .sidebar-nav a:hover {
-            background: rgba(255, 255, 255, 0.1);
+            background: rgba(255,255,255,0.08);
             color: white;
         }
 
         .sidebar-nav a.active {
-            background: rgba(255, 255, 255, 0.15);
+            background: rgba(255,255,255,0.12);
             color: white;
+        }
+
+        .sidebar-nav a.active::before {
+            content: '';
+            position: absolute;
+            left: 0;
+            top: 20%;
+            height: 60%;
+            width: 3px;
+            background: var(--gold);
+            border-radius: 0 3px 3px 0;
         }
 
         .sidebar-nav a i {
             width: 20px;
             text-align: center;
+            font-size: 16px;
         }
 
         .sidebar-nav .badge {
             margin-left: auto;
-
             background: var(--gold);
             color: white;
-
-            padding: 2px 10px;
-
+            padding: 1px 10px;
             border-radius: 12px;
-
             font-size: 11px;
-            font-weight: 600;
+            font-weight: 700;
+            min-width: 20px;
+            text-align: center;
         }
 
-        /* =====================================================
-           SIDEBAR FOOTER
-        ===================================================== */
-
         .sidebar-footer {
-            padding: 20px 24px;
-
-            border-top: 1px solid
-                rgba(255, 255, 255, 0.1);
-
-            margin-top: 20px;
+            padding: 16px 24px;
+            border-top: 1px solid rgba(255,255,255,0.08);
+            margin-top: auto;
+            flex-shrink: 0;
         }
 
         .sidebar-footer .user-info {
@@ -210,19 +213,17 @@
         }
 
         .sidebar-footer .user-avatar {
-            width: 36px;
-            height: 36px;
-
+            width: 40px;
+            height: 40px;
             border-radius: 50%;
-
             background: var(--gold);
-
             display: flex;
             align-items: center;
             justify-content: center;
-
             font-weight: 700;
-            font-size: 14px;
+            font-size: 16px;
+            color: white;
+            flex-shrink: 0;
         }
 
         .sidebar-footer .user-name {
@@ -232,376 +233,369 @@
 
         .sidebar-footer .user-role {
             font-size: 12px;
-            opacity: 0.6;
+            opacity: 0.5;
         }
 
         .sidebar-footer .logout-btn {
             display: block;
-
             width: 100%;
-
             margin-top: 12px;
-
             padding: 10px;
-
-            border: 1px solid
-                rgba(255, 255, 255, 0.2);
-
-            border-radius: 8px;
-
+            border: 1px solid rgba(255,255,255,0.15);
+            border-radius: 10px;
             background: transparent;
-
-            color: rgba(255, 255, 255, 0.7);
-
+            color: rgba(255,255,255,0.6);
             cursor: pointer;
-
+            transition: var(--transition);
             font-family: inherit;
             font-size: 14px;
             font-weight: 500;
-
-            transition: var(--transition);
         }
 
         .sidebar-footer .logout-btn:hover {
-            background: rgba(255, 255, 255, 0.1);
+            background: rgba(255,255,255,0.08);
             color: white;
+            border-color: rgba(255,255,255,0.3);
         }
 
-        /* =====================================================
+        /* ============================================================
+           SIDEBAR BACKDROP
+           ============================================================ */
+
+        .sidebar-backdrop {
+            display: none;
+            position: fixed;
+            inset: 0;
+            background: rgba(0,0,0,0.5);
+            backdrop-filter: blur(4px);
+            z-index: 99;
+        }
+
+        .sidebar-backdrop.show { display: block; }
+
+        /* ============================================================
            MAIN CONTENT
-        ===================================================== */
+           ============================================================ */
 
         .main-content {
-            margin-left: 260px;
-
-            padding: 24px 32px;
-
+            margin-left: 280px;
+            padding: 24px 32px 40px;
             flex: 1;
-
-            width: calc(100% - 260px);
+            width: calc(100% - 280px);
+            min-height: 100vh;
         }
 
-        /* =====================================================
+        /* ============================================================
            TOPBAR
-        ===================================================== */
+           ============================================================ */
 
         .topbar {
             display: flex;
-
             justify-content: space-between;
             align-items: center;
-
-            margin-bottom: 24px;
-
+            margin-bottom: 28px;
             flex-wrap: wrap;
-
             gap: 12px;
         }
 
+        .topbar-left {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+        }
+
         .topbar h1 {
-            font-size: 26px;
+            font-size: 28px;
             font-weight: 800;
+            letter-spacing: -0.5px;
         }
 
         .topbar h1 small {
             font-size: 14px;
-
             font-weight: 400;
-
             color: var(--text-light);
-
             display: block;
-
-            margin-top: 3px;
+            margin-top: 2px;
         }
 
-        /* =====================================================
-           CARD
-        ===================================================== */
+        .topbar .actions {
+            display: flex;
+            gap: 12px;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+
+        .topbar .actions .date-time {
+            font-size: 14px;
+            color: var(--text-light);
+            font-weight: 500;
+        }
+
+        .sidebar-toggle {
+            display: none;
+            background: var(--primary);
+            color: white;
+            border: none;
+            padding: 8px 14px;
+            border-radius: 10px;
+            font-size: 20px;
+            cursor: pointer;
+            transition: var(--transition);
+        }
+
+        .sidebar-toggle:hover { background: var(--primary-dark); }
+
+        /* ============================================================
+           BUTTONS
+           ============================================================ */
+
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 10px 20px;
+            border: none;
+            border-radius: 8px;
+            font-weight: 600;
+            font-size: 14px;
+            cursor: pointer;
+            transition: var(--transition);
+            font-family: inherit;
+            text-decoration: none;
+        }
+
+        .btn-primary {
+            background: var(--primary);
+            color: white;
+        }
+        .btn-primary:hover {
+            background: var(--primary-dark);
+            transform: translateY(-2px);
+            box-shadow: 0 4px 16px rgba(11, 93, 59, 0.3);
+        }
+
+        .btn-gold {
+            background: var(--gold);
+            color: white;
+        }
+        .btn-gold:hover {
+            background: #c49a3a;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 16px rgba(212, 168, 67, 0.3);
+        }
+
+        .btn-success {
+            background: var(--success);
+            color: white;
+        }
+        .btn-success:hover {
+            background: #157347;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 16px rgba(25, 135, 84, 0.3);
+        }
+
+        .btn-danger {
+            background: var(--danger);
+            color: white;
+        }
+        .btn-danger:hover {
+            background: #c82333;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 16px rgba(220, 53, 69, 0.3);
+        }
+
+        .btn-outline {
+            background: transparent;
+            border: 2px solid var(--gray-200);
+            color: var(--text-light);
+        }
+        .btn-outline:hover {
+            border-color: var(--primary);
+            color: var(--primary);
+            transform: translateY(-2px);
+        }
+
+        .btn-sm {
+            padding: 6px 14px;
+            font-size: 12px;
+            border-radius: 6px;
+        }
+
+        .btn-block { width: 100%; justify-content: center; }
+        .btn:disabled { opacity: 0.6; cursor: not-allowed; transform: none !important; }
+
+        /* ============================================================
+           CARDS
+           ============================================================ */
 
         .card {
             background: white;
-
             border-radius: var(--radius);
-
             padding: 24px;
-
             box-shadow: var(--shadow);
-
             margin-bottom: 24px;
+            transition: var(--transition);
+        }
+
+        .card:hover {
+            box-shadow: var(--shadow-hover);
         }
 
         .card-header {
             display: flex;
-
             justify-content: space-between;
             align-items: center;
-
             margin-bottom: 16px;
-
             padding-bottom: 12px;
-
             border-bottom: 1px solid var(--gray-200);
-
             flex-wrap: wrap;
-
             gap: 10px;
         }
 
         .card-header h3 {
             font-size: 18px;
             font-weight: 700;
+            display: flex;
+            align-items: center;
+            gap: 10px;
         }
 
-        /* =====================================================
+        /* ============================================================
            TABLE
-        ===================================================== */
+           ============================================================ */
 
         .table-wrapper {
             overflow-x: auto;
+            border-radius: 8px;
         }
 
         table {
             width: 100%;
-
             border-collapse: collapse;
-
             font-size: 14px;
-
             min-width: 950px;
         }
 
         table thead {
-            background: var(--gray-100);
+            background: var(--gray-50);
         }
 
         table thead th {
             padding: 10px 14px;
-
             text-align: left;
-
             font-weight: 600;
-
+            font-size: 12px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            color: var(--text-light);
             white-space: nowrap;
         }
 
         table tbody td {
             padding: 10px 14px;
-
-            border-bottom: 1px solid var(--gray-200);
-
+            border-bottom: 1px solid var(--gray-100);
             vertical-align: middle;
-
             white-space: nowrap;
         }
 
-        table tbody tr:hover {
-            background: var(--gray-100);
-        }
-
-        /* =====================================================
-           STATUS
-        ===================================================== */
-
-        .status-badge {
-            display: inline-block;
-
-            padding: 3px 12px;
-
-            border-radius: 20px;
-
-            font-size: 12px;
-
-            font-weight: 600;
-        }
-
-        .status-badge.active {
-            background: #d4edda;
-            color: #155724;
-        }
-
-        .status-badge.inactive {
-            background: #f8d7da;
-            color: #721c24;
-        }
-
-        /* =====================================================
-           BUTTONS
-        ===================================================== */
-
-        .btn-sm {
-            padding: 6px 14px;
-
-            font-size: 13px;
-
-            border: none;
-
-            border-radius: 6px;
-
-            cursor: pointer;
-
-            font-family: inherit;
-
-            font-weight: 600;
-
+        table tbody tr {
             transition: var(--transition);
         }
 
-        .btn-sm:hover {
-            transform: translateY(-1px);
+        table tbody tr:hover {
+            background: var(--gray-50);
         }
 
-        .btn-sm:disabled {
-            opacity: 0.6;
-            cursor: not-allowed;
-            transform: none;
+        table tbody tr:last-child td {
+            border-bottom: none;
         }
 
-        .btn-sm.primary {
-            background: var(--primary);
-            color: white;
-        }
+        /* ============================================================
+           STATUS BADGES
+           ============================================================ */
 
-        .btn-sm.primary:hover {
-            background: var(--primary-dark);
-        }
-
-        .btn-sm.gray {
-            background: var(--gray-200);
-            color: var(--text);
-        }
-
-        .btn-sm.gray:hover {
-            background: #d1d5db;
-        }
-
-        .btn-sm.danger {
-            background: var(--danger);
-            color: white;
-        }
-
-        .btn-sm.danger:hover {
-            background: #bb2d3b;
-        }
-
-        /* =====================================================
-           LOADING
-        ===================================================== */
-
-        .loading-spinner {
-            text-align: center;
-            padding: 40px;
-        }
-
-        .loading-spinner .spinner {
+        .status-badge {
             display: inline-block;
-
-            width: 40px;
-            height: 40px;
-
-            border: 4px solid var(--gray-200);
-
-            border-top-color: var(--primary);
-
-            border-radius: 50%;
-
-            animation: spin 0.8s linear infinite;
+            padding: 3px 12px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: 600;
+            white-space: nowrap;
         }
 
-        @keyframes spin {
-            to {
-                transform: rotate(360deg);
-            }
-        }
+        .status-badge.active { background: var(--success-light); color: var(--success); }
+        .status-badge.inactive { background: var(--danger-light); color: var(--danger); }
 
-        .loading-spinner p {
-            color: var(--text-light);
-            margin-top: 12px;
-        }
-
-        /* =====================================================
+        /* ============================================================
            MODAL
-        ===================================================== */
+           ============================================================ */
 
         .modal-overlay {
             display: none;
-
             position: fixed;
-
             inset: 0;
-
-            background: rgba(0, 0, 0, 0.5);
-
+            background: rgba(0,0,0,0.5);
+            backdrop-filter: blur(4px);
             z-index: 200;
-
             align-items: center;
             justify-content: center;
-
             padding: 20px;
         }
 
-        .modal-overlay.open {
-            display: flex;
-        }
+        .modal-overlay.open { display: flex; }
 
         .modal {
             background: white;
-
-            border-radius: var(--radius);
-
+            border-radius: var(--radius-lg);
             padding: 28px;
-
             width: 100%;
-
             max-width: 760px;
-
             max-height: 92vh;
-
             overflow-y: auto;
+            animation: modalSlide 0.3s ease;
+            box-shadow: 0 24px 80px rgba(0,0,0,0.2);
+        }
 
-            box-shadow: 0 10px 40px
-                rgba(0, 0, 0, 0.2);
+        @keyframes modalSlide {
+            from { transform: translateY(-30px); opacity: 0; }
+            to { transform: translateY(0); opacity: 1; }
         }
 
         .modal h3 {
             margin-bottom: 20px;
-
             font-size: 20px;
-
+            font-weight: 700;
             display: flex;
-
             align-items: center;
-
-            gap: 8px;
+            gap: 10px;
         }
-
-        /* =====================================================
-           FORM
-        ===================================================== */
 
         .modal fieldset {
             border: 1px solid var(--gray-200);
-
             border-radius: 8px;
-
             padding: 14px 16px 4px;
-
             margin-bottom: 16px;
         }
 
         .modal legend {
             font-size: 12px;
-
             font-weight: 700;
-
             color: var(--primary);
-
             padding: 0 6px;
-
             text-transform: uppercase;
-
             letter-spacing: 0.03em;
         }
+
+        .modal-actions {
+            display: flex;
+            gap: 10px;
+            justify-content: flex-end;
+            margin-top: 20px;
+        }
+
+        /* ============================================================
+           FORM
+           ============================================================ */
 
         .form-group {
             margin-bottom: 14px;
@@ -609,41 +603,32 @@
 
         .form-group label {
             display: block;
-
             font-size: 13px;
-
             font-weight: 600;
-
             margin-bottom: 6px;
-
             color: var(--text-light);
+        }
+
+        .form-group label .required {
+            color: var(--danger);
         }
 
         .form-group input,
         .form-group select,
         .form-group textarea {
             width: 100%;
-
             padding: 9px 12px;
-
-            border: 1px solid var(--gray-200);
-
+            border: 2px solid var(--gray-200);
             border-radius: 8px;
-
             font-family: inherit;
-
             font-size: 14px;
-
             background: white;
-
             color: var(--text);
-
             transition: var(--transition);
         }
 
         .form-group textarea {
             resize: vertical;
-
             min-height: 70px;
         }
 
@@ -651,117 +636,168 @@
         .form-group select:focus,
         .form-group textarea:focus {
             outline: none;
-
             border-color: var(--primary);
-
-            box-shadow:
-                0 0 0 3px
-                rgba(11, 93, 59, 0.08);
+            box-shadow: 0 0 0 4px rgba(11, 93, 59, 0.1);
         }
 
         .form-row {
             display: grid;
-
             grid-template-columns: 1fr 1fr;
-
             gap: 12px;
         }
 
         .form-row-3 {
             display: grid;
-
-            grid-template-columns:
-                1fr 1fr 1fr;
-
+            grid-template-columns: 1fr 1fr 1fr;
             gap: 12px;
         }
 
-        .modal-actions {
-            display: flex;
-
-            gap: 10px;
-
-            justify-content: flex-end;
-
-            margin-top: 20px;
-        }
-
-        /* =====================================================
-           MESSAGES
-        ===================================================== */
-
-        .form-error {
-            color: var(--danger);
-
-            font-size: 13px;
-
-            margin-top: 10px;
-
-            display: none;
-
-            background: #fff5f5;
-
-            border: 1px solid #f5c2c7;
-
-            border-radius: 6px;
-
-            padding: 9px 12px;
-        }
-
-        .form-success {
-            color: var(--success);
-
-            font-size: 13px;
-
-            margin-top: 10px;
-
-            display: none;
-
-            background: #f0fff4;
-
-            border: 1px solid #badbcc;
-
-            border-radius: 6px;
-
-            padding: 9px 12px;
-        }
-
-        /* =====================================================
-           CHECKBOX
-        ===================================================== */
-
         .checkbox-row {
             display: flex;
-
             align-items: center;
-
             gap: 8px;
-
             margin-bottom: 16px;
         }
 
         .checkbox-row input {
             width: auto;
-
             accent-color: var(--primary);
         }
 
         .checkbox-row label {
             font-size: 13px;
-
             font-weight: 600;
-
             color: var(--text);
         }
 
-        /* =====================================================
-           MOBILE
-        ===================================================== */
+        .form-error {
+            color: var(--danger);
+            font-size: 13px;
+            margin-top: 10px;
+            display: none;
+            background: var(--danger-light);
+            border: 1px solid #f5c2c7;
+            border-radius: 6px;
+            padding: 9px 12px;
+        }
+
+        .form-success {
+            color: var(--success);
+            font-size: 13px;
+            margin-top: 10px;
+            display: none;
+            background: var(--success-light);
+            border: 1px solid #badbcc;
+            border-radius: 6px;
+            padding: 9px 12px;
+        }
+
+        /* ============================================================
+           EMPTY & LOADING STATES
+           ============================================================ */
+
+        .loading-spinner {
+            text-align: center;
+            padding: 50px 20px;
+        }
+
+        .loading-spinner .spinner {
+            display: inline-block;
+            width: 40px;
+            height: 40px;
+            border: 4px solid var(--gray-200);
+            border-top-color: var(--primary);
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        .loading-spinner p {
+            color: var(--text-light);
+            margin-top: 12px;
+        }
+
+        .empty-state {
+            text-align: center;
+            padding: 50px 20px;
+            color: var(--text-light);
+        }
+
+        .empty-state i {
+            font-size: 42px;
+            margin-bottom: 14px;
+            opacity: 0.4;
+        }
+
+        .empty-state h4 {
+            color: var(--text);
+            margin-bottom: 6px;
+        }
+
+        /* ============================================================
+           TOAST NOTIFICATIONS
+           ============================================================ */
+
+        .toast-container {
+            position: fixed;
+            bottom: 30px;
+            right: 30px;
+            z-index: 9999;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            max-width: 420px;
+        }
+
+        .toast {
+            padding: 14px 20px;
+            border-radius: 12px;
+            color: white;
+            font-weight: 600;
+            font-size: 14px;
+            animation: slideIn 0.4s ease;
+            box-shadow: 0 12px 48px rgba(0,0,0,0.15);
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .toast:hover { transform: scale(1.02); }
+        .toast.success { background: var(--success); }
+        .toast.error { background: var(--danger); }
+        .toast.info { background: var(--info); color: var(--text); }
+        .toast.warning { background: var(--warning); color: var(--text); }
+
+        .toast .toast-close {
+            background: none;
+            border: none;
+            color: rgba(255,255,255,0.7);
+            cursor: pointer;
+            font-size: 18px;
+            margin-left: auto;
+            padding: 0 4px;
+        }
+
+        .toast .toast-close:hover { color: white; }
+
+        @keyframes slideIn {
+            from { transform: translateX(100px); opacity: 0; }
+            to { transform: translateX(0); opacity: 1; }
+        }
+
+        /* ============================================================
+           RESPONSIVE
+           ============================================================ */
 
         @media (max-width: 768px) {
-
             .sidebar {
                 transform: translateX(-100%);
+                width: 280px;
             }
 
             .sidebar.open {
@@ -770,10 +806,20 @@
 
             .main-content {
                 margin-left: 0;
-
                 width: 100%;
-
                 padding: 16px;
+            }
+
+            .sidebar-toggle {
+                display: block;
+            }
+
+            .topbar .actions .date-time {
+                display: none;
+            }
+
+            .topbar h1 {
+                font-size: 22px;
             }
 
             .form-row,
@@ -783,765 +829,883 @@
 
             .modal {
                 padding: 20px;
-
                 max-height: 95vh;
-            }
-
-            .topbar h1 {
-                font-size: 22px;
             }
 
             .card {
                 padding: 16px;
             }
         }
+
+        @media (max-width: 480px) {
+            .topbar {
+                flex-direction: column;
+                align-items: stretch;
+            }
+
+            .topbar .actions {
+                justify-content: flex-start;
+            }
+        }
     </style>
 </head>
-
 <body>
 
-<div class="admin-layout">
+    <div class="admin-layout">
 
-    <!-- =====================================================
-         SIDEBAR
-    ====================================================== -->
+        <!-- ============================================================
+        SIDEBAR BACKDROP
+        ============================================================ -->
+        <div class="sidebar-backdrop" id="sidebarBackdrop"></div>
 
-    <aside class="sidebar" id="sidebar">
+        <!-- ============================================================
+        SIDEBAR
+        ============================================================ -->
 
-        <div class="sidebar-brand">
-
-            <a
-                href="admin-dashboard.html"
-                class="logo"
-            >
-                <div class="logo-icon">
-                    MB
-                </div>
-
-                <div>
-                    <span class="logo-text">
-                        Masika
-                    </span>
-
-                    <span class="logo-sub">
-                        Admin Panel
-                    </span>
-                </div>
-            </a>
-
-        </div>
-
-        <ul class="sidebar-nav">
-
-            <li>
-                <a href="admin-dashboard.html">
-                    <i class="fas fa-chart-pie"></i>
-                    Dashboard
-                </a>
-            </li>
-
-            <li>
-                <a href="admin-agents.html">
-                    <i class="fas fa-user-tie"></i>
-                    Agents
-
-                    <span
-                        class="badge"
-                        id="agentCountBadge"
-                    >
-                        0
-                    </span>
-                </a>
-            </li>
-
-            <li>
-                <a href="admin-members.html">
-                    <i class="fas fa-users"></i>
-                    Members
-                </a>
-            </li>
-
-            <li>
-                <a href="admin-payments.html">
-                    <i class="fas fa-credit-card"></i>
-                    Payments
-                </a>
-            </li>
-
-            <li>
-                <a
-                    href="admin-pricing.html"
-                    class="active"
-                >
-                    <i class="fas fa-tags"></i>
-                    Pricing
-                </a>
-            </li>
-
-            <li>
-                <a href="admin-reports.html">
-                    <i class="fas fa-file-alt"></i>
-                    Reports
-                </a>
-            </li>
-
-            <li>
-                <a href="admin-settings.html">
-                    <i class="fas fa-cog"></i>
-                    Settings
-                </a>
-            </li>
-
-        </ul>
-
-        <!-- =================================================
-             USER
-        ================================================== -->
-
-        <div class="sidebar-footer">
-
-            <div class="user-info">
-
-                <div
-                    class="user-avatar"
-                    id="adminAvatar"
-                >
-                    A
-                </div>
-
-                <div>
-
-                    <div
-                        class="user-name"
-                        id="adminName"
-                    >
-                        Admin
+        <aside class="sidebar" id="sidebar">
+            <div class="sidebar-brand">
+                <a href="admin-dashboard.html" class="logo">
+                    <div class="logo-icon">MB</div>
+                    <div>
+                        <span class="logo-text">Masika</span>
+                        <span class="logo-sub">Admin Panel</span>
                     </div>
-
-                    <div
-                        class="user-role"
-                        id="adminRole"
-                    >
-                        Administrator
-                    </div>
-
-                </div>
-
+                </a>
             </div>
 
-            <button
-                type="button"
-                class="logout-btn"
-                onclick="handleLogout()"
-            >
-                <i class="fas fa-sign-out-alt"></i>
-                Logout
-            </button>
+            <ul class="sidebar-nav">
+                <li class="nav-label">Main</li>
+                <li><a href="admin-dashboard.html"><i class="fas fa-chart-pie"></i> Dashboard</a></li>
+                <li><a href="admin-members.html"><i class="fas fa-users"></i> Members</a></li>
+                <li><a href="admin-agents.html"><i class="fas fa-user-tie"></i> Agents</a></li>
 
-        </div>
+                <li class="nav-label">Finance</li>
+                <li><a href="admin-collectpayments.html"><i class="fas fa-credit-card"></i> Payments</a></li>
+                <li><a href="admin-revenue.html"><i class="fas fa-chart-line"></i> Revenue</a></li>
 
-    </aside>
+                <li class="nav-label">Settings</li>
+                <li><a href="admin-pricing.html" class="active"><i class="fas fa-tags"></i> Pricing</a></li>
+                <li><a href="admin-reports.html"><i class="fas fa-file-alt"></i> Reports</a></li>
+                <li><a href="admin-settings.html"><i class="fas fa-cog"></i> Settings</a></li>
+            </ul>
 
-
-    <!-- =====================================================
-         MAIN CONTENT
-    ====================================================== -->
-
-    <main class="main-content">
-
-        <div class="topbar">
-
-            <div>
-
-                <h1>
-                    Pricing
-
-                    <small>
-                        Manage membership plans, premiums and fees
-                    </small>
-                </h1>
-
-            </div>
-
-            <button
-                type="button"
-                class="btn-sm primary"
-                onclick="openPlanModal()"
-                style="
-                    padding:10px 20px;
-                    font-size:14px;
-                "
-            >
-                <i class="fas fa-plus"></i>
-                New Plan
-            </button>
-
-        </div>
-
-
-        <!-- =================================================
-             PLANS CARD
-        ================================================== -->
-
-        <div class="card">
-
-            <div class="card-header">
-
-                <h3>
-                    <i
-                        class="fas fa-tags"
-                        style="color:var(--gold);"
-                    ></i>
-
-                    All Membership Plans
-                </h3>
-
-            </div>
-
-            <div id="plansList">
-
-                <div class="loading-spinner">
-
-                    <div class="spinner"></div>
-
-                    <p>
-                        Loading plans...
-                    </p>
-
+            <div class="sidebar-footer">
+                <div class="user-info">
+                    <div class="user-avatar" id="adminAvatar">A</div>
+                    <div>
+                        <div class="user-name" id="adminName">Admin</div>
+                        <div class="user-role" id="adminRole">Administrator</div>
+                    </div>
                 </div>
-
-            </div>
-
-        </div>
-
-    </main>
-
-</div>
-
-
-<!-- =========================================================
-     PLAN MODAL
-========================================================= -->
-
-<div
-    class="modal-overlay"
-    id="planModal"
->
-
-    <div class="modal">
-
-        <h3 id="planModalTitle">
-
-            <i
-                class="fas fa-tags"
-                style="color:var(--primary);"
-            ></i>
-
-            New Plan
-
-        </h3>
-
-
-        <form id="planForm">
-
-            <!-- Hidden ID -->
-            <input
-                type="hidden"
-                id="planId"
-            >
-
-
-            <!-- =================================================
-                 BASIC INFORMATION
-            ================================================== -->
-
-            <fieldset>
-
-                <legend>
-                    Basic Information
-                </legend>
-
-                <div class="form-row">
-
-                    <div class="form-group">
-
-                        <label for="planCode">
-                            Plan Code *
-                        </label>
-
-                        <input
-                            type="text"
-                            id="planCode"
-                            placeholder="e.g. COMFORT"
-                            required
-                        >
-
-                    </div>
-
-
-                    <div class="form-group">
-
-                        <label for="planName">
-                            Plan Name *
-                        </label>
-
-                        <input
-                            type="text"
-                            id="planName"
-                            placeholder="e.g. Comfort"
-                            required
-                        >
-
-                    </div>
-
-                </div>
-
-
-                <div class="form-group">
-
-                    <label for="planDescription">
-                        Description
-                    </label>
-
-                    <textarea
-                        id="planDescription"
-                        placeholder="Brief description of the membership plan"
-                    ></textarea>
-
-                </div>
-
-            </fieldset>
-
-
-            <!-- =================================================
-                 PRICING
-            ================================================== -->
-
-            <fieldset>
-
-                <legend>
-                    Pricing (KES)
-                </legend>
-
-                <div class="form-row">
-
-                    <div class="form-group">
-
-                        <label for="principalMonthlyPremium">
-                            Principal Monthly Premium
-                        </label>
-
-                        <input
-                            type="number"
-                            id="principalMonthlyPremium"
-                            min="0"
-                            step="0.01"
-                            placeholder="300"
-                        >
-
-                    </div>
-
-
-                    <div class="form-group">
-
-                        <label for="parentMonthlyPremium">
-                            Parent Monthly Premium
-                        </label>
-
-                        <input
-                            type="number"
-                            id="parentMonthlyPremium"
-                            min="0"
-                            step="0.01"
-                            placeholder="350"
-                        >
-
-                    </div>
-
-                </div>
-
-
-                <div class="form-row">
-
-                    <div class="form-group">
-
-                        <label for="principalRegistrationFee">
-                            Principal Registration Fee
-                        </label>
-
-                        <input
-                            type="number"
-                            id="principalRegistrationFee"
-                            min="0"
-                            step="0.01"
-                            placeholder="200"
-                        >
-
-                    </div>
-
-
-                    <div class="form-group">
-
-                        <label for="dependantRegistrationFee">
-                            Dependant Registration Fee
-                        </label>
-
-                        <input
-                            type="number"
-                            id="dependantRegistrationFee"
-                            min="0"
-                            step="0.01"
-                            placeholder="0"
-                        >
-
-                    </div>
-
-                </div>
-
-
-                <div class="form-row">
-
-                    <div class="form-group">
-
-                        <label for="principalBenefit">
-                            Principal Benefit
-                        </label>
-
-                        <input
-                            type="number"
-                            id="principalBenefit"
-                            min="0"
-                            step="0.01"
-                            placeholder="Benefit amount"
-                        >
-
-                    </div>
-
-
-                    <div class="form-group">
-
-                        <label for="dependantBenefit">
-                            Dependant Benefit
-                        </label>
-
-                        <input
-                            type="number"
-                            id="dependantBenefit"
-                            min="0"
-                            step="0.01"
-                            placeholder="Benefit amount"
-                        >
-
-                    </div>
-
-                </div>
-
-            </fieldset>
-
-
-            <!-- =================================================
-                 ELIGIBILITY
-            ================================================== -->
-
-            <fieldset>
-
-                <legend>
-                    Eligibility
-                </legend>
-
-
-                <div class="form-row-3">
-
-                    <div class="form-group">
-
-                        <label for="maxDependants">
-                            Max Dependants
-                        </label>
-
-                        <input
-                            type="number"
-                            id="maxDependants"
-                            min="0"
-                            step="1"
-                            placeholder="9"
-                        >
-
-                    </div>
-
-
-                    <div class="form-group">
-
-                        <label for="minimumParents">
-                            Minimum Parents
-                        </label>
-
-                        <input
-                            type="number"
-                            id="minimumParents"
-                            min="0"
-                            step="1"
-                            placeholder="0"
-                        >
-
-                    </div>
-
-
-                    <div class="form-group">
-
-                        <label for="maximumParents">
-                            Maximum Parents
-                        </label>
-
-                        <input
-                            type="number"
-                            id="maximumParents"
-                            min="0"
-                            step="1"
-                            placeholder="4"
-                        >
-
-                    </div>
-
-                </div>
-
-
-                <div class="form-row">
-
-                    <div class="form-group">
-
-                        <label for="principalEntryMaxAge">
-                            Principal Entry Max Age
-                        </label>
-
-                        <input
-                            type="number"
-                            id="principalEntryMaxAge"
-                            min="0"
-                            step="1"
-                            placeholder="70"
-                        >
-
-                    </div>
-
-
-                    <div class="form-group">
-
-                        <label for="principalExitAge">
-                            Principal Exit Age
-                        </label>
-
-                        <input
-                            type="number"
-                            id="principalExitAge"
-                            min="0"
-                            step="1"
-                            placeholder="80"
-                        >
-
-                    </div>
-
-                </div>
-
-
-                <div class="form-group">
-
-                    <label for="exitAge">
-                        Exit Age
-                    </label>
-
-                    <input
-                        type="number"
-                        id="exitAge"
-                        min="0"
-                        step="1"
-                        placeholder="80"
-                    >
-
-                </div>
-
-            </fieldset>
-
-
-            <!-- =================================================
-                 PERIODS
-            ================================================== -->
-
-            <fieldset>
-
-                <legend>
-                    Waiting Periods & Deadlines
-                </legend>
-
-
-                <div class="form-row-3">
-
-                    <div class="form-group">
-
-                        <label for="waitingPeriodMonths">
-                            Waiting Period (Months)
-                        </label>
-
-                        <input
-                            type="number"
-                            id="waitingPeriodMonths"
-                            min="0"
-                            step="1"
-                            placeholder="4"
-                        >
-
-                    </div>
-
-
-                    <div class="form-group">
-
-                        <label for="gracePeriodDays">
-                            Grace Period (Days)
-                        </label>
-
-                        <input
-                            type="number"
-                            id="gracePeriodDays"
-                            min="0"
-                            step="1"
-                            placeholder="0"
-                        >
-
-                    </div>
-
-
-                    <div class="form-group">
-
-                        <label for="renewalPeriodMonths">
-                            Renewal Period (Months)
-                        </label>
-
-                        <input
-                            type="number"
-                            id="renewalPeriodMonths"
-                            min="1"
-                            step="1"
-                            placeholder="1"
-                        >
-
-                    </div>
-
-                </div>
-
-
-                <div class="form-row">
-
-                    <div class="form-group">
-
-                        <label for="monthlyPaymentDeadlineDays">
-                            Monthly Payment Deadline (Days)
-                        </label>
-
-                        <input
-                            type="number"
-                            id="monthlyPaymentDeadlineDays"
-                            min="0"
-                            step="1"
-                            placeholder="10"
-                        >
-
-                    </div>
-
-
-                    <div class="form-group">
-
-                        <label for="activationRequiredMonths">
-                            Activation Required (Months)
-                        </label>
-
-                        <input
-                            type="number"
-                            id="activationRequiredMonths"
-                            min="0"
-                            step="1"
-                            placeholder="4"
-                        >
-
-                    </div>
-
-                </div>
-
-            </fieldset>
-
-
-            <!-- =================================================
-                 STATUS
-            ================================================== -->
-
-            <div class="checkbox-row">
-
-                <input
-                    type="checkbox"
-                    id="planIsActive"
-                    checked
-                >
-
-                <label for="planIsActive">
-                    Active — available for new registrations
-                </label>
-
-            </div>
-
-
-            <!-- =================================================
-                 FORM MESSAGES
-            ================================================== -->
-
-            <div
-                class="form-error"
-                id="planFormError"
-            ></div>
-
-            <div
-                class="form-success"
-                id="planFormSuccess"
-            ></div>
-
-
-            <!-- =================================================
-                 ACTIONS
-            ================================================== -->
-
-            <div class="modal-actions">
-
-                <button
-                    type="button"
-                    class="btn-sm gray"
-                    onclick="closePlanModal()"
-                >
-                    Cancel
+                <button class="logout-btn" onclick="handleLogout()">
+                    <i class="fas fa-sign-out-alt"></i> Logout
                 </button>
+            </div>
+        </aside>
 
-                <button
-                    type="submit"
-                    class="btn-sm primary"
-                    id="planSubmitBtn"
-                >
-                    <i class="fas fa-save"></i>
-                    Save Plan
-                </button>
+        <!-- ============================================================
+        MAIN CONTENT
+        ============================================================ -->
 
+        <main class="main-content">
+
+            <!-- Topbar -->
+            <div class="topbar">
+                <div class="topbar-left">
+                    <button class="sidebar-toggle" id="sidebarToggle" aria-label="Toggle menu">
+                        <i class="fas fa-bars"></i>
+                    </button>
+                    <h1>
+                        Pricing
+                        <small>Manage membership plans, premiums and fees</small>
+                    </h1>
+                </div>
+                <div class="actions">
+                    <span class="date-time" id="currentDateTime"></span>
+                    <button onclick="refreshData()" class="btn btn-primary btn-sm" id="refreshBtn">
+                        <i class="fas fa-sync" id="refreshIcon"></i> Refresh
+                    </button>
+                    <button onclick="openPlanModal()" class="btn btn-primary">
+                        <i class="fas fa-plus"></i> New Plan
+                    </button>
+                </div>
             </div>
 
-        </form>
+            <!-- Plans Card -->
+            <div class="card">
+                <div class="card-header">
+                    <h3><i class="fas fa-tags" style="color:var(--gold);"></i> All Membership Plans</h3>
+                </div>
 
+                <div id="plansList">
+                    <div class="loading-spinner">
+                        <div class="spinner"></div>
+                        <p>Loading plans...</p>
+                    </div>
+                </div>
+            </div>
+
+        </main>
     </div>
 
-</div>
+    <!-- ============================================================
+    MODAL: Plan
+    ============================================================ -->
 
+    <div class="modal-overlay" id="planModal">
+        <div class="modal">
+            <h3 id="planModalTitle">
+                <i class="fas fa-tags" style="color:var(--primary);"></i>
+                New Plan
+            </h3>
 
-<!-- =========================================================
-     JAVASCRIPT
-========================================================= -->
+            <form id="planForm">
+                <input type="hidden" id="planId">
 
-<script src="../js/supabase-config.js"></script>
-<script src="../js/admin-auth.js"></script>
-<script src="../js/admin-pricing.js"></script>
+                <!-- Basic Information -->
+                <fieldset>
+                    <legend>Basic Information</legend>
+
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="planCode">Plan Code <span class="required">*</span></label>
+                            <input type="text" id="planCode" placeholder="e.g. COMFORT" required>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="planName">Plan Name <span class="required">*</span></label>
+                            <input type="text" id="planName" placeholder="e.g. Comfort Plan" required>
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="planDescription">Description</label>
+                        <textarea id="planDescription" placeholder="Brief description of the membership plan"></textarea>
+                    </div>
+                </fieldset>
+
+                <!-- Pricing -->
+                <fieldset>
+                    <legend>Pricing (KES)</legend>
+
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="monthlyPremium">Monthly Premium</label>
+                            <input type="number" id="monthlyPremium" min="0" step="0.01" placeholder="300">
+                        </div>
+
+                        <div class="form-group">
+                            <label for="registrationFee">Registration Fee</label>
+                            <input type="number" id="registrationFee" min="0" step="0.01" placeholder="200">
+                        </div>
+                    </div>
+
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="cashBenefit">Cash Benefit Amount</label>
+                            <input type="number" id="cashBenefit" min="0" step="0.01" placeholder="110000">
+                        </div>
+
+                        <div class="form-group">
+                            <label for="serviceBenefit">Service Benefit Value</label>
+                            <input type="number" id="serviceBenefit" min="0" step="0.01" placeholder="110000">
+                        </div>
+                    </div>
+                </fieldset>
+
+                <!-- Eligibility -->
+                <fieldset>
+                    <legend>Eligibility</legend>
+
+                    <div class="form-row-3">
+                        <div class="form-group">
+                            <label for="minAge">Minimum Age</label>
+                            <input type="number" id="minAge" min="0" step="1" placeholder="1">
+                        </div>
+
+                        <div class="form-group">
+                            <label for="maxAge">Maximum Age</label>
+                            <input type="number" id="maxAge" min="0" step="1" placeholder="80">
+                        </div>
+
+                        <div class="form-group">
+                            <label for="waitingPeriodMonths">Waiting Period (Months)</label>
+                            <input type="number" id="waitingPeriodMonths" min="0" step="1" placeholder="4">
+                        </div>
+                    </div>
+
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="maxDependants">Maximum Dependants</label>
+                            <input type="number" id="maxDependants" min="0" step="1" placeholder="4">
+                        </div>
+
+                        <div class="form-group">
+                            <label for="gracePeriodDays">Grace Period (Days)</label>
+                            <input type="number" id="gracePeriodDays" min="0" step="1" placeholder="30">
+                        </div>
+                    </div>
+                </fieldset>
+
+                <!-- Status -->
+                <div class="checkbox-row">
+                    <input type="checkbox" id="planIsActive" checked>
+                    <label for="planIsActive">Active — available for new registrations</label>
+                </div>
+
+                <!-- Messages -->
+                <div class="form-error" id="planFormError"></div>
+                <div class="form-success" id="planFormSuccess"></div>
+
+                <!-- Actions -->
+                <div class="modal-actions">
+                    <button type="button" class="btn btn-outline" onclick="closePlanModal()">Cancel</button>
+                    <button type="submit" class="btn btn-primary" id="planSubmitBtn">
+                        <i class="fas fa-save"></i> Save Plan
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- ============================================================
+    TOAST CONTAINER
+    ============================================================ -->
+    <div class="toast-container" id="toastContainer"></div>
+
+    <!-- ============================================================
+    JAVASCRIPT - ALIGNED WITH SUPABASE
+    ============================================================ -->
+    <script>
+        // ============================================================
+        // SUPABASE CONFIG
+        // ============================================================
+
+        const SUPABASE_URL = 'https://wpxzlcdrirlcyvfiquld.supabase.co';
+        const SUPABASE_ANON_KEY = 'YOUR_SUPABASE_ANON_KEY';
+
+        const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+        // ============================================================
+        // STATE
+        // ============================================================
+
+        let allPlans = [];
+        let currentUser = null;
+        let editingPlanId = null;
+
+        // ============================================================
+        // INITIALIZATION
+        // ============================================================
+
+        document.addEventListener('DOMContentLoaded', async function() {
+            await checkAuth();
+            await loadAdminProfile();
+            await loadPlans();
+            setupSidebarToggle();
+            updateClock();
+        });
+
+        // ============================================================
+        // AUTH CHECK
+        // ============================================================
+
+        async function checkAuth() {
+            try {
+                const { data: { session }, error } = await supabase.auth.getSession();
+
+                if (error || !session) {
+                    window.location.href = 'admin-login.html';
+                    return;
+                }
+
+                const { data: admin, error: adminError } = await supabase
+                    .from('admins')
+                    .select('*')
+                    .eq('id', session.user.id)
+                    .single();
+
+                if (adminError || !admin) {
+                    window.location.href = 'admin-login.html';
+                    return;
+                }
+
+                currentUser = admin;
+
+            } catch (error) {
+                console.error('Auth check error:', error);
+                window.location.href = 'admin-login.html';
+            }
+        }
+
+        // ============================================================
+        // ADMIN PROFILE
+        // ============================================================
+
+        async function loadAdminProfile() {
+            try {
+                if (!currentUser) return;
+
+                const name = currentUser.full_name || 'Admin';
+                document.getElementById('adminName').textContent = name;
+                document.getElementById('adminAvatar').textContent = name.charAt(0).toUpperCase();
+
+            } catch (error) {
+                console.error('Load admin profile error:', error);
+            }
+        }
+
+        // ============================================================
+        // LOAD PLANS
+        // ============================================================
+
+        async function loadPlans() {
+            const container = document.getElementById('plansList');
+
+            container.innerHTML = `
+                <div class="loading-spinner">
+                    <div class="spinner"></div>
+                    <p>Loading plans...</p>
+                </div>
+            `;
+
+            try {
+                const { data, error } = await supabase
+                    .from('plans')
+                    .select('*')
+                    .order('created_at', { ascending: false });
+
+                if (error) throw error;
+
+                allPlans = data || [];
+
+                renderPlans(allPlans);
+
+            } catch (error) {
+                console.error('Load plans error:', error);
+                container.innerHTML = `
+                    <div class="empty-state">
+                        <i class="fas fa-exclamation-triangle"></i>
+                        <h4>Unable to load plans</h4>
+                        <p>${getFriendlyError(error)}</p>
+                        <br>
+                        <button onclick="loadPlans()" class="btn btn-primary">
+                            <i class="fas fa-sync"></i> Try Again
+                        </button>
+                    </div>
+                `;
+            }
+        }
+
+        // ============================================================
+        // RENDER PLANS
+        // ============================================================
+
+        function renderPlans(plans) {
+            const container = document.getElementById('plansList');
+
+            if (!plans || plans.length === 0) {
+                container.innerHTML = `
+                    <div class="empty-state">
+                        <i class="fas fa-tags"></i>
+                        <h4>No membership plans found</h4>
+                        <p>Create your first membership plan.</p>
+                        <br>
+                        <button onclick="openPlanModal()" class="btn btn-primary">
+                            <i class="fas fa-plus"></i> New Plan
+                        </button>
+                    </div>
+                `;
+                return;
+            }
+
+            let html = `
+                <div class="table-wrapper">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Code</th>
+                                <th>Plan Name</th>
+                                <th>Monthly Premium</th>
+                                <th>Registration Fee</th>
+                                <th>Cash Benefit</th>
+                                <th>Waiting Period</th>
+                                <th>Status</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+            `;
+
+            plans.forEach(function(plan) {
+                const status = plan.is_active ? 'active' : 'inactive';
+                const statusText = plan.is_active ? 'Active' : 'Inactive';
+
+                html += `
+                    <tr>
+                        <td><strong>${escapeHtml(plan.plan_code || '—')}</strong></td>
+                        <td>${escapeHtml(plan.plan_name || '—')}</td>
+                        <td>KES ${(plan.monthly_premium || 0).toLocaleString()}</td>
+                        <td>KES ${(plan.registration_fee || 0).toLocaleString()}</td>
+                        <td>KES ${(plan.cash_benefit || 0).toLocaleString()}</td>
+                        <td>${plan.waiting_period_months || 0} months</td>
+                        <td>
+                            <span class="status-badge ${status}">${statusText}</span>
+                        </td>
+                        <td>
+                            <div style="display:flex; gap:6px; flex-wrap:wrap;">
+                                <button onclick="editPlan('${plan.id}')" class="btn btn-primary btn-sm">
+                                    <i class="fas fa-edit"></i>
+                                </button>
+                                <button onclick="togglePlanStatus('${plan.id}', ${!plan.is_active})" class="btn btn-sm ${plan.is_active ? 'btn-warning' : 'btn-success'}">
+                                    ${plan.is_active ? '<i class="fas fa-pause"></i>' : '<i class="fas fa-play"></i>'}
+                                </button>
+                                <button onclick="deletePlan('${plan.id}')" class="btn btn-danger btn-sm">
+                                    <i class="fas fa-trash"></i>
+                                </button>
+                            </div>
+                        </td>
+                    </tr>
+                `;
+            });
+
+            html += `
+                        </tbody>
+                    </table>
+                </div>
+            `;
+
+            container.innerHTML = html;
+        }
+
+        // ============================================================
+        // OPEN PLAN MODAL
+        // ============================================================
+
+        function openPlanModal(planId = null) {
+            const modal = document.getElementById('planModal');
+            const form = document.getElementById('planForm');
+            const title = document.getElementById('planModalTitle');
+
+            form.reset();
+            hideFormMessages();
+            document.getElementById('planId').value = '';
+            editingPlanId = null;
+
+            // Reset checkbox
+            document.getElementById('planIsActive').checked = true;
+
+            if (planId) {
+                title.innerHTML = '<i class="fas fa-tags" style="color:var(--primary);"></i> Edit Plan';
+                editingPlanId = planId;
+                loadPlanData(planId);
+            } else {
+                title.innerHTML = '<i class="fas fa-tags" style="color:var(--primary);"></i> New Plan';
+            }
+
+            modal.classList.add('open');
+        }
+
+        // ============================================================
+        // LOAD PLAN DATA FOR EDIT
+        // ============================================================
+
+        async function loadPlanData(planId) {
+            try {
+                const { data, error } = await supabase
+                    .from('plans')
+                    .select('*')
+                    .eq('id', planId)
+                    .single();
+
+                if (error) throw error;
+
+                if (data) {
+                    document.getElementById('planId').value = data.id;
+                    document.getElementById('planCode').value = data.plan_code || '';
+                    document.getElementById('planName').value = data.plan_name || '';
+                    document.getElementById('planDescription').value = data.description || '';
+                    document.getElementById('monthlyPremium').value = data.monthly_premium || '';
+                    document.getElementById('registrationFee').value = data.registration_fee || '';
+                    document.getElementById('cashBenefit').value = data.cash_benefit || '';
+                    document.getElementById('serviceBenefit').value = data.service_benefit || '';
+                    document.getElementById('minAge').value = data.min_age || '';
+                    document.getElementById('maxAge').value = data.max_age || '';
+                    document.getElementById('waitingPeriodMonths').value = data.waiting_period_months || '';
+                    document.getElementById('maxDependants').value = data.max_dependants || '';
+                    document.getElementById('gracePeriodDays').value = data.grace_period_days || '';
+                    document.getElementById('planIsActive').checked = data.is_active || false;
+                }
+
+            } catch (error) {
+                console.error('Load plan data error:', error);
+                showToast('error', 'Failed to load plan data');
+                closePlanModal();
+            }
+        }
+
+        // ============================================================
+        // CLOSE PLAN MODAL
+        // ============================================================
+
+        function closePlanModal() {
+            document.getElementById('planModal').classList.remove('open');
+            hideFormMessages();
+            editingPlanId = null;
+        }
+
+        // ============================================================
+        // SAVE PLAN
+        // ============================================================
+
+        document.getElementById('planForm').addEventListener('submit', async function(event) {
+            event.preventDefault();
+
+            const submitButton = document.getElementById('planSubmitBtn');
+            hideFormMessages();
+
+            const planCode = document.getElementById('planCode').value.trim();
+            const planName = document.getElementById('planName').value.trim();
+            const description = document.getElementById('planDescription').value.trim();
+            const monthlyPremium = parseFloat(document.getElementById('monthlyPremium').value) || 0;
+            const registrationFee = parseFloat(document.getElementById('registrationFee').value) || 0;
+            const cashBenefit = parseFloat(document.getElementById('cashBenefit').value) || 0;
+            const serviceBenefit = parseFloat(document.getElementById('serviceBenefit').value) || 0;
+            const minAge = parseInt(document.getElementById('minAge').value) || 0;
+            const maxAge = parseInt(document.getElementById('maxAge').value) || 0;
+            const waitingPeriodMonths = parseInt(document.getElementById('waitingPeriodMonths').value) || 0;
+            const maxDependants = parseInt(document.getElementById('maxDependants').value) || 0;
+            const gracePeriodDays = parseInt(document.getElementById('gracePeriodDays').value) || 0;
+            const isActive = document.getElementById('planIsActive').checked;
+
+            if (!planCode || !planName) {
+                showFormError('Please fill in Plan Code and Plan Name.');
+                return;
+            }
+
+            submitButton.disabled = true;
+            submitButton.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Saving...';
+
+            try {
+                const planData = {
+                    plan_code: planCode,
+                    plan_name: planName,
+                    description: description || null,
+                    monthly_premium: monthlyPremium,
+                    registration_fee: registrationFee,
+                    cash_benefit: cashBenefit,
+                    service_benefit: serviceBenefit,
+                    min_age: minAge,
+                    max_age: maxAge,
+                    waiting_period_months: waitingPeriodMonths,
+                    max_dependants: maxDependants,
+                    grace_period_days: gracePeriodDays,
+                    is_active: isActive,
+                    updated_at: new Date().toISOString()
+                };
+
+                let result;
+
+                if (editingPlanId) {
+                    // Update existing plan
+                    result = await supabase
+                        .from('plans')
+                        .update(planData)
+                        .eq('id', editingPlanId);
+                } else {
+                    // Create new plan
+                    planData.created_at = new Date().toISOString();
+                    result = await supabase
+                        .from('plans')
+                        .insert(planData);
+                }
+
+                if (result.error) throw result.error;
+
+                showFormSuccess(editingPlanId ? 'Plan updated successfully!' : 'Plan created successfully!');
+                showToast(editingPlanId ? 'Plan updated successfully.' : 'Plan created successfully.', 'success');
+
+                await loadPlans();
+
+                setTimeout(function() {
+                    closePlanModal();
+                }, 1500);
+
+            } catch (error) {
+                console.error('Save plan error:', error);
+                showFormError(getFriendlyError(error));
+                showToast(getFriendlyError(error), 'error');
+            } finally {
+                submitButton.disabled = false;
+                submitButton.innerHTML = '<i class="fas fa-save"></i> Save Plan';
+            }
+        });
+
+        // ============================================================
+        // EDIT PLAN
+        // ============================================================
+
+        function editPlan(planId) {
+            openPlanModal(planId);
+        }
+
+        // ============================================================
+        // TOGGLE PLAN STATUS
+        // ============================================================
+
+        async function togglePlanStatus(planId, newStatus) {
+            const statusText = newStatus ? 'activate' : 'deactivate';
+            if (!confirm(`Are you sure you want to ${statusText} this plan?`)) return;
+
+            try {
+                const { error } = await supabase
+                    .from('plans')
+                    .update({
+                        is_active: newStatus,
+                        updated_at: new Date().toISOString()
+                    })
+                    .eq('id', planId);
+
+                if (error) throw error;
+
+                showToast(`Plan ${newStatus ? 'activated' : 'deactivated'} successfully.`, 'success');
+                await loadPlans();
+
+            } catch (error) {
+                console.error('Toggle status error:', error);
+                showToast(getFriendlyError(error), 'error');
+            }
+        }
+
+        // ============================================================
+        // DELETE PLAN
+        // ============================================================
+
+        async function deletePlan(planId) {
+            if (!confirm('Are you sure you want to delete this plan? This action cannot be undone.')) return;
+
+            try {
+                const { error } = await supabase
+                    .from('plans')
+                    .delete()
+                    .eq('id', planId);
+
+                if (error) throw error;
+
+                showToast('Plan deleted successfully.', 'success');
+                await loadPlans();
+
+            } catch (error) {
+                console.error('Delete plan error:', error);
+                showToast(getFriendlyError(error), 'error');
+            }
+        }
+
+        // ============================================================
+        // REFRESH DATA
+        // ============================================================
+
+        async function refreshData() {
+            const icon = document.getElementById('refreshIcon');
+            const btn = document.getElementById('refreshBtn');
+
+            if (icon) icon.classList.add('fa-spin');
+            if (btn) btn.disabled = true;
+
+            try {
+                await loadPlans();
+                showToast('Data refreshed successfully.', 'success');
+            } catch (error) {
+                showToast('Failed to refresh data.', 'error');
+            } finally {
+                if (icon) icon.classList.remove('fa-spin');
+                if (btn) btn.disabled = false;
+            }
+        }
+
+        // ============================================================
+        // FORM MESSAGES
+        // ============================================================
+
+        function hideFormMessages() {
+            document.getElementById('planFormError').style.display = 'none';
+            document.getElementById('planFormSuccess').style.display = 'none';
+            document.getElementById('planFormError').textContent = '';
+            document.getElementById('planFormSuccess').textContent = '';
+        }
+
+        function showFormError(message) {
+            const el = document.getElementById('planFormError');
+            el.textContent = message;
+            el.style.display = 'block';
+        }
+
+        function showFormSuccess(message) {
+            const el = document.getElementById('planFormSuccess');
+            el.textContent = message;
+            el.style.display = 'block';
+        }
+
+        // ============================================================
+        // SIDEBAR TOGGLE
+        // ============================================================
+
+        function setupSidebarToggle() {
+            const sidebar = document.getElementById('sidebar');
+            const backdrop = document.getElementById('sidebarBackdrop');
+            const toggleBtn = document.getElementById('sidebarToggle');
+
+            if (toggleBtn) {
+                toggleBtn.addEventListener('click', function() {
+                    sidebar.classList.toggle('open');
+                    backdrop.classList.toggle('show');
+                });
+            }
+
+            if (backdrop) {
+                backdrop.addEventListener('click', function() {
+                    sidebar.classList.remove('open');
+                    backdrop.classList.remove('show');
+                });
+            }
+
+            document.querySelectorAll('.sidebar-nav a').forEach(function(link) {
+                link.addEventListener('click', function() {
+                    sidebar.classList.remove('open');
+                    backdrop.classList.remove('show');
+                });
+            });
+        }
+
+        // ============================================================
+        // CLOCK
+        // ============================================================
+
+        function updateClock() {
+            const clockEl = document.getElementById('currentDateTime');
+            if (clockEl) {
+                const now = new Date();
+                clockEl.textContent = now.toLocaleString('en-KE', {
+                    weekday: 'short',
+                    day: '2-digit',
+                    month: 'short',
+                    year: 'numeric',
+                    hour: '2-digit',
+                    minute: '2-digit'
+                });
+            }
+            setTimeout(updateClock, 30000);
+        }
+
+        // ============================================================
+        // TOAST NOTIFICATIONS
+        // ============================================================
+
+        function showToast(type, message) {
+            const container = document.getElementById('toastContainer');
+
+            const icons = {
+                success: 'fa-check-circle',
+                error: 'fa-exclamation-circle',
+                warning: 'fa-triangle-exclamation',
+                info: 'fa-info-circle'
+            };
+
+            const toast = document.createElement('div');
+            toast.className = `toast ${type}`;
+            toast.innerHTML = `
+                <i class="fas ${icons[type] || icons.info}"></i>
+                <span>${message}</span>
+                <button class="toast-close" onclick="this.parentElement.remove()">&times;</button>
+            `;
+
+            container.appendChild(toast);
+
+            setTimeout(() => {
+                toast.style.opacity = '0';
+                toast.style.transform = 'translateX(100px)';
+                toast.style.transition = 'all 0.4s ease';
+                setTimeout(() => toast.remove(), 400);
+            }, 4000);
+        }
+
+        // ============================================================
+        // LOGOUT
+        // ============================================================
+
+        async function handleLogout() {
+            try {
+                await supabase.auth.signOut();
+                sessionStorage.clear();
+                window.location.href = 'admin-login.html';
+            } catch (error) {
+                console.error('Logout error:', error);
+                showToast('Failed to logout.', 'error');
+            }
+        }
+
+        // ============================================================
+        // HELPER FUNCTIONS
+        // ============================================================
+
+        function escapeHtml(value) {
+            if (value === null || value === undefined) return '';
+            return String(value)
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;')
+                .replace(/'/g, '&#039;');
+        }
+
+        function getFriendlyError(error) {
+            const message = error?.message || String(error);
+
+            if (message.includes('duplicate') || message.includes('unique')) {
+                return 'A plan with this code or name already exists.';
+            }
+
+            if (message.includes('row-level security') || message.includes('RLS')) {
+                return 'You do not have permission to manage plans. Check RLS policies.';
+            }
+
+            return message;
+        }
+
+        // ============================================================
+        // CLOSE MODAL ON CLICK OUTSIDE
+        // ============================================================
+
+        document.getElementById('planModal').addEventListener('click', function(event) {
+            if (event.target === this) {
+                closePlanModal();
+            }
+        });
+
+        // ============================================================
+        // ESC KEY
+        // ============================================================
+
+        document.addEventListener('keydown', function(event) {
+            if (event.key === 'Escape') {
+                closePlanModal();
+            }
+        });
+
+        // ============================================================
+        // EXPOSE FUNCTIONS
+        // ============================================================
+
+        window.loadPlans = loadPlans;
+        window.openPlanModal = openPlanModal;
+        window.closePlanModal = closePlanModal;
+        window.editPlan = editPlan;
+        window.togglePlanStatus = togglePlanStatus;
+        window.deletePlan = deletePlan;
+        window.refreshData = refreshData;
+        window.handleLogout = handleLogout;
+        window.showToast = showToast;
+    </script>
 
 </body>
 </html>
-```
