@@ -387,24 +387,28 @@ FORM PANEL
 </div>
 
 <!-- ============================================================
-JAVASCRIPT - FIXED WITH UNIQUE VARIABLE NAME
+JAVASCRIPT - USING STAFF TABLE WITH ROLES
 ============================================================ -->
 
 <script>
     // ============================================================
-    // SUPABASE CONFIGURATION - Use unique variable name
+    // MASIKA BENEVOLENT — SUPER ADMIN LOGIN
     // ============================================================
 
-    const MASIKA_SUPABASE_URL = 'https://wpxzlcdrirlcyvfiquld.supabase.co';
-    const MASIKA_SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6IndweHpsY2RyaXJsY3l2ZmlxdWxkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODc5Mjc4MDcsImV4cCI6MjEwMzUwMzgwN30.OUP9pmPbrML_egpHflZtDfLv1_UDM37_BYjtb842xjg';
+    const SUPABASE_URL = 'https://wpxzlcdrirlcyvfiquld.supabase.co';
 
-    // Create Supabase client with unique variable name
-    const masikaSupabase = window.supabase.createClient(MASIKA_SUPABASE_URL, MASIKA_SUPABASE_ANON_KEY);
+    const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6IndweHpsY2RyaXJsY3l2ZmlxdWxkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODc5Mjc4MDcsImV4cCI6MjEwMzUwMzgwN30.OUP9pmPbrML_egpHflZtDfLv1_UDM37_BYjtb842xjg';
 
-    console.log('🚀 Admin Login loaded');
+    // IMPORTANT:
+    // Use a different variable name from the global `supabase`
+    // exposed by the Supabase CDN.
+    const supabaseClient = window.supabase.createClient(
+        SUPABASE_URL,
+        SUPABASE_ANON_KEY
+    );
 
     // ============================================================
-    // DOM REFS
+    // DOM REFERENCES
     // ============================================================
 
     const form = document.getElementById('loginForm');
@@ -414,169 +418,441 @@ JAVASCRIPT - FIXED WITH UNIQUE VARIABLE NAME
     const alertBox = document.getElementById('alertBox');
 
     // ============================================================
-    // CHECK IF ALREADY LOGGED IN
+    // CHECK EXISTING SESSION
     // ============================================================
 
-    document.addEventListener('DOMContentLoaded', async function() {
+    document.addEventListener('DOMContentLoaded', async function () {
+
         try {
-            const { data: { session }, error } = await masikaSupabase.auth.getSession();
+
+            const {
+                data: { session },
+                error: sessionError
+            } = await supabaseClient.auth.getSession();
+
+            if (sessionError) {
+                console.error(
+                    'Session check error:',
+                    sessionError
+                );
+            }
 
             if (session) {
-                // Check if user is admin
-                const { data: admin, error: adminError } = await masikaSupabase
-                    .from('admins')
-                    .select('*')
-                    .eq('id', session.user.id)
-                    .single();
 
-                if (!adminError && admin) {
-                    window.location.href = 'admin-dashboard.html';
+                const staff = await getSuperAdminStaff(
+                    session.user.id
+                );
+
+                if (staff) {
+
+                    // Keep admin information available to dashboard
+                    localStorage.setItem(
+                        'admin_user',
+                        JSON.stringify(staff)
+                    );
+
+                    localStorage.setItem(
+                        'admin_session',
+                        JSON.stringify(session)
+                    );
+
+                    window.location.href =
+                        'admin-dashboard.html';
+
                     return;
                 }
+
+                // Session exists but user is not an active Super Admin
+                await supabaseClient.auth.signOut();
             }
+
         } catch (error) {
-            console.error('Session check error:', error);
+
+            console.error(
+                'Session initialization error:',
+                error
+            );
         }
 
-        // Focus on email field
         emailInput.focus();
     });
 
     // ============================================================
-    // FORM SUBMISSION
+    // SUPER ADMIN LOOKUP - Using staff table with roles
     // ============================================================
 
-    form.addEventListener('submit', async function(e) {
+    async function getSuperAdminStaff(authUserId) {
+
+        const {
+            data: staff,
+            error
+        } = await supabaseClient
+            .from('staff')
+            .select(`
+                id,
+                auth_user_id,
+                employee_number,
+                full_name,
+                national_id,
+                phone,
+                email,
+                role_id,
+                branch_id,
+                status,
+                last_login_at,
+                created_at,
+                updated_at,
+                sales_code,
+                roles:role_id (
+                    id,
+                    role_code,
+                    role_name,
+                    is_active
+                )
+            `)
+            .eq('auth_user_id', authUserId)
+            .maybeSingle();
+
+        if (error) {
+
+            console.error(
+                'Staff lookup error:',
+                error
+            );
+
+            return null;
+        }
+
+        if (!staff) {
+
+            console.warn(
+                'No staff record found for Auth user:',
+                authUserId
+            );
+
+            return null;
+        }
+
+        // --------------------------------------------------------
+        // AUTHORISATION - Check Super Admin role
+        // --------------------------------------------------------
+
+        const roleCode =
+            staff.roles?.role_code;
+
+        const roleActive =
+            staff.roles?.is_active === true;
+
+        const staffActive =
+            staff.status === 'ACTIVE';
+
+        if (
+            roleCode !== 'SUPER_ADMIN' ||
+            !roleActive ||
+            !staffActive
+        ) {
+
+            console.warn(
+                'Super Admin authorization failed:',
+                {
+                    staffId: staff.id,
+                    authUserId: staff.auth_user_id,
+                    roleCode,
+                    roleActive,
+                    status: staff.status
+                }
+            );
+
+            return null;
+        }
+
+        return staff;
+    }
+
+    // ============================================================
+    // LOGIN
+    // ============================================================
+
+    form.addEventListener('submit', async function (e) {
+
         e.preventDefault();
 
-        const email = emailInput.value.trim();
-        const password = passwordInput.value;
+        const email =
+            emailInput.value.trim().toLowerCase();
 
-        // Validate
+        const password =
+            passwordInput.value;
+
+        // --------------------------------------------------------
+        // VALIDATION
+        // --------------------------------------------------------
+
         if (!email || !password) {
-            showAlert('Please enter both email and password.', 'error');
+
+            showAlert(
+                'Please enter both email and password.',
+                'error'
+            );
+
             return;
         }
 
         if (!isValidEmail(email)) {
-            showAlert('Please enter a valid email address.', 'error');
+
+            showAlert(
+                'Please enter a valid email address.',
+                'error'
+            );
+
             return;
         }
 
-        // Show loading state
         setLoading(true);
         hideAlert();
 
         try {
-            // Sign in with Supabase
-            const { data, error } = await masikaSupabase.auth.signInWithPassword({
+
+            // ----------------------------------------------------
+            // SUPABASE AUTHENTICATION
+            // ----------------------------------------------------
+
+            const {
+                data,
+                error
+            } = await supabaseClient.auth.signInWithPassword({
                 email: email,
                 password: password
             });
 
             if (error) {
-                console.error('Login error:', error);
-                showAlert(error.message || 'Invalid email or password.', 'error');
+
+                console.error(
+                    'Supabase login error:',
+                    error
+                );
+
+                showAlert(
+                    error.message ||
+                    'Invalid email or password.',
+                    'error'
+                );
+
                 setLoading(false);
                 return;
             }
 
-            if (!data.user) {
-                showAlert('Invalid credentials. Please try again.', 'error');
+            if (!data?.user) {
+
+                showAlert(
+                    'Unable to establish your account session.',
+                    'error'
+                );
+
                 setLoading(false);
                 return;
             }
 
-            // Verify admin role
-            const { data: admin, error: adminError } = await masikaSupabase
-                .from('admins')
-                .select('*')
-                .eq('id', data.user.id)
-                .single();
+            // ----------------------------------------------------
+            // VERIFY STAFF + SUPER ADMIN ROLE
+            // ----------------------------------------------------
 
-            if (adminError || !admin) {
-                showAlert('Access denied. Admin privileges required.', 'error');
+            const staff =
+                await getSuperAdminStaff(data.user.id);
+
+            if (!staff) {
+
+                await supabaseClient.auth.signOut();
+
+                localStorage.removeItem('admin_user');
+                localStorage.removeItem('admin_session');
+
+                showAlert(
+                    'Access denied. Super Admin privileges required.',
+                    'error'
+                );
+
                 setLoading(false);
-                // Sign out if not admin
-                await masikaSupabase.auth.signOut();
                 return;
             }
 
-            // Store admin data
-            localStorage.setItem('masika_admin_user', JSON.stringify(admin));
-            localStorage.setItem('masika_admin_session', JSON.stringify(data.session));
+            // ----------------------------------------------------
+            // UPDATE LAST LOGIN
+            // ----------------------------------------------------
 
-            // Show success message
-            showAlert('Login successful! Redirecting to dashboard...', 'success');
+            const { error: loginUpdateError } =
+                await supabaseClient
+                    .from('staff')
+                    .update({
+                        last_login_at: new Date().toISOString()
+                    })
+                    .eq('id', staff.id);
 
-            // Redirect to admin dashboard
-            setTimeout(() => {
-                window.location.href = 'admin-dashboard.html';
-            }, 1000);
+            if (loginUpdateError) {
+
+                console.warn(
+                    'Could not update last_login_at:',
+                    loginUpdateError
+                );
+
+                // Do NOT block login because this is only
+                // an audit/update operation.
+            }
+
+            // ----------------------------------------------------
+            // STORE SESSION
+            // ----------------------------------------------------
+
+            localStorage.setItem(
+                'admin_user',
+                JSON.stringify(staff)
+            );
+
+            localStorage.setItem(
+                'admin_session',
+                JSON.stringify(data.session)
+            );
+
+            // ----------------------------------------------------
+            // SUCCESS
+            // ----------------------------------------------------
+
+            showAlert(
+                'Login successful! Redirecting to dashboard...',
+                'success'
+            );
+
+            setTimeout(function () {
+
+                window.location.href =
+                    'admin-dashboard.html';
+
+            }, 500);
 
         } catch (error) {
-            console.error('Login error:', error);
-            showAlert('An unexpected error occurred. Please try again.', 'error');
+
+            console.error(
+                'Unexpected login error:',
+                error
+            );
+
+            showAlert(
+                'An unexpected error occurred. Please try again.',
+                'error'
+            );
+
             setLoading(false);
         }
     });
 
     // ============================================================
-    // KEYBOARD SHORTCUTS
+    // ENTER KEY
     // ============================================================
 
-    // Enter key to submit
-    form.addEventListener('keypress', function(e) {
+    form.addEventListener('keypress', function (e) {
+
         if (e.key === 'Enter') {
+
             e.preventDefault();
-            form.dispatchEvent(new Event('submit'));
+
+            form.dispatchEvent(
+                new Event('submit')
+            );
         }
     });
 
     // ============================================================
-    // HELPER FUNCTIONS
+    // VALIDATE EMAIL
     // ============================================================
 
     function isValidEmail(email) {
-        const regex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+        const regex =
+            /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
         return regex.test(email);
     }
 
-    function showAlert(message, type = 'error') {
+    // ============================================================
+    // ALERT
+    // ============================================================
+
+    function showAlert(
+        message,
+        type = 'error'
+    ) {
+
         alertBox.textContent = message;
-        alertBox.className = `alert show ${type}`;
-        // Clear after 8 seconds
-        clearTimeout(alertBox._timeout);
-        alertBox._timeout = setTimeout(() => {
-            hideAlert();
-        }, 8000);
+
+        alertBox.className =
+            `alert show ${type}`;
+
+        clearTimeout(
+            alertBox._timeout
+        );
+
+        alertBox._timeout =
+            setTimeout(function () {
+
+                hideAlert();
+
+            }, 8000);
     }
 
     function hideAlert() {
-        alertBox.className = 'alert';
+
+        alertBox.className =
+            'alert';
+
         alertBox.textContent = '';
     }
 
+    // ============================================================
+    // LOADING STATE
+    // ============================================================
+
     function setLoading(loading) {
+
         if (loading) {
+
             loginBtn.disabled = true;
-            loginBtn.classList.add('loading');
+
+            loginBtn.classList.add(
+                'loading'
+            );
+
         } else {
+
             loginBtn.disabled = false;
-            loginBtn.classList.remove('loading');
+
+            loginBtn.classList.remove(
+                'loading'
+            );
         }
     }
 
-    // Clear error state on input
-    emailInput.addEventListener('input', function() {
-        this.classList.remove('error');
-        hideAlert();
-    });
+    // ============================================================
+    // CLEAR ERROR ON INPUT
+    // ============================================================
 
-    passwordInput.addEventListener('input', function() {
-        this.classList.remove('error');
-        hideAlert();
-    });
+    emailInput.addEventListener(
+        'input',
+        function () {
+
+            this.classList.remove('error');
+
+            hideAlert();
+        }
+    );
+
+    passwordInput.addEventListener(
+        'input',
+        function () {
+
+            this.classList.remove('error');
+
+            hideAlert();
+        }
+    );
 </script>
 
 </body>
