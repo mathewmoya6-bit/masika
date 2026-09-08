@@ -10,7 +10,7 @@
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
     
     <!-- =========================================================
-         EXTERNAL JS - ALIGNED WITH SUPABASE/BACKEND
+         EXTERNAL JS
          ========================================================= -->
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="js/config.js"></script>
@@ -20,7 +20,7 @@
     
     <style>
         /* =========================================================
-           IMPROVED DASHBOARD STYLES
+           DASHBOARD STYLES
            ========================================================= */
 
         /* ===== CSS VARIABLES ===== */
@@ -36,20 +36,9 @@
             --primary-100: #95d5b2;
             --primary-50: #d8f3dc;
 
-            --blue-700: #12386f;
-            --blue-600: #1a4d94;
             --blue-500: #2f6fc4;
-            --blue-400: #4f8fe0;
-
-            --gold-600: #b8860b;
             --gold-500: #d4a843;
-            --gold-400: #e8c85a;
-            --gold-300: #f0d68a;
-            --gold-200: #f5e6b8;
-
-            --primary-gradient: linear-gradient(135deg, #0a1e12 0%, #1a472a 40%, #2d6a4f 70%, #40916c 100%);
-            --gold-gradient: linear-gradient(135deg, #b8860b 0%, #d4a843 50%, #e8c85a 100%);
-            --blue-gradient: linear-gradient(135deg, #12386f 0%, #2f6fc4 60%, #4f8fe0 100%);
+            --gold-600: #b8860b;
 
             --white: #ffffff;
             --text-dark: #0f172a;
@@ -108,13 +97,13 @@
         }
 
         .btn-primary {
-            background: var(--primary-gradient);
+            background: var(--primary-500);
             color: var(--white);
         }
         .btn-primary:hover { transform: translateY(-2px); box-shadow: 0 8px 30px rgba(26, 71, 42, 0.3); }
 
         .btn-gold {
-            background: var(--gold-gradient);
+            background: var(--gold-500);
             color: var(--white);
         }
         .btn-gold:hover { transform: translateY(-2px); box-shadow: var(--shadow-gold); }
@@ -126,14 +115,7 @@
         }
         .btn-outline:hover { border-color: var(--primary-500); color: var(--primary-500); }
 
-        .btn-danger {
-            background: var(--danger);
-            color: var(--white);
-        }
-        .btn-danger:hover { opacity: 0.85; transform: translateY(-2px); }
-
         .btn-sm { padding: 6px 14px; font-size: 12px; }
-        .btn-block { width: 100%; justify-content: center; }
 
         /* ===== NAVBAR ===== */
         .navbar {
@@ -234,22 +216,9 @@
 
         @keyframes spin { to { transform: rotate(360deg); } }
 
-        .loading-screen .skeleton-text {
-            width: 200px;
-            height: 16px;
-            background: #e9ecef;
-            border-radius: 8px;
-            animation: pulse 1.5s ease-in-out infinite;
-        }
-
-        @keyframes pulse {
-            0%, 100% { opacity: 0.4; }
-            50% { opacity: 0.8; }
-        }
-
         /* ===== WELCOME BANNER ===== */
         .welcome-banner {
-            background: var(--primary-gradient);
+            background: linear-gradient(135deg, #0a1e12 0%, #1a472a 40%, #2d6a4f 70%, #40916c 100%);
             color: var(--white);
             border-radius: var(--radius-lg);
             padding: 32px 40px;
@@ -281,7 +250,7 @@
             font-size: 28px;
             font-weight: 800;
         }
-        .welcome-banner h1 .highlight { color: var(--gold-300); }
+        .welcome-banner h1 .highlight { color: var(--gold-500); }
 
         .welcome-banner p {
             opacity: 0.85;
@@ -309,7 +278,7 @@
         .welcome-banner .member-badge .number {
             font-size: 22px;
             font-weight: 900;
-            color: var(--gold-300);
+            color: var(--gold-500);
             font-family: 'Inter', monospace;
             letter-spacing: 1px;
         }
@@ -486,7 +455,6 @@
             font-weight: 700;
             color: var(--primary-700);
         }
-        .payment-list .payment-amount.overdue { color: var(--danger); }
 
         .payment-status {
             font-size: 11px;
@@ -554,7 +522,7 @@
         }
 
         .quick-action-btn.pay-btn {
-            background: var(--gold-gradient);
+            background: linear-gradient(135deg, #b8860b 0%, #d4a843 50%, #e8c85a 100%);
             border-color: var(--gold-500);
             color: var(--white);
             grid-column: 1 / -1;
@@ -744,7 +712,7 @@
         .modal .btn-submit {
             width: 100%;
             padding: 14px;
-            background: var(--primary-gradient);
+            background: var(--primary-500);
             color: var(--white);
             border: none;
             border-radius: 12px;
@@ -925,7 +893,7 @@
                         <p id="welcomeSubtext">Your Masika Benevolent membership is active and ready.</p>
                     </div>
                     <div class="member-badge">
-                        <div class="label">Membership Number</div>
+                        <div class="label">Member Number</div>
                         <div class="number" id="memberNumberDisplay">---</div>
                     </div>
                 </div>
@@ -988,7 +956,7 @@
                                 </button>
                                 <button onclick="openDependantModal()" class="quick-action-btn">
                                     <i class="fas fa-user-plus"></i>
-                                    Add Dependant
+                                    Add Family Member
                                 </button>
                                 <button onclick="downloadStatement()" class="quick-action-btn">
                                     <i class="fas fa-file-invoice"></i>
@@ -1062,12 +1030,12 @@
     </section>
 
     <!-- =========================================================
-         MODAL: Add Dependant
+         MODAL: Add Family Member (Dependant)
          ========================================================= -->
     <div class="modal-overlay" id="dependantModal">
         <div class="modal">
             <div class="modal-header">
-                <h2><i class="fas fa-user-plus" style="color:var(--primary-500);"></i> Add Dependant</h2>
+                <h2><i class="fas fa-user-plus" style="color:var(--primary-500);"></i> Add Family Member</h2>
                 <button class="modal-close" onclick="closeModal('dependantModal')">&times;</button>
             </div>
             <form id="dependantForm" onsubmit="handleAddDependant(event)">
@@ -1093,8 +1061,12 @@
                         <option value="in_law">In-Law</option>
                     </select>
                 </div>
+                <div class="form-group">
+                    <label for="depPhone">Phone Number</label>
+                    <input type="tel" id="depPhone" placeholder="Enter phone number">
+                </div>
                 <button type="submit" class="btn-submit" id="depSubmitBtn">
-                    <i class="fas fa-plus"></i> Add Dependant
+                    <i class="fas fa-plus"></i> Add Family Member
                 </button>
             </form>
         </div>
@@ -1112,7 +1084,7 @@
             <div style="background:var(--primary-50);border-radius:12px;padding:16px;margin-bottom:20px;text-align:center;">
                 <p style="font-size:13px;color:var(--text-gray);">Pay via M-Pesa Paybill</p>
                 <p style="font-size:32px;font-weight:900;color:var(--gold-500);">348127</p>
-                <p style="font-size:13px;color:var(--text-gray);">Account: <strong id="paymentMemberNumber">Your Membership Number</strong></p>
+                <p style="font-size:13px;color:var(--text-gray);">Account: <strong id="paymentMemberNumber">Your Member Number</strong></p>
             </div>
             <form id="paymentForm" onsubmit="handlePayment(event)">
                 <div class="form-group">
