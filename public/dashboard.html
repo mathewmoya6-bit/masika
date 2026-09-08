@@ -568,6 +568,92 @@
             color: var(--white);
         }
 
+        /* ===== FAMILY TABLE STYLES ===== */
+        .family-table-wrapper {
+            overflow-x: auto;
+        }
+
+        .family-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 13px;
+        }
+
+        .family-table thead tr {
+            border-bottom: 2px solid #f0f4f2;
+            text-align: left;
+        }
+
+        .family-table thead th {
+            padding: 12px 8px;
+            font-weight: 600;
+            color: var(--text-gray);
+            font-size: 12px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .family-table tbody tr {
+            border-bottom: 1px solid #f0f4f2;
+            transition: var(--transition);
+        }
+
+        .family-table tbody tr:hover {
+            background: #fafcfb;
+        }
+
+        .family-table tbody td {
+            padding: 14px 8px;
+        }
+
+        .family-member-avatar {
+            width: 36px;
+            height: 36px;
+            min-width: 36px;
+            border-radius: 50%;
+            background: var(--primary-100);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 700;
+            color: var(--primary-700);
+            font-size: 14px;
+        }
+
+        .family-member-info {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .family-member-name {
+            font-weight: 700;
+            color: var(--text-dark);
+        }
+
+        .family-member-label {
+            font-size: 11px;
+            color: var(--text-gray);
+        }
+
+        .family-relationship {
+            color: var(--text-gray);
+        }
+
+        .family-dob {
+            color: var(--text-gray);
+        }
+
+        .status-badge {
+            display: inline-block;
+            padding: 4px 10px;
+            border-radius: 12px;
+            background: #e8f5e9;
+            color: var(--success);
+            font-size: 11px;
+            font-weight: 700;
+        }
+
         /* ===== MODAL ===== */
         .modal-overlay {
             display: none;
@@ -756,88 +842,6 @@
             margin: 4px;
         }
 
-        /* ===== FAMILY TABLE STYLES ===== */
-        .family-table-wrapper {
-            overflow-x: auto;
-        }
-
-        .family-table {
-            width: 100%;
-            border-collapse: collapse;
-            font-size: 13px;
-        }
-
-        .family-table thead tr {
-            border-bottom: 2px solid #f0f4f2;
-            text-align: left;
-        }
-
-        .family-table thead th {
-            padding: 12px 8px;
-            font-weight: 600;
-            color: var(--text-gray);
-        }
-
-        .family-table tbody tr {
-            border-bottom: 1px solid #f0f4f2;
-            transition: var(--transition);
-        }
-
-        .family-table tbody tr:hover {
-            background: #fafcfb;
-        }
-
-        .family-table tbody td {
-            padding: 14px 8px;
-        }
-
-        .family-member-avatar {
-            width: 36px;
-            height: 36px;
-            min-width: 36px;
-            border-radius: 50%;
-            background: var(--primary-100);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-weight: 700;
-            color: var(--primary-700);
-        }
-
-        .family-member-info {
-            display: flex;
-            align-items: center;
-            gap: 10px;
-        }
-
-        .family-member-name {
-            font-weight: 700;
-            color: var(--text-dark);
-        }
-
-        .family-member-label {
-            font-size: 11px;
-            color: var(--text-gray);
-        }
-
-        .family-relationship {
-            color: var(--text-gray);
-        }
-
-        .family-dob {
-            color: var(--text-gray);
-        }
-
-        .status-badge {
-            display: inline-block;
-            padding: 4px 10px;
-            border-radius: 12px;
-            background: #e8f5e9;
-            color: var(--success);
-            font-size: 11px;
-            font-weight: 700;
-        }
-
         /* ===== RESPONSIVE ===== */
         @media (max-width: 1024px) {
             .dashboard-grid { grid-template-columns: 1fr; }
@@ -867,8 +871,11 @@
             .navbar .container { flex-wrap: wrap; gap: 8px; }
             .nav-actions { width: 100%; justify-content: center; flex-wrap: wrap; }
             .btn-back, .btn-logout { font-size: 12px; padding: 6px 12px; }
-            .family-table tbody td { padding: 10px 6px; }
-            .family-table thead th { padding: 8px 6px; font-size: 11px; }
+            .family-table thead th { font-size: 10px; padding: 8px 4px; }
+            .family-table tbody td { padding: 10px 4px; font-size: 12px; }
+            .family-member-avatar { width: 28px; height: 28px; min-width: 28px; font-size: 11px; }
+            .family-member-name { font-size: 12px; }
+            .status-badge { font-size: 10px; padding: 2px 8px; }
         }
     </style>
 </head>
