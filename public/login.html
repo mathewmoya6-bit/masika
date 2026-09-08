@@ -101,6 +101,12 @@
             font-weight: 800;
         }
 
+        img.brand-mark {
+            background: transparent;
+            object-fit: contain;
+            padding: 2px;
+        }
+
         .brand-text {
             line-height: 1.1;
         }
@@ -211,6 +217,12 @@
         }
 
         .form-group .error-message.show { display: block; }
+
+        .help-text {
+            font-size: 12px;
+            color: var(--muted);
+            margin-top: 4px;
+        }
 
         .password-wrapper {
             position: relative;
@@ -354,33 +366,6 @@
             color: var(--gold);
         }
 
-        .demo-creds {
-            margin-top: 20px;
-            padding: 16px 18px;
-            background: #f8fafc;
-            border-radius: 12px;
-            border: 1px dashed #d1d5db;
-            font-size: 13px;
-            color: var(--muted);
-        }
-
-        .demo-creds strong { color: var(--text); }
-        .demo-creds .cred-row {
-            display: flex;
-            justify-content: space-between;
-            padding: 4px 0;
-            gap: 10px;
-        }
-
-        .demo-creds .cred-row code {
-            background: var(--cream);
-            padding: 2px 8px;
-            border-radius: 4px;
-            font-size: 12px;
-            color: var(--primary);
-            font-weight: 600;
-        }
-
         .divider {
             display: flex;
             align-items: center;
@@ -414,6 +399,7 @@
 
     <div class="login-container">
 
+        <!-- Header -->
         <div class="login-header">
             <a href="index.html" class="brand">
                 <img src="assets/branding/favicon.svg" alt="Masika Benevolent" class="brand-mark" />
@@ -426,13 +412,16 @@
             <p>Sign in to your member account</p>
         </div>
 
+        <!-- Success Banner (after registration) -->
         <div class="success-banner" id="successBanner">
             <i class="fas fa-check-circle"></i> Registration successful!
             <strong>Please login with your credentials below.</strong>
         </div>
 
+        <!-- Alert -->
         <div id="alertBox" class="alert" role="alert" aria-live="assertive"></div>
 
+        <!-- Login Form -->
         <form id="loginForm" novalidate>
 
             <div class="form-group">
@@ -447,8 +436,8 @@
                     required
                     autofocus
                 />
-                <div class="help-text" style="font-size:12px; color: var(--muted); margin-top:4px;">
-                    Use your Member Number (e.g., MSK-123456) or registered email address.
+                <div class="help-text">
+                    Use your Member Number (format: MSK-XXXXXX) or registered email address.
                 </div>
                 <div class="error-message" id="identifierError">Please enter your member number or email</div>
             </div>
@@ -480,6 +469,7 @@
                 <a href="forgot-password.html">Forgot password?</a>
             </div>
 
+            <!-- Loading -->
             <div id="loadingBox" class="loading">
                 <span class="spinner"></span>
                 <span id="loadingText">Signing in...</span>
@@ -491,24 +481,10 @@
 
         </form>
 
-        <div class="divider">or continue with</div>
+        <!-- Divider -->
+        <div class="divider">New Member?</div>
 
-        <div class="demo-creds">
-            <strong>Demo Credentials</strong>
-            <div class="cred-row">
-                <span>Member Number:</span>
-                <code>MSK-123456</code>
-            </div>
-            <div class="cred-row">
-                <span>Password:</span>
-                <code>TempPass123!</code>
-            </div>
-            <div style="margin-top: 8px; font-size: 12px; color: var(--muted);">
-                <i class="fas fa-info-circle"></i>
-                Your username is your Member Number (format: MSK-XXXXXX)
-            </div>
-        </div>
-
+        <!-- Register Link -->
         <div class="register-link">
             Don't have an account? <a href="register.html">Register here</a>
         </div>
