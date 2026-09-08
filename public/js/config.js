@@ -3,15 +3,17 @@
 // ============================================================
 
 const CONFIG = {
-    // Supabase Configuration
+    // Supabase Configuration - USE THE CORRECT KEYS
     SUPABASE: {
         URL: 'https://wpxzlcdrirlcyvfiquld.supabase.co',
-        ANON_KEY: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6IndweHpsY2RyaXJsY3l2ZmlxdWxkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODc5Mjc4MDcsImV4cCI6MjEwMzUwMzgwN30.your-anon-key-here'
+        ANON_KEY: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6IndweHpsY2RyaXJsY3l2ZmlxdWxkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODc5Mjc4MDcsImV4cCI6MjEwMzUwMzgwN30.OUP9pmPbrML_egpHflZtDfLv1_UDM37_BYjtb842xjg'
     },
     
     // Backend API
     API: {
-        BASE_URL: 'https://masika-backend.onrender.com/api/v1',
+        BASE_URL: window.location.hostname === 'localhost' 
+            ? 'http://localhost:8000/api/v1'
+            : 'https://masika-backend.onrender.com/api/v1',
         TIMEOUT: 30000
     },
     
@@ -25,7 +27,9 @@ const CONFIG = {
     STORAGE: {
         USER: 'masika_user',
         SESSION: 'masika_session',
-        MEMBER: 'masika_member'
+        MEMBER: 'masika_member',
+        ADMIN_USER: 'masika_admin_user',
+        ADMIN_SESSION: 'masika_admin_session'
     },
     
     // Routes
@@ -34,7 +38,9 @@ const CONFIG = {
         LOGIN: '/login.html',
         REGISTER: '/register.html',
         DASHBOARD: '/dashboard.html',
-        PAYMENT: '/payment.html'
+        PAYMENT: '/payment.html',
+        ADMIN_LOGIN: '/admin-login.html',
+        ADMIN_DASHBOARD: '/admin-dashboard.html'
     },
     
     // Plans
@@ -74,4 +80,5 @@ if (typeof module !== 'undefined' && module.exports) {
     module.exports = CONFIG;
 } else {
     window.CONFIG = CONFIG;
+    console.log('✅ CONFIG loaded:', CONFIG.SUPABASE.URL);
 }
