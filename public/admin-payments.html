@@ -5,226 +5,1747 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Collect Payment | Masika Benevolent</title>
     <link rel="icon" type="image/png" href="../assets/favicon-32x32.png">
+
+    <!-- =========================================================
+         SUPABASE & EXTERNAL JS
+         ========================================================= -->
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+
     <style>
-        * { margin:0; padding:0; box-sizing:border-box; }
+        /* ============================================================
+           COLLECT PAYMENT STYLES
+           ============================================================ */
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
         :root {
-            --primary:#0b5d3b; --primary-dark:#06452c; --gold:#d4a843;
-            --danger:#dc3545; --success:#198754; --info:#0dcaf0; --warning:#ffc107;
-            --text:#1f2933; --text-light:#6b7280;
-            --gray-100:#f3f4f6; --gray-200:#e5e7eb; --gray-300:#d1d5db;
-            --shadow:0 2px 12px rgba(0,0,0,0.08);
-            --radius:12px; --transition:all 0.3s ease;
+            --primary: #0b5d3b;
+            --primary-dark: #06452c;
+            --primary-light: #e8f5ee;
+            --gold: #d4a843;
+            --gold-light: #f5e6b8;
+            --danger: #dc3545;
+            --danger-light: #fce4e8;
+            --success: #198754;
+            --success-light: #d4edda;
+            --warning: #ffc107;
+            --warning-light: #fff3cd;
+            --info: #0dcaf0;
+            --info-light: #d1f0f9;
+            --text: #1f2933;
+            --text-light: #6b7280;
+            --text-lighter: #9ca3af;
+            --white: #ffffff;
+            --gray-50: #f9fafb;
+            --gray-100: #f3f4f6;
+            --gray-200: #e5e7eb;
+            --gray-300: #d1d5db;
+            --gray-400: #9ca3af;
+            --shadow: 0 2px 12px rgba(0,0,0,0.08);
+            --shadow-hover: 0 4px 24px rgba(0,0,0,0.12);
+            --radius: 12px;
+            --radius-lg: 16px;
+            --transition: all 0.3s ease;
         }
-        body { font-family:'Segoe UI',Arial,sans-serif; background:#f0f4f2; color:var(--text); min-height:100vh; }
-        .admin-layout { display:flex; min-height:100vh; }
 
-        /* Sidebar */
-        .sidebar { width:260px; background:var(--primary); color:white; padding:24px 0; position:fixed; height:100vh; overflow-y:auto; z-index:100; }
-        .sidebar-brand { padding:0 24px 24px; border-bottom:1px solid rgba(255,255,255,0.1); margin-bottom:20px; }
-        .sidebar-brand .logo { display:flex; align-items:center; gap:12px; text-decoration:none; color:white; }
-        .sidebar-brand .logo-icon { width:40px; height:40px; background:white; border-radius:50%; display:flex; align-items:center; justify-content:center; font-weight:900; color:var(--primary); font-size:18px; }
-        .sidebar-brand .logo-text { font-weight:700; font-size:18px; }
-        .sidebar-brand .logo-sub { font-size:11px; opacity:0.7; display:block; }
-        .sidebar-nav { list-style:none; padding:0 12px; }
-        .sidebar-nav li { margin-bottom:2px; }
-        .sidebar-nav a { display:flex; align-items:center; gap:12px; padding:12px 16px; border-radius:8px; color:rgba(255,255,255,0.7); text-decoration:none; font-size:14px; font-weight:500; }
-        .sidebar-nav a:hover { background:rgba(255,255,255,0.1); color:white; }
-        .sidebar-nav a.active { background:rgba(255,255,255,0.15); color:white; }
-        .sidebar-nav a i { width:20px; text-align:center; }
-        .sidebar-nav .badge { margin-left:auto; background:var(--gold); color:white; padding:2px 10px; border-radius:12px; font-size:11px; font-weight:600; }
-        .sidebar-footer { padding:20px 24px; border-top:1px solid rgba(255,255,255,0.1); margin-top:20px; }
-        .sidebar-footer .user-info { display:flex; align-items:center; gap:12px; }
-        .sidebar-footer .user-avatar { width:36px; height:36px; border-radius:50%; background:var(--gold); display:flex; align-items:center; justify-content:center; font-weight:700; font-size:14px; }
-        .sidebar-footer .user-name { font-weight:600; font-size:14px; }
-        .sidebar-footer .user-role { font-size:12px; opacity:0.6; }
-        .sidebar-footer .logout-btn { display:block; width:100%; margin-top:12px; padding:10px; border:1px solid rgba(255,255,255,0.2); border-radius:8px; background:transparent; color:rgba(255,255,255,0.7); cursor:pointer; font-family:inherit; font-size:14px; font-weight:500; }
-        .sidebar-footer .logout-btn:hover { background:rgba(255,255,255,0.1); color:white; }
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif;
+            background: #f0f4f2;
+            color: var(--text);
+            min-height: 100vh;
+        }
 
-        .main-content { margin-left:260px; padding:24px 32px; flex:1; width:calc(100% - 260px); max-width:720px; }
-        .topbar h1 { font-size:26px; font-weight:800; margin-bottom:24px; }
-        .topbar h1 small { font-size:14px; font-weight:400; color:var(--text-light); display:block; }
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        ::-webkit-scrollbar-track { background: var(--gray-100); border-radius: 10px; }
+        ::-webkit-scrollbar-thumb { background: var(--gray-300); border-radius: 10px; }
+        ::-webkit-scrollbar-thumb:hover { background: var(--gray-400); }
 
-        .card { background:white; border-radius:var(--radius); padding:24px; box-shadow:var(--shadow); margin-bottom:24px; }
-        .card-header { display:flex; justify-content:space-between; align-items:center; margin-bottom:16px; padding-bottom:12px; border-bottom:1px solid var(--gray-200); }
-        .card-header h3 { font-size:18px; font-weight:700; }
+        .admin-layout { display: flex; min-height: 100vh; }
 
-        /* Alert */
-        .alert { display:none; padding:12px 16px; border-radius:8px; font-size:14px; margin-bottom:20px; }
-        .alert.show { display:block; }
-        .alert.error { background:#f8d7da; color:#721c24; }
-        .alert.info { background:#cff4fc; color:#055160; }
-        .alert.success { background:#d1e7dd; color:#0f5132; }
-        .alert.warning { background:#fff3cd; color:#856404; }
+        /* ============================================================
+           SIDEBAR
+           ============================================================ */
 
-        /* Member search */
-        .search-row { display:flex; gap:10px; margin-bottom:12px; }
-        .search-row input { flex:1; padding:10px 14px; border:1px solid var(--gray-200); border-radius:8px; font-family:inherit; font-size:14px; }
-        .search-empty { padding:14px; text-align:center; color:var(--text-light); font-size:13px; }
-        #searchResults { max-height:260px; overflow-y:auto; border:1px solid var(--gray-200); border-radius:8px; margin-bottom:4px; }
-        .search-result-row { display:flex; justify-content:space-between; align-items:center; padding:10px 14px; border-bottom:1px solid var(--gray-200); cursor:pointer; }
-        .search-result-row:last-child { border-bottom:none; }
-        .search-result-row:hover { background:var(--gray-100); }
-        .search-result-row .name { font-weight:600; font-size:14px; }
-        .search-result-row .meta { font-size:12px; color:var(--text-light); }
+        .sidebar {
+            width: 280px;
+            background: var(--primary);
+            color: white;
+            padding: 24px 0;
+            position: fixed;
+            height: 100vh;
+            overflow-y: auto;
+            transition: var(--transition);
+            z-index: 100;
+            display: flex;
+            flex-direction: column;
+        }
 
-        .status-badge { display:inline-block; padding:2px 12px; border-radius:20px; font-size:12px; font-weight:600; white-space:nowrap; }
-        .status-badge.active { background:#d4edda; color:#155724; }
-        .status-badge.inactive { background:#f8d7da; color:#721c24; }
-        .status-badge.pending { background:#fff3cd; color:#856404; }
-        .status-badge.rejected { background:#f8d7da; color:#721c24; }
-        .status-badge.paid { background:#d4edda; color:#155724; }
-        .status-badge.confirmed { background:#d4edda; color:#155724; }
-        .status-badge.failed { background:#f8d7da; color:#721c24; }
+        .sidebar::-webkit-scrollbar { width: 4px; }
+        .sidebar::-webkit-scrollbar-track { background: rgba(255,255,255,0.05); }
+        .sidebar::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.2); border-radius: 10px; }
 
-        /* Selected member */
-        #selectedMember { display:none; align-items:center; justify-content:space-between; background:var(--gray-100); border-radius:8px; padding:12px 16px; margin-bottom:20px; }
-        #selectedMember.show { display:flex; }
-        #selectedMember .name { font-weight:700; }
-        #selectedMember .num { font-size:12px; color:var(--text-light); }
+        .sidebar-brand {
+            padding: 0 24px 24px;
+            border-bottom: 1px solid rgba(255,255,255,0.08);
+            margin-bottom: 20px;
+            flex-shrink: 0;
+        }
 
-        /* Payment form */
-        .form-group { margin-bottom:16px; }
-        .form-group label { display:block; font-size:13px; font-weight:600; color:var(--text-light); margin-bottom:6px; }
-        .form-group input { width:100%; padding:11px 14px; border:1px solid var(--gray-200); border-radius:8px; font-family:inherit; font-size:15px; }
-        .form-group input:disabled { background:var(--gray-100); cursor:not-allowed; }
+        .sidebar-brand .logo {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            text-decoration: none;
+            color: white;
+        }
 
-        .btn { padding:12px 22px; font-size:15px; font-weight:700; border:none; border-radius:8px; cursor:pointer; font-family:inherit; transition:var(--transition); display:inline-flex; align-items:center; gap:8px; justify-content:center; }
-        .btn:disabled { opacity:0.5; cursor:not-allowed; }
-        .btn.primary { background:var(--primary); color:white; width:100%; }
-        .btn.primary:hover:not(:disabled) { background:var(--primary-dark); }
-        .btn.gray { background:var(--gray-200); color:var(--text); }
-        .btn.loading .btn-label { opacity:0.6; }
-        .btn-sm { padding:8px 16px; font-size:13px; border:none; border-radius:6px; cursor:pointer; font-family:inherit; font-weight:600; }
-        .btn-sm.primary { background:var(--primary); color:white; }
-        .btn-sm.gray { background:var(--gray-200); color:var(--text); }
+        .sidebar-brand .logo-icon {
+            width: 44px;
+            height: 44px;
+            background: var(--gold);
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 900;
+            color: var(--white);
+            font-size: 20px;
+        }
 
-        /* Payment status */
-        #paymentStatus { display:none; text-align:center; padding:20px 0; }
-        .status-icon { font-size:48px; margin-bottom:12px; }
-        #statusTitle { font-size:18px; font-weight:700; margin-bottom:6px; }
-        #statusMessage { color:var(--text-light); font-size:14px; margin-bottom:16px; }
-        .status-actions { display:flex; gap:10px; justify-content:center; margin-top:16px; }
+        .sidebar-brand .logo-text {
+            font-weight: 800;
+            font-size: 20px;
+            letter-spacing: -0.5px;
+        }
 
-        /* Success card */
-        #successCard { display:none; }
-        #successCard .check { font-size:56px; color:var(--success); text-align:center; margin-bottom:8px; }
-        #successCard h3 { text-align:center; margin-bottom:20px; }
-        .row { display:flex; justify-content:space-between; padding:8px 0; border-bottom:1px solid var(--gray-200); font-size:14px; }
-        .row .label { color:var(--text-light); }
-        .row .value.highlight { font-weight:700; color:var(--primary); }
-        .success-actions { display:flex; gap:10px; margin-top:20px; }
+        .sidebar-brand .logo-sub {
+            font-size: 11px;
+            opacity: 0.6;
+            display: block;
+            font-weight: 400;
+            letter-spacing: 0.5px;
+            text-transform: uppercase;
+        }
 
-        @media (max-width:768px) {
-            .sidebar { transform:translateX(-100%); }
-            .sidebar.open { transform:translateX(0); }
-            .main-content { margin-left:0; width:100%; padding:16px; max-width:100%; }
+        .sidebar-nav {
+            list-style: none;
+            padding: 0 12px;
+            flex: 1;
+        }
+
+        .sidebar-nav li { margin-bottom: 2px; }
+
+        .sidebar-nav .nav-label {
+            font-size: 10px;
+            text-transform: uppercase;
+            letter-spacing: 0.8px;
+            color: rgba(255,255,255,0.3);
+            padding: 12px 16px 6px;
+            font-weight: 700;
+        }
+
+        .sidebar-nav a {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 11px 16px;
+            border-radius: 10px;
+            color: rgba(255,255,255,0.65);
+            text-decoration: none;
+            transition: var(--transition);
+            font-size: 14px;
+            font-weight: 500;
+            position: relative;
+        }
+
+        .sidebar-nav a:hover {
+            background: rgba(255,255,255,0.08);
+            color: white;
+        }
+
+        .sidebar-nav a.active {
+            background: rgba(255,255,255,0.12);
+            color: white;
+        }
+
+        .sidebar-nav a.active::before {
+            content: '';
+            position: absolute;
+            left: 0;
+            top: 20%;
+            height: 60%;
+            width: 3px;
+            background: var(--gold);
+            border-radius: 0 3px 3px 0;
+        }
+
+        .sidebar-nav a i {
+            width: 20px;
+            text-align: center;
+            font-size: 16px;
+        }
+
+        .sidebar-nav .badge {
+            margin-left: auto;
+            background: var(--gold);
+            color: white;
+            padding: 1px 10px;
+            border-radius: 12px;
+            font-size: 11px;
+            font-weight: 700;
+            min-width: 20px;
+            text-align: center;
+        }
+
+        .sidebar-footer {
+            padding: 16px 24px;
+            border-top: 1px solid rgba(255,255,255,0.08);
+            margin-top: auto;
+            flex-shrink: 0;
+        }
+
+        .sidebar-footer .user-info {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .sidebar-footer .user-avatar {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            background: var(--gold);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 700;
+            font-size: 16px;
+            color: white;
+            flex-shrink: 0;
+        }
+
+        .sidebar-footer .user-name {
+            font-weight: 600;
+            font-size: 14px;
+        }
+
+        .sidebar-footer .user-role {
+            font-size: 12px;
+            opacity: 0.5;
+        }
+
+        .sidebar-footer .logout-btn {
+            display: block;
+            width: 100%;
+            margin-top: 12px;
+            padding: 10px;
+            border: 1px solid rgba(255,255,255,0.15);
+            border-radius: 10px;
+            background: transparent;
+            color: rgba(255,255,255,0.6);
+            cursor: pointer;
+            transition: var(--transition);
+            font-family: inherit;
+            font-size: 14px;
+            font-weight: 500;
+        }
+
+        .sidebar-footer .logout-btn:hover {
+            background: rgba(255,255,255,0.08);
+            color: white;
+            border-color: rgba(255,255,255,0.3);
+        }
+
+        /* ============================================================
+           SIDEBAR BACKDROP
+           ============================================================ */
+
+        .sidebar-backdrop {
+            display: none;
+            position: fixed;
+            inset: 0;
+            background: rgba(0,0,0,0.5);
+            backdrop-filter: blur(4px);
+            z-index: 99;
+        }
+
+        .sidebar-backdrop.show { display: block; }
+
+        /* ============================================================
+           MAIN CONTENT
+           ============================================================ */
+
+        .main-content {
+            margin-left: 280px;
+            padding: 24px 32px 40px;
+            flex: 1;
+            width: calc(100% - 280px);
+            min-height: 100vh;
+        }
+
+        /* ============================================================
+           TOPBAR
+           ============================================================ */
+
+        .topbar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 28px;
+            flex-wrap: wrap;
+            gap: 12px;
+        }
+
+        .topbar-left {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+        }
+
+        .topbar h1 {
+            font-size: 28px;
+            font-weight: 800;
+            letter-spacing: -0.5px;
+        }
+
+        .topbar h1 small {
+            font-size: 14px;
+            font-weight: 400;
+            color: var(--text-light);
+            display: block;
+            margin-top: 2px;
+        }
+
+        .topbar .actions {
+            display: flex;
+            gap: 12px;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+
+        .topbar .actions .date-time {
+            font-size: 14px;
+            color: var(--text-light);
+            font-weight: 500;
+        }
+
+        /* ============================================================
+           BUTTONS
+           ============================================================ */
+
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 10px 20px;
+            border: none;
+            border-radius: 8px;
+            font-weight: 600;
+            font-size: 14px;
+            cursor: pointer;
+            transition: var(--transition);
+            font-family: inherit;
+            text-decoration: none;
+        }
+
+        .btn-primary {
+            background: var(--primary);
+            color: white;
+        }
+        .btn-primary:hover {
+            background: var(--primary-dark);
+            transform: translateY(-2px);
+            box-shadow: 0 4px 16px rgba(11, 93, 59, 0.3);
+        }
+
+        .btn-gold {
+            background: var(--gold);
+            color: white;
+        }
+        .btn-gold:hover {
+            background: #c49a3a;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 16px rgba(212, 168, 67, 0.3);
+        }
+
+        .btn-success {
+            background: var(--success);
+            color: white;
+        }
+        .btn-success:hover {
+            background: #157347;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 16px rgba(25, 135, 84, 0.3);
+        }
+
+        .btn-danger {
+            background: var(--danger);
+            color: white;
+        }
+        .btn-danger:hover {
+            background: #c82333;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 16px rgba(220, 53, 69, 0.3);
+        }
+
+        .btn-outline {
+            background: transparent;
+            border: 2px solid var(--gray-200);
+            color: var(--text-light);
+        }
+        .btn-outline:hover {
+            border-color: var(--primary);
+            color: var(--primary);
+            transform: translateY(-2px);
+        }
+
+        .btn-sm {
+            padding: 6px 14px;
+            font-size: 12px;
+            border-radius: 6px;
+        }
+
+        .btn-block { width: 100%; justify-content: center; }
+        .btn:disabled { opacity: 0.6; cursor: not-allowed; transform: none !important; }
+
+        /* ============================================================
+           CARDS
+           ============================================================ */
+
+        .card {
+            background: white;
+            border-radius: var(--radius);
+            padding: 24px;
+            box-shadow: var(--shadow);
+            margin-bottom: 24px;
+            transition: var(--transition);
+        }
+
+        .card:hover { box-shadow: var(--shadow-hover); }
+
+        .card-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 16px;
+            padding-bottom: 12px;
+            border-bottom: 1px solid var(--gray-200);
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+
+        .card-header h3 {
+            font-size: 18px;
+            font-weight: 700;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        /* ============================================================
+           FORM ELEMENTS
+           ============================================================ */
+
+        .form-group { margin-bottom: 16px; }
+
+        .form-group label {
+            display: block;
+            font-size: 13px;
+            font-weight: 600;
+            color: var(--text-light);
+            margin-bottom: 6px;
+        }
+
+        .form-group input {
+            width: 100%;
+            padding: 11px 14px;
+            border: 2px solid var(--gray-200);
+            border-radius: 8px;
+            font-family: inherit;
+            font-size: 15px;
+            transition: var(--transition);
+        }
+
+        .form-group input:focus {
+            outline: none;
+            border-color: var(--primary);
+            box-shadow: 0 0 0 4px rgba(11, 93, 59, 0.1);
+        }
+
+        .form-group input:disabled {
+            background: var(--gray-100);
+            cursor: not-allowed;
+        }
+
+        /* ============================================================
+           SEARCH
+           ============================================================ */
+
+        .search-row {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 12px;
+        }
+
+        .search-row input {
+            flex: 1;
+            padding: 10px 14px;
+            border: 2px solid var(--gray-200);
+            border-radius: 8px;
+            font-family: inherit;
+            font-size: 14px;
+            transition: var(--transition);
+        }
+
+        .search-row input:focus {
+            outline: none;
+            border-color: var(--primary);
+            box-shadow: 0 0 0 4px rgba(11, 93, 59, 0.1);
+        }
+
+        #searchResults {
+            max-height: 260px;
+            overflow-y: auto;
+            border: 1px solid var(--gray-200);
+            border-radius: 8px;
+            margin-bottom: 4px;
+        }
+
+        .search-result-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 10px 14px;
+            border-bottom: 1px solid var(--gray-200);
+            cursor: pointer;
+            transition: var(--transition);
+        }
+
+        .search-result-row:last-child { border-bottom: none; }
+        .search-result-row:hover { background: var(--gray-100); }
+
+        .search-result-row .name { font-weight: 600; font-size: 14px; }
+        .search-result-row .meta { font-size: 12px; color: var(--text-light); }
+
+        .search-empty {
+            padding: 14px;
+            text-align: center;
+            color: var(--text-light);
+            font-size: 13px;
+        }
+
+        /* ============================================================
+           SELECTED MEMBER
+           ============================================================ */
+
+        #selectedMember {
+            display: none;
+            align-items: center;
+            justify-content: space-between;
+            background: var(--primary-light);
+            border-radius: 8px;
+            padding: 12px 16px;
+            margin-bottom: 20px;
+        }
+
+        #selectedMember.show { display: flex; }
+
+        #selectedMember .name { font-weight: 700; }
+        #selectedMember .num { font-size: 12px; color: var(--text-light); }
+
+        /* ============================================================
+           STATUS BADGES
+           ============================================================ */
+
+        .status-badge {
+            display: inline-block;
+            padding: 3px 12px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: 600;
+            white-space: nowrap;
+        }
+
+        .status-badge.active { background: var(--success-light); color: var(--success); }
+        .status-badge.inactive { background: var(--danger-light); color: var(--danger); }
+        .status-badge.pending { background: var(--warning-light); color: #856404; }
+        .status-badge.completed { background: var(--success-light); color: var(--success); }
+        .status-badge.confirmed { background: var(--success-light); color: var(--success); }
+        .status-badge.failed { background: var(--danger-light); color: var(--danger); }
+        .status-badge.unassigned { background: var(--warning-light); color: #856404; }
+
+        /* ============================================================
+           PAYMENT STATUS
+           ============================================================ */
+
+        #paymentStatus {
+            display: none;
+            text-align: center;
+            padding: 20px 0;
+        }
+
+        .status-icon { font-size: 48px; margin-bottom: 12px; }
+        #statusTitle { font-size: 18px; font-weight: 700; margin-bottom: 6px; }
+        #statusMessage { color: var(--text-light); font-size: 14px; margin-bottom: 16px; }
+
+        .status-actions {
+            display: flex;
+            gap: 10px;
+            justify-content: center;
+            margin-top: 16px;
+        }
+
+        /* ============================================================
+           SUCCESS CARD
+           ============================================================ */
+
+        #successCard {
+            display: none;
+            border: 2px solid var(--success);
+        }
+
+        #successCard .check {
+            font-size: 56px;
+            color: var(--success);
+            text-align: center;
+            margin-bottom: 8px;
+        }
+
+        #successCard h3 { text-align: center; margin-bottom: 20px; }
+
+        .row {
+            display: flex;
+            justify-content: space-between;
+            padding: 8px 0;
+            border-bottom: 1px solid var(--gray-200);
+            font-size: 14px;
+        }
+
+        .row .label { color: var(--text-light); }
+        .row .value.highlight { font-weight: 700; color: var(--primary); }
+
+        .success-actions {
+            display: flex;
+            gap: 10px;
+            margin-top: 20px;
+        }
+
+        /* ============================================================
+           ALERTS
+           ============================================================ */
+
+        .alert {
+            display: none;
+            padding: 12px 16px;
+            border-radius: 8px;
+            font-size: 14px;
+            margin-bottom: 20px;
+        }
+
+        .alert.show { display: block; }
+        .alert.error { background: var(--danger-light); color: var(--danger); }
+        .alert.info { background: var(--info-light); color: #055160; }
+        .alert.success { background: var(--success-light); color: var(--success); }
+        .alert.warning { background: var(--warning-light); color: #856404; }
+
+        /* ============================================================
+           TOAST NOTIFICATIONS
+           ============================================================ */
+
+        .toast-container {
+            position: fixed;
+            bottom: 30px;
+            right: 30px;
+            z-index: 9999;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            max-width: 420px;
+        }
+
+        .toast {
+            padding: 14px 20px;
+            border-radius: 12px;
+            color: white;
+            font-weight: 600;
+            font-size: 14px;
+            animation: slideIn 0.4s ease;
+            box-shadow: 0 12px 48px rgba(0,0,0,0.15);
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .toast:hover { transform: scale(1.02); }
+        .toast.success { background: var(--success); }
+        .toast.error { background: var(--danger); }
+        .toast.info { background: var(--info); color: var(--text); }
+        .toast.warning { background: var(--warning); color: var(--text); }
+
+        .toast .toast-close {
+            background: none;
+            border: none;
+            color: rgba(255,255,255,0.7);
+            cursor: pointer;
+            font-size: 18px;
+            margin-left: auto;
+            padding: 0 4px;
+        }
+
+        .toast .toast-close:hover { color: white; }
+
+        @keyframes slideIn {
+            from { transform: translateX(100px); opacity: 0; }
+            to { transform: translateX(0); opacity: 1; }
+        }
+
+        /* ============================================================
+           LOADING
+           ============================================================ */
+
+        .loading-spinner {
+            text-align: center;
+            padding: 20px;
+        }
+
+        .loading-spinner .spinner {
+            display: inline-block;
+            width: 30px;
+            height: 30px;
+            border: 4px solid var(--gray-200);
+            border-top-color: var(--primary);
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        /* ============================================================
+           RESPONSIVE
+           ============================================================ */
+
+        .sidebar-toggle {
+            display: none;
+            background: var(--primary);
+            color: white;
+            border: none;
+            padding: 8px 14px;
+            border-radius: 10px;
+            font-size: 20px;
+            cursor: pointer;
+            transition: var(--transition);
+        }
+
+        .sidebar-toggle:hover { background: var(--primary-dark); }
+
+        @media (max-width: 768px) {
+            .sidebar {
+                transform: translateX(-100%);
+                width: 280px;
+            }
+
+            .sidebar.open {
+                transform: translateX(0);
+            }
+
+            .main-content {
+                margin-left: 0;
+                width: 100%;
+                padding: 16px;
+            }
+
+            .sidebar-toggle {
+                display: block;
+            }
+
+            .topbar .actions .date-time {
+                display: none;
+            }
+
+            .topbar h1 {
+                font-size: 22px;
+            }
+
+            .search-row {
+                flex-direction: column;
+            }
+
+            .success-actions {
+                flex-direction: column;
+            }
+
+            .status-actions {
+                flex-direction: column;
+            }
+        }
+
+        @media (max-width: 480px) {
+            .topbar {
+                flex-direction: column;
+                align-items: stretch;
+            }
+
+            .topbar .actions {
+                justify-content: flex-start;
+            }
         }
     </style>
 </head>
 <body>
+
     <div class="admin-layout">
+
+        <!-- ============================================================
+        SIDEBAR BACKDROP
+        ============================================================ -->
+        <div class="sidebar-backdrop" id="sidebarBackdrop"></div>
+
+        <!-- ============================================================
+        SIDEBAR
+        ============================================================ -->
+
         <aside class="sidebar" id="sidebar">
             <div class="sidebar-brand">
                 <a href="admin-dashboard.html" class="logo">
                     <div class="logo-icon">MB</div>
-                    <div><span class="logo-text">Masika</span><span class="logo-sub">Admin Panel</span></div>
+                    <div>
+                        <span class="logo-text">Masika</span>
+                        <span class="logo-sub">Admin Panel</span>
+                    </div>
                 </a>
             </div>
+
             <ul class="sidebar-nav">
+                <li class="nav-label">Main</li>
                 <li><a href="admin-dashboard.html"><i class="fas fa-chart-pie"></i> Dashboard</a></li>
-                <li><a href="admin-agents.html"><i class="fas fa-user-tie"></i> Agents</a></li>
                 <li><a href="admin-members.html"><i class="fas fa-users"></i> Members</a></li>
+                <li><a href="admin-agents.html"><i class="fas fa-user-tie"></i> Agents</a></li>
+
+                <li class="nav-label">Finance</li>
                 <li><a href="admin-collectpayments.html" class="active"><i class="fas fa-credit-card"></i> Payments</a></li>
+                <li><a href="admin-revenue.html"><i class="fas fa-chart-line"></i> Revenue</a></li>
+
+                <li class="nav-label">Settings</li>
                 <li><a href="admin-pricing.html"><i class="fas fa-tags"></i> Pricing</a></li>
                 <li><a href="admin-reports.html"><i class="fas fa-file-alt"></i> Reports</a></li>
                 <li><a href="admin-settings.html"><i class="fas fa-cog"></i> Settings</a></li>
             </ul>
+
             <div class="sidebar-footer">
                 <div class="user-info">
                     <div class="user-avatar" id="adminAvatar">A</div>
-                    <div><div class="user-name" id="adminName">Admin</div><div class="user-role" id="adminRole">Administrator</div></div>
+                    <div>
+                        <div class="user-name" id="adminName">Admin</div>
+                        <div class="user-role" id="adminRole">Administrator</div>
+                    </div>
                 </div>
-                <button class="logout-btn" onclick="handleLogout()"><i class="fas fa-sign-out-alt"></i> Logout</button>
+                <button class="logout-btn" onclick="handleLogout()">
+                    <i class="fas fa-sign-out-alt"></i> Logout
+                </button>
             </div>
         </aside>
 
+        <!-- ============================================================
+        MAIN CONTENT
+        ============================================================ -->
+
         <main class="main-content">
+
+            <!-- Topbar -->
             <div class="topbar">
-                <h1>Collect Payment <small>Search a member and send an M-Pesa STK push on their behalf</small></h1>
+                <div class="topbar-left">
+                    <button class="sidebar-toggle" id="sidebarToggle" aria-label="Toggle menu">
+                        <i class="fas fa-bars"></i>
+                    </button>
+                    <h1>
+                        Collect Payment
+                        <small>Search a member and send an M-Pesa STK push on their behalf</small>
+                    </h1>
+                </div>
+                <div class="actions">
+                    <span class="date-time" id="currentDateTime"></span>
+                    <button onclick="resetForm()" class="btn btn-outline btn-sm">
+                        <i class="fas fa-undo"></i> Reset
+                    </button>
+                </div>
             </div>
 
+            <!-- Alert -->
             <div class="alert" id="alertBox"></div>
 
-            <!-- Payment card: search + form + status -->
+            <!-- Payment Card -->
             <div class="card" id="paymentCard">
                 <div class="card-header">
                     <h3><i class="fas fa-magnifying-glass" style="color:var(--gold);"></i> Find Member</h3>
                 </div>
 
+                <!-- Search -->
                 <div class="search-row">
                     <input type="text" id="memberSearchInput" placeholder="Search by name, member #, phone, or ID number...">
-                    <button class="btn-sm primary" id="memberSearchBtn" type="button"><i class="fas fa-search"></i> Search</button>
+                    <button class="btn btn-primary btn-sm" id="memberSearchBtn" type="button">
+                        <i class="fas fa-search"></i> Search
+                    </button>
                 </div>
 
                 <div id="searchResults"></div>
 
+                <!-- Selected Member -->
                 <div id="selectedMember">
                     <div>
                         <div class="name" id="selectedMemberName">—</div>
                         <div class="num">#<span id="selectedMemberNumber">—</span> · <span id="selectedMemberStatus"></span></div>
                     </div>
-                    <button class="btn-sm gray" type="button" onclick="clearSelectedMember()"><i class="fas fa-times"></i> Change</button>
+                    <button class="btn btn-outline btn-sm" type="button" onclick="clearSelectedMember()">
+                        <i class="fas fa-times"></i> Change
+                    </button>
                 </div>
 
+                <!-- Payment Form -->
                 <form id="paymentForm" onsubmit="initiatePayment(event)">
                     <div class="form-group">
-                        <label for="phoneNumber">M-Pesa Phone Number</label>
-                        <input type="tel" id="phoneNumber" placeholder="07XXXXXXXX" disabled>
+                        <label for="phoneNumber">M-Pesa Phone Number <span class="required">*</span></label>
+                        <input type="tel" id="phoneNumber" placeholder="07XXXXXXXX" disabled required>
                     </div>
                     <div class="form-group">
-                        <label for="amountInput">Amount (KES)</label>
-                        <input type="number" id="amountInput" placeholder="0" min="1" disabled>
+                        <label for="amountInput">Amount (KES) <span class="required">*</span></label>
+                        <input type="number" id="amountInput" placeholder="Enter amount" min="1" disabled required>
                     </div>
-                    <button type="submit" class="btn primary" id="payBtn" disabled>
+                    <div class="form-group">
+                        <label for="paymentType">Payment Type <span class="required">*</span></label>
+                        <select id="paymentType" disabled required>
+                            <option value="monthly">Monthly Premium</option>
+                            <option value="registration">Registration Fee</option>
+                            <option value="addon">Add-on</option>
+                            <option value="topup">Top-up</option>
+                        </select>
+                    </div>
+                    <button type="submit" class="btn btn-gold btn-block" id="payBtn" disabled>
                         <i class="fas fa-mobile-screen-button"></i>
                         <span class="btn-label">Send STK Push</span>
                     </button>
                 </form>
 
+                <!-- Payment Status -->
                 <div id="paymentStatus">
                     <div class="status-icon" id="statusIcon">⏳</div>
                     <div id="statusTitle">Payment Sent to Phone</div>
                     <div id="statusMessage">Waiting for the member to enter their M-Pesa PIN.</div>
                     <span class="status-badge pending" id="statusBadge">Pending</span>
                     <div class="status-actions">
-                        <button class="btn-sm primary" id="checkStatusBtn" type="button" onclick="checkPaymentStatus()"><i class="fas fa-sync"></i> Check Status</button>
-                        <button class="btn-sm gray" id="retryBtn" type="button" style="display:none;" onclick="resetPayment()"><i class="fas fa-rotate-left"></i> Try Again</button>
+                        <button class="btn btn-primary btn-sm" id="checkStatusBtn" type="button" onclick="checkPaymentStatus()">
+                            <i class="fas fa-sync"></i> Check Status
+                        </button>
+                        <button class="btn btn-outline btn-sm" id="retryBtn" type="button" style="display:none;" onclick="resetPayment()">
+                            <i class="fas fa-rotate-left"></i> Try Again
+                        </button>
                     </div>
                 </div>
             </div>
 
-            <!-- Success card -->
+            <!-- Success Card -->
             <div class="card" id="successCard">
                 <div class="check"><i class="fas fa-circle-check"></i></div>
-                <h3>Payment Confirmed</h3>
+                <h3>Payment Confirmed!</h3>
                 <div id="successDetails">
-                    <div class="row"><span class="label">Member Name</span><span class="value highlight" id="successName">—</span></div>
-                    <div class="row"><span class="label">Member Number</span><span class="value highlight" id="successNumber">—</span></div>
-                    <div class="row"><span class="label">Amount Paid</span><span class="value highlight" id="successAmount">KES 0</span></div>
+                    <div class="row">
+                        <span class="label">Member Name</span>
+                        <span class="value highlight" id="successName">—</span>
+                    </div>
+                    <div class="row">
+                        <span class="label">Member Number</span>
+                        <span class="value highlight" id="successNumber">—</span>
+                    </div>
+                    <div class="row">
+                        <span class="label">Amount Paid</span>
+                        <span class="value highlight" id="successAmount">KES 0</span>
+                    </div>
+                    <div class="row">
+                        <span class="label">Transaction ID</span>
+                        <span class="value" id="successTransactionId">—</span>
+                    </div>
                 </div>
                 <div class="success-actions">
-                    <button class="btn-sm primary" type="button" onclick="downloadReceipt()"><i class="fas fa-file-pdf"></i> Download Receipt</button>
-                    <button class="btn-sm gray" type="button" onclick="collectAnotherPayment()"><i class="fas fa-plus"></i> Collect Another</button>
+                    <button class="btn btn-success btn-sm" type="button" onclick="downloadReceipt()">
+                        <i class="fas fa-file-pdf"></i> Download Receipt
+                    </button>
+                    <button class="btn btn-primary btn-sm" type="button" onclick="collectAnotherPayment()">
+                        <i class="fas fa-plus"></i> Collect Another
+                    </button>
                 </div>
             </div>
+
         </main>
+
     </div>
 
-    <script src="../js/supabase-config.js"></script>
-    <script src="../js/admin-auth.js"></script>
-    <script src="../js/admin-collectpayments.js"></script>
+    <!-- ============================================================
+    TOAST CONTAINER
+    ============================================================ -->
+    <div class="toast-container" id="toastContainer"></div>
+
+    <!-- ============================================================
+    JAVASCRIPT - ALIGNED WITH BACKEND API
+    ============================================================ -->
+    <script>
+        // ============================================================
+        // SUPABASE CONFIG
+        // ============================================================
+
+        const SUPABASE_URL = 'https://wpxzlcdrirlcyvfiquld.supabase.co';
+        const SUPABASE_ANON_KEY = 'YOUR_SUPABASE_ANON_KEY';
+
+        const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+        // ============================================================
+        // BACKEND API CONFIG
+        // ============================================================
+
+        const API_BASE_URL = 'https://masika-backend.onrender.com/api/v1';
+        // For local development: 'http://localhost:8000/api/v1'
+
+        // ============================================================
+        // STATE
+        // ============================================================
+
+        let currentUser = null;
+        let selectedMember = null;
+        let paymentCheckoutId = null;
+        let paymentData = null;
+        let statusPollInterval = null;
+        let paymentRecordId = null;
+
+        // ============================================================
+        // INITIALIZATION
+        // ============================================================
+
+        document.addEventListener('DOMContentLoaded', async function() {
+            await checkAuth();
+            setupEventListeners();
+            setupSidebarToggle();
+            updateClock();
+        });
+
+        // ============================================================
+        // AUTH CHECK
+        // ============================================================
+
+        async function checkAuth() {
+            try {
+                const { data: { session }, error } = await supabase.auth.getSession();
+
+                if (error || !session) {
+                    window.location.href = 'admin-login.html';
+                    return;
+                }
+
+                const { data: admin, error: adminError } = await supabase
+                    .from('admins')
+                    .select('*')
+                    .eq('id', session.user.id)
+                    .single();
+
+                if (adminError || !admin) {
+                    window.location.href = 'admin-login.html';
+                    return;
+                }
+
+                currentUser = admin;
+                document.getElementById('adminName').textContent = admin.full_name || 'Admin';
+                document.getElementById('adminRole').textContent = admin.role || 'Administrator';
+                document.getElementById('adminAvatar').textContent = (admin.full_name || 'A').charAt(0).toUpperCase();
+
+            } catch (error) {
+                console.error('Auth check error:', error);
+                showToast('error', 'Authentication error');
+            }
+        }
+
+        // ============================================================
+        // SETUP EVENT LISTENERS
+        // ============================================================
+
+        function setupEventListeners() {
+            // Search button
+            document.getElementById('memberSearchBtn').addEventListener('click', searchMembers);
+
+            // Enter key on search input
+            document.getElementById('memberSearchInput').addEventListener('keypress', function(e) {
+                if (e.key === 'Enter') {
+                    e.preventDefault();
+                    searchMembers();
+                }
+            });
+
+            // Input debounce for search
+            let searchTimeout;
+            document.getElementById('memberSearchInput').addEventListener('input', function() {
+                clearTimeout(searchTimeout);
+                searchTimeout = setTimeout(() => {
+                    if (this.value.length >= 2) {
+                        searchMembers();
+                    } else if (this.value.length === 0) {
+                        document.getElementById('searchResults').innerHTML = '';
+                    }
+                }, 300);
+            });
+        }
+
+        // ============================================================
+        // SEARCH MEMBERS
+        // ============================================================
+
+        async function searchMembers() {
+            const query = document.getElementById('memberSearchInput').value.trim();
+            const resultsContainer = document.getElementById('searchResults');
+
+            if (!query || query.length < 2) {
+                resultsContainer.innerHTML = `<div class="search-empty">Type at least 2 characters to search</div>`;
+                return;
+            }
+
+            resultsContainer.innerHTML = `
+                <div class="loading-spinner">
+                    <div class="spinner"></div>
+                </div>
+            `;
+
+            try {
+                // Search in members table
+                const { data, error } = await supabase
+                    .from('members')
+                    .select('*')
+                    .or(
+                        `first_name.ilike.%${query}%,` +
+                        `last_name.ilike.%${query}%,` +
+                        `membership_number.ilike.%${query}%,` +
+                        `phone.ilike.%${query}%,` +
+                        `id_number.ilike.%${query}%`
+                    )
+                    .limit(10);
+
+                if (error) throw error;
+
+                if (!data || data.length === 0) {
+                    resultsContainer.innerHTML = `
+                        <div class="search-empty">
+                            <i class="fas fa-user-slash" style="display:block;font-size:24px;margin-bottom:8px;"></i>
+                            No members found matching "<strong>${query}</strong>"
+                        </div>
+                    `;
+                    return;
+                }
+
+                resultsContainer.innerHTML = data.map(member => `
+                    <div class="search-result-row" onclick="selectMember('${member.id}')">
+                        <div>
+                            <div class="name">${member.first_name || ''} ${member.last_name || ''}</div>
+                            <div class="meta">#${member.membership_number || 'N/A'} · ${member.phone || 'N/A'}</div>
+                        </div>
+                        <span class="status-badge ${member.is_active ? 'active' : 'inactive'}">
+                            ${member.is_active ? 'Active' : 'Inactive'}
+                        </span>
+                    </div>
+                `).join('');
+
+            } catch (error) {
+                console.error('Search error:', error);
+                resultsContainer.innerHTML = `
+                    <div class="search-empty" style="color:var(--danger);">
+                        <i class="fas fa-exclamation-triangle" style="display:block;font-size:24px;margin-bottom:8px;"></i>
+                        Failed to search members
+                    </div>
+                `;
+            }
+        }
+
+        // ============================================================
+        // SELECT MEMBER
+        // ============================================================
+
+        async function selectMember(memberId) {
+            try {
+                const { data: member, error } = await supabase
+                    .from('members')
+                    .select('*')
+                    .eq('id', memberId)
+                    .single();
+
+                if (error) throw error;
+
+                selectedMember = member;
+                document.getElementById('searchResults').innerHTML = '';
+
+                // Show selected member
+                const selectedDiv = document.getElementById('selectedMember');
+                selectedDiv.classList.add('show');
+                document.getElementById('selectedMemberName').textContent =
+                    `${member.first_name || ''} ${member.last_name || ''}`.trim() || 'N/A';
+                document.getElementById('selectedMemberNumber').textContent = member.membership_number || 'N/A';
+                document.getElementById('selectedMemberStatus').innerHTML =
+                    `<span class="status-badge ${member.is_active ? 'active' : 'inactive'}">${member.is_active ? 'Active' : 'Inactive'}</span>`;
+
+                // Enable form fields
+                document.getElementById('phoneNumber').disabled = false;
+                document.getElementById('phoneNumber').value = member.phone || '';
+                document.getElementById('amountInput').disabled = false;
+                document.getElementById('amountInput').focus();
+                document.getElementById('paymentType').disabled = false;
+                document.getElementById('payBtn').disabled = false;
+
+                showToast('success', `Member ${member.first_name || ''} ${member.last_name || ''} selected`);
+
+            } catch (error) {
+                console.error('Select member error:', error);
+                showToast('error', 'Failed to select member');
+            }
+        }
+
+        // ============================================================
+        // CLEAR SELECTED MEMBER
+        // ============================================================
+
+        function clearSelectedMember() {
+            selectedMember = null;
+            document.getElementById('selectedMember').classList.remove('show');
+            document.getElementById('phoneNumber').disabled = true;
+            document.getElementById('phoneNumber').value = '';
+            document.getElementById('amountInput').disabled = true;
+            document.getElementById('amountInput').value = '';
+            document.getElementById('paymentType').disabled = true;
+            document.getElementById('payBtn').disabled = true;
+            document.getElementById('searchResults').innerHTML = '';
+            document.getElementById('memberSearchInput').value = '';
+            document.getElementById('memberSearchInput').focus();
+        }
+
+        // ============================================================
+        // INITIATE PAYMENT - Uses Backend API
+        // ============================================================
+
+        async function initiatePayment(event) {
+            event.preventDefault();
+
+            if (!selectedMember) {
+                showToast('error', 'Please select a member first');
+                return;
+            }
+
+            const phone = document.getElementById('phoneNumber').value.trim();
+            const amount = parseFloat(document.getElementById('amountInput').value);
+            const paymentType = document.getElementById('paymentType').value;
+
+            if (!phone || phone.length < 10) {
+                showToast('error', 'Please enter a valid phone number');
+                return;
+            }
+
+            if (!amount || amount < 1) {
+                showToast('error', 'Please enter a valid amount');
+                return;
+            }
+
+            // Get auth token
+            const { data: { session } } = await supabase.auth.getSession();
+            const token = session?.access_token;
+
+            if (!token) {
+                showToast('error', 'Authentication required');
+                return;
+            }
+
+            const payBtn = document.getElementById('payBtn');
+            const originalText = payBtn.innerHTML;
+            payBtn.disabled = true;
+            payBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Sending...';
+
+            try {
+                // Call backend API to initiate payment
+                const response = await fetch(`${API_BASE_URL}/payments/mpesa/initiate`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${token}`
+                    },
+                    body: JSON.stringify({
+                        membership_number: selectedMember.membership_number,
+                        phone_number: phone,
+                        amount: amount,
+                        payment_type: paymentType || 'monthly'
+                    })
+                });
+
+                const data = await response.json();
+
+                if (!response.ok) {
+                    throw new Error(data.detail || data.message || 'Payment initiation failed');
+                }
+
+                paymentCheckoutId = data.checkout_request_id;
+                paymentRecordId = data.payment_id;
+                paymentData = data;
+
+                // Show payment status
+                showPaymentStatus('pending', 'Payment Sent to Phone', 'Waiting for member to enter M-Pesa PIN...');
+
+                // Start polling for status
+                startStatusPolling(data.checkout_request_id, token);
+
+                showToast('success', 'STK Push sent successfully!');
+
+            } catch (error) {
+                console.error('Payment initiation error:', error);
+                showToast('error', error.message || 'Failed to initiate payment');
+                payBtn.disabled = false;
+                payBtn.innerHTML = originalText;
+            }
+        }
+
+        // ============================================================
+        // SHOW PAYMENT STATUS
+        // ============================================================
+
+        function showPaymentStatus(status, title, message) {
+            const statusDiv = document.getElementById('paymentStatus');
+            statusDiv.style.display = 'block';
+
+            const icons = {
+                pending: '⏳',
+                completed: '✅',
+                failed: '❌'
+            };
+
+            document.getElementById('statusIcon').textContent = icons[status] || '⏳';
+            document.getElementById('statusTitle').textContent = title;
+            document.getElementById('statusMessage').textContent = message;
+
+            const badge = document.getElementById('statusBadge');
+            badge.className = `status-badge ${status}`;
+            badge.textContent = status.charAt(0).toUpperCase() + status.slice(1);
+
+            document.getElementById('retryBtn').style.display = status === 'failed' ? 'inline-flex' : 'none';
+
+            // Hide form
+            document.getElementById('paymentForm').style.display = 'none';
+            document.getElementById('selectedMember').style.display = 'none';
+
+            if (status === 'completed') {
+                showSuccessCard();
+            }
+        }
+
+        // ============================================================
+        // START STATUS POLLING - Uses Backend API
+        // ============================================================
+
+        function startStatusPolling(checkoutId, token) {
+            let attempts = 0;
+            const maxAttempts = 12; // 2 minutes
+
+            if (statusPollInterval) {
+                clearInterval(statusPollInterval);
+            }
+
+            statusPollInterval = setInterval(async () => {
+                attempts++;
+
+                try {
+                    const response = await fetch(`${API_BASE_URL}/payments/mpesa/status/${checkoutId}`, {
+                        headers: {
+                            'Authorization': `Bearer ${token}`
+                        }
+                    });
+
+                    const data = await response.json();
+
+                    if (data.status === 'completed') {
+                        clearInterval(statusPollInterval);
+                        statusPollInterval = null;
+                        paymentData = { ...paymentData, ...data };
+                        showPaymentStatus('completed', 'Payment Successful!', 'The payment has been confirmed.');
+                        showToast('success', 'Payment completed successfully!');
+                    } else if (data.status === 'failed') {
+                        clearInterval(statusPollInterval);
+                        statusPollInterval = null;
+                        showPaymentStatus('failed', 'Payment Failed', 'The payment was not completed. Please try again.');
+                        showToast('error', 'Payment failed');
+                    } else if (attempts >= maxAttempts) {
+                        clearInterval(statusPollInterval);
+                        statusPollInterval = null;
+                        showPaymentStatus('pending', 'Payment Taking Longer', 'Please check your phone or try again.');
+                        document.getElementById('retryBtn').style.display = 'inline-flex';
+                        showToast('warning', 'Payment is taking longer than expected');
+                    }
+
+                } catch (error) {
+                    console.error('Status check error:', error);
+                    if (attempts >= maxAttempts) {
+                        clearInterval(statusPollInterval);
+                        statusPollInterval = null;
+                    }
+                }
+            }, 10000); // Check every 10 seconds
+        }
+
+        // ============================================================
+        // CHECK PAYMENT STATUS - Uses Backend API
+        // ============================================================
+
+        async function checkPaymentStatus() {
+            if (!paymentCheckoutId) {
+                showToast('error', 'No payment to check');
+                return;
+            }
+
+            const { data: { session } } = await supabase.auth.getSession();
+            const token = session?.access_token;
+
+            if (!token) {
+                showToast('error', 'Authentication required');
+                return;
+            }
+
+            const btn = document.getElementById('checkStatusBtn');
+            btn.disabled = true;
+            btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Checking...';
+
+            try {
+                const response = await fetch(`${API_BASE_URL}/payments/mpesa/status/${paymentCheckoutId}`, {
+                    headers: {
+                        'Authorization': `Bearer ${token}`
+                    }
+                });
+
+                const data = await response.json();
+
+                if (data.status === 'completed') {
+                    clearInterval(statusPollInterval);
+                    statusPollInterval = null;
+                    paymentData = { ...paymentData, ...data };
+                    showPaymentStatus('completed', 'Payment Successful!', 'The payment has been confirmed.');
+                    showToast('success', 'Payment completed successfully!');
+                } else if (data.status === 'failed') {
+                    clearInterval(statusPollInterval);
+                    statusPollInterval = null;
+                    showPaymentStatus('failed', 'Payment Failed', 'The payment was not completed. Please try again.');
+                    showToast('error', 'Payment failed');
+                } else {
+                    showToast('info', `Payment status: ${data.status || 'Pending'}`);
+                }
+
+            } catch (error) {
+                console.error('Status check error:', error);
+                showToast('error', 'Failed to check payment status');
+            } finally {
+                btn.disabled = false;
+                btn.innerHTML = '<i class="fas fa-sync"></i> Check Status';
+            }
+        }
+
+        // ============================================================
+        // SHOW SUCCESS CARD
+        // ============================================================
+
+        function showSuccessCard() {
+            const card = document.getElementById('successCard');
+            card.style.display = 'block';
+
+            const member = selectedMember;
+            document.getElementById('successName').textContent =
+                `${member?.first_name || ''} ${member?.last_name || ''}`.trim() || 'N/A';
+            document.getElementById('successNumber').textContent = member?.membership_number || 'N/A';
+            document.getElementById('successAmount').textContent =
+                `KES ${(paymentData?.amount || 0).toLocaleString()}`;
+            document.getElementById('successTransactionId').textContent =
+                paymentData?.mpesa_receipt_number || paymentData?.checkout_request_id || 'N/A';
+
+            // Hide payment card
+            document.getElementById('paymentCard').style.display = 'none';
+        }
+
+        // ============================================================
+        // RESET PAYMENT
+        // ============================================================
+
+        function resetPayment() {
+            if (statusPollInterval) {
+                clearInterval(statusPollInterval);
+                statusPollInterval = null;
+            }
+
+            paymentCheckoutId = null;
+            paymentData = null;
+            paymentRecordId = null;
+
+            document.getElementById('paymentStatus').style.display = 'none';
+            document.getElementById('paymentForm').style.display = 'block';
+            document.getElementById('selectedMember').style.display = 'flex';
+
+            document.getElementById('payBtn').disabled = false;
+            document.getElementById('payBtn').innerHTML = `
+                <i class="fas fa-mobile-screen-button"></i>
+                <span class="btn-label">Send STK Push</span>
+            `;
+        }
+
+        // ============================================================
+        // COLLECT ANOTHER PAYMENT
+        // ============================================================
+
+        function collectAnotherPayment() {
+            document.getElementById('successCard').style.display = 'none';
+            document.getElementById('paymentCard').style.display = 'block';
+            document.getElementById('paymentStatus').style.display = 'none';
+            document.getElementById('paymentForm').style.display = 'block';
+            document.getElementById('selectedMember').style.display = 'none';
+
+            paymentCheckoutId = null;
+            paymentData = null;
+            paymentRecordId = null;
+            selectedMember = null;
+
+            document.getElementById('phoneNumber').value = '';
+            document.getElementById('phoneNumber').disabled = true;
+            document.getElementById('amountInput').value = '';
+            document.getElementById('amountInput').disabled = true;
+            document.getElementById('paymentType').disabled = true;
+            document.getElementById('payBtn').disabled = true;
+            document.getElementById('memberSearchInput').value = '';
+            document.getElementById('searchResults').innerHTML = '';
+
+            if (statusPollInterval) {
+                clearInterval(statusPollInterval);
+                statusPollInterval = null;
+            }
+
+            document.getElementById('memberSearchInput').focus();
+            showToast('info', 'Ready to collect another payment');
+        }
+
+        // ============================================================
+        // DOWNLOAD RECEIPT (PDF)
+        // ============================================================
+
+        function downloadReceipt() {
+            try {
+                const { jsPDF } = window.jspdf;
+                const doc = new jsPDF();
+
+                const member = selectedMember;
+
+                // Header
+                doc.setFillColor(11, 93, 59);
+                doc.rect(0, 0, 210, 45, 'F');
+                doc.setTextColor(255, 255, 255);
+                doc.setFontSize(22);
+                doc.text('MASIKA BENEVOLENT', 20, 25);
+                doc.setFontSize(10);
+                doc.text('Payment Receipt', 20, 35);
+
+                // Payment details
+                doc.setTextColor(0, 0, 0);
+                doc.setFontSize(12);
+                const yStart = 55;
+
+                doc.text(`Receipt #: ${paymentData?.checkout_request_id || 'N/A'}`, 20, yStart);
+                doc.text(`Date: ${new Date().toLocaleDateString('en-KE')}`, 20, yStart + 8);
+                doc.text(`Time: ${new Date().toLocaleTimeString('en-KE')}`, 20, yStart + 16);
+
+                // Member details
+                doc.setFontSize(14);
+                doc.setFont('helvetica', 'bold');
+                doc.text('Member Details', 20, yStart + 30);
+                doc.setFont('helvetica', 'normal');
+                doc.setFontSize(12);
+
+                doc.text(`Name: ${member?.first_name || ''} ${member?.last_name || ''}`, 20, yStart + 40);
+                doc.text(`Member #: ${member?.membership_number || 'N/A'}`, 20, yStart + 48);
+                doc.text(`Phone: ${member?.phone || 'N/A'}`, 20, yStart + 56);
+
+                // Payment details
+                doc.setFontSize(14);
+                doc.setFont('helvetica', 'bold');
+                doc.text('Payment Details', 20, yStart + 70);
+                doc.setFont('helvetica', 'normal');
+                doc.setFontSize(12);
+
+                doc.text(`Amount: KES ${(paymentData?.amount || 0).toLocaleString()}`, 20, yStart + 80);
+                doc.text(`Status: Completed`, 20, yStart + 88);
+                doc.text(`Transaction ID: ${paymentData?.mpesa_receipt_number || paymentData?.checkout_request_id || 'N/A'}`, 20, yStart + 96);
+
+                // Footer
+                doc.setDrawColor(200, 200, 200);
+                doc.line(20, yStart + 110, 190, yStart + 110);
+                doc.setFontSize(10);
+                doc.setTextColor(100, 100, 100);
+                doc.text('Thank you for your payment. This is a system-generated receipt.', 20, yStart + 120);
+
+                doc.save(`payment_receipt_${member?.membership_number || 'unknown'}.pdf`);
+                showToast('success', 'Receipt downloaded successfully');
+
+            } catch (error) {
+                console.error('PDF generation error:', error);
+                showToast('error', 'Failed to generate receipt');
+            }
+        }
+
+        // ============================================================
+        // RESET FORM
+        // ============================================================
+
+        function resetForm() {
+            if (statusPollInterval) {
+                clearInterval(statusPollInterval);
+                statusPollInterval = null;
+            }
+
+            paymentCheckoutId = null;
+            paymentData = null;
+            paymentRecordId = null;
+            selectedMember = null;
+
+            document.getElementById('paymentCard').style.display = 'block';
+            document.getElementById('successCard').style.display = 'none';
+            document.getElementById('paymentStatus').style.display = 'none';
+            document.getElementById('paymentForm').style.display = 'block';
+            document.getElementById('selectedMember').style.display = 'none';
+
+            document.getElementById('phoneNumber').value = '';
+            document.getElementById('phoneNumber').disabled = true;
+            document.getElementById('amountInput').value = '';
+            document.getElementById('amountInput').disabled = true;
+            document.getElementById('paymentType').disabled = true;
+            document.getElementById('payBtn').disabled = true;
+            document.getElementById('memberSearchInput').value = '';
+            document.getElementById('searchResults').innerHTML = '';
+
+            document.getElementById('payBtn').innerHTML = `
+                <i class="fas fa-mobile-screen-button"></i>
+                <span class="btn-label">Send STK Push</span>
+            `;
+
+            showToast('info', 'Form reset');
+        }
+
+        // ============================================================
+        // SIDEBAR TOGGLE
+        // ============================================================
+
+        function setupSidebarToggle() {
+            const sidebar = document.getElementById('sidebar');
+            const backdrop = document.getElementById('sidebarBackdrop');
+            const toggleBtn = document.getElementById('sidebarToggle');
+
+            if (toggleBtn) {
+                toggleBtn.addEventListener('click', function() {
+                    sidebar.classList.toggle('open');
+                    backdrop.classList.toggle('show');
+                });
+            }
+
+            if (backdrop) {
+                backdrop.addEventListener('click', function() {
+                    sidebar.classList.remove('open');
+                    backdrop.classList.remove('show');
+                });
+            }
+
+            document.querySelectorAll('.sidebar-nav a').forEach(function(link) {
+                link.addEventListener('click', function() {
+                    sidebar.classList.remove('open');
+                    backdrop.classList.remove('show');
+                });
+            });
+        }
+
+        // ============================================================
+        // CLOCK
+        // ============================================================
+
+        function updateClock() {
+            const clockEl = document.getElementById('currentDateTime');
+            if (clockEl) {
+                const now = new Date();
+                clockEl.textContent = now.toLocaleString('en-KE', {
+                    weekday: 'short',
+                    day: '2-digit',
+                    month: 'short',
+                    year: 'numeric',
+                    hour: '2-digit',
+                    minute: '2-digit'
+                });
+            }
+            setTimeout(updateClock, 30000);
+        }
+
+        // ============================================================
+        // TOAST NOTIFICATIONS
+        // ============================================================
+
+        function showToast(type, message) {
+            const container = document.getElementById('toastContainer');
+
+            const icons = {
+                success: 'fa-check-circle',
+                error: 'fa-exclamation-circle',
+                warning: 'fa-triangle-exclamation',
+                info: 'fa-info-circle'
+            };
+
+            const toast = document.createElement('div');
+            toast.className = `toast ${type}`;
+            toast.innerHTML = `
+                <i class="fas ${icons[type] || icons.info}"></i>
+                <span>${message}</span>
+                <button class="toast-close" onclick="this.parentElement.remove()">&times;</button>
+            `;
+
+            container.appendChild(toast);
+
+            setTimeout(() => {
+                toast.style.opacity = '0';
+                toast.style.transform = 'translateX(100px)';
+                toast.style.transition = 'all 0.4s ease';
+                setTimeout(() => toast.remove(), 400);
+            }, 4000);
+        }
+
+        // ============================================================
+        // LOGOUT
+        // ============================================================
+
+        async function handleLogout() {
+            try {
+                await supabase.auth.signOut();
+                sessionStorage.clear();
+                window.location.href = 'admin-login.html';
+            } catch (error) {
+                console.error('Logout error:', error);
+                showToast('error', 'Failed to logout');
+            }
+        }
+
+        // ============================================================
+        // EXPOSE FUNCTIONS
+        // ============================================================
+
+        window.selectMember = selectMember;
+        window.clearSelectedMember = clearSelectedMember;
+        window.initiatePayment = initiatePayment;
+        window.checkPaymentStatus = checkPaymentStatus;
+        window.resetPayment = resetPayment;
+        window.collectAnotherPayment = collectAnotherPayment;
+        window.downloadReceipt = downloadReceipt;
+        window.resetForm = resetForm;
+        window.handleLogout = handleLogout;
+        window.showToast = showToast;
+    </script>
+
 </body>
 </html>
