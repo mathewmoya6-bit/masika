@@ -5,131 +5,915 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Members | Masika Benevolent</title>
     <link rel="icon" type="image/png" href="../assets/favicon-32x32.png">
+
+    <!-- =========================================================
+         SUPABASE & EXTERNAL JS
+         ========================================================= -->
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+
     <style>
-        * { margin:0; padding:0; box-sizing:border-box; }
+        /* ============================================================
+           COMPLETE STYLES
+           ============================================================ */
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
         :root {
-            --primary:#0b5d3b; --primary-dark:#06452c; --gold:#d4a843;
-            --danger:#dc3545; --success:#198754; --info:#0dcaf0;
-            --text:#1f2933; --text-light:#6b7280;
-            --gray-100:#f3f4f6; --gray-200:#e5e7eb;
-            --shadow:0 2px 12px rgba(0,0,0,0.08);
-            --radius:12px; --transition:all 0.3s ease;
+            --primary: #0b5d3b;
+            --primary-dark: #06452c;
+            --primary-light: #e8f5ee;
+            --gold: #d4a843;
+            --gold-light: #f5e6b8;
+            --danger: #dc3545;
+            --danger-light: #fce4e8;
+            --success: #198754;
+            --success-light: #d4edda;
+            --warning: #ffc107;
+            --warning-light: #fff3cd;
+            --info: #0dcaf0;
+            --info-light: #d1f0f9;
+            --text: #1f2933;
+            --text-light: #6b7280;
+            --text-lighter: #9ca3af;
+            --white: #ffffff;
+            --gray-50: #f9fafb;
+            --gray-100: #f3f4f6;
+            --gray-200: #e5e7eb;
+            --gray-300: #d1d5db;
+            --gray-400: #9ca3af;
+            --shadow: 0 2px 12px rgba(0,0,0,0.08);
+            --shadow-hover: 0 4px 24px rgba(0,0,0,0.12);
+            --radius: 12px;
+            --radius-lg: 16px;
+            --transition: all 0.3s ease;
         }
-        body { font-family:'Segoe UI',Arial,sans-serif; background:#f0f4f2; color:var(--text); min-height:100vh; }
-        .admin-layout { display:flex; min-height:100vh; }
-        .sidebar { width:260px; background:var(--primary); color:white; padding:24px 0; position:fixed; height:100vh; overflow-y:auto; z-index:100; }
-        .sidebar-brand { padding:0 24px 24px; border-bottom:1px solid rgba(255,255,255,0.1); margin-bottom:20px; }
-        .sidebar-brand .logo { display:flex; align-items:center; gap:12px; text-decoration:none; color:white; }
-        .sidebar-brand .logo-icon { width:40px; height:40px; background:white; border-radius:50%; display:flex; align-items:center; justify-content:center; font-weight:900; color:var(--primary); font-size:18px; }
-        .sidebar-brand .logo-text { font-weight:700; font-size:18px; }
-        .sidebar-brand .logo-sub { font-size:11px; opacity:0.7; display:block; }
-        .sidebar-nav { list-style:none; padding:0 12px; }
-        .sidebar-nav li { margin-bottom:2px; }
-        .sidebar-nav a { display:flex; align-items:center; gap:12px; padding:12px 16px; border-radius:8px; color:rgba(255,255,255,0.7); text-decoration:none; font-size:14px; font-weight:500; }
-        .sidebar-nav a:hover { background:rgba(255,255,255,0.1); color:white; }
-        .sidebar-nav a.active { background:rgba(255,255,255,0.15); color:white; }
-        .sidebar-nav a i { width:20px; text-align:center; }
-        .sidebar-nav .badge { margin-left:auto; background:var(--gold); color:white; padding:2px 10px; border-radius:12px; font-size:11px; font-weight:600; }
-        .sidebar-footer { padding:20px 24px; border-top:1px solid rgba(255,255,255,0.1); margin-top:20px; }
-        .sidebar-footer .user-info { display:flex; align-items:center; gap:12px; }
-        .sidebar-footer .user-avatar { width:36px; height:36px; border-radius:50%; background:var(--gold); display:flex; align-items:center; justify-content:center; font-weight:700; font-size:14px; }
-        .sidebar-footer .user-name { font-weight:600; font-size:14px; }
-        .sidebar-footer .user-role { font-size:12px; opacity:0.6; }
-        .sidebar-footer .logout-btn { display:block; width:100%; margin-top:12px; padding:10px; border:1px solid rgba(255,255,255,0.2); border-radius:8px; background:transparent; color:rgba(255,255,255,0.7); cursor:pointer; font-family:inherit; font-size:14px; font-weight:500; }
-        .sidebar-footer .logout-btn:hover { background:rgba(255,255,255,0.1); color:white; }
-        .main-content { margin-left:260px; padding:24px 32px; flex:1; width:calc(100% - 260px); }
-        .topbar { display:flex; justify-content:space-between; align-items:center; margin-bottom:24px; flex-wrap:wrap; gap:12px; }
-        .topbar h1 { font-size:26px; font-weight:800; }
-        .topbar h1 small { font-size:14px; font-weight:400; color:var(--text-light); display:block; }
-        .card { background:white; border-radius:var(--radius); padding:24px; box-shadow:var(--shadow); margin-bottom:24px; }
-        .card-header { display:flex; justify-content:space-between; align-items:center; margin-bottom:16px; padding-bottom:12px; border-bottom:1px solid var(--gray-200); flex-wrap:wrap; gap:10px; }
-        .card-header h3 { font-size:18px; font-weight:700; }
-        .filters { display:flex; gap:10px; flex-wrap:wrap; margin-bottom:16px; }
-        .filters input, .filters select {
-            padding:9px 12px; border:1px solid var(--gray-200); border-radius:8px; font-family:inherit; font-size:14px;
+
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif;
+            background: #f0f4f2;
+            color: var(--text);
+            min-height: 100vh;
         }
-        .filters input[type="text"] { flex:1; min-width:200px; }
-        .table-wrapper { overflow-x:auto; }
-        table { width:100%; border-collapse:collapse; font-size:14px; }
-        table thead { background:var(--gray-100); }
-        table thead th { padding:10px 14px; text-align:left; font-weight:600; white-space:nowrap; }
-        table tbody td { padding:10px 14px; border-bottom:1px solid var(--gray-200); white-space:nowrap; }
-        table tbody tr:hover { background:var(--gray-100); cursor:pointer; }
-        .status-badge { display:inline-block; padding:2px 12px; border-radius:20px; font-size:12px; font-weight:600; }
-        .status-badge.active { background:#d4edda; color:#155724; }
-        .status-badge.inactive { background:#f8d7da; color:#721c24; }
-        .status-badge.pending { background:#fff3cd; color:#856404; }
-        .status-badge.rejected { background:#f8d7da; color:#721c24; }
-        .btn-sm { padding:6px 14px; font-size:13px; border:none; border-radius:6px; cursor:pointer; font-family:inherit; font-weight:600; transition:var(--transition); }
-        .btn-sm:hover { transform:translateY(-1px); }
-        .btn-sm.primary { background:var(--primary); color:white; }
-        .btn-sm.primary:hover { background:var(--primary-dark); }
-        .btn-sm.gray { background:var(--gray-200); color:var(--text); }
-        .loading-spinner { text-align:center; padding:40px; }
-        .loading-spinner .spinner { display:inline-block; width:40px; height:40px; border:4px solid var(--gray-200); border-top-color:var(--primary); border-radius:50%; animation:spin 0.8s linear infinite; }
-        @keyframes spin { to { transform:rotate(360deg); } }
-        .loading-spinner p { color:var(--text-light); margin-top:12px; }
-        .pagination { display:flex; justify-content:space-between; align-items:center; margin-top:16px; font-size:14px; color:var(--text-light); }
-        .pagination .btn-sm { margin-left:8px; }
 
-        /* Modal (read-only member detail) */
-        .modal-overlay { display:none; position:fixed; inset:0; background:rgba(0,0,0,0.5); z-index:200; align-items:center; justify-content:center; padding:20px; }
-        .modal-overlay.open { display:flex; }
-        .modal { background:white; border-radius:var(--radius); padding:28px; width:100%; max-width:640px; max-height:90vh; overflow-y:auto; }
-        .modal h3 { margin-bottom:16px; font-size:20px; display:flex; align-items:center; gap:10px; justify-content:space-between; }
-        .modal fieldset { border:1px solid var(--gray-200); border-radius:8px; padding:14px 16px; margin-bottom:16px; }
-        .modal legend { font-size:12px; font-weight:700; color:var(--primary); padding:0 6px; text-transform:uppercase; letter-spacing:0.03em; }
-        .detail-grid { display:grid; grid-template-columns:1fr 1fr; gap:10px 20px; font-size:14px; }
-        .detail-grid .label { color:var(--text-light); font-size:12px; }
-        .detail-grid .value { font-weight:600; }
-        .status-row { display:flex; align-items:center; gap:10px; margin-bottom:16px; }
-        .status-row select { padding:8px 12px; border:1px solid var(--gray-200); border-radius:8px; font-family:inherit; }
-        .modal-actions { display:flex; gap:10px; justify-content:flex-end; margin-top:16px; }
-        .form-error { color:var(--danger); font-size:13px; margin-top:10px; display:none; }
-        .form-success { color:var(--success); font-size:13px; margin-top:10px; display:none; }
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        ::-webkit-scrollbar-track { background: var(--gray-100); border-radius: 10px; }
+        ::-webkit-scrollbar-thumb { background: var(--gray-300); border-radius: 10px; }
+        ::-webkit-scrollbar-thumb:hover { background: var(--gray-400); }
 
-        @media (max-width:768px) {
-            .sidebar { transform:translateX(-100%); }
-            .sidebar.open { transform:translateX(0); }
-            .main-content { margin-left:0; width:100%; padding:16px; }
-            .detail-grid { grid-template-columns:1fr; }
+        .admin-layout { display: flex; min-height: 100vh; }
+
+        /* ============================================================
+           SIDEBAR
+           ============================================================ */
+
+        .sidebar {
+            width: 280px;
+            background: var(--primary);
+            color: white;
+            padding: 24px 0;
+            position: fixed;
+            height: 100vh;
+            overflow-y: auto;
+            transition: var(--transition);
+            z-index: 100;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .sidebar::-webkit-scrollbar { width: 4px; }
+        .sidebar::-webkit-scrollbar-track { background: rgba(255,255,255,0.05); }
+        .sidebar::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.2); border-radius: 10px; }
+
+        .sidebar-brand {
+            padding: 0 24px 24px;
+            border-bottom: 1px solid rgba(255,255,255,0.08);
+            margin-bottom: 20px;
+            flex-shrink: 0;
+        }
+
+        .sidebar-brand .logo {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            text-decoration: none;
+            color: white;
+        }
+
+        .sidebar-brand .logo-icon {
+            width: 44px;
+            height: 44px;
+            background: var(--gold);
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 900;
+            color: var(--white);
+            font-size: 20px;
+        }
+
+        .sidebar-brand .logo-text {
+            font-weight: 800;
+            font-size: 20px;
+            letter-spacing: -0.5px;
+        }
+
+        .sidebar-brand .logo-sub {
+            font-size: 11px;
+            opacity: 0.6;
+            display: block;
+            font-weight: 400;
+            letter-spacing: 0.5px;
+            text-transform: uppercase;
+        }
+
+        .sidebar-nav {
+            list-style: none;
+            padding: 0 12px;
+            flex: 1;
+        }
+
+        .sidebar-nav li { margin-bottom: 2px; }
+
+        .sidebar-nav .nav-label {
+            font-size: 10px;
+            text-transform: uppercase;
+            letter-spacing: 0.8px;
+            color: rgba(255,255,255,0.3);
+            padding: 12px 16px 6px;
+            font-weight: 700;
+        }
+
+        .sidebar-nav a {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 11px 16px;
+            border-radius: 10px;
+            color: rgba(255,255,255,0.65);
+            text-decoration: none;
+            transition: var(--transition);
+            font-size: 14px;
+            font-weight: 500;
+            position: relative;
+        }
+
+        .sidebar-nav a:hover {
+            background: rgba(255,255,255,0.08);
+            color: white;
+        }
+
+        .sidebar-nav a.active {
+            background: rgba(255,255,255,0.12);
+            color: white;
+        }
+
+        .sidebar-nav a.active::before {
+            content: '';
+            position: absolute;
+            left: 0;
+            top: 20%;
+            height: 60%;
+            width: 3px;
+            background: var(--gold);
+            border-radius: 0 3px 3px 0;
+        }
+
+        .sidebar-nav a i {
+            width: 20px;
+            text-align: center;
+            font-size: 16px;
+        }
+
+        .sidebar-nav .badge {
+            margin-left: auto;
+            background: var(--gold);
+            color: white;
+            padding: 1px 10px;
+            border-radius: 12px;
+            font-size: 11px;
+            font-weight: 700;
+            min-width: 20px;
+            text-align: center;
+        }
+
+        .sidebar-footer {
+            padding: 16px 24px;
+            border-top: 1px solid rgba(255,255,255,0.08);
+            margin-top: auto;
+            flex-shrink: 0;
+        }
+
+        .sidebar-footer .user-info {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .sidebar-footer .user-avatar {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            background: var(--gold);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 700;
+            font-size: 16px;
+            color: white;
+            flex-shrink: 0;
+        }
+
+        .sidebar-footer .user-name {
+            font-weight: 600;
+            font-size: 14px;
+        }
+
+        .sidebar-footer .user-role {
+            font-size: 12px;
+            opacity: 0.5;
+        }
+
+        .sidebar-footer .logout-btn {
+            display: block;
+            width: 100%;
+            margin-top: 12px;
+            padding: 10px;
+            border: 1px solid rgba(255,255,255,0.15);
+            border-radius: 10px;
+            background: transparent;
+            color: rgba(255,255,255,0.6);
+            cursor: pointer;
+            transition: var(--transition);
+            font-family: inherit;
+            font-size: 14px;
+            font-weight: 500;
+        }
+
+        .sidebar-footer .logout-btn:hover {
+            background: rgba(255,255,255,0.08);
+            color: white;
+            border-color: rgba(255,255,255,0.3);
+        }
+
+        /* ============================================================
+           SIDEBAR BACKDROP
+           ============================================================ */
+
+        .sidebar-backdrop {
+            display: none;
+            position: fixed;
+            inset: 0;
+            background: rgba(0,0,0,0.5);
+            backdrop-filter: blur(4px);
+            z-index: 99;
+        }
+
+        .sidebar-backdrop.show { display: block; }
+
+        /* ============================================================
+           MAIN CONTENT
+           ============================================================ */
+
+        .main-content {
+            margin-left: 280px;
+            padding: 24px 32px 40px;
+            flex: 1;
+            width: calc(100% - 280px);
+            min-height: 100vh;
+        }
+
+        /* ============================================================
+           TOPBAR
+           ============================================================ */
+
+        .topbar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 28px;
+            flex-wrap: wrap;
+            gap: 12px;
+        }
+
+        .topbar-left {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+        }
+
+        .topbar h1 {
+            font-size: 28px;
+            font-weight: 800;
+            letter-spacing: -0.5px;
+        }
+
+        .topbar h1 small {
+            font-size: 14px;
+            font-weight: 400;
+            color: var(--text-light);
+            display: block;
+            margin-top: 2px;
+        }
+
+        .topbar .actions {
+            display: flex;
+            gap: 12px;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+
+        .topbar .actions .date-time {
+            font-size: 14px;
+            color: var(--text-light);
+            font-weight: 500;
+        }
+
+        .sidebar-toggle {
+            display: none;
+            background: var(--primary);
+            color: white;
+            border: none;
+            padding: 8px 14px;
+            border-radius: 10px;
+            font-size: 20px;
+            cursor: pointer;
+            transition: var(--transition);
+        }
+
+        .sidebar-toggle:hover { background: var(--primary-dark); }
+
+        /* ============================================================
+           BUTTONS
+           ============================================================ */
+
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 8px 18px;
+            border: none;
+            border-radius: 8px;
+            font-weight: 600;
+            font-size: 13px;
+            cursor: pointer;
+            transition: var(--transition);
+            font-family: inherit;
+            text-decoration: none;
+        }
+
+        .btn-primary {
+            background: var(--primary);
+            color: white;
+        }
+        .btn-primary:hover {
+            background: var(--primary-dark);
+            transform: translateY(-2px);
+            box-shadow: 0 4px 16px rgba(11, 93, 59, 0.3);
+        }
+
+        .btn-success {
+            background: var(--success);
+            color: white;
+        }
+        .btn-success:hover {
+            background: #157347;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 16px rgba(25, 135, 84, 0.3);
+        }
+
+        .btn-danger {
+            background: var(--danger);
+            color: white;
+        }
+        .btn-danger:hover {
+            background: #c82333;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 16px rgba(220, 53, 69, 0.3);
+        }
+
+        .btn-secondary {
+            background: var(--gray-200);
+            color: var(--text);
+        }
+        .btn-secondary:hover {
+            background: var(--gray-300);
+            transform: translateY(-2px);
+        }
+
+        .btn-gold {
+            background: var(--gold);
+            color: white;
+        }
+        .btn-gold:hover {
+            background: #c49a3a;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 16px rgba(212, 168, 67, 0.3);
+        }
+
+        .btn-outline {
+            background: transparent;
+            border: 2px solid var(--gray-200);
+            color: var(--text-light);
+        }
+        .btn-outline:hover {
+            border-color: var(--primary);
+            color: var(--primary);
+            transform: translateY(-2px);
+        }
+
+        .btn-sm {
+            padding: 4px 12px;
+            font-size: 12px;
+            border-radius: 6px;
+        }
+
+        .btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none !important;
+        }
+
+        /* ============================================================
+           CARDS
+           ============================================================ */
+
+        .card {
+            background: white;
+            border-radius: var(--radius);
+            padding: 24px;
+            box-shadow: var(--shadow);
+            margin-bottom: 24px;
+            transition: var(--transition);
+        }
+
+        .card:hover {
+            box-shadow: var(--shadow-hover);
+        }
+
+        .card-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 16px;
+            padding-bottom: 12px;
+            border-bottom: 1px solid var(--gray-200);
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+
+        .card-header h3 {
+            font-size: 18px;
+            font-weight: 700;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        /* ============================================================
+           FILTERS
+           ============================================================ */
+
+        .filters {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+            margin-bottom: 16px;
+        }
+
+        .filters input,
+        .filters select {
+            padding: 9px 12px;
+            border: 2px solid var(--gray-200);
+            border-radius: 8px;
+            font-family: inherit;
+            font-size: 14px;
+            transition: var(--transition);
+            background: white;
+        }
+
+        .filters input:focus,
+        .filters select:focus {
+            outline: none;
+            border-color: var(--primary);
+            box-shadow: 0 0 0 4px rgba(11, 93, 59, 0.1);
+        }
+
+        .filters input[type="text"] {
+            flex: 1;
+            min-width: 200px;
+        }
+
+        /* ============================================================
+           TABLE
+           ============================================================ */
+
+        .table-wrapper {
+            overflow-x: auto;
+            border-radius: 8px;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 14px;
+        }
+
+        table thead {
+            background: var(--gray-50);
+        }
+
+        table thead th {
+            padding: 10px 14px;
+            text-align: left;
+            font-weight: 600;
+            font-size: 12px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            color: var(--text-light);
+            white-space: nowrap;
+        }
+
+        table tbody td {
+            padding: 10px 14px;
+            border-bottom: 1px solid var(--gray-100);
+            vertical-align: middle;
+        }
+
+        table tbody tr {
+            transition: var(--transition);
+            cursor: pointer;
+        }
+
+        table tbody tr:hover {
+            background: var(--gray-50);
+        }
+
+        table tbody tr:last-child td {
+            border-bottom: none;
+        }
+
+        /* ============================================================
+           STATUS BADGES
+           ============================================================ */
+
+        .status-badge {
+            display: inline-block;
+            padding: 3px 12px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: 600;
+            white-space: nowrap;
+        }
+
+        .status-badge.ACTIVE { background: var(--success-light); color: var(--success); }
+        .status-badge.DORMANT { background: var(--warning-light); color: #856404; }
+        .status-badge.SUSPENDED { background: var(--danger-light); color: var(--danger); }
+        .status-badge.CANCELLED { background: var(--gray-200); color: var(--text-light); }
+        .status-badge.PENDING { background: var(--warning-light); color: #856404; }
+
+        .status-badge.comfort { background: #e8f5e9; color: #2e7d32; }
+        .status-badge.dignity { background: #e3f2fd; color: #0d47a1; }
+        .status-badge.wazazi { background: #f3e5f5; color: #4a148c; }
+
+        /* ============================================================
+           PAGINATION
+           ============================================================ */
+
+        .pagination {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-top: 16px;
+            font-size: 14px;
+            color: var(--text-light);
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+
+        .pagination .btn-sm {
+            margin-left: 4px;
+        }
+
+        /* ============================================================
+           LOADING
+           ============================================================ */
+
+        .loading-spinner {
+            text-align: center;
+            padding: 40px;
+        }
+
+        .loading-spinner .spinner {
+            display: inline-block;
+            width: 40px;
+            height: 40px;
+            border: 4px solid var(--gray-200);
+            border-top-color: var(--primary);
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        .loading-spinner p {
+            color: var(--text-light);
+            margin-top: 12px;
+        }
+
+        /* ============================================================
+           MODAL
+           ============================================================ */
+
+        .modal-overlay {
+            display: none;
+            position: fixed;
+            inset: 0;
+            background: rgba(0,0,0,0.5);
+            backdrop-filter: blur(4px);
+            z-index: 200;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+
+        .modal-overlay.open { display: flex; }
+
+        .modal {
+            background: white;
+            border-radius: var(--radius-lg);
+            padding: 28px;
+            width: 100%;
+            max-width: 680px;
+            max-height: 90vh;
+            overflow-y: auto;
+            box-shadow: 0 24px 80px rgba(0,0,0,0.2);
+            animation: modalSlide 0.3s ease;
+        }
+
+        @keyframes modalSlide {
+            from { transform: translateY(-30px); opacity: 0; }
+            to { transform: translateY(0); opacity: 1; }
+        }
+
+        .modal h3 {
+            margin-bottom: 16px;
+            font-size: 20px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            justify-content: space-between;
+        }
+
+        .modal fieldset {
+            border: 1px solid var(--gray-200);
+            border-radius: 8px;
+            padding: 14px 16px;
+            margin-bottom: 16px;
+        }
+
+        .modal legend {
+            font-size: 12px;
+            font-weight: 700;
+            color: var(--primary);
+            padding: 0 6px;
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+        }
+
+        .detail-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px 20px;
+            font-size: 14px;
+        }
+
+        .detail-grid .label {
+            color: var(--text-light);
+            font-size: 12px;
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+        }
+
+        .detail-grid .value {
+            font-weight: 600;
+        }
+
+        .status-row {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 16px;
+            flex-wrap: wrap;
+        }
+
+        .status-row label {
+            font-size: 13px;
+            font-weight: 600;
+            color: var(--text-light);
+        }
+
+        .status-row select {
+            padding: 8px 12px;
+            border: 2px solid var(--gray-200);
+            border-radius: 8px;
+            font-family: inherit;
+            font-size: 14px;
+            transition: var(--transition);
+            background: white;
+        }
+
+        .status-row select:focus {
+            outline: none;
+            border-color: var(--primary);
+            box-shadow: 0 0 0 4px rgba(11, 93, 59, 0.1);
+        }
+
+        .modal-actions {
+            display: flex;
+            gap: 10px;
+            justify-content: flex-end;
+            margin-top: 16px;
+        }
+
+        .form-error {
+            color: var(--danger);
+            font-size: 13px;
+            margin-top: 10px;
+            display: none;
+        }
+
+        .form-success {
+            color: var(--success);
+            font-size: 13px;
+            margin-top: 10px;
+            display: none;
+        }
+
+        /* ============================================================
+           RESPONSIVE
+           ============================================================ */
+
+        @media (max-width: 768px) {
+            .sidebar {
+                transform: translateX(-100%);
+                width: 280px;
+            }
+
+            .sidebar.open {
+                transform: translateX(0);
+            }
+
+            .main-content {
+                margin-left: 0;
+                width: 100%;
+                padding: 16px;
+            }
+
+            .sidebar-toggle {
+                display: block;
+            }
+
+            .topbar .actions .date-time {
+                display: none;
+            }
+
+            .topbar h1 {
+                font-size: 22px;
+            }
+
+            .filters {
+                flex-direction: column;
+            }
+
+            .filters input[type="text"] {
+                width: 100%;
+            }
+
+            .detail-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .modal {
+                padding: 20px;
+            }
+
+            .pagination {
+                flex-direction: column;
+                align-items: stretch;
+                text-align: center;
+            }
+        }
+
+        @media (max-width: 480px) {
+            .topbar {
+                flex-direction: column;
+                align-items: stretch;
+            }
+
+            .topbar .actions {
+                justify-content: flex-start;
+            }
+
+            .card {
+                padding: 16px;
+            }
+
+            .status-row {
+                flex-direction: column;
+                align-items: stretch;
+            }
+
+            .modal-actions {
+                flex-direction: column;
+            }
         }
     </style>
 </head>
 <body>
+
     <div class="admin-layout">
+
+        <!-- ============================================================
+        SIDEBAR BACKDROP
+        ============================================================ -->
+        <div class="sidebar-backdrop" id="sidebarBackdrop"></div>
+
+        <!-- ============================================================
+        SIDEBAR
+        ============================================================ -->
+
         <aside class="sidebar" id="sidebar">
             <div class="sidebar-brand">
                 <a href="admin-dashboard.html" class="logo">
                     <div class="logo-icon">MB</div>
-                    <div><span class="logo-text">Masika</span><span class="logo-sub">Admin Panel</span></div>
+                    <div>
+                        <span class="logo-text">Masika</span>
+                        <span class="logo-sub">Admin Panel</span>
+                    </div>
                 </a>
             </div>
+
             <ul class="sidebar-nav">
+                <li class="nav-label">Main</li>
                 <li><a href="admin-dashboard.html"><i class="fas fa-chart-pie"></i> Dashboard</a></li>
-                <li><a href="admin-agents.html"><i class="fas fa-user-tie"></i> Agents <span class="badge" id="agentCountBadge">0</span></a></li>
                 <li><a href="admin-members.html" class="active"><i class="fas fa-users"></i> Members <span class="badge" id="memberCountBadge">0</span></a></li>
-                <li><a href="admin-payments.html"><i class="fas fa-credit-card"></i> Payments</a></li>
+                <li><a href="admin-agents.html"><i class="fas fa-user-tie"></i> Agents <span class="badge" id="agentCountBadge">0</span></a></li>
+
+                <li class="nav-label">Finance</li>
+                <li><a href="admin-collectpayments.html"><i class="fas fa-credit-card"></i> Payments</a></li>
+                <li><a href="admin-revenue.html"><i class="fas fa-chart-line"></i> Revenue</a></li>
+
+                <li class="nav-label">Settings</li>
                 <li><a href="admin-pricing.html"><i class="fas fa-tags"></i> Pricing</a></li>
                 <li><a href="admin-reports.html"><i class="fas fa-file-alt"></i> Reports</a></li>
                 <li><a href="admin-settings.html"><i class="fas fa-cog"></i> Settings</a></li>
             </ul>
+
             <div class="sidebar-footer">
                 <div class="user-info">
                     <div class="user-avatar" id="adminAvatar">A</div>
-                    <div><div class="user-name" id="adminName">Admin</div><div class="user-role" id="adminRole">Administrator</div></div>
+                    <div>
+                        <div class="user-name" id="adminName">Admin</div>
+                        <div class="user-role" id="adminRole">Administrator</div>
+                    </div>
                 </div>
-                <button class="logout-btn" onclick="handleLogout()"><i class="fas fa-sign-out-alt"></i> Logout</button>
+                <button class="logout-btn" onclick="handleLogout()">
+                    <i class="fas fa-sign-out-alt"></i> Logout
+                </button>
             </div>
         </aside>
 
+        <!-- ============================================================
+        MAIN CONTENT
+        ============================================================ -->
+
         <main class="main-content">
+
+            <!-- Topbar -->
             <div class="topbar">
-                <div><h1>Members <small>Search and manage member records</small></h1></div>
+                <div class="topbar-left">
+                    <button class="sidebar-toggle" id="sidebarToggle" aria-label="Toggle menu">
+                        <i class="fas fa-bars"></i>
+                    </button>
+                    <h1>
+                        Members
+                        <small>Search and manage member records</small>
+                    </h1>
+                </div>
+                <div class="actions">
+                    <span class="date-time" id="currentDateTime"></span>
+                    <button onclick="refreshData()" class="btn btn-primary btn-sm" id="refreshBtn">
+                        <i class="fas fa-sync" id="refreshIcon"></i> Refresh
+                    </button>
+                </div>
             </div>
 
+            <!-- Members Card -->
             <div class="card">
                 <div class="card-header">
                     <h3><i class="fas fa-users" style="color:var(--gold);"></i> All Members</h3>
@@ -145,30 +929,51 @@
                         <option value="CANCELLED">Cancelled</option>
                         <option value="PENDING">Pending</option>
                     </select>
-                    <button class="btn-sm primary" onclick="applyFilters()"><i class="fas fa-search"></i> Search</button>
+                    <button class="btn btn-primary" onclick="applyFilters()">
+                        <i class="fas fa-search"></i> Search
+                    </button>
+                    <button class="btn btn-secondary" onclick="resetFilters()">
+                        <i class="fas fa-undo"></i> Reset
+                    </button>
+                    <button class="btn btn-success" onclick="exportMembers()">
+                        <i class="fas fa-download"></i> Export
+                    </button>
                 </div>
 
                 <div id="membersList">
-                    <div class="loading-spinner"><div class="spinner"></div><p>Loading...</p></div>
+                    <div class="loading-spinner">
+                        <div class="spinner"></div>
+                        <p>Loading members...</p>
+                    </div>
                 </div>
 
                 <div class="pagination" id="membersPagination" style="display:none;">
                     <span id="paginationInfo"></span>
                     <div>
-                        <button class="btn-sm gray" id="prevPageBtn" onclick="changePage(-1)"><i class="fas fa-chevron-left"></i> Prev</button>
-                        <button class="btn-sm gray" id="nextPageBtn" onclick="changePage(1)">Next <i class="fas fa-chevron-right"></i></button>
+                        <button class="btn btn-secondary btn-sm" id="prevPageBtn" onclick="changePage(-1)">
+                            <i class="fas fa-chevron-left"></i> Prev
+                        </button>
+                        <button class="btn btn-secondary btn-sm" id="nextPageBtn" onclick="changePage(1)">
+                            Next <i class="fas fa-chevron-right"></i>
+                        </button>
                     </div>
                 </div>
             </div>
+
         </main>
     </div>
 
-    <!-- Member Detail Modal -->
+    <!-- ============================================================
+    MEMBER DETAIL MODAL
+    ============================================================ -->
+
     <div class="modal-overlay" id="memberModal">
         <div class="modal">
             <h3>
                 <span><i class="fas fa-id-card" style="color:var(--primary);"></i> <span id="memberModalName">Member</span></span>
-                <button class="btn-sm gray" onclick="closeMemberModal()"><i class="fas fa-times"></i></button>
+                <button class="btn btn-secondary btn-sm" onclick="closeMemberModal()">
+                    <i class="fas fa-times"></i>
+                </button>
             </h3>
 
             <div class="status-row">
@@ -180,7 +985,9 @@
                     <option value="CANCELLED">Cancelled</option>
                     <option value="PENDING">Pending</option>
                 </select>
-                <button class="btn-sm primary" onclick="saveMemberStatus()"><i class="fas fa-check"></i> Update</button>
+                <button class="btn btn-primary btn-sm" onclick="saveMemberStatus()">
+                    <i class="fas fa-check"></i> Update
+                </button>
             </div>
 
             <fieldset>
@@ -208,8 +1015,576 @@
         </div>
     </div>
 
-    <script src="../js/supabase-config.js"></script>
-    <script src="../js/admin-auth.js"></script>
-    <script src="../js/admin-members.js"></script>
+    <!-- ============================================================
+    JAVASCRIPT
+    ============================================================ -->
+
+    <script>
+        // ============================================================
+        // SUPABASE CONFIG
+        // ============================================================
+
+        const SUPABASE_URL = 'https://wpxzlcdrirlcyvfiquld.supabase.co';
+        const SUPABASE_ANON_KEY = 'YOUR_SUPABASE_ANON_KEY';
+
+        const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+        // ============================================================
+        // STATE
+        // ============================================================
+
+        let currentPage = 1;
+        const pageSize = 20;
+        let totalRecords = 0;
+        let selectedMemberId = null;
+        let currentAdmin = null;
+
+        // ============================================================
+        // DOM REFS
+        // ============================================================
+
+        const membersList = document.getElementById('membersList');
+        const pagination = document.getElementById('membersPagination');
+        const paginationInfo = document.getElementById('paginationInfo');
+        const prevPageBtn = document.getElementById('prevPageBtn');
+        const nextPageBtn = document.getElementById('nextPageBtn');
+        const memberSearch = document.getElementById('memberSearch');
+        const statusFilter = document.getElementById('statusFilter');
+        const refreshBtn = document.getElementById('refreshBtn');
+        const refreshIcon = document.getElementById('refreshIcon');
+
+        // ============================================================
+        // INITIALIZATION
+        // ============================================================
+
+        document.addEventListener('DOMContentLoaded', function() {
+            checkAuth();
+            loadMembers();
+            setupSidebarToggle();
+            updateClock();
+
+            // Enter key search
+            memberSearch.addEventListener('keypress', function(e) {
+                if (e.key === 'Enter') {
+                    e.preventDefault();
+                    applyFilters();
+                }
+            });
+        });
+
+        // ============================================================
+        // AUTH CHECK
+        // ============================================================
+
+        async function checkAuth() {
+            try {
+                const { data: { session }, error } = await supabase.auth.getSession();
+
+                if (error || !session) {
+                    window.location.href = 'admin-login.html';
+                    return;
+                }
+
+                const { data: admin, error: adminError } = await supabase
+                    .from('admins')
+                    .select('*')
+                    .eq('id', session.user.id)
+                    .single();
+
+                if (adminError || !admin) {
+                    window.location.href = 'admin-login.html';
+                    return;
+                }
+
+                currentAdmin = admin;
+                document.getElementById('adminName').textContent = admin.full_name || 'Admin';
+                document.getElementById('adminRole').textContent = admin.role || 'Administrator';
+                document.getElementById('adminAvatar').textContent = (admin.full_name || 'A').charAt(0).toUpperCase();
+
+            } catch (error) {
+                console.error('Auth check error:', error);
+                window.location.href = 'admin-login.html';
+            }
+        }
+
+        // ============================================================
+        // LOAD MEMBERS
+        // ============================================================
+
+        async function loadMembers(page = 1) {
+            currentPage = page;
+
+            const search = memberSearch.value.trim();
+            const status = statusFilter.value;
+
+            membersList.innerHTML = `
+                <div class="loading-spinner">
+                    <div class="spinner"></div>
+                    <p>Loading members...</p>
+                </div>
+            `;
+            pagination.style.display = 'none';
+
+            try {
+                let query = supabase
+                    .from('members')
+                    .select('*', { count: 'exact' });
+
+                if (search) {
+                    query = query.or(
+                        `first_name.ilike.%${search}%,` +
+                        `last_name.ilike.%${search}%,` +
+                        `membership_number.ilike.%${search}%,` +
+                        `phone.ilike.%${search}%,` +
+                        `id_number.ilike.%${search}%`
+                    );
+                }
+
+                if (status) {
+                    query = query.eq('status', status);
+                }
+
+                const from = (page - 1) * pageSize;
+                const to = from + pageSize - 1;
+
+                const { data, error, count } = await query
+                    .order('created_at', { ascending: false })
+                    .range(from, to);
+
+                if (error) throw error;
+
+                totalRecords = count || 0;
+                renderMembers(data || []);
+                renderPagination();
+
+                // Update badge count
+                const { count: total } = await supabase
+                    .from('members')
+                    .select('*', { count: 'exact', head: true });
+
+                document.getElementById('memberCountBadge').textContent = total || 0;
+
+            } catch (error) {
+                console.error('Load members error:', error);
+                membersList.innerHTML = `
+                    <div style="text-align:center;padding:40px;color:var(--danger);">
+                        <i class="fas fa-exclamation-triangle" style="font-size:40px;display:block;margin-bottom:12px;"></i>
+                        <p>Failed to load members. Please try again.</p>
+                        <button onclick="refreshData()" class="btn btn-primary" style="margin-top:12px;">
+                            <i class="fas fa-sync"></i> Retry
+                        </button>
+                    </div>
+                `;
+            }
+        }
+
+        // ============================================================
+        // RENDER MEMBERS
+        // ============================================================
+
+        function renderMembers(members) {
+            if (!members || members.length === 0) {
+                membersList.innerHTML = `
+                    <div style="text-align:center;padding:40px;color:var(--text-light);">
+                        <i class="fas fa-users" style="font-size:40px;display:block;margin-bottom:12px;opacity:0.3;"></i>
+                        <p>No members found matching your criteria.</p>
+                        <button onclick="resetFilters()" class="btn btn-primary" style="margin-top:12px;">
+                            <i class="fas fa-undo"></i> Clear Filters
+                        </button>
+                    </div>
+                `;
+                return;
+            }
+
+            let html = `
+                <div class="table-wrapper">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Member #</th>
+                                <th>Name</th>
+                                <th>Phone</th>
+                                <th>Plan</th>
+                                <th>Status</th>
+                                <th>Joined</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+            `;
+
+            members.forEach(member => {
+                const name = `${member.first_name || ''} ${member.last_name || ''}`.trim() || 'Unknown';
+                const statusClass = member.status || 'PENDING';
+                const planName = member.plan_type ? member.plan_type.charAt(0).toUpperCase() + member.plan_type.slice(1) : '-';
+                const joined = member.created_at ? new Date(member.created_at).toLocaleDateString('en-KE') : '-';
+
+                html += `
+                    <tr onclick="openMemberModal('${member.id}')">
+                        <td><strong>${member.membership_number || '-'}</strong></td>
+                        <td>${escapeHTML(name)}</td>
+                        <td>${escapeHTML(member.phone || '-')}</td>
+                        <td><span class="status-badge ${member.plan_type || ''}">${planName}</span></td>
+                        <td><span class="status-badge ${statusClass}">${statusClass}</span></td>
+                        <td>${joined}</td>
+                    </tr>
+                `;
+            });
+
+            html += `
+                        </tbody>
+                    </table>
+                </div>
+            `;
+
+            membersList.innerHTML = html;
+        }
+
+        // ============================================================
+        // PAGINATION
+        // ============================================================
+
+        function renderPagination() {
+            const totalPages = Math.ceil(totalRecords / pageSize);
+
+            if (totalPages <= 1) {
+                pagination.style.display = 'none';
+                return;
+            }
+
+            pagination.style.display = 'flex';
+            paginationInfo.textContent = `Showing ${((currentPage - 1) * pageSize) + 1}-${Math.min(currentPage * pageSize, totalRecords)} of ${totalRecords}`;
+
+            prevPageBtn.disabled = currentPage <= 1;
+            nextPageBtn.disabled = currentPage >= totalPages;
+        }
+
+        function changePage(delta) {
+            const totalPages = Math.ceil(totalRecords / pageSize);
+            const newPage = currentPage + delta;
+
+            if (newPage < 1 || newPage > totalPages) return;
+
+            loadMembers(newPage);
+        }
+
+        // ============================================================
+        // FILTERS
+        // ============================================================
+
+        function applyFilters() {
+            loadMembers(1);
+        }
+
+        function resetFilters() {
+            memberSearch.value = '';
+            statusFilter.value = '';
+            loadMembers(1);
+        }
+
+        // ============================================================
+        // OPEN MEMBER MODAL
+        // ============================================================
+
+        async function openMemberModal(memberId) {
+            selectedMemberId = memberId;
+
+            try {
+                const { data: member, error } = await supabase
+                    .from('members')
+                    .select('*')
+                    .eq('id', memberId)
+                    .single();
+
+                if (error) throw error;
+
+                document.getElementById('memberModalName').textContent =
+                    `${member.first_name || ''} ${member.last_name || ''}`.trim() || 'Member';
+
+                document.getElementById('memberStatusSelect').value = member.status || 'PENDING';
+
+                // Personal Info
+                document.getElementById('memberPersonalInfo').innerHTML = `
+                    <div><span class="label">Full Name</span><div class="value">${escapeHTML(member.first_name || '')} ${escapeHTML(member.last_name || '')}</div></div>
+                    <div><span class="label">Date of Birth</span><div class="value">${escapeHTML(member.date_of_birth || '-')}</div></div>
+                    <div><span class="label">Gender</span><div class="value">${escapeHTML(member.gender || '-')}</div></div>
+                    <div><span class="label">ID Number</span><div class="value">${escapeHTML(member.id_number || '-')}</div></div>
+                `;
+
+                // Contact Info
+                document.getElementById('memberContactInfo').innerHTML = `
+                    <div><span class="label">Phone</span><div class="value">${escapeHTML(member.phone || '-')}</div></div>
+                    <div><span class="label">Alternative Phone</span><div class="value">${escapeHTML(member.alternative_phone || '-')}</div></div>
+                    <div><span class="label">Email</span><div class="value">${escapeHTML(member.email || '-')}</div></div>
+                    <div><span class="label">County</span><div class="value">${escapeHTML(member.county || '-')}</div></div>
+                    <div><span class="label">Town</span><div class="value">${escapeHTML(member.town || '-')}</div></div>
+                    <div><span class="label">Location</span><div class="value">${escapeHTML(member.location || '-')}</div></div>
+                `;
+
+                // Membership Info
+                document.getElementById('memberMembershipInfo').innerHTML = `
+                    <div><span class="label">Membership Number</span><div class="value">${escapeHTML(member.membership_number || '-')}</div></div>
+                    <div><span class="label">Plan Type</span><div class="value">${escapeHTML(member.plan_type || '-')}</div></div>
+                    <div><span class="label">Benefit Option</span><div class="value">${escapeHTML(member.benefit_option || '-')}</div></div>
+                    <div><span class="label">Registration Fee</span><div class="value">KES ${parseFloat(member.registration_fee || 0).toLocaleString()}</div></div>
+                    <div><span class="label">Status</span><div class="value"><span class="status-badge ${member.status || 'PENDING'}">${member.status || 'PENDING'}</span></div></div>
+                    <div><span class="label">Joined</span><div class="value">${member.created_at ? new Date(member.created_at).toLocaleDateString('en-KE') : '-'}</div></div>
+                `;
+
+                // Next of Kin
+                document.getElementById('memberKinInfo').innerHTML = `
+                    <div><span class="label">Name</span><div class="value">${escapeHTML(member.kin_name || '-')}</div></div>
+                    <div><span class="label">Relationship</span><div class="value">${escapeHTML(member.kin_relationship || '-')}</div></div>
+                    <div><span class="label">Phone</span><div class="value">${escapeHTML(member.kin_phone || '-')}</div></div>
+                    <div><span class="label">ID Number</span><div class="value">${escapeHTML(member.kin_id || '-')}</div></div>
+                `;
+
+                document.getElementById('memberModal').classList.add('open');
+                clearModalMessages();
+
+            } catch (error) {
+                console.error('Open member modal error:', error);
+                showModalError('Failed to load member details.');
+            }
+        }
+
+        // ============================================================
+        // CLOSE MEMBER MODAL
+        // ============================================================
+
+        function closeMemberModal() {
+            document.getElementById('memberModal').classList.remove('open');
+            selectedMemberId = null;
+            clearModalMessages();
+        }
+
+        // ============================================================
+        // SAVE MEMBER STATUS
+        // ============================================================
+
+        async function saveMemberStatus() {
+            if (!selectedMemberId) {
+                showModalError('No member selected.');
+                return;
+            }
+
+            const newStatus = document.getElementById('memberStatusSelect').value;
+
+            try {
+                const { error } = await supabase
+                    .from('members')
+                    .update({
+                        status: newStatus,
+                        updated_at: new Date().toISOString()
+                    })
+                    .eq('id', selectedMemberId);
+
+                if (error) throw error;
+
+                showModalSuccess(`Member status updated to ${newStatus}.`);
+                loadMembers(currentPage);
+
+            } catch (error) {
+                console.error('Save status error:', error);
+                showModalError('Failed to update member status.');
+            }
+        }
+
+        // ============================================================
+        // EXPORT MEMBERS
+        // ============================================================
+
+        async function exportMembers() {
+            try {
+                const { data, error } = await supabase
+                    .from('members')
+                    .select('membership_number, first_name, last_name, phone, email, plan_type, status, created_at, county, town')
+                    .order('created_at', { ascending: false });
+
+                if (error) throw error;
+
+                if (!data || !data.length) {
+                    alert('No members to export.');
+                    return;
+                }
+
+                const headers = ['Member Number', 'First Name', 'Last Name', 'Phone', 'Email', 'Plan', 'Status', 'County', 'Town', 'Joined'];
+                const rows = data.map(m => [
+                    m.membership_number || '',
+                    m.first_name || '',
+                    m.last_name || '',
+                    m.phone || '',
+                    m.email || '',
+                    m.plan_type || '',
+                    m.status || '',
+                    m.county || '',
+                    m.town || '',
+                    m.created_at ? new Date(m.created_at).toLocaleDateString('en-KE') : ''
+                ]);
+
+                let csv = headers.join(',') + '\n';
+                rows.forEach(row => {
+                    csv += row.map(cell => `"${String(cell).replace(/"/g, '""')}"`).join(',') + '\n';
+                });
+
+                const blob = new Blob([csv], { type: 'text/csv' });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `members_${new Date().toISOString().split('T')[0]}.csv`;
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                URL.revokeObjectURL(url);
+
+                alert('Members exported successfully!');
+
+            } catch (error) {
+                console.error('Export error:', error);
+                alert('Failed to export members.');
+            }
+        }
+
+        // ============================================================
+        // REFRESH DATA
+        // ============================================================
+
+        async function refreshData() {
+            refreshBtn.disabled = true;
+            refreshIcon.classList.add('fa-spin');
+
+            try {
+                await loadMembers(currentPage);
+            } finally {
+                refreshBtn.disabled = false;
+                refreshIcon.classList.remove('fa-spin');
+            }
+        }
+
+        // ============================================================
+        // MODAL MESSAGES
+        // ============================================================
+
+        function showModalError(message) {
+            const errorEl = document.getElementById('memberModalError');
+            errorEl.textContent = message;
+            errorEl.style.display = 'block';
+            document.getElementById('memberModalSuccess').style.display = 'none';
+        }
+
+        function showModalSuccess(message) {
+            const successEl = document.getElementById('memberModalSuccess');
+            successEl.textContent = message;
+            successEl.style.display = 'block';
+            document.getElementById('memberModalError').style.display = 'none';
+        }
+
+        function clearModalMessages() {
+            document.getElementById('memberModalError').style.display = 'none';
+            document.getElementById('memberModalSuccess').style.display = 'none';
+        }
+
+        // ============================================================
+        // SIDEBAR TOGGLE
+        // ============================================================
+
+        function setupSidebarToggle() {
+            const sidebar = document.getElementById('sidebar');
+            const backdrop = document.getElementById('sidebarBackdrop');
+            const toggleBtn = document.getElementById('sidebarToggle');
+
+            if (toggleBtn) {
+                toggleBtn.addEventListener('click', function() {
+                    sidebar.classList.toggle('open');
+                    backdrop.classList.toggle('show');
+                });
+            }
+
+            if (backdrop) {
+                backdrop.addEventListener('click', function() {
+                    sidebar.classList.remove('open');
+                    backdrop.classList.remove('show');
+                });
+            }
+
+            document.querySelectorAll('.sidebar-nav a').forEach(function(link) {
+                link.addEventListener('click', function() {
+                    sidebar.classList.remove('open');
+                    backdrop.classList.remove('show');
+                });
+            });
+        }
+
+        // ============================================================
+        // CLOCK
+        // ============================================================
+
+        function updateClock() {
+            const clockEl = document.getElementById('currentDateTime');
+            if (clockEl) {
+                const now = new Date();
+                clockEl.textContent = now.toLocaleString('en-KE', {
+                    weekday: 'short',
+                    day: '2-digit',
+                    month: 'short',
+                    year: 'numeric',
+                    hour: '2-digit',
+                    minute: '2-digit'
+                });
+            }
+            setTimeout(updateClock, 30000);
+        }
+
+        // ============================================================
+        // ESCAPE HTML
+        // ============================================================
+
+        function escapeHTML(value) {
+            if (!value) return '-';
+            return String(value)
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;')
+                .replace(/'/g, '&#039;');
+        }
+
+        // ============================================================
+        // LOGOUT
+        // ============================================================
+
+        async function handleLogout() {
+            try {
+                await supabase.auth.signOut();
+                sessionStorage.clear();
+                window.location.href = 'admin-login.html';
+            } catch (error) {
+                console.error('Logout error:', error);
+                alert('Failed to logout. Please try again.');
+            }
+        }
+
+        // ============================================================
+        // EXPOSE FUNCTIONS
+        // ============================================================
+
+        window.loadMembers = loadMembers;
+        window.applyFilters = applyFilters;
+        window.resetFilters = resetFilters;
+        window.changePage = changePage;
+        window.refreshData = refreshData;
+        window.openMemberModal = openMemberModal;
+        window.closeMemberModal = closeMemberModal;
+        window.saveMemberStatus = saveMemberStatus;
+        window.exportMembers = exportMembers;
+        window.handleLogout = handleLogout;
+
+        // Modal close on backdrop click
+        document.getElementById('memberModal').addEventListener('click', function(e) {
+            if (e.target === this) {
+                closeMemberModal();
+            }
+        });
+    </script>
+
 </body>
 </html>
