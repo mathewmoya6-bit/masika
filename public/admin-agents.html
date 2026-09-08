@@ -1,1547 +1,1812 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Sales Agents | Masika Benevolent</title>
-<link rel="icon" type="image/png" href="../assets/favicon-32x32.png">
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-
-<style>
-    * {
-        margin: 0;
-        padding: 0;
-        box-sizing: border-box;
-    }
-
-    :root {
-        --primary: #0b5d3b;
-        --primary-dark: #06452c;
-        --primary-light: #e8f5ef;
-        --gold: #d4a843;
-
-        --danger: #dc3545;
-        --success: #198754;
-        --warning: #f59e0b;
-
-        --text: #1f2933;
-        --text-light: #6b7280;
-
-        --gray-50: #f9fafb;
-        --gray-100: #f3f4f6;
-        --gray-200: #e5e7eb;
-
-        --shadow: 0 2px 12px rgba(0,0,0,0.08);
-        --radius: 12px;
-        --transition: all 0.3s ease;
-    }
-
-    body {
-        font-family: "Segoe UI", Arial, sans-serif;
-        background: #f0f4f2;
-        color: var(--text);
-        min-height: 100vh;
-    }
-
-    /* ========================= LAYOUT ========================= */
-
-    .admin-layout {
-        display: flex;
-        min-height: 100vh;
-    }
-
-    .sidebar {
-        width: 260px;
-        background: var(--primary);
-        color: white;
-        padding: 24px 0;
-        position: fixed;
-        height: 100vh;
-        overflow-y: auto;
-        z-index: 100;
-        transition: var(--transition);
-    }
-
-    .sidebar-brand {
-        padding: 0 24px 24px;
-        border-bottom: 1px solid rgba(255,255,255,0.1);
-        margin-bottom: 20px;
-    }
-
-    .sidebar-brand .logo {
-        display: flex;
-        align-items: center;
-        gap: 12px;
-        text-decoration: none;
-        color: white;
-    }
-
-    .logo-icon {
-        width: 40px;
-        height: 40px;
-        background: white;
-        border-radius: 50%;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        font-weight: 900;
-        color: var(--primary);
-        font-size: 18px;
-    }
-
-    .logo-text {
-        font-weight: 700;
-        font-size: 18px;
-    }
-
-    .logo-sub {
-        font-size: 11px;
-        opacity: 0.7;
-        display: block;
-    }
-
-    .sidebar-nav {
-        list-style: none;
-        padding: 0 12px;
-    }
-
-    .sidebar-nav li {
-        margin-bottom: 2px;
-    }
-
-    .sidebar-nav a {
-        display: flex;
-        align-items: center;
-        gap: 12px;
-        padding: 12px 16px;
-        border-radius: 8px;
-        color: rgba(255,255,255,0.7);
-        text-decoration: none;
-        font-size: 14px;
-        font-weight: 500;
-        transition: var(--transition);
-    }
-
-    .sidebar-nav a:hover,
-    .sidebar-nav a.active {
-        background: rgba(255,255,255,0.15);
-        color: white;
-    }
-
-    .sidebar-nav a i {
-        width: 20px;
-        text-align: center;
-    }
-
-    .sidebar-nav .badge {
-        margin-left: auto;
-        background: var(--gold);
-        color: white;
-        padding: 2px 10px;
-        border-radius: 12px;
-        font-size: 11px;
-        font-weight: 600;
-    }
-
-    .sidebar-footer {
-        padding: 20px 24px;
-        border-top: 1px solid rgba(255,255,255,0.1);
-        margin-top: 20px;
-    }
-
-    .user-info {
-        display: flex;
-        align-items: center;
-        gap: 12px;
-    }
-
-    .user-avatar {
-        width: 36px;
-        height: 36px;
-        border-radius: 50%;
-        background: var(--gold);
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        font-weight: 700;
-        font-size: 14px;
-    }
-
-    .user-name {
-        font-weight: 600;
-        font-size: 14px;
-    }
-
-    .user-role {
-        font-size: 12px;
-        opacity: 0.6;
-    }
-
-    .logout-btn {
-        display: block;
-        width: 100%;
-        margin-top: 12px;
-        padding: 10px;
-        border: 1px solid rgba(255,255,255,0.2);
-        border-radius: 8px;
-        background: transparent;
-        color: rgba(255,255,255,0.7);
-        cursor: pointer;
-        font-family: inherit;
-        font-size: 14px;
-        font-weight: 500;
-    }
-
-    .logout-btn:hover {
-        background: rgba(255,255,255,0.1);
-        color: white;
-    }
-
-    /* ========================= MAIN ========================= */
-
-    .main-content {
-        margin-left: 260px;
-        padding: 24px 32px;
-        flex: 1;
-        width: calc(100% - 260px);
-    }
-
-    .mobile-menu-btn {
-        display: none;
-        border: none;
-        background: var(--primary);
-        color: white;
-        width: 42px;
-        height: 42px;
-        border-radius: 8px;
-        cursor: pointer;
-        font-size: 18px;
-    }
-
-    .topbar {
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        margin-bottom: 24px;
-        flex-wrap: wrap;
-        gap: 12px;
-    }
-
-    .topbar h1 {
-        font-size: 26px;
-        font-weight: 800;
-    }
-
-    .topbar h1 small {
-        font-size: 14px;
-        font-weight: 400;
-        color: var(--text-light);
-        display: block;
-        margin-top: 4px;
-    }
-
-    /* ========================= BUTTONS ========================= */
-
-    .btn {
-        padding: 10px 18px;
-        border: none;
-        border-radius: 8px;
-        cursor: pointer;
-        font-family: inherit;
-        font-size: 14px;
-        font-weight: 600;
-        transition: var(--transition);
-    }
-
-    .btn:hover {
-        transform: translateY(-1px);
-    }
-
-    .btn:disabled {
-        opacity: 0.6;
-        cursor: not-allowed;
-        transform: none;
-    }
-
-    .btn-primary {
-        background: var(--primary);
-        color: white;
-    }
-
-    .btn-primary:hover {
-        background: var(--primary-dark);
-    }
-
-    .btn-gray {
-        background: var(--gray-200);
-        color: var(--text);
-    }
-
-    .btn-danger {
-        background: var(--danger);
-        color: white;
-    }
-
-    .btn-success {
-        background: var(--success);
-        color: white;
-    }
-
-    .btn-warning {
-        background: var(--warning);
-        color: white;
-    }
-
-    .btn-sm {
-        padding: 7px 11px;
-        font-size: 12px;
-    }
-
-    .btn-icon {
-        width: 38px;
-        height: 38px;
-        display: inline-flex;
-        align-items: center;
-        justify-content: center;
-        padding: 0;
-        flex-shrink: 0;
-    }
-
-    /* ========================= CARDS ========================= */
-
-    .card {
-        background: white;
-        border-radius: var(--radius);
-        padding: 24px;
-        box-shadow: var(--shadow);
-        margin-bottom: 24px;
-    }
-
-    .card-header {
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        margin-bottom: 16px;
-        padding-bottom: 12px;
-        border-bottom: 1px solid var(--gray-200);
-        flex-wrap: wrap;
-        gap: 10px;
-    }
-
-    .card-header h3 {
-        font-size: 18px;
-        font-weight: 700;
-    }
-
-    /* ========================= SALES CODE ========================= */
-
-    .sales-code {
-        display: inline-flex;
-        align-items: center;
-        gap: 6px;
-        background: var(--primary-light);
-        color: var(--primary);
-        padding: 6px 11px;
-        border-radius: 7px;
-        font-family: "Courier New", monospace;
-        font-weight: 800;
-        letter-spacing: 1px;
-        white-space: nowrap;
-    }
-
-    .sales-code-label {
-        font-size: 11px;
-        color: var(--text-light);
-        display: block;
-        margin-bottom: 4px;
-        font-weight: 600;
-    }
-
-    .sales-code-input {
-        background: var(--primary-light) !important;
-        color: var(--primary) !important;
-        font-family: "Courier New", monospace !important;
-        font-weight: 800 !important;
-        letter-spacing: 1.5px !important;
-        cursor: not-allowed;
-    }
-
-    /* ========================= SEARCH ========================= */
-
-    .search-box {
-        position: relative;
-        width: 280px;
-    }
-
-    .search-box i {
-        position: absolute;
-        left: 12px;
-        top: 50%;
-        transform: translateY(-50%);
-        color: var(--text-light);
-    }
-
-    .search-box input {
-        width: 100%;
-        padding: 10px 12px 10px 36px;
-        border: 1px solid var(--gray-200);
-        border-radius: 8px;
-        font-family: inherit;
-        outline: none;
-    }
-
-    .search-box input:focus {
-        border-color: var(--primary);
-    }
-
-    /* ========================= TABLE ========================= */
-
-    .table-wrapper {
-        overflow-x: auto;
-    }
-
-    table {
-        width: 100%;
-        border-collapse: collapse;
-        font-size: 14px;
-    }
-
-    table thead {
-        background: var(--gray-100);
-    }
-
-    table thead th {
-        padding: 12px 14px;
-        text-align: left;
-        font-weight: 700;
-        white-space: nowrap;
-    }
-
-    table tbody td {
-        padding: 12px 14px;
-        border-bottom: 1px solid var(--gray-200);
-        vertical-align: middle;
-    }
-
-    table tbody tr:hover {
-        background: var(--gray-50);
-    }
-
-    .agent-name {
-        font-weight: 700;
-    }
-
-    .agent-email {
-        font-size: 12px;
-        color: var(--text-light);
-        margin-top: 3px;
-    }
-
-    /* ========================= STATUS ========================= */
-
-    .status-badge {
-        display: inline-block;
-        padding: 4px 12px;
-        border-radius: 20px;
-        font-size: 12px;
-        font-weight: 700;
-    }
-
-    .status-badge.active {
-        background: #d4edda;
-        color: #155724;
-    }
-
-    .status-badge.inactive {
-        background: #f8d7da;
-        color: #721c24;
-    }
-
-    .status-badge.suspended {
-        background: #fff3cd;
-        color: #856404;
-    }
-
-    /* ========================= FORM ========================= */
-
-    .form-group {
-        margin-bottom: 16px;
-    }
-
-    .form-group label {
-        display: block;
-        font-size: 13px;
-        font-weight: 600;
-        margin-bottom: 6px;
-        color: var(--text-light);
-    }
-
-    .form-group input,
-    .form-group select {
-        width: 100%;
-        padding: 11px 12px;
-        border: 1px solid var(--gray-200);
-        border-radius: 8px;
-        font-family: inherit;
-        font-size: 14px;
-        outline: none;
-        transition: var(--transition);
-    }
-
-    .form-group input:focus,
-    .form-group select:focus {
-        border-color: var(--primary);
-        box-shadow: 0 0 0 3px rgba(11,93,59,0.08);
-    }
-
-    .form-group select:disabled {
-        background: var(--gray-100);
-        cursor: not-allowed;
-    }
-
-    .form-row {
-        display: grid;
-        grid-template-columns: 1fr 1fr;
-        gap: 12px;
-    }
-
-    .branch-field-row {
-        display: flex;
-        gap: 8px;
-        align-items: flex-start;
-    }
-
-    .branch-field-row .form-group {
-        flex: 1;
-        margin-bottom: 0;
-    }
-
-    .branch-error-note {
-        display: none;
-        margin-top: 8px;
-        font-size: 12px;
-        color: #842029;
-        background: #f8d7da;
-        padding: 8px 10px;
-        border-radius: 6px;
-        line-height: 1.5;
-    }
-
-    .branch-error-note.show {
-        display: block;
-    }
-
-    /* ========================= MODAL ========================= */
-
-    .modal-overlay {
-        display: none;
-        position: fixed;
-        inset: 0;
-        background: rgba(0,0,0,0.5);
-        z-index: 200;
-        align-items: center;
-        justify-content: center;
-        padding: 20px;
-    }
-
-    .modal-overlay.open {
-        display: flex;
-    }
-
-    .modal {
-        background: white;
-        border-radius: var(--radius);
-        padding: 28px;
-        width: 100%;
-        max-width: 540px;
-        max-height: 90vh;
-        overflow-y: auto;
-    }
-
-    .modal h3 {
-        margin-bottom: 20px;
-        font-size: 20px;
-    }
-
-    .modal-actions {
-        display: flex;
-        gap: 10px;
-        justify-content: flex-end;
-        margin-top: 20px;
-    }
-
-    .form-error,
-    .form-success {
-        padding: 10px 12px;
-        border-radius: 7px;
-        font-size: 13px;
-        margin-top: 10px;
-        display: none;
-    }
-
-    .form-error {
-        color: #842029;
-        background: #f8d7da;
-    }
-
-    .form-success {
-        color: #0f5132;
-        background: #d1e7dd;
-    }
-
-    /* ========================= LOADING ========================= */
-
-    .loading-spinner {
-        text-align: center;
-        padding: 50px 20px;
-    }
-
-    .loading-spinner .spinner {
-        display: inline-block;
-        width: 40px;
-        height: 40px;
-        border: 4px solid var(--gray-200);
-        border-top-color: var(--primary);
-        border-radius: 50%;
-        animation: spin 0.8s linear infinite;
-    }
-
-    @keyframes spin {
-        to { transform: rotate(360deg); }
-    }
-
-    .loading-spinner p {
-        color: var(--text-light);
-        margin-top: 12px;
-    }
-
-    .empty-state {
-        text-align: center;
-        padding: 50px 20px;
-        color: var(--text-light);
-    }
-
-    .empty-state i {
-        font-size: 42px;
-        margin-bottom: 14px;
-        opacity: 0.4;
-    }
-
-    .empty-state h4 {
-        color: var(--text);
-        margin-bottom: 6px;
-    }
-
-    /* ========================= TOAST ========================= */
-
-    .toast {
-        position: fixed;
-        right: 25px;
-        bottom: 25px;
-        min-width: 280px;
-        max-width: 420px;
-        background: var(--primary);
-        color: white;
-        padding: 14px 18px;
-        border-radius: 9px;
-        box-shadow: 0 5px 25px rgba(0,0,0,0.2);
-        display: none;
-        z-index: 500;
-    }
-
-    .toast.show {
-        display: block;
-        animation: toastIn 0.3s ease;
-    }
-
-    .toast.error { background: var(--danger); }
-    .toast.success { background: var(--success); }
-
-    @keyframes toastIn {
-        from { opacity: 0; transform: translateY(15px); }
-        to { opacity: 1; transform: translateY(0); }
-    }
-
-    /* ========================= MOBILE ========================= */
-
-    @media (max-width: 768px) {
-        .sidebar { transform: translateX(-100%); }
-        .sidebar.open { transform: translateX(0); }
-        .main-content { margin-left: 0; width: 100%; padding: 16px; }
-        .mobile-menu-btn { display: block; }
-        .form-row { grid-template-columns: 1fr; }
-        .topbar { align-items: flex-start; }
-        .topbar .btn { width: 100%; }
-        .card { padding: 16px; }
-        .modal { padding: 20px; }
-        .search-box { width: 100%; }
-        .card-header { align-items: stretch; }
-        .toast { left: 16px; right: 16px; bottom: 16px; min-width: auto; }
-    }
-</style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sales Agents | Masika Benevolent</title>
+    <link rel="icon" type="image/png" href="../assets/favicon-32x32.png">
+
+    <!-- =========================================================
+         SUPABASE & EXTERNAL JS
+         ========================================================= -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+
+    <style>
+        /* ============================================================
+           AGENTS STYLES
+           ============================================================ */
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        :root {
+            --primary: #0b5d3b;
+            --primary-dark: #06452c;
+            --primary-light: #e8f5ef;
+            --gold: #d4a843;
+            --gold-light: #f5e6b8;
+            --danger: #dc3545;
+            --danger-light: #fce4e8;
+            --success: #198754;
+            --success-light: #d4edda;
+            --warning: #f59e0b;
+            --warning-light: #fff3cd;
+            --info: #0dcaf0;
+            --info-light: #d1f0f9;
+            --text: #1f2933;
+            --text-light: #6b7280;
+            --text-lighter: #9ca3af;
+            --white: #ffffff;
+            --gray-50: #f9fafb;
+            --gray-100: #f3f4f6;
+            --gray-200: #e5e7eb;
+            --gray-300: #d1d5db;
+            --gray-400: #9ca3af;
+            --shadow: 0 2px 12px rgba(0,0,0,0.08);
+            --shadow-hover: 0 4px 24px rgba(0,0,0,0.12);
+            --radius: 12px;
+            --radius-lg: 16px;
+            --transition: all 0.3s ease;
+        }
+
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif;
+            background: #f0f4f2;
+            color: var(--text);
+            min-height: 100vh;
+        }
+
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        ::-webkit-scrollbar-track { background: var(--gray-100); border-radius: 10px; }
+        ::-webkit-scrollbar-thumb { background: var(--gray-300); border-radius: 10px; }
+        ::-webkit-scrollbar-thumb:hover { background: var(--gray-400); }
+
+        .admin-layout { display: flex; min-height: 100vh; }
+
+        /* ============================================================
+           SIDEBAR
+           ============================================================ */
+
+        .sidebar {
+            width: 280px;
+            background: var(--primary);
+            color: white;
+            padding: 24px 0;
+            position: fixed;
+            height: 100vh;
+            overflow-y: auto;
+            transition: var(--transition);
+            z-index: 100;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .sidebar::-webkit-scrollbar { width: 4px; }
+        .sidebar::-webkit-scrollbar-track { background: rgba(255,255,255,0.05); }
+        .sidebar::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.2); border-radius: 10px; }
+
+        .sidebar-brand {
+            padding: 0 24px 24px;
+            border-bottom: 1px solid rgba(255,255,255,0.08);
+            margin-bottom: 20px;
+            flex-shrink: 0;
+        }
+
+        .sidebar-brand .logo {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            text-decoration: none;
+            color: white;
+        }
+
+        .sidebar-brand .logo-icon {
+            width: 44px;
+            height: 44px;
+            background: var(--gold);
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 900;
+            color: var(--white);
+            font-size: 20px;
+        }
+
+        .sidebar-brand .logo-text {
+            font-weight: 800;
+            font-size: 20px;
+            letter-spacing: -0.5px;
+        }
+
+        .sidebar-brand .logo-sub {
+            font-size: 11px;
+            opacity: 0.6;
+            display: block;
+            font-weight: 400;
+            letter-spacing: 0.5px;
+            text-transform: uppercase;
+        }
+
+        .sidebar-nav {
+            list-style: none;
+            padding: 0 12px;
+            flex: 1;
+        }
+
+        .sidebar-nav li { margin-bottom: 2px; }
+
+        .sidebar-nav .nav-label {
+            font-size: 10px;
+            text-transform: uppercase;
+            letter-spacing: 0.8px;
+            color: rgba(255,255,255,0.3);
+            padding: 12px 16px 6px;
+            font-weight: 700;
+        }
+
+        .sidebar-nav a {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 11px 16px;
+            border-radius: 10px;
+            color: rgba(255,255,255,0.65);
+            text-decoration: none;
+            transition: var(--transition);
+            font-size: 14px;
+            font-weight: 500;
+            position: relative;
+        }
+
+        .sidebar-nav a:hover {
+            background: rgba(255,255,255,0.08);
+            color: white;
+        }
+
+        .sidebar-nav a.active {
+            background: rgba(255,255,255,0.12);
+            color: white;
+        }
+
+        .sidebar-nav a.active::before {
+            content: '';
+            position: absolute;
+            left: 0;
+            top: 20%;
+            height: 60%;
+            width: 3px;
+            background: var(--gold);
+            border-radius: 0 3px 3px 0;
+        }
+
+        .sidebar-nav a i {
+            width: 20px;
+            text-align: center;
+            font-size: 16px;
+        }
+
+        .sidebar-nav .badge {
+            margin-left: auto;
+            background: var(--gold);
+            color: white;
+            padding: 1px 10px;
+            border-radius: 12px;
+            font-size: 11px;
+            font-weight: 700;
+            min-width: 20px;
+            text-align: center;
+        }
+
+        .sidebar-footer {
+            padding: 16px 24px;
+            border-top: 1px solid rgba(255,255,255,0.08);
+            margin-top: auto;
+            flex-shrink: 0;
+        }
+
+        .sidebar-footer .user-info {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .sidebar-footer .user-avatar {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            background: var(--gold);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 700;
+            font-size: 16px;
+            color: white;
+            flex-shrink: 0;
+        }
+
+        .sidebar-footer .user-name {
+            font-weight: 600;
+            font-size: 14px;
+        }
+
+        .sidebar-footer .user-role {
+            font-size: 12px;
+            opacity: 0.5;
+        }
+
+        .sidebar-footer .logout-btn {
+            display: block;
+            width: 100%;
+            margin-top: 12px;
+            padding: 10px;
+            border: 1px solid rgba(255,255,255,0.15);
+            border-radius: 10px;
+            background: transparent;
+            color: rgba(255,255,255,0.6);
+            cursor: pointer;
+            transition: var(--transition);
+            font-family: inherit;
+            font-size: 14px;
+            font-weight: 500;
+        }
+
+        .sidebar-footer .logout-btn:hover {
+            background: rgba(255,255,255,0.08);
+            color: white;
+            border-color: rgba(255,255,255,0.3);
+        }
+
+        /* ============================================================
+           SIDEBAR BACKDROP
+           ============================================================ */
+
+        .sidebar-backdrop {
+            display: none;
+            position: fixed;
+            inset: 0;
+            background: rgba(0,0,0,0.5);
+            backdrop-filter: blur(4px);
+            z-index: 99;
+        }
+
+        .sidebar-backdrop.show { display: block; }
+
+        /* ============================================================
+           MAIN CONTENT
+           ============================================================ */
+
+        .main-content {
+            margin-left: 280px;
+            padding: 24px 32px 40px;
+            flex: 1;
+            width: calc(100% - 280px);
+            min-height: 100vh;
+        }
+
+        /* ============================================================
+           TOPBAR
+           ============================================================ */
+
+        .topbar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 28px;
+            flex-wrap: wrap;
+            gap: 12px;
+        }
+
+        .topbar-left {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+        }
+
+        .topbar h1 {
+            font-size: 28px;
+            font-weight: 800;
+            letter-spacing: -0.5px;
+        }
+
+        .topbar h1 small {
+            font-size: 14px;
+            font-weight: 400;
+            color: var(--text-light);
+            display: block;
+            margin-top: 2px;
+        }
+
+        .topbar .actions {
+            display: flex;
+            gap: 12px;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+
+        .topbar .actions .date-time {
+            font-size: 14px;
+            color: var(--text-light);
+            font-weight: 500;
+        }
+
+        .sidebar-toggle {
+            display: none;
+            background: var(--primary);
+            color: white;
+            border: none;
+            padding: 8px 14px;
+            border-radius: 10px;
+            font-size: 20px;
+            cursor: pointer;
+            transition: var(--transition);
+        }
+
+        .sidebar-toggle:hover { background: var(--primary-dark); }
+
+        /* ============================================================
+           BUTTONS
+           ============================================================ */
+
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 10px 20px;
+            border: none;
+            border-radius: 8px;
+            font-weight: 600;
+            font-size: 14px;
+            cursor: pointer;
+            transition: var(--transition);
+            font-family: inherit;
+            text-decoration: none;
+        }
+
+        .btn-primary {
+            background: var(--primary);
+            color: white;
+        }
+        .btn-primary:hover {
+            background: var(--primary-dark);
+            transform: translateY(-2px);
+            box-shadow: 0 4px 16px rgba(11, 93, 59, 0.3);
+        }
+
+        .btn-gold {
+            background: var(--gold);
+            color: white;
+        }
+        .btn-gold:hover {
+            background: #c49a3a;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 16px rgba(212, 168, 67, 0.3);
+        }
+
+        .btn-success {
+            background: var(--success);
+            color: white;
+        }
+        .btn-success:hover {
+            background: #157347;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 16px rgba(25, 135, 84, 0.3);
+        }
+
+        .btn-danger {
+            background: var(--danger);
+            color: white;
+        }
+        .btn-danger:hover {
+            background: #c82333;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 16px rgba(220, 53, 69, 0.3);
+        }
+
+        .btn-warning {
+            background: var(--warning);
+            color: white;
+        }
+        .btn-warning:hover {
+            background: #d97706;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 16px rgba(245, 158, 11, 0.3);
+        }
+
+        .btn-outline {
+            background: transparent;
+            border: 2px solid var(--gray-200);
+            color: var(--text-light);
+        }
+        .btn-outline:hover {
+            border-color: var(--primary);
+            color: var(--primary);
+            transform: translateY(-2px);
+        }
+
+        .btn-sm {
+            padding: 6px 14px;
+            font-size: 12px;
+            border-radius: 6px;
+        }
+
+        .btn-icon {
+            width: 38px;
+            height: 38px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            padding: 0;
+            flex-shrink: 0;
+        }
+
+        .btn-block { width: 100%; justify-content: center; }
+        .btn:disabled { opacity: 0.6; cursor: not-allowed; transform: none !important; }
+
+        /* ============================================================
+           CARDS
+           ============================================================ */
+
+        .card {
+            background: white;
+            border-radius: var(--radius);
+            padding: 24px;
+            box-shadow: var(--shadow);
+            margin-bottom: 24px;
+            transition: var(--transition);
+        }
+
+        .card:hover {
+            box-shadow: var(--shadow-hover);
+        }
+
+        .card-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 16px;
+            padding-bottom: 12px;
+            border-bottom: 1px solid var(--gray-200);
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+
+        .card-header h3 {
+            font-size: 18px;
+            font-weight: 700;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        /* ============================================================
+           SALES CODE
+           ============================================================ */
+
+        .sales-code {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            background: var(--primary-light);
+            color: var(--primary);
+            padding: 4px 10px;
+            border-radius: 6px;
+            font-family: 'Courier New', monospace;
+            font-weight: 800;
+            letter-spacing: 1px;
+            font-size: 13px;
+            white-space: nowrap;
+        }
+
+        .sales-code-input {
+            background: var(--primary-light) !important;
+            color: var(--primary) !important;
+            font-family: 'Courier New', monospace !important;
+            font-weight: 800 !important;
+            letter-spacing: 1.5px !important;
+            cursor: not-allowed;
+        }
+
+        /* ============================================================
+           SEARCH
+           ============================================================ */
+
+        .search-box {
+            position: relative;
+            width: 280px;
+        }
+
+        .search-box i {
+            position: absolute;
+            left: 12px;
+            top: 50%;
+            transform: translateY(-50%);
+            color: var(--text-light);
+        }
+
+        .search-box input {
+            width: 100%;
+            padding: 10px 12px 10px 36px;
+            border: 2px solid var(--gray-200);
+            border-radius: 8px;
+            font-family: inherit;
+            font-size: 14px;
+            outline: none;
+            transition: var(--transition);
+        }
+
+        .search-box input:focus {
+            border-color: var(--primary);
+            box-shadow: 0 0 0 4px rgba(11, 93, 59, 0.1);
+        }
+
+        /* ============================================================
+           TABLE
+           ============================================================ */
+
+        .table-wrapper {
+            overflow-x: auto;
+            border-radius: 8px;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 14px;
+        }
+
+        table thead {
+            background: var(--gray-50);
+        }
+
+        table thead th {
+            padding: 10px 14px;
+            text-align: left;
+            font-weight: 600;
+            font-size: 12px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            color: var(--text-light);
+            white-space: nowrap;
+        }
+
+        table tbody td {
+            padding: 10px 14px;
+            border-bottom: 1px solid var(--gray-100);
+            vertical-align: middle;
+        }
+
+        table tbody tr {
+            transition: var(--transition);
+        }
+
+        table tbody tr:hover {
+            background: var(--gray-50);
+        }
+
+        table tbody tr:last-child td {
+            border-bottom: none;
+        }
+
+        .agent-name {
+            font-weight: 700;
+        }
+
+        .agent-email {
+            font-size: 12px;
+            color: var(--text-light);
+            margin-top: 2px;
+        }
+
+        /* ============================================================
+           STATUS BADGES
+           ============================================================ */
+
+        .status-badge {
+            display: inline-block;
+            padding: 3px 12px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: 600;
+            white-space: nowrap;
+        }
+
+        .status-badge.active { background: var(--success-light); color: var(--success); }
+        .status-badge.inactive { background: var(--danger-light); color: var(--danger); }
+        .status-badge.suspended { background: var(--warning-light); color: #856404; }
+        .status-badge.pending { background: var(--warning-light); color: #856404; }
+
+        /* ============================================================
+           MODAL
+           ============================================================ */
+
+        .modal-overlay {
+            display: none;
+            position: fixed;
+            inset: 0;
+            background: rgba(0,0,0,0.5);
+            backdrop-filter: blur(4px);
+            z-index: 200;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+
+        .modal-overlay.open { display: flex; }
+
+        .modal {
+            background: white;
+            border-radius: var(--radius-lg);
+            padding: 28px;
+            width: 100%;
+            max-width: 540px;
+            max-height: 90vh;
+            overflow-y: auto;
+            animation: modalSlide 0.3s ease;
+            box-shadow: 0 24px 80px rgba(0,0,0,0.2);
+        }
+
+        @keyframes modalSlide {
+            from { transform: translateY(-30px); opacity: 0; }
+            to { transform: translateY(0); opacity: 1; }
+        }
+
+        .modal h3 {
+            margin-bottom: 20px;
+            font-size: 20px;
+            font-weight: 700;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .modal-actions {
+            display: flex;
+            gap: 10px;
+            justify-content: flex-end;
+            margin-top: 20px;
+        }
+
+        /* ============================================================
+           FORM
+           ============================================================ */
+
+        .form-group {
+            margin-bottom: 16px;
+        }
+
+        .form-group label {
+            display: block;
+            font-size: 13px;
+            font-weight: 600;
+            margin-bottom: 6px;
+            color: var(--text-light);
+        }
+
+        .form-group label .required {
+            color: var(--danger);
+        }
+
+        .form-group input,
+        .form-group select {
+            width: 100%;
+            padding: 11px 12px;
+            border: 2px solid var(--gray-200);
+            border-radius: 8px;
+            font-family: inherit;
+            font-size: 14px;
+            outline: none;
+            transition: var(--transition);
+            background: white;
+        }
+
+        .form-group input:focus,
+        .form-group select:focus {
+            border-color: var(--primary);
+            box-shadow: 0 0 0 4px rgba(11, 93, 59, 0.1);
+        }
+
+        .form-group input:disabled,
+        .form-group select:disabled {
+            background: var(--gray-100);
+            cursor: not-allowed;
+        }
+
+        .form-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 12px;
+        }
+
+        .form-error,
+        .form-success {
+            padding: 10px 12px;
+            border-radius: 8px;
+            font-size: 13px;
+            margin-top: 10px;
+            display: none;
+        }
+
+        .form-error {
+            color: #842029;
+            background: var(--danger-light);
+        }
+
+        .form-success {
+            color: #0f5132;
+            background: var(--success-light);
+        }
+
+        .branch-field-row {
+            display: flex;
+            gap: 8px;
+            align-items: flex-start;
+        }
+
+        .branch-field-row .form-group {
+            flex: 1;
+            margin-bottom: 0;
+        }
+
+        /* ============================================================
+           EMPTY & LOADING STATES
+           ============================================================ */
+
+        .loading-spinner {
+            text-align: center;
+            padding: 50px 20px;
+        }
+
+        .loading-spinner .spinner {
+            display: inline-block;
+            width: 40px;
+            height: 40px;
+            border: 4px solid var(--gray-200);
+            border-top-color: var(--primary);
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        .loading-spinner p {
+            color: var(--text-light);
+            margin-top: 12px;
+        }
+
+        .empty-state {
+            text-align: center;
+            padding: 50px 20px;
+            color: var(--text-light);
+        }
+
+        .empty-state i {
+            font-size: 42px;
+            margin-bottom: 14px;
+            opacity: 0.4;
+        }
+
+        .empty-state h4 {
+            color: var(--text);
+            margin-bottom: 6px;
+        }
+
+        /* ============================================================
+           TOAST NOTIFICATIONS
+           ============================================================ */
+
+        .toast-container {
+            position: fixed;
+            bottom: 30px;
+            right: 30px;
+            z-index: 9999;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            max-width: 420px;
+        }
+
+        .toast {
+            padding: 14px 20px;
+            border-radius: 12px;
+            color: white;
+            font-weight: 600;
+            font-size: 14px;
+            animation: slideIn 0.4s ease;
+            box-shadow: 0 12px 48px rgba(0,0,0,0.15);
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .toast:hover { transform: scale(1.02); }
+        .toast.success { background: var(--success); }
+        .toast.error { background: var(--danger); }
+        .toast.info { background: var(--info); color: var(--text); }
+        .toast.warning { background: var(--warning); color: var(--text); }
+
+        .toast .toast-close {
+            background: none;
+            border: none;
+            color: rgba(255,255,255,0.7);
+            cursor: pointer;
+            font-size: 18px;
+            margin-left: auto;
+            padding: 0 4px;
+        }
+
+        .toast .toast-close:hover { color: white; }
+
+        @keyframes slideIn {
+            from { transform: translateX(100px); opacity: 0; }
+            to { transform: translateX(0); opacity: 1; }
+        }
+
+        /* ============================================================
+           RESPONSIVE
+           ============================================================ */
+
+        @media (max-width: 768px) {
+            .sidebar {
+                transform: translateX(-100%);
+                width: 280px;
+            }
+
+            .sidebar.open {
+                transform: translateX(0);
+            }
+
+            .main-content {
+                margin-left: 0;
+                width: 100%;
+                padding: 16px;
+            }
+
+            .sidebar-toggle {
+                display: block;
+            }
+
+            .topbar .actions .date-time {
+                display: none;
+            }
+
+            .topbar h1 {
+                font-size: 22px;
+            }
+
+            .form-row {
+                grid-template-columns: 1fr;
+            }
+
+            .search-box {
+                width: 100%;
+            }
+
+            .card {
+                padding: 16px;
+            }
+
+            .modal {
+                padding: 20px;
+            }
+
+            .branch-field-row {
+                flex-direction: column;
+            }
+        }
+
+        @media (max-width: 480px) {
+            .topbar {
+                flex-direction: column;
+                align-items: stretch;
+            }
+
+            .topbar .actions {
+                justify-content: flex-start;
+            }
+        }
+    </style>
 </head>
-
 <body>
-<div class="admin-layout">
 
-    <!-- SIDEBAR -->
-    <aside class="sidebar" id="sidebar">
-        <div class="sidebar-brand">
-            <a href="admin-dashboard.html" class="logo">
-                <div class="logo-icon">MB</div>
-                <div>
-                    <span class="logo-text">Masika</span>
-                    <span class="logo-sub">Admin Panel</span>
-                </div>
-            </a>
-        </div>
+    <div class="admin-layout">
 
-        <ul class="sidebar-nav">
-            <li><a href="admin-dashboard.html"><i class="fas fa-chart-pie"></i> Dashboard</a></li>
-            <li><a href="admin-agents.html" class="active"><i class="fas fa-user-tie"></i> Sales Agents <span class="badge" id="agentCountBadge">0</span></a></li>
-            <li><a href="admin-members.html"><i class="fas fa-users"></i> Members</a></li>
-            <li><a href="admin-payments.html"><i class="fas fa-credit-card"></i> Payments</a></li>
-            <li><a href="admin-pricing.html"><i class="fas fa-tags"></i> Pricing</a></li>
-            <li><a href="admin-reports.html"><i class="fas fa-file-alt"></i> Reports</a></li>
-            <li><a href="admin-settings.html"><i class="fas fa-cog"></i> Settings</a></li>
-        </ul>
+        <!-- ============================================================
+        SIDEBAR BACKDROP
+        ============================================================ -->
+        <div class="sidebar-backdrop" id="sidebarBackdrop"></div>
 
-        <div class="sidebar-footer">
-            <div class="user-info">
-                <div class="user-avatar" id="adminAvatar">A</div>
-                <div>
-                    <div class="user-name" id="adminName">Admin</div>
-                    <div class="user-role" id="adminRole">Administrator</div>
-                </div>
+        <!-- ============================================================
+        SIDEBAR
+        ============================================================ -->
+
+        <aside class="sidebar" id="sidebar">
+            <div class="sidebar-brand">
+                <a href="admin-dashboard.html" class="logo">
+                    <div class="logo-icon">MB</div>
+                    <div>
+                        <span class="logo-text">Masika</span>
+                        <span class="logo-sub">Admin Panel</span>
+                    </div>
+                </a>
             </div>
-            <button class="logout-btn" onclick="handleLogout()">
-                <i class="fas fa-sign-out-alt"></i> Logout
-            </button>
-        </div>
-    </aside>
 
-    <!-- MAIN -->
-    <main class="main-content">
+            <ul class="sidebar-nav">
+                <li class="nav-label">Main</li>
+                <li><a href="admin-dashboard.html"><i class="fas fa-chart-pie"></i> Dashboard</a></li>
+                <li><a href="admin-members.html"><i class="fas fa-users"></i> Members</a></li>
+                <li><a href="admin-agents.html" class="active"><i class="fas fa-user-tie"></i> Agents <span class="badge" id="agentCountBadge">0</span></a></li>
 
-        <div class="topbar">
-            <div style="display:flex; align-items:flex-start; gap:12px;">
-                <button class="mobile-menu-btn" onclick="toggleSidebar()">
-                    <i class="fas fa-bars"></i>
+                <li class="nav-label">Finance</li>
+                <li><a href="admin-collectpayments.html"><i class="fas fa-credit-card"></i> Payments</a></li>
+                <li><a href="admin-revenue.html"><i class="fas fa-chart-line"></i> Revenue</a></li>
+
+                <li class="nav-label">Settings</li>
+                <li><a href="admin-pricing.html"><i class="fas fa-tags"></i> Pricing</a></li>
+                <li><a href="admin-reports.html"><i class="fas fa-file-alt"></i> Reports</a></li>
+                <li><a href="admin-settings.html"><i class="fas fa-cog"></i> Settings</a></li>
+            </ul>
+
+            <div class="sidebar-footer">
+                <div class="user-info">
+                    <div class="user-avatar" id="adminAvatar">A</div>
+                    <div>
+                        <div class="user-name" id="adminName">Admin</div>
+                        <div class="user-role" id="adminRole">Administrator</div>
+                    </div>
+                </div>
+                <button class="logout-btn" onclick="handleLogout()">
+                    <i class="fas fa-sign-out-alt"></i> Logout
                 </button>
-                <div>
+            </div>
+        </aside>
+
+        <!-- ============================================================
+        MAIN CONTENT
+        ============================================================ -->
+
+        <main class="main-content">
+
+            <!-- Topbar -->
+            <div class="topbar">
+                <div class="topbar-left">
+                    <button class="sidebar-toggle" id="sidebarToggle" aria-label="Toggle menu">
+                        <i class="fas fa-bars"></i>
+                    </button>
                     <h1>
                         Sales Agents
                         <small>Manage Masika Benevolent sales agents and their unique sales codes</small>
                     </h1>
                 </div>
-            </div>
-
-            <button class="btn btn-primary" onclick="openCreateAgentModal()">
-                <i class="fas fa-user-plus"></i> Add New Agent
-            </button>
-        </div>
-
-        <!-- AGENTS TABLE -->
-        <div class="card">
-            <div class="card-header">
-                <h3><i class="fas fa-user-tie" style="color:var(--gold);"></i> All Sales Agents</h3>
-                <div class="search-box">
-                    <i class="fas fa-search"></i>
-                    <input type="search" id="agentSearch" placeholder="Search agents..." oninput="filterAgents()">
+                <div class="actions">
+                    <span class="date-time" id="currentDateTime"></span>
+                    <button onclick="refreshData()" class="btn btn-primary btn-sm" id="refreshBtn">
+                        <i class="fas fa-sync" id="refreshIcon"></i> Refresh
+                    </button>
+                    <button onclick="openCreateAgentModal()" class="btn btn-primary">
+                        <i class="fas fa-user-plus"></i> Add New Agent
+                    </button>
                 </div>
             </div>
 
-            <div id="agentsList">
+            <!-- Agents Table -->
+            <div class="card">
+                <div class="card-header">
+                    <h3><i class="fas fa-user-tie" style="color:var(--gold);"></i> All Sales Agents</h3>
+                    <div class="search-box">
+                        <i class="fas fa-search"></i>
+                        <input type="search" id="agentSearch" placeholder="Search agents..." oninput="filterAgents()">
+                    </div>
+                </div>
+
+                <div id="agentsList">
+                    <div class="loading-spinner">
+                        <div class="spinner"></div>
+                        <p>Loading sales agents...</p>
+                    </div>
+                </div>
+            </div>
+
+        </main>
+    </div>
+
+    <!-- ============================================================
+    MODAL: Create Agent
+    ============================================================ -->
+
+    <div class="modal-overlay" id="createAgentModal">
+        <div class="modal">
+            <h3><i class="fas fa-user-plus" style="color:var(--primary);"></i> Add New Sales Agent</h3>
+
+            <form id="createAgentForm">
+
+                <!-- Sales Code -->
+                <div class="form-group">
+                    <label for="agentSalesCode">Sales Code</label>
+                    <input type="text" id="agentSalesCode" class="sales-code-input" value="Will be generated automatically" readonly tabindex="-1">
+                    <small style="display:block; margin-top:6px; color:var(--text-light); font-size:12px;">
+                        <i class="fas fa-lock"></i> Automatically generated by the system. Format: MAG00001
+                    </small>
+                </div>
+
+                <!-- Full Name -->
+                <div class="form-group">
+                    <label for="agentFullName">Full Name <span class="required">*</span></label>
+                    <input type="text" id="agentFullName" autocomplete="name" required>
+                </div>
+
+                <!-- Email -->
+                <div class="form-group">
+                    <label for="agentEmail">Email <span class="required">*</span></label>
+                    <input type="email" id="agentEmail" autocomplete="email" required>
+                </div>
+
+                <!-- Phone + National ID -->
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="agentPhone">Phone</label>
+                        <input type="tel" id="agentPhone" autocomplete="tel">
+                    </div>
+                    <div class="form-group">
+                        <label for="agentNationalId">National ID</label>
+                        <input type="text" id="agentNationalId" autocomplete="off">
+                    </div>
+                </div>
+
+                <!-- Branch -->
+                <div class="branch-field-row">
+                    <div class="form-group">
+                        <label for="agentBranch">Branch <span class="required">*</span></label>
+                        <select id="agentBranch" required>
+                            <option value="">— Loading branches... —</option>
+                        </select>
+                    </div>
+                    <button type="button" class="btn btn-outline btn-icon" id="refreshBranchesBtn" onclick="loadBranches()" title="Refresh branch list" style="margin-top:22px;">
+                        <i class="fas fa-sync" id="refreshBranchesIcon"></i>
+                    </button>
+                </div>
+                <small style="display:block; margin-top:6px; color:var(--text-light); font-size:12px;">
+                    <i class="fas fa-building"></i> Select a branch already registered in the system.
+                </small>
+
+                <!-- Information -->
+                <p style="font-size:13px; color:var(--text-light); background:var(--gray-100); padding:12px; border-radius:8px; line-height:1.5; margin-top:16px;">
+                    <i class="fas fa-info-circle"></i>
+                    A unique Sales Code is assigned automatically when the agent record is created. No account or login is created for the agent at this step.
+                </p>
+
+                <div class="form-error" id="createAgentError"></div>
+                <div class="form-success" id="createAgentSuccess"></div>
+
+                <div class="modal-actions">
+                    <button type="button" class="btn btn-outline" onclick="closeCreateAgentModal()">Cancel</button>
+                    <button type="submit" class="btn btn-primary" id="createAgentSubmitBtn">
+                        <i class="fas fa-id-badge"></i> Create Agent
+                    </button>
+                </div>
+
+            </form>
+        </div>
+    </div>
+
+    <!-- ============================================================
+    TOAST CONTAINER
+    ============================================================ -->
+    <div class="toast-container" id="toastContainer"></div>
+
+    <!-- ============================================================
+    JAVASCRIPT - ALIGNED WITH SUPABASE
+    ============================================================ -->
+    <script>
+        // ============================================================
+        // SUPABASE CONFIG
+        // ============================================================
+
+        const SUPABASE_URL = 'https://wpxzlcdrirlcyvfiquld.supabase.co';
+        const SUPABASE_ANON_KEY = 'YOUR_SUPABASE_ANON_KEY';
+
+        const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+        // ============================================================
+        // STATE
+        // ============================================================
+
+        let allAgents = [];
+        let allBranches = [];
+        let currentUser = null;
+
+        // ============================================================
+        // INITIALIZATION
+        // ============================================================
+
+        document.addEventListener('DOMContentLoaded', async function() {
+            await checkAuth();
+            await loadAdminProfile();
+            await loadBranches();
+            await loadAgents();
+            setupSidebarToggle();
+            updateClock();
+        });
+
+        // ============================================================
+        // AUTH CHECK
+        // ============================================================
+
+        async function checkAuth() {
+            try {
+                const { data: { session }, error } = await supabase.auth.getSession();
+
+                if (error || !session) {
+                    window.location.href = 'admin-login.html';
+                    return;
+                }
+
+                const { data: admin, error: adminError } = await supabase
+                    .from('admins')
+                    .select('*')
+                    .eq('id', session.user.id)
+                    .single();
+
+                if (adminError || !admin) {
+                    window.location.href = 'admin-login.html';
+                    return;
+                }
+
+                currentUser = admin;
+
+            } catch (error) {
+                console.error('Auth check error:', error);
+                window.location.href = 'admin-login.html';
+            }
+        }
+
+        // ============================================================
+        // ADMIN PROFILE
+        // ============================================================
+
+        async function loadAdminProfile() {
+            try {
+                if (!currentUser) return;
+
+                const name = currentUser.full_name || 'Admin';
+                document.getElementById('adminName').textContent = name;
+                document.getElementById('adminAvatar').textContent = name.charAt(0).toUpperCase();
+
+            } catch (error) {
+                console.error('Load admin profile error:', error);
+            }
+        }
+
+        // ============================================================
+        // LOAD BRANCHES
+        // ============================================================
+
+        async function loadBranches() {
+            const branchSelect = document.getElementById('agentBranch');
+            const refreshIcon = document.getElementById('refreshBranchesIcon');
+
+            if (!branchSelect) return;
+
+            branchSelect.disabled = true;
+            branchSelect.innerHTML = `<option value="">— Loading branches... —</option>`;
+            if (refreshIcon) refreshIcon.classList.add('fa-spin');
+
+            try {
+                const { data, error } = await supabase
+                    .from('branches')
+                    .select('id, branch_name, branch_code, is_active')
+                    .order('branch_name', { ascending: true });
+
+                if (error) throw error;
+
+                allBranches = data || [];
+
+                const activeBranches = allBranches.filter(function(branch) {
+                    return branch.is_active !== false;
+                });
+
+                branchSelect.innerHTML = `<option value="">— Select branch —</option>`;
+
+                if (activeBranches.length === 0) {
+                    branchSelect.innerHTML = `<option value="">— No active branches available —</option>`;
+                    branchSelect.disabled = true;
+                    showToast('No active branches available. Please add a branch first.', 'warning');
+                    return;
+                }
+
+                activeBranches.forEach(function(branch) {
+                    const option = document.createElement('option');
+                    option.value = branch.id;
+                    const code = branch.branch_code ? ` (${branch.branch_code})` : '';
+                    option.textContent = branch.branch_name + code;
+                    branchSelect.appendChild(option);
+                });
+
+                branchSelect.disabled = false;
+
+            } catch (error) {
+                console.error('Load branches error:', error);
+                branchSelect.innerHTML = `<option value="">— Unable to load branches —</option>`;
+                branchSelect.disabled = true;
+                showToast('Failed to load branches: ' + getFriendlyError(error), 'error');
+            } finally {
+                if (refreshIcon) refreshIcon.classList.remove('fa-spin');
+            }
+        }
+
+        // ============================================================
+        // GET BRANCH NAME
+        // ============================================================
+
+        function getBranchName(branchId) {
+            if (!branchId) return '—';
+
+            const branch = allBranches.find(function(item) {
+                return String(item.id) === String(branchId);
+            });
+
+            return branch ? (branch.branch_name || `Branch ${branchId}`) : '—';
+        }
+
+        // ============================================================
+        // LOAD AGENTS
+        // ============================================================
+
+        async function loadAgents() {
+            const container = document.getElementById('agentsList');
+
+            container.innerHTML = `
                 <div class="loading-spinner">
                     <div class="spinner"></div>
                     <p>Loading sales agents...</p>
                 </div>
-            </div>
-        </div>
-
-    </main>
-</div>
-
-<!-- CREATE AGENT MODAL -->
-<div class="modal-overlay" id="createAgentModal">
-    <div class="modal">
-        <h3><i class="fas fa-user-plus" style="color:var(--primary);"></i> Add New Sales Agent</h3>
-
-        <form id="createAgentForm">
-
-            <!-- SALES CODE -->
-            <div class="form-group">
-                <label for="agentSalesCode">Sales Code</label>
-                <input type="text" id="agentSalesCode" class="sales-code-input" value="Will be generated automatically" readonly tabindex="-1">
-                <small style="display:block; margin-top:6px; color:var(--text-light); font-size:12px;">
-                    <i class="fas fa-lock"></i> Automatically generated by the system. Format: MAG00001
-                </small>
-            </div>
-
-            <!-- FULL NAME -->
-            <div class="form-group">
-                <label for="agentFullName">Full Name *</label>
-                <input type="text" id="agentFullName" autocomplete="name" required>
-            </div>
-
-            <!-- EMAIL -->
-            <div class="form-group">
-                <label for="agentEmail">Email *</label>
-                <input type="email" id="agentEmail" autocomplete="email" required>
-            </div>
-
-            <!-- PHONE + NATIONAL ID -->
-            <div class="form-row">
-                <div class="form-group">
-                    <label for="agentPhone">Phone</label>
-                    <input type="tel" id="agentPhone" autocomplete="tel">
-                </div>
-                <div class="form-group">
-                    <label for="agentNationalId">National ID</label>
-                    <input type="text" id="agentNationalId" autocomplete="off">
-                </div>
-            </div>
-
-            <!-- BRANCH -->
-            <div class="branch-field-row">
-                <div class="form-group">
-                    <label for="agentBranch">Branch *</label>
-                    <select id="agentBranch" required>
-                        <option value="">— Loading branches... —</option>
-                    </select>
-                </div>
-                <button type="button" class="btn btn-gray btn-icon" id="refreshBranchesBtn" onclick="loadBranches()" title="Refresh branch list" style="margin-top:22px;">
-                    <i class="fas fa-sync" id="refreshBranchesIcon"></i>
-                </button>
-            </div>
-            <small style="display:block; margin-top:6px; color:var(--text-light); font-size:12px;">
-                <i class="fas fa-building"></i> Select a branch already registered in the system.
-            </small>
-            <div class="branch-error-note" id="branchErrorNote"></div>
-
-            <!-- INFORMATION -->
-            <p style="font-size:13px; color:var(--text-light); background:var(--gray-100); padding:12px; border-radius:8px; line-height:1.5; margin-top:16px;">
-                <i class="fas fa-info-circle"></i>
-                A unique Sales Code is assigned automatically when the agent record is created. No account or login is created for the agent at this step.
-            </p>
-
-            <div class="form-error" id="createAgentError"></div>
-            <div class="form-success" id="createAgentSuccess"></div>
-
-            <div class="modal-actions">
-                <button type="button" class="btn btn-gray" onclick="closeCreateAgentModal()">Cancel</button>
-                <button type="submit" class="btn btn-primary" id="createAgentSubmitBtn">
-                    <i class="fas fa-id-badge"></i> Create Agent
-                </button>
-            </div>
-
-        </form>
-    </div>
-</div>
-
-<!-- TOAST -->
-<div class="toast" id="toast"></div>
-
-<script>
-
-/* =========================================================
-   SUPABASE CONFIGURATION
-
-   Uses the shared Masika Benevolent Supabase project. If a
-   page-level config (window.SUPABASE_URL / window.SUPABASE_ANON_KEY)
-   has already been set by a previously loaded script, that value
-   wins — otherwise these known-good project credentials are used
-   so this page works standalone too.
-========================================================= */
-
-const SUPABASE_URL = window.SUPABASE_URL || "https://wpxzlcdrirlcyvfiquld.supabase.co";
-const SUPABASE_ANON_KEY = window.SUPABASE_ANON_KEY || "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6IndweHpsY2RyaXJsY3l2ZmlxdWxkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODc5Mjc4MDcsImV4cCI6MjEwMzUwMzgwN30.OUP9pmPbrML_egpHflZtDfLv1_UDM37_BYjtb842xjg";
-
-const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-
-/* =========================================================
-   GLOBAL DATA
-========================================================= */
-
-let allAgents = [];
-let allBranches = [];
-
-/* =========================================================
-   INITIALIZATION
-========================================================= */
-
-document.addEventListener("DOMContentLoaded", async function () {
-    try {
-        await checkAuthentication();
-        await loadAdminProfile();
-        await loadBranches();
-        await loadAgents();
-    } catch (error) {
-        console.error("Initialization error:", error);
-    }
-});
-
-/* =========================================================
-   AUTHENTICATION
-========================================================= */
-
-async function checkAuthentication() {
-    const { data, error } = await supabaseClient.auth.getSession();
-
-    if (error) {
-        console.error("Session error:", error);
-        return;
-    }
-
-    const session = data?.session;
-
-    if (!session) {
-        window.location.href = "admin-login.html";
-        return;
-    }
-}
-
-/* =========================================================
-   ADMIN PROFILE
-========================================================= */
-
-async function loadAdminProfile() {
-    try {
-        const { data: { user } } = await supabaseClient.auth.getUser();
-
-        if (!user) return;
-
-        const metadata = user.user_metadata || {};
-        const name = metadata.full_name || metadata.name || user.email?.split("@")[0] || "Admin";
-
-        const nameElement = document.getElementById("adminName");
-        const avatarElement = document.getElementById("adminAvatar");
-
-        if (nameElement) nameElement.textContent = name;
-        if (avatarElement) avatarElement.textContent = name.charAt(0).toUpperCase();
-    } catch (error) {
-        console.error("Failed to load admin profile:", error);
-    }
-}
-
-/* =========================================================
-   LOAD BRANCHES
-
-   Hardened against schema uncertainty: some Masika tables use
-   `name`, others `branch_name`, and the primary key may be `id`
-   or `branch_id`. Rather than guessing a column to ORDER BY at
-   the database level (which throws a hard 400 error if that
-   column doesn't exist and silently blanks the whole dropdown),
-   this fetches all columns unsorted and sorts client-side after
-   inspecting whichever name-like field is actually present.
-========================================================= */
-
-async function loadBranches() {
-    const branchSelect = document.getElementById("agentBranch");
-    const errorNote = document.getElementById("branchErrorNote");
-    const refreshIcon = document.getElementById("refreshBranchesIcon");
-
-    if (!branchSelect) return;
-
-    branchSelect.disabled = true;
-    branchSelect.innerHTML = `<option value="">— Loading branches... —</option>`;
-    errorNote.classList.remove("show");
-    errorNote.textContent = "";
-    if (refreshIcon) refreshIcon.classList.add("fa-spin");
-
-    try {
-        const { data, error } = await supabaseClient
-            .from("branches")
-            .select("id, branch_code, branch_name, county, town, is_active")
-            .order("branch_name", { ascending: true });
-
-        if (error) throw error;
-
-        // Keep the full list (including inactive branches) so agents
-        // already assigned to a since-deactivated branch still show a
-        // proper name in the table, rather than "—".
-        allBranches = data || [];
-
-        const activeBranches = allBranches.filter(function (branch) {
-            return branch.is_active !== false;
-        });
-
-        branchSelect.innerHTML = `<option value="">— Select branch —</option>`;
-
-        if (activeBranches.length === 0) {
-            branchSelect.innerHTML = `<option value="">— No active branches available —</option>`;
-            branchSelect.disabled = true;
-            errorNote.textContent = "No active branches are registered yet. Add or activate a branch first.";
-            errorNote.classList.add("show");
-            return;
-        }
-
-        activeBranches.forEach(function (branch) {
-            const option = document.createElement("option");
-            option.value = branch.id;
-            option.textContent = branch.branch_code
-                ? `${branch.branch_name} (${branch.branch_code})`
-                : branch.branch_name || `Branch ${branch.id}`;
-            branchSelect.appendChild(option);
-        });
-
-        branchSelect.disabled = false;
-
-    } catch (error) {
-        console.error("Failed to load branches:", error);
-        branchSelect.innerHTML = `<option value="">— Unable to load branches —</option>`;
-        branchSelect.disabled = true;
-
-        errorNote.textContent = "Couldn't load branches: " + getFriendlyError(error) + " Tap the refresh icon to try again.";
-        errorNote.classList.add("show");
-
-        showToast("Unable to load branches: " + getFriendlyError(error), "error");
-    } finally {
-        if (refreshIcon) refreshIcon.classList.remove("fa-spin");
-    }
-}
-
-/* =========================================================
-   LOAD SALES AGENTS
-========================================================= */
-
-async function loadAgents() {
-    const container = document.getElementById("agentsList");
-
-    container.innerHTML = `
-        <div class="loading-spinner">
-            <div class="spinner"></div>
-            <p>Loading sales agents...</p>
-        </div>
-    `;
-
-    try {
-        /* Load agents. Employee Number is intentionally NOT selected. */
-        const { data, error } = await supabaseClient
-            .from("sales_agents")
-            .select(`
-                id,
-                sales_code,
-                full_name,
-                email,
-                phone,
-                national_id,
-                branch_id,
-                status,
-                created_at
-            `)
-            .order("created_at", { ascending: false });
-
-        if (error) throw error;
-
-        allAgents = data || [];
-
-        updateAgentCount();
-        renderAgents(allAgents);
-
-    } catch (error) {
-        console.error("Failed to load sales agents:", error);
-
-        container.innerHTML = `
-            <div class="empty-state">
-                <i class="fas fa-exclamation-triangle"></i>
-                <h4>Unable to load sales agents</h4>
-                <p>${escapeHtml(getFriendlyError(error))}</p>
-                <br>
-                <button class="btn btn-primary" onclick="loadAgents()">
-                    <i class="fas fa-sync"></i> Try Again
-                </button>
-            </div>
-        `;
-    }
-}
-
-/* =========================================================
-   GET BRANCH NAME
-========================================================= */
-
-function getBranchName(branchId) {
-    if (!branchId) return "—";
-
-    const branch = allBranches.find(function (item) {
-        return String(item.id) === String(branchId);
-    });
-
-    if (!branch) return "—";
-
-    return branch.branch_name || `Branch ${branchId}`;
-}
-
-/* =========================================================
-   RENDER AGENTS
-========================================================= */
-
-function renderAgents(agents) {
-    const container = document.getElementById("agentsList");
-
-    if (!agents.length) {
-        container.innerHTML = `
-            <div class="empty-state">
-                <i class="fas fa-user-tie"></i>
-                <h4>No sales agents found</h4>
-                <p>Add your first Masika Benevolent sales agent.</p>
-                <br>
-                <button class="btn btn-primary" onclick="openCreateAgentModal()">
-                    <i class="fas fa-user-plus"></i> Add New Agent
-                </button>
-            </div>
-        `;
-        return;
-    }
-
-    let html = `
-        <div class="table-wrapper">
-            <table>
-                <thead>
-                    <tr>
-                        <th>Sales Code</th>
-                        <th>Agent</th>
-                        <th>Phone</th>
-                        <th>Branch</th>
-                        <th>Status</th>
-                        <th>Joined</th>
-                        <th>Actions</th>
-                    </tr>
-                </thead>
-                <tbody>
-    `;
-
-    agents.forEach(function (agent) {
-        const status = agent.status || "active";
-        const statusClass = String(status).toLowerCase();
-
-        html += `
-            <tr>
-                <td>
-                    <span class="sales-code">
-                        <i class="fas fa-id-badge"></i>
-                        ${escapeHtml(agent.sales_code || "—")}
-                    </span>
-                </td>
-
-                <td>
-                    <div class="agent-name">${escapeHtml(agent.full_name || "—")}</div>
-                    <div class="agent-email">${escapeHtml(agent.email || "—")}</div>
-                </td>
-
-                <td>${escapeHtml(agent.phone || "—")}</td>
-
-                <td>
-                    <i class="fas fa-building" style="color:var(--gold);"></i>
-                    ${escapeHtml(getBranchName(agent.branch_id))}
-                </td>
-
-                <td>
-                    <span class="status-badge ${escapeHtml(statusClass)}">
-                        ${escapeHtml(capitalize(status))}
-                    </span>
-                </td>
-
-                <td>${formatDate(agent.created_at)}</td>
-
-                <td>
-                    <div style="display:flex; gap:6px; flex-wrap:wrap;">
-                        ${
-                            String(status).toLowerCase() === "active"
-                            ?
-                            `
-                            <button class="btn btn-warning btn-sm" onclick="changeAgentStatus('${escapeJs(agent.id)}', 'suspended')" title="Suspend agent">
-                                <i class="fas fa-pause"></i>
-                            </button>
-                            `
-                            :
-                            `
-                            <button class="btn btn-success btn-sm" onclick="changeAgentStatus('${escapeJs(agent.id)}', 'active')" title="Activate agent">
-                                <i class="fas fa-play"></i>
-                            </button>
-                            `
-                        }
-
-                        <button class="btn btn-danger btn-sm" onclick="changeAgentStatus('${escapeJs(agent.id)}', 'inactive')" title="Deactivate agent">
-                            <i class="fas fa-user-slash"></i>
+            `;
+
+            try {
+                const { data, error } = await supabase
+                    .from('sales_agents')
+                    .select('*')
+                    .order('created_at', { ascending: false });
+
+                if (error) throw error;
+
+                allAgents = data || [];
+
+                updateAgentCount();
+                renderAgents(allAgents);
+
+            } catch (error) {
+                console.error('Load agents error:', error);
+                container.innerHTML = `
+                    <div class="empty-state">
+                        <i class="fas fa-exclamation-triangle"></i>
+                        <h4>Unable to load sales agents</h4>
+                        <p>${escapeHtml(getFriendlyError(error))}</p>
+                        <br>
+                        <button onclick="loadAgents()" class="btn btn-primary">
+                            <i class="fas fa-sync"></i> Try Again
                         </button>
                     </div>
-                </td>
-            </tr>
-        `;
-    });
-
-    html += `
-                </tbody>
-            </table>
-        </div>
-    `;
-
-    container.innerHTML = html;
-}
-
-/* =========================================================
-   FILTER AGENTS
-========================================================= */
-
-function filterAgents() {
-    const search = document.getElementById("agentSearch").value.trim().toLowerCase();
-
-    if (!search) {
-        renderAgents(allAgents);
-        return;
-    }
-
-    const filtered = allAgents.filter(function (agent) {
-        const branchName = getBranchName(agent.branch_id);
-
-        const searchable = [
-            agent.full_name,
-            agent.email,
-            agent.phone,
-            agent.sales_code,
-            branchName,
-            agent.status
-        ]
-        .filter(Boolean)
-        .join(" ")
-        .toLowerCase();
-
-        return searchable.includes(search);
-    });
-
-    renderAgents(filtered);
-}
-
-/* =========================================================
-   AGENT COUNT
-========================================================= */
-
-function updateAgentCount() {
-    const badge = document.getElementById("agentCountBadge");
-    if (badge) badge.textContent = allAgents.length;
-}
-
-/* =========================================================
-   OPEN CREATE MODAL
-========================================================= */
-
-async function openCreateAgentModal() {
-    const modal = document.getElementById("createAgentModal");
-    const form = document.getElementById("createAgentForm");
-
-    form.reset();
-    hideFormMessages();
-
-    document.getElementById("agentSalesCode").value = "Will be generated automatically";
-
-    modal.classList.add("open");
-
-    /* Always refresh branches on open so the user sees the latest list. */
-    await loadBranches();
-}
-
-/* =========================================================
-   CLOSE CREATE MODAL
-========================================================= */
-
-function closeCreateAgentModal() {
-    const modal = document.getElementById("createAgentModal");
-    modal.classList.remove("open");
-    hideFormMessages();
-}
-
-/* =========================================================
-   CREATE AGENT
-   Creates a sales_agents record and lets the database assign
-   the Sales Code. No account, login, or email invite is sent.
-========================================================= */
-
-document.getElementById("createAgentForm").addEventListener("submit", async function (event) {
-    event.preventDefault();
-
-    const submitButton = document.getElementById("createAgentSubmitBtn");
-
-    hideFormMessages();
-
-    const fullName = document.getElementById("agentFullName").value.trim();
-    const email = document.getElementById("agentEmail").value.trim();
-    const phone = document.getElementById("agentPhone").value.trim();
-    const nationalId = document.getElementById("agentNationalId").value.trim();
-    const branchId = document.getElementById("agentBranch").value;
-
-    if (!fullName) {
-        showFormError("Please enter the agent's full name.");
-        return;
-    }
-
-    if (!email) {
-        showFormError("Please enter the agent's email address.");
-        return;
-    }
-
-    if (!branchId) {
-        showFormError("Please select a branch.");
-        return;
-    }
-
-    submitButton.disabled = true;
-    submitButton.innerHTML = `<i class="fas fa-spinner fa-spin"></i> Creating Agent...`;
-
-    try {
-        /* Employee Number is deliberately NOT included. */
-
-        const agentData = {
-            full_name: fullName,
-            email: email,
-            phone: phone || null,
-            national_id: nationalId || null,
-            branch_id: branchId
-        };
-
-        /*
-            Insert the agent record. The database generates the
-            Sales Code automatically (e.g. MAG00001, MAG00002, ...).
-            No auth account is created and no invite email is sent.
-        */
-
-        const { data, error } = await supabaseClient
-            .from("sales_agents")
-            .insert(agentData)
-            .select()
-            .single();
-
-        if (error) throw error;
-
-        const generatedCode = data?.sales_code || "Generated automatically";
-
-        document.getElementById("agentSalesCode").value = generatedCode;
-
-        showFormSuccess("Sales agent created successfully. Sales Code: " + generatedCode);
-        showToast("Sales agent created successfully.", "success");
-
-        await loadAgents();
-
-        /*
-            Reset personal form fields after successful creation
-            but keep the modal visible briefly so the generated
-            code can be seen.
-        */
-
-        document.getElementById("agentFullName").value = "";
-        document.getElementById("agentEmail").value = "";
-        document.getElementById("agentPhone").value = "";
-        document.getElementById("agentNationalId").value = "";
-        document.getElementById("agentBranch").value = "";
-
-        setTimeout(function () {
-            closeCreateAgentModal();
-        }, 2200);
-
-    } catch (error) {
-        console.error("Failed to create sales agent:", error);
-
-        showFormError(getFriendlyError(error));
-        showToast(getFriendlyError(error), "error");
-
-    } finally {
-        submitButton.disabled = false;
-        submitButton.innerHTML = `<i class="fas fa-id-badge"></i> Create Agent`;
-    }
-});
-
-/* =========================================================
-   CHANGE AGENT STATUS
-========================================================= */
-
-async function changeAgentStatus(agentId, newStatus) {
-    const confirmation = confirm("Are you sure you want to change this agent's status to " + newStatus + "?");
-    if (!confirmation) return;
-
-    try {
-        const { error } = await supabaseClient
-            .from("sales_agents")
-            .update({ status: newStatus })
-            .eq("id", agentId);
-
-        if (error) throw error;
-
-        showToast("Agent status updated successfully.", "success");
-        await loadAgents();
-
-    } catch (error) {
-        console.error("Failed to update status:", error);
-        showToast(getFriendlyError(error), "error");
-    }
-}
-
-/* =========================================================
-   LOGOUT
-========================================================= */
-
-async function handleLogout() {
-    try {
-        await supabaseClient.auth.signOut();
-    } catch (error) {
-        console.error("Logout error:", error);
-    } finally {
-        sessionStorage.clear();
-        window.location.href = "admin-login.html";
-    }
-}
-
-/* =========================================================
-   SIDEBAR
-========================================================= */
-
-function toggleSidebar() {
-    const sidebar = document.getElementById("sidebar");
-    sidebar.classList.toggle("open");
-}
-
-/* =========================================================
-   FORM MESSAGES
-========================================================= */
-
-function hideFormMessages() {
-    const error = document.getElementById("createAgentError");
-    const success = document.getElementById("createAgentSuccess");
-
-    error.style.display = "none";
-    success.style.display = "none";
-    error.textContent = "";
-    success.textContent = "";
-}
-
-function showFormError(message) {
-    const element = document.getElementById("createAgentError");
-    element.textContent = message;
-    element.style.display = "block";
-}
-
-function showFormSuccess(message) {
-    const element = document.getElementById("createAgentSuccess");
-    element.textContent = message;
-    element.style.display = "block";
-}
-
-/* =========================================================
-   TOAST
-========================================================= */
-
-function showToast(message, type = "success") {
-    const toast = document.getElementById("toast");
-
-    toast.textContent = message;
-    toast.className = "toast show " + type;
-
-    setTimeout(function () {
-        toast.className = "toast";
-    }, 4000);
-}
-
-/* =========================================================
-   DATE FORMAT
-========================================================= */
-
-function formatDate(value) {
-    if (!value) return "—";
-
-    try {
-        return new Intl.DateTimeFormat("en-KE", {
-            day: "2-digit",
-            month: "short",
-            year: "numeric"
-        }).format(new Date(value));
-    } catch {
-        return "—";
-    }
-}
-
-/* =========================================================
-   CAPITALIZE
-========================================================= */
-
-function capitalize(value) {
-    if (!value) return "";
-    return String(value).charAt(0).toUpperCase() + String(value).slice(1).toLowerCase();
-}
-
-/* =========================================================
-   HTML ESCAPE
-========================================================= */
-
-function escapeHtml(value) {
-    if (value === null || value === undefined) return "";
-
-    return String(value)
-        .replace(/&/g, "&amp;")
-        .replace(/</g, "&lt;")
-        .replace(/>/g, "&gt;")
-        .replace(/"/g, "&quot;")
-        .replace(/'/g, "&#039;");
-}
-
-/* =========================================================
-   JAVASCRIPT ESCAPE
-========================================================= */
-
-function escapeJs(value) {
-    return String(value || "")
-        .replace(/\\/g, "\\\\")
-        .replace(/'/g, "\\'")
-        .replace(/\n/g, "\\n")
-        .replace(/\r/g, "\\r");
-}
-
-/* =========================================================
-   FRIENDLY ERROR
-========================================================= */
-
-function getFriendlyError(error) {
-    const message = error?.message || String(error);
-
-    if (message.includes("duplicate") || message.includes("unique")) {
-        return "An agent with these details already exists.";
-    }
-
-    if (message.includes("row-level security") || message.includes("RLS")) {
-        return "You do not have permission to view or manage sales agents or branches. Check the Supabase RLS policies for \"sales_agents\" and \"branches\".";
-    }
-
-    if (message.includes("foreign key")) {
-        return "The selected branch is not valid. Please refresh the branch list and select an existing branch.";
-    }
-
-    if (message.includes("relation") && message.includes("does not exist")) {
-        return "The \"branches\" or \"sales_agents\" table could not be found. Confirm the table name in Supabase.";
-    }
-
-    return message;
-}
-
-/* =========================================================
-   CLOSE MODAL WHEN CLICKING OUTSIDE
-========================================================= */
-
-document.getElementById("createAgentModal").addEventListener("click", function (event) {
-    if (event.target === this) {
-        closeCreateAgentModal();
-    }
-});
-
-/* =========================================================
-   ESC KEY
-========================================================= */
-
-document.addEventListener("keydown", function (event) {
-    if (event.key === "Escape") {
-        closeCreateAgentModal();
-    }
-});
-
-</script>
+                `;
+            }
+        }
+
+        // ============================================================
+        // RENDER AGENTS
+        // ============================================================
+
+        function renderAgents(agents) {
+            const container = document.getElementById('agentsList');
+
+            if (!agents || agents.length === 0) {
+                container.innerHTML = `
+                    <div class="empty-state">
+                        <i class="fas fa-user-tie"></i>
+                        <h4>No sales agents found</h4>
+                        <p>Add your first Masika Benevolent sales agent.</p>
+                        <br>
+                        <button onclick="openCreateAgentModal()" class="btn btn-primary">
+                            <i class="fas fa-user-plus"></i> Add New Agent
+                        </button>
+                    </div>
+                `;
+                return;
+            }
+
+            let html = `
+                <div class="table-wrapper">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Sales Code</th>
+                                <th>Agent</th>
+                                <th>Phone</th>
+                                <th>Branch</th>
+                                <th>Status</th>
+                                <th>Joined</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+            `;
+
+            agents.forEach(function(agent) {
+                const status = agent.status || 'active';
+                const statusClass = String(status).toLowerCase();
+
+                html += `
+                    <tr>
+                        <td>
+                            <span class="sales-code">
+                                <i class="fas fa-id-badge"></i>
+                                ${escapeHtml(agent.sales_code || '—')}
+                            </span>
+                        </td>
+
+                        <td>
+                            <div class="agent-name">${escapeHtml(agent.full_name || '—')}</div>
+                            <div class="agent-email">${escapeHtml(agent.email || '—')}</div>
+                        </td>
+
+                        <td>${escapeHtml(agent.phone || '—')}</td>
+
+                        <td>
+                            <i class="fas fa-building" style="color:var(--gold);"></i>
+                            ${escapeHtml(getBranchName(agent.branch_id))}
+                        </td>
+
+                        <td>
+                            <span class="status-badge ${escapeHtml(statusClass)}">
+                                ${escapeHtml(capitalize(status))}
+                            </span>
+                        </td>
+
+                        <td>${formatDate(agent.created_at)}</td>
+
+                        <td>
+                            <div style="display:flex; gap:6px; flex-wrap:wrap;">
+                                ${statusClass === 'active' ? `
+                                    <button onclick="changeAgentStatus('${escapeJs(agent.id)}', 'suspended')" class="btn btn-warning btn-sm" title="Suspend agent">
+                                        <i class="fas fa-pause"></i>
+                                    </button>
+                                ` : `
+                                    <button onclick="changeAgentStatus('${escapeJs(agent.id)}', 'active')" class="btn btn-success btn-sm" title="Activate agent">
+                                        <i class="fas fa-play"></i>
+                                    </button>
+                                `}
+                                <button onclick="changeAgentStatus('${escapeJs(agent.id)}', 'inactive')" class="btn btn-danger btn-sm" title="Deactivate agent">
+                                    <i class="fas fa-user-slash"></i>
+                                </button>
+                            </div>
+                        </td>
+                    </tr>
+                `;
+            });
+
+            html += `
+                        </tbody>
+                    </table>
+                </div>
+            `;
+
+            container.innerHTML = html;
+        }
+
+        // ============================================================
+        // FILTER AGENTS
+        // ============================================================
+
+        function filterAgents() {
+            const search = document.getElementById('agentSearch').value.trim().toLowerCase();
+
+            if (!search) {
+                renderAgents(allAgents);
+                return;
+            }
+
+            const filtered = allAgents.filter(function(agent) {
+                const searchable = [
+                    agent.full_name,
+                    agent.email,
+                    agent.phone,
+                    agent.sales_code,
+                    getBranchName(agent.branch_id),
+                    agent.status
+                ]
+                .filter(Boolean)
+                .join(' ')
+                .toLowerCase();
+
+                return searchable.includes(search);
+            });
+
+            renderAgents(filtered);
+        }
+
+        // ============================================================
+        // AGENT COUNT
+        // ============================================================
+
+        function updateAgentCount() {
+            const badge = document.getElementById('agentCountBadge');
+            if (badge) badge.textContent = allAgents.length;
+        }
+
+        // ============================================================
+        // OPEN CREATE MODAL
+        // ============================================================
+
+        function openCreateAgentModal() {
+            const modal = document.getElementById('createAgentModal');
+            const form = document.getElementById('createAgentForm');
+
+            form.reset();
+            hideFormMessages();
+
+            document.getElementById('agentSalesCode').value = 'Will be generated automatically';
+            modal.classList.add('open');
+
+            // Refresh branches
+            loadBranches();
+        }
+
+        // ============================================================
+        // CLOSE CREATE MODAL
+        // ============================================================
+
+        function closeCreateAgentModal() {
+            const modal = document.getElementById('createAgentModal');
+            modal.classList.remove('open');
+            hideFormMessages();
+        }
+
+        // ============================================================
+        // CREATE AGENT
+        // ============================================================
+
+        document.getElementById('createAgentForm').addEventListener('submit', async function(event) {
+            event.preventDefault();
+
+            const submitButton = document.getElementById('createAgentSubmitBtn');
+            hideFormMessages();
+
+            const fullName = document.getElementById('agentFullName').value.trim();
+            const email = document.getElementById('agentEmail').value.trim();
+            const phone = document.getElementById('agentPhone').value.trim();
+            const nationalId = document.getElementById('agentNationalId').value.trim();
+            const branchId = document.getElementById('agentBranch').value;
+
+            if (!fullName) {
+                showFormError('Please enter the agent\'s full name.');
+                return;
+            }
+
+            if (!email) {
+                showFormError('Please enter the agent\'s email address.');
+                return;
+            }
+
+            if (!branchId) {
+                showFormError('Please select a branch.');
+                return;
+            }
+
+            submitButton.disabled = true;
+            submitButton.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Creating Agent...';
+
+            try {
+                const agentData = {
+                    full_name: fullName,
+                    email: email,
+                    phone: phone || null,
+                    national_id: nationalId || null,
+                    branch_id: branchId,
+                    status: 'active'
+                };
+
+                const { data, error } = await supabase
+                    .from('sales_agents')
+                    .insert(agentData)
+                    .select()
+                    .single();
+
+                if (error) throw error;
+
+                const generatedCode = data?.sales_code || 'Generated automatically';
+                document.getElementById('agentSalesCode').value = generatedCode;
+
+                showFormSuccess(`Sales agent created successfully. Sales Code: ${generatedCode}`);
+                showToast('Sales agent created successfully.', 'success');
+
+                await loadAgents();
+
+                // Reset form
+                document.getElementById('agentFullName').value = '';
+                document.getElementById('agentEmail').value = '';
+                document.getElementById('agentPhone').value = '';
+                document.getElementById('agentNationalId').value = '';
+                document.getElementById('agentBranch').value = '';
+
+                setTimeout(function() {
+                    closeCreateAgentModal();
+                }, 2000);
+
+            } catch (error) {
+                console.error('Create agent error:', error);
+                showFormError(getFriendlyError(error));
+                showToast(getFriendlyError(error), 'error');
+            } finally {
+                submitButton.disabled = false;
+                submitButton.innerHTML = '<i class="fas fa-id-badge"></i> Create Agent';
+            }
+        });
+
+        // ============================================================
+        // CHANGE AGENT STATUS
+        // ============================================================
+
+        async function changeAgentStatus(agentId, newStatus) {
+            const confirmMsg = `Are you sure you want to change this agent's status to ${newStatus.toUpperCase()}?`;
+            if (!confirm(confirmMsg)) return;
+
+            try {
+                const { error } = await supabase
+                    .from('sales_agents')
+                    .update({ status: newStatus, updated_at: new Date().toISOString() })
+                    .eq('id', agentId);
+
+                if (error) throw error;
+
+                showToast(`Agent status updated to ${newStatus}.`, 'success');
+                await loadAgents();
+
+            } catch (error) {
+                console.error('Status update error:', error);
+                showToast(getFriendlyError(error), 'error');
+            }
+        }
+
+        // ============================================================
+        // REFRESH DATA
+        // ============================================================
+
+        async function refreshData() {
+            const icon = document.getElementById('refreshIcon');
+            const btn = document.getElementById('refreshBtn');
+
+            if (icon) icon.classList.add('fa-spin');
+            if (btn) btn.disabled = true;
+
+            try {
+                await loadAgents();
+                await loadBranches();
+                showToast('Data refreshed successfully.', 'success');
+            } catch (error) {
+                showToast('Failed to refresh data.', 'error');
+            } finally {
+                if (icon) icon.classList.remove('fa-spin');
+                if (btn) btn.disabled = false;
+            }
+        }
+
+        // ============================================================
+        // FORM MESSAGES
+        // ============================================================
+
+        function hideFormMessages() {
+            document.getElementById('createAgentError').style.display = 'none';
+            document.getElementById('createAgentSuccess').style.display = 'none';
+            document.getElementById('createAgentError').textContent = '';
+            document.getElementById('createAgentSuccess').textContent = '';
+        }
+
+        function showFormError(message) {
+            const el = document.getElementById('createAgentError');
+            el.textContent = message;
+            el.style.display = 'block';
+        }
+
+        function showFormSuccess(message) {
+            const el = document.getElementById('createAgentSuccess');
+            el.textContent = message;
+            el.style.display = 'block';
+        }
+
+        // ============================================================
+        // SIDEBAR TOGGLE
+        // ============================================================
+
+        function setupSidebarToggle() {
+            const sidebar = document.getElementById('sidebar');
+            const backdrop = document.getElementById('sidebarBackdrop');
+            const toggleBtn = document.getElementById('sidebarToggle');
+
+            if (toggleBtn) {
+                toggleBtn.addEventListener('click', function() {
+                    sidebar.classList.toggle('open');
+                    backdrop.classList.toggle('show');
+                });
+            }
+
+            if (backdrop) {
+                backdrop.addEventListener('click', function() {
+                    sidebar.classList.remove('open');
+                    backdrop.classList.remove('show');
+                });
+            }
+
+            document.querySelectorAll('.sidebar-nav a').forEach(function(link) {
+                link.addEventListener('click', function() {
+                    sidebar.classList.remove('open');
+                    backdrop.classList.remove('show');
+                });
+            });
+        }
+
+        // ============================================================
+        // CLOCK
+        // ============================================================
+
+        function updateClock() {
+            const clockEl = document.getElementById('currentDateTime');
+            if (clockEl) {
+                const now = new Date();
+                clockEl.textContent = now.toLocaleString('en-KE', {
+                    weekday: 'short',
+                    day: '2-digit',
+                    month: 'short',
+                    year: 'numeric',
+                    hour: '2-digit',
+                    minute: '2-digit'
+                });
+            }
+            setTimeout(updateClock, 30000);
+        }
+
+        // ============================================================
+        // TOAST NOTIFICATIONS
+        // ============================================================
+
+        function showToast(type, message) {
+            const container = document.getElementById('toastContainer');
+
+            const icons = {
+                success: 'fa-check-circle',
+                error: 'fa-exclamation-circle',
+                warning: 'fa-triangle-exclamation',
+                info: 'fa-info-circle'
+            };
+
+            const toast = document.createElement('div');
+            toast.className = `toast ${type}`;
+            toast.innerHTML = `
+                <i class="fas ${icons[type] || icons.info}"></i>
+                <span>${message}</span>
+                <button class="toast-close" onclick="this.parentElement.remove()">&times;</button>
+            `;
+
+            container.appendChild(toast);
+
+            setTimeout(() => {
+                toast.style.opacity = '0';
+                toast.style.transform = 'translateX(100px)';
+                toast.style.transition = 'all 0.4s ease';
+                setTimeout(() => toast.remove(), 400);
+            }, 4000);
+        }
+
+        // ============================================================
+        // LOGOUT
+        // ============================================================
+
+        async function handleLogout() {
+            try {
+                await supabase.auth.signOut();
+                sessionStorage.clear();
+                window.location.href = 'admin-login.html';
+            } catch (error) {
+                console.error('Logout error:', error);
+                showToast('Failed to logout.', 'error');
+            }
+        }
+
+        // ============================================================
+        // HELPER FUNCTIONS
+        // ============================================================
+
+        function formatDate(value) {
+            if (!value) return '—';
+            try {
+                return new Date(value).toLocaleDateString('en-KE', {
+                    day: '2-digit',
+                    month: 'short',
+                    year: 'numeric'
+                });
+            } catch {
+                return '—';
+            }
+        }
+
+        function capitalize(value) {
+            if (!value) return '';
+            return String(value).charAt(0).toUpperCase() + String(value).slice(1).toLowerCase();
+        }
+
+        function escapeHtml(value) {
+            if (value === null || value === undefined) return '';
+            return String(value)
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;')
+                .replace(/'/g, '&#039;');
+        }
+
+        function escapeJs(value) {
+            return String(value || '')
+                .replace(/\\/g, '\\\\')
+                .replace(/'/g, "\\'")
+                .replace(/\n/g, '\\n')
+                .replace(/\r/g, '\\r');
+        }
+
+        function getFriendlyError(error) {
+            const message = error?.message || String(error);
+
+            if (message.includes('duplicate') || message.includes('unique')) {
+                return 'An agent with these details already exists.';
+            }
+
+            if (message.includes('row-level security') || message.includes('RLS')) {
+                return 'You do not have permission to manage sales agents. Check RLS policies.';
+            }
+
+            if (message.includes('foreign key')) {
+                return 'The selected branch is not valid. Please refresh and select an existing branch.';
+            }
+
+            return message;
+        }
+
+        // ============================================================
+        // CLOSE MODAL ON CLICK OUTSIDE
+        // ============================================================
+
+        document.getElementById('createAgentModal').addEventListener('click', function(event) {
+            if (event.target === this) {
+                closeCreateAgentModal();
+            }
+        });
+
+        // ============================================================
+        // ESC KEY
+        // ============================================================
+
+        document.addEventListener('keydown', function(event) {
+            if (event.key === 'Escape') {
+                closeCreateAgentModal();
+            }
+        });
+
+        // ============================================================
+        // EXPOSE FUNCTIONS
+        // ============================================================
+
+        window.loadAgents = loadAgents;
+        window.filterAgents = filterAgents;
+        window.loadBranches = loadBranches;
+        window.openCreateAgentModal = openCreateAgentModal;
+        window.closeCreateAgentModal = closeCreateAgentModal;
+        window.changeAgentStatus = changeAgentStatus;
+        window.refreshData = refreshData;
+        window.handleLogout = handleLogout;
+        window.showToast = showToast;
+    </script>
 
 </body>
 </html>
