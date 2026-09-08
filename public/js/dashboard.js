@@ -187,6 +187,7 @@
             }
 
             console.log('✅ Member loaded:', state.member.membership_number);
+            console.log('✅ Member ID (for dependants query):', state.member.id);
 
             // Store member in localStorage
             if (typeof authManager !== 'undefined' && authManager.setMember) {
@@ -194,7 +195,11 @@
             }
             localStorage.setItem('masika_member', JSON.stringify(state.member));
 
-            // Load dependants (FIXED: uses principal_member_id)
+            // =========================================================
+            // IMPORTANT: Load dependants using principal_member_id
+            // The database schema uses principal_member_id to link
+            // dependants to the primary member
+            // =========================================================
             await loadDependants();
 
             // Load payments
@@ -215,14 +220,21 @@
     }
 
     // =========================================================
-    // LOAD DEPENDANTS (FIXED: uses principal_member_id)
+    // LOAD DEPENDANTS
+    // FIXED: Uses principal_member_id (NOT member_id)
     // =========================================================
     async function loadDependants() {
         try {
+            console.log('👨‍👩‍👦 Loading dependants for member:', state.member.id);
+            console.log('🔍 Query: dependants.principal_member_id =', state.member.id);
+            
+            // IMPORTANT: Query uses principal_member_id
             const result = await supabaseClient.getMemberDependants(state.member.id);
+            
             if (result.success) {
                 state.dependants = result.data || [];
-                console.log(`👨‍👩‍👦 ${state.dependants.length} dependants loaded`);
+                console.log(`✅ ${state.dependants.length} dependants loaded successfully`);
+                console.log('📋 Dependants:', state.dependants);
             } else {
                 console.warn('⚠️ Failed to load dependants:', result.error);
                 state.dependants = [];
@@ -351,7 +363,7 @@
     }
 
     // =========================================================
-    // RENDER: Family Members (FIXED: Table format)
+    // RENDER: Family Members (Table format)
     // =========================================================
     function renderFamilyMembers(deps) {
         const container = DOM.memberListContainer;
@@ -375,14 +387,14 @@
         }
 
         let html = `
-            <div style="overflow-x:auto;">
-                <table style="width:100%;border-collapse:collapse;font-size:13px;">
+            <div class="family-table-wrapper">
+                <table class="family-table">
                     <thead>
-                        <tr style="border-bottom:2px solid #f0f4f2;text-align:left;">
-                            <th style="padding:12px 8px;">Member</th>
-                            <th style="padding:12px 8px;">Relationship</th>
-                            <th style="padding:12px 8px;">Date of Birth</th>
-                            <th style="padding:12px 8px;">Status</th>
+                        <tr>
+                            <th>Member</th>
+                            <th>Relationship</th>
+                            <th>Date of Birth</th>
+                            <th>Status</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -410,33 +422,19 @@
             }
 
             html += `
-                <tr style="border-bottom:1px solid #f0f4f2;">
-                    <td style="padding:14px 8px;">
-                        <div style="display:flex;align-items:center;gap:10px;">
-                            <div style="width:36px;height:36px;min-width:36px;border-radius:50%;background:var(--primary-100);display:flex;align-items:center;justify-content:center;font-weight:700;color:var(--primary-700);">
-                                ${escapeHtml(initials)}
-                            </div>
+                <tr>
+                    <td>
+                        <div class="family-member-info">
+                            <div class="family-member-avatar">${escapeHtml(initials)}</div>
                             <div>
-                                <div style="font-weight:700;color:var(--text-dark);">
-                                    ${escapeHtml(fullName)}
-                                </div>
-                                <div style="font-size:11px;color:var(--text-gray);">
-                                    Family Member
-                                </div>
+                                <div class="family-member-name">${escapeHtml(fullName)}</div>
+                                <div class="family-member-label">Family Member</div>
                             </div>
                         </div>
                     </td>
-                    <td style="padding:14px 8px;color:var(--text-gray);">
-                        ${escapeHtml(relationship)}
-                    </td>
-                    <td style="padding:14px 8px;color:var(--text-gray);">
-                        ${escapeHtml(dob)}
-                    </td>
-                    <td style="padding:14px 8px;">
-                        <span style="display:inline-block;padding:4px 10px;border-radius:12px;background:#e8f5e9;color:var(--success);font-size:11px;font-weight:700;">
-                            Active
-                        </span>
-                    </td>
+                    <td class="family-relationship">${escapeHtml(relationship)}</td>
+                    <td class="family-dob">${escapeHtml(dob)}</td>
+                    <td><span class="status-badge">Active</span></td>
                 </tr>
             `;
         });
@@ -596,7 +594,8 @@
     }
 
     // =========================================================
-    // HANDLE ADD DEPENDANT (FIXED: uses principal_member_id)
+    // HANDLE ADD DEPENDANT
+    // FIXED: Uses principal_member_id (NOT member_id)
     // =========================================================
     async function handleAddDependant(event) {
         event.preventDefault();
@@ -632,10 +631,14 @@
 
             const member = memberResult.data;
             console.log('👤 Adding dependant to member:', member.id);
+            console.log('🔑 Using principal_member_id:', member.id);
 
+            // =========================================================
             // IMPORTANT: Database column is principal_member_id
+            // NOT member_id
+            // =========================================================
             const result = await supabaseClient.createDependant({
-                principal_member_id: member.id,
+                principal_member_id: member.id,  // ← FIXED: Use principal_member_id
                 first_name: firstName,
                 last_name: lastName,
                 date_of_birth: dob,
@@ -648,13 +651,16 @@
 
             console.log('✅ Dependant created:', result.data);
 
-            // Reload dependants
+            // =========================================================
+            // Reload dependants using principal_member_id
+            // =========================================================
             const depsResult = await supabaseClient.getMemberDependants(member.id);
             if (!depsResult.success) {
                 throw new Error(depsResult.error || 'Dependant was added but the family list could not be refreshed.');
             }
 
             const dependants = depsResult.data || [];
+            state.dependants = dependants;
             renderFamilyMembers(dependants);
 
             const countElement = document.getElementById('dependantCount');
