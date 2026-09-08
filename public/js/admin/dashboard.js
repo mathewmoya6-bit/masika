@@ -7,18 +7,27 @@ class AdminDashboard {
         this.supabase = adminAuth.getSupabase();
         this.data = {
             members: 0,
+            activeMembers: 0,
             agents: 0,
             activeAgents: 0,
+            payments: {
+                total: 0,
+                completed: 0,
+                revenue: 0,
+                unassigned: 0,
+                unassignedAmount: 0,
+                pending: 0,
+                pendingAmount: 0
+            },
             revenue: {
                 daily: 0,
                 monthly: 0,
                 total: 0
             },
-            unassigned: 0,
-            pending: 0,
-            recentPayments: [],
             recentMembers: [],
-            recentAgents: []
+            recentAgents: [],
+            recentPayments: [],
+            unassignedPayments: []
         };
         this.refreshInterval = null;
         this._updateTimeout = null;
@@ -31,14 +40,14 @@ class AdminDashboard {
             this.updateUI();
             this.setupRealtime();
             this.setupAutoRefresh();
-            
+
             // Update live indicator
             const indicator = document.getElementById('liveIndicator');
             if (indicator) {
                 indicator.classList.add('connected');
                 document.getElementById('liveIndicatorLabel').textContent = 'Live';
             }
-            
+
             return { success: true };
         } catch (error) {
             console.error('Dashboard load error:', error);
@@ -50,81 +59,96 @@ class AdminDashboard {
         try {
             console.log('Loading stats...');
 
-            // Get members count
+            // ============================================
+            // MEMBERS - Using 'members' table
+            // ============================================
             const { count: membersCount, error: membersError } = await this.supabase
                 .from('members')
                 .select('*', { count: 'exact', head: true });
-            
-            if (membersError) {
-                console.warn('Members count error:', membersError);
-            }
-            this.data.members = membersCount || 0;
-            console.log('Members count:', this.data.members);
 
-            // Get sales agents count
+            if (membersError) console.warn('Members error:', membersError);
+            this.data.members = membersCount || 0;
+
+            const { count: activeMembers, error: activeError } = await this.supabase
+                .from('members')
+                .select('*', { count: 'exact', head: true })
+                .eq('is_active', true);
+
+            if (activeError) console.warn('Active members error:', activeError);
+            this.data.activeMembers = activeMembers || 0;
+
+            console.log('Members:', this.data.members, 'Active:', this.data.activeMembers);
+
+            // ============================================
+            // SALES AGENTS - Using 'sales_agents' table
+            // ============================================
             const { count: agentsCount, error: agentsError } = await this.supabase
                 .from('sales_agents')
                 .select('*', { count: 'exact', head: true });
-            
-            if (agentsError) {
-                console.warn('Agents count error:', agentsError);
-            }
-            this.data.agents = agentsCount || 0;
-            console.log('Agents count:', this.data.agents);
 
-            // Get active agents
-            const { data: activeAgentsData, error: activeError } = await this.supabase
+            if (agentsError) console.warn('Agents error:', agentsError);
+            this.data.agents = agentsCount || 0;
+
+            const { data: activeAgentsData, error: activeAgentsError } = await this.supabase
                 .from('sales_agents')
                 .select('*')
                 .eq('status', 'active');
-            
-            if (activeError) {
-                console.warn('Active agents error:', activeError);
-            }
-            this.data.activeAgents = activeAgentsData?.length || 0;
-            console.log('Active agents:', this.data.activeAgents);
 
-            // Get payments
+            if (activeAgentsError) console.warn('Active agents error:', activeAgentsError);
+            this.data.activeAgents = activeAgentsData?.length || 0;
+
+            console.log('Agents:', this.data.agents, 'Active:', this.data.activeAgents);
+
+            // ============================================
+            // PAYMENTS - Using 'payments' table
+            // ============================================
             const { data: paymentsData, error: paymentsError } = await this.supabase
                 .from('payments')
                 .select('*');
-            
-            if (paymentsError) {
-                console.warn('Payments error:', paymentsError);
-            }
+
+            if (paymentsError) console.warn('Payments error:', paymentsError);
+
             const allPayments = paymentsData || [];
             console.log('Total payments:', allPayments.length);
 
-            // Revenue calculations
-            const completedPayments = allPayments.filter(p => p.status === 'completed' || p.status === 'confirmed');
-            this.data.revenue.total = completedPayments.reduce((sum, p) => sum + (p.amount || 0), 0);
+            // Payment stats
+            const completedPayments = allPayments.filter(p => 
+                p.status === 'completed' || p.status === 'confirmed'
+            );
+            const unassignedPayments = allPayments.filter(p => p.status === 'unassigned');
+            const pendingPayments = allPayments.filter(p => p.status === 'pending');
 
-            // Today
+            this.data.payments = {
+                total: allPayments.length,
+                completed: completedPayments.length,
+                revenue: completedPayments.reduce((sum, p) => sum + (p.amount || 0), 0),
+                unassigned: unassignedPayments.length,
+                unassignedAmount: unassignedPayments.reduce((sum, p) => sum + (p.amount || 0), 0),
+                pending: pendingPayments.length,
+                pendingAmount: pendingPayments.reduce((sum, p) => sum + (p.amount || 0), 0)
+            };
+
+            this.data.revenue.total = this.data.payments.revenue;
+
+            // Today's Revenue
             const today = new Date().toDateString();
-            const todayPayments = completedPayments.filter(p => 
+            const todayPayments = completedPayments.filter(p =>
                 p.created_at && new Date(p.created_at).toDateString() === today
             );
             this.data.revenue.daily = todayPayments.reduce((sum, p) => sum + (p.amount || 0), 0);
 
-            // This month
+            // This Month's Revenue
             const now = new Date();
             const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
-            const monthPayments = completedPayments.filter(p => 
+            const monthPayments = completedPayments.filter(p =>
                 p.created_at && new Date(p.created_at) >= monthStart
             );
             this.data.revenue.monthly = monthPayments.reduce((sum, p) => sum + (p.amount || 0), 0);
 
-            // Unassigned payments
-            const unassigned = allPayments.filter(p => p.status === 'unassigned');
-            this.data.unassigned = unassigned.length;
-            this.data.unassignedAmount = unassigned.reduce((sum, p) => sum + (p.amount || 0), 0);
+            console.log('Revenue - Today:', this.data.revenue.daily, 'Month:', this.data.revenue.monthly, 'Total:', this.data.revenue.total);
 
-            // Pending payments
-            const pending = allPayments.filter(p => p.status === 'pending');
-            this.data.pending = pending.length;
-            this.data.pendingAmount = pending.reduce((sum, p) => sum + (p.amount || 0), 0);
-
-            console.log('Stats loaded successfully');
+            // Unassigned payments for list
+            this.data.unassignedPayments = unassignedPayments;
 
         } catch (error) {
             console.error('Load stats error:', error);
@@ -136,42 +160,42 @@ class AdminDashboard {
         try {
             console.log('Loading recent activity...');
 
-            // Recent members
+            // ============================================
+            // RECENT MEMBERS - Using 'members' table
+            // ============================================
             const { data: recentMembers, error: membersError } = await this.supabase
                 .from('members')
                 .select('*')
                 .order('created_at', { ascending: false })
                 .limit(5);
 
-            if (membersError) {
-                console.warn('Recent members error:', membersError);
-            }
+            if (membersError) console.warn('Recent members error:', membersError);
             this.data.recentMembers = recentMembers || [];
             console.log('Recent members:', this.data.recentMembers.length);
 
-            // Recent agents
+            // ============================================
+            // RECENT AGENTS - Using 'sales_agents' table
+            // ============================================
             const { data: recentAgents, error: agentsError } = await this.supabase
                 .from('sales_agents')
                 .select('*')
                 .order('created_at', { ascending: false })
                 .limit(5);
 
-            if (agentsError) {
-                console.warn('Recent agents error:', agentsError);
-            }
+            if (agentsError) console.warn('Recent agents error:', agentsError);
             this.data.recentAgents = recentAgents || [];
             console.log('Recent agents:', this.data.recentAgents.length);
 
-            // Recent payments
+            // ============================================
+            // RECENT PAYMENTS - Using 'payments' table
+            // ============================================
             const { data: recentPayments, error: paymentsError } = await this.supabase
                 .from('payments')
                 .select('*')
                 .order('created_at', { ascending: false })
                 .limit(10);
 
-            if (paymentsError) {
-                console.warn('Recent payments error:', paymentsError);
-            }
+            if (paymentsError) console.warn('Recent payments error:', paymentsError);
             this.data.recentPayments = recentPayments || [];
             console.log('Recent payments:', this.data.recentPayments.length);
 
@@ -184,39 +208,37 @@ class AdminDashboard {
     updateUI() {
         console.log('Updating UI...');
 
-        // Update stats
-        const elements = {
-            'totalMembers': this.data.members,
-            'totalAgents': this.data.agents,
-            'activeAgents': this.data.activeAgents,
-            'dailyRevenue': `KES ${this.data.revenue.daily.toLocaleString()}`,
-            'monthRevenue': `KES ${this.data.revenue.monthly.toLocaleString()}`,
-            'totalRevenue': `KES ${this.data.revenue.total.toLocaleString()}`,
-            'unassignedCount': this.data.unassigned,
-            'unassignedAmount': `KES ${this.data.unassignedAmount.toLocaleString()}`,
-            'pendingPayments': this.data.pending,
-            'pendingAmount': `KES ${this.data.pendingAmount.toLocaleString()}`
-        };
+        // Stats
+        document.getElementById('totalMembers').textContent = this.data.members;
+        document.getElementById('totalAgents').textContent = this.data.agents;
+        document.getElementById('activeAgents').textContent = this.data.activeAgents;
+        document.getElementById('memberCountBadge').textContent = this.data.members;
+        document.getElementById('pendingAgentsBadge').textContent = this.data.agents - this.data.activeAgents;
 
-        Object.entries(elements).forEach(([id, value]) => {
-            const el = document.getElementById(id);
-            if (el) {
-                el.textContent = value;
-                console.log(`Updated ${id}: ${value}`);
-            }
-        });
+        // Revenue
+        document.getElementById('totalRevenue').textContent = `KES ${this.data.revenue.total.toLocaleString()}`;
+        document.getElementById('totalRevenueCount').textContent = `${this.data.payments.completed} payments`;
 
-        // Update badges
-        const badge1 = document.getElementById('memberCountBadge');
-        if (badge1) badge1.textContent = this.data.members;
+        document.getElementById('dailyRevenue').textContent = `KES ${this.data.revenue.daily.toLocaleString()}`;
+        document.getElementById('dailyRevenueCount').textContent = `Today`;
 
-        const badge2 = document.getElementById('pendingAgentsBadge');
-        if (badge2) badge2.textContent = this.data.agents - this.data.activeAgents;
+        document.getElementById('monthRevenue').textContent = `KES ${this.data.revenue.monthly.toLocaleString()}`;
+        document.getElementById('monthRevenueCount').textContent = `${this.data.payments.completed} payments`;
 
-        // Render recent tables
+        // Unassigned
+        document.getElementById('unassignedCount').textContent = this.data.payments.unassigned;
+        document.getElementById('unassignedAmount').textContent = `KES ${this.data.payments.unassignedAmount.toLocaleString()} unmatched`;
+        document.getElementById('unassignedBadge').textContent = this.data.payments.unassigned;
+
+        // Pending
+        document.getElementById('pendingPayments').textContent = this.data.payments.pending;
+        document.getElementById('pendingAmount').textContent = `KES ${this.data.payments.pendingAmount.toLocaleString()}`;
+
+        // Render tables
         this.renderRecentMembers();
         this.renderRecentAgents();
         this.renderRecentPayments();
+        this.renderUnassignedPayments();
     }
 
     renderRecentMembers() {
@@ -304,8 +326,55 @@ class AdminDashboard {
         `).join('');
     }
 
+    renderUnassignedPayments() {
+        const container = document.getElementById('unassignedPayments');
+        if (!container) return;
+
+        const payments = this.data.unassignedPayments;
+
+        if (!payments || payments.length === 0) {
+            container.innerHTML = `
+                <div class="empty-state">
+                    <i class="fas fa-check-circle"></i>
+                    <p>No unassigned payments. All payments matched!</p>
+                </div>
+            `;
+            return;
+        }
+
+        container.innerHTML = `
+            <div class="table-wrapper">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Amount</th>
+                            <th>M-Pesa Code</th>
+                            <th>Account Number</th>
+                            <th>Date</th>
+                            <th>Action</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${payments.map(p => `
+                            <tr>
+                                <td><strong>KES ${(p.amount || 0).toLocaleString()}</strong></td>
+                                <td>${this.escapeHtml(p.mpesa_code || 'N/A')}</td>
+                                <td>${this.escapeHtml(p.account_number || 'N/A')}</td>
+                                <td>${p.created_at ? new Date(p.created_at).toLocaleDateString('en-KE') : 'N/A'}</td>
+                                <td>
+                                    <button onclick="window.assignPayment('${p.id}')" class="btn btn-primary btn-sm">
+                                        <i class="fas fa-link"></i> Assign
+                                    </button>
+                                </td>
+                            </tr>
+                        `).join('')}
+                    </tbody>
+                </table>
+            </div>
+        `;
+    }
+
     setupRealtime() {
-        // Subscribe to changes
         const channel = this.supabase.channel('dashboard-changes')
             .on(
                 'postgres_changes',
@@ -334,7 +403,6 @@ class AdminDashboard {
     }
 
     handleRealtimeUpdate() {
-        // Debounce updates
         clearTimeout(this._updateTimeout);
         this._updateTimeout = setTimeout(() => {
             this.loadDashboard();
@@ -342,7 +410,6 @@ class AdminDashboard {
     }
 
     setupAutoRefresh() {
-        // Refresh every 60 seconds
         if (this.refreshInterval) {
             clearInterval(this.refreshInterval);
         }
@@ -376,7 +443,6 @@ class AdminDashboard {
 // Create singleton
 const adminDashboard = new AdminDashboard();
 
-// Export
 if (typeof module !== 'undefined' && module.exports) {
     module.exports = adminDashboard;
 } else {
