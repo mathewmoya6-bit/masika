@@ -1028,16 +1028,20 @@
     <div class="toast-container" id="toastContainer"></div>
 
     <!-- ============================================================
-    JAVASCRIPT
+    JAVASCRIPT - COMPLETE FIXED VERSION
     ============================================================ -->
     <script>
         // ============================================================
-        // SUPABASE CONFIG
+        // SUPABASE CONFIG - CORRECT ANON KEY
         // ============================================================
         const SUPABASE_URL = 'https://wpxzlcdrirlcyvfiquld.supabase.co';
-        const SUPABASE_ANON_KEY = 'YOUR_SUPABASE_ANON_KEY';
+        const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6IndweHpsY2RyaXJsY3l2ZmlxdWxkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODc5Mjc4MDcsImV4cCI6MjEwMzUwMzgwN30.OUP9pmPbrML_egpHflZtDfLv1_UDM37_BYjtb842xjg';
 
-        const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+        console.log('🚀 Revenue script loaded');
+        console.log('📡 Supabase URL:', SUPABASE_URL);
+
+        // Use unique variable name
+        const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
         // ============================================================
         // STATE
@@ -1047,55 +1051,169 @@
         let totalPayments = 0;
         let allPayments = [];
         let currentFilters = {};
+        let currentStaff = null;
 
         // ============================================================
         // INITIALIZATION
         // ============================================================
         document.addEventListener('DOMContentLoaded', async function() {
-            await checkAuth();
-            await loadRevenueData();
-            await loadPayments();
+            console.log('📄 DOM loaded');
 
-            // Set default date filters
+            // Check localStorage first
+            const storedStaff = localStorage.getItem('admin_user');
+            if (storedStaff) {
+                try {
+                    currentStaff = JSON.parse(storedStaff);
+                    console.log('✅ Staff loaded from localStorage:', currentStaff.full_name);
+                    updateAdminUI(currentStaff);
+                    await loadRevenueData();
+                    await loadPayments();
+                    setDefaultDates();
+                    setupSidebarToggle();
+                    updateClock();
+                    return;
+                } catch (e) {
+                    console.warn('⚠️ Invalid stored staff data');
+                }
+            }
+
+            const authResult = await checkAuth();
+            console.log('✅ Auth result:', authResult);
+
+            if (authResult) {
+                await loadRevenueData();
+                await loadPayments();
+                setDefaultDates();
+                setupSidebarToggle();
+                updateClock();
+            }
+        });
+
+        // ============================================================
+        // AUTH CHECK - Using Staff Table
+        // ============================================================
+        async function checkAuth() {
+            console.log('🔐 Checking authentication...');
+
+            try {
+                const { data: { session }, error } = await supabaseClient.auth.getSession();
+
+                if (error) {
+                    console.error('❌ Session error:', error);
+                    window.location.href = 'admin-login.html';
+                    return false;
+                }
+
+                if (!session) {
+                    console.log('⚠️ No session found');
+                    window.location.href = 'admin-login.html';
+                    return false;
+                }
+
+                console.log('✅ User authenticated:', session.user.email);
+
+                // Look up staff record with role
+                const { data: staff, error: staffError } = await supabaseClient
+                    .from('staff')
+                    .select(`
+                        id,
+                        auth_user_id,
+                        full_name,
+                        email,
+                        phone,
+                        role_id,
+                        branch_id,
+                        status,
+                        sales_code,
+                        roles:role_id (
+                            id,
+                            role_code,
+                            role_name,
+                            is_active
+                        )
+                    `)
+                    .eq('auth_user_id', session.user.id)
+                    .maybeSingle();
+
+                if (staffError) {
+                    console.error('❌ Staff lookup error:', staffError);
+                    // Check admins table as fallback
+                    const { data: admin, error: adminError } = await supabaseClient
+                        .from('admins')
+                        .select('*')
+                        .eq('id', session.user.id)
+                        .single();
+
+                    if (admin) {
+                        console.log('✅ Found in admins table (legacy)');
+                        currentStaff = admin;
+                        localStorage.setItem('admin_user', JSON.stringify(admin));
+                        updateAdminUI(admin);
+                        return true;
+                    }
+
+                    window.location.href = 'admin-login.html';
+                    return false;
+                }
+
+                if (!staff) {
+                    console.log('⚠️ No staff record found');
+                    window.location.href = 'admin-login.html';
+                    return false;
+                }
+
+                // Check if Super Admin
+                const roleCode = staff.roles?.role_code;
+                const roleActive = staff.roles?.is_active === true;
+                const staffActive = staff.status === 'ACTIVE';
+
+                const isAdmin = roleCode === 'SUPER_ADMIN' || roleCode === 'ADMIN';
+
+                if (!isAdmin || !roleActive || !staffActive) {
+                    console.warn('⚠️ Not authorized:', { roleCode, roleActive, staffActive });
+                    await supabaseClient.auth.signOut();
+                    window.location.href = 'admin-login.html';
+                    return false;
+                }
+
+                console.log('✅ Admin verified:', staff.full_name);
+                currentStaff = staff;
+
+                localStorage.setItem('admin_user', JSON.stringify(staff));
+                localStorage.setItem('admin_session', JSON.stringify(session));
+
+                updateAdminUI(staff);
+                return true;
+
+            } catch (error) {
+                console.error('❌ Auth check error:', error);
+                showToast('error', 'Authentication error');
+                return false;
+            }
+        }
+
+        // ============================================================
+        // UPDATE ADMIN UI
+        // ============================================================
+        function updateAdminUI(staff) {
+            const name = staff.full_name || staff.name || 'Admin';
+            const role = staff.roles?.role_name || staff.role || 'Administrator';
+
+            document.getElementById('adminName').textContent = name;
+            document.getElementById('adminRole').textContent = role;
+            document.getElementById('adminAvatar').textContent = name.charAt(0).toUpperCase();
+        }
+
+        // ============================================================
+        // SET DEFAULT DATES
+        // ============================================================
+        function setDefaultDates() {
             const today = new Date();
             const thirtyDaysAgo = new Date(today);
             thirtyDaysAgo.setDate(today.getDate() - 30);
 
             document.getElementById('filterStartDate').value = thirtyDaysAgo.toISOString().split('T')[0];
             document.getElementById('filterEndDate').value = today.toISOString().split('T')[0];
-        });
-
-        // ============================================================
-        // AUTH CHECK
-        // ============================================================
-        async function checkAuth() {
-            try {
-                const { data: { session }, error } = await supabase.auth.getSession();
-
-                if (error || !session) {
-                    window.location.href = 'admin-login.html';
-                    return;
-                }
-
-                // Update user info
-                const { data: admin, error: adminError } = await supabase
-                    .from('admins')
-                    .select('*')
-                    .eq('id', session.user.id)
-                    .single();
-
-                if (adminError || !admin) {
-                    window.location.href = 'admin-login.html';
-                    return;
-                }
-
-                document.getElementById('adminName').textContent = admin.full_name || 'Admin';
-                document.getElementById('adminRole').textContent = admin.role || 'Administrator';
-                document.getElementById('adminAvatar').textContent = (admin.full_name || 'A').charAt(0).toUpperCase();
-
-            } catch (error) {
-                console.error('Auth check error:', error);
-            }
         }
 
         // ============================================================
@@ -1103,15 +1221,21 @@
         // ============================================================
         async function loadRevenueData() {
             try {
+                console.log('💰 Loading revenue data...');
+
                 // Get all completed payments
-                const { data: payments, error } = await supabase
+                const { data: payments, error } = await supabaseClient
                     .from('payments')
                     .select('*')
                     .eq('status', 'completed');
 
-                if (error) throw error;
+                if (error) {
+                    console.error('❌ Revenue error:', error);
+                    return;
+                }
 
                 const allPayments = payments || [];
+                console.log('✅ Completed payments:', allPayments.length);
 
                 // Calculate totals
                 const totalRevenue = allPayments.reduce((sum, p) => sum + (p.amount || 0), 0);
@@ -1147,8 +1271,10 @@
                 document.getElementById('averageRevenue').textContent = `KES ${avgRevenue.toLocaleString()}`;
                 document.getElementById('averageRevenueCount').textContent = `${allPayments.length} avg`;
 
+                console.log('✅ Revenue data loaded');
+
             } catch (error) {
-                console.error('Load revenue error:', error);
+                console.error('❌ Load revenue error:', error);
                 showToast('error', 'Failed to load revenue data');
             }
         }
@@ -1157,9 +1283,11 @@
         // LOAD PAYMENTS
         // ============================================================
         async function loadPayments() {
+            console.log('📋 Loading payments...');
+
             try {
                 // Build query
-                let query = supabase.from('payments').select('*', { count: 'exact' });
+                let query = supabaseClient.from('payments').select('*', { count: 'exact' });
 
                 // Apply filters
                 const startDate = document.getElementById('filterStartDate').value;
@@ -1187,12 +1315,13 @@
 
                 allPayments = data || [];
                 totalPayments = count || 0;
+                console.log('✅ Payments loaded:', allPayments.length);
 
                 renderPayments();
                 updatePagination();
 
             } catch (error) {
-                console.error('Load payments error:', error);
+                console.error('❌ Load payments error:', error);
                 document.getElementById('paymentsBody').innerHTML = `
                     <tr>
                         <td colspan="6" class="empty-state">Failed to load payments</td>
@@ -1221,17 +1350,11 @@
 
             tbody.innerHTML = allPayments.map(p => `
                 <tr>
-                    <td><strong>${p.member_name || p.membership_number || 'N/A'}</strong></td>
+                    <td><strong>${escapeHtml(p.member_name || p.membership_number || 'N/A')}</strong></td>
                     <td><strong>KES ${(p.amount || 0).toLocaleString()}</strong></td>
-                    <td>${p.payment_type || 'N/A'}</td>
-                    <td>${p.mpesa_code || p.mpesa_receipt || 'N/A'}</td>
-                    <td>${p.created_at ? new Date(p.created_at).toLocaleDateString('en-KE', {
-                        year: 'numeric',
-                        month: 'short',
-                        day: 'numeric',
-                        hour: '2-digit',
-                        minute: '2-digit'
-                    }) : 'N/A'}</td>
+                    <td>${escapeHtml(p.payment_type || 'N/A')}</td>
+                    <td>${escapeHtml(p.mpesa_code || p.mpesa_receipt || 'N/A')}</td>
+                    <td>${p.created_at ? new Date(p.created_at).toLocaleString('en-KE') : 'N/A'}</td>
                     <td><span class="status-badge ${p.status || 'pending'}">${p.status || 'Pending'}</span></td>
                 </tr>
             `).join('');
@@ -1297,39 +1420,38 @@
         // EXPORT DATA
         // ============================================================
         function exportData() {
-            showToast('info', 'Exporting data...');
-            // Implement CSV/Excel export
-            const csv = generateCSV(allPayments);
-            downloadCSV(csv, 'revenue_report.csv');
-        }
+            try {
+                const headers = ['Member', 'Amount', 'Payment Type', 'M-Pesa Code', 'Date', 'Status'];
+                const rows = allPayments.map(p => [
+                    p.member_name || p.membership_number || 'N/A',
+                    p.amount || 0,
+                    p.payment_type || 'N/A',
+                    p.mpesa_code || p.mpesa_receipt || 'N/A',
+                    p.created_at ? new Date(p.created_at).toLocaleString() : 'N/A',
+                    p.status || 'Pending'
+                ]);
 
-        function generateCSV(data) {
-            if (!data || data.length === 0) return 'No data';
+                let csv = headers.join(',') + '\n';
+                rows.forEach(row => {
+                    csv += row.map(cell => `"${String(cell).replace(/"/g, '""')}"`).join(',') + '\n';
+                });
 
-            const headers = ['Member', 'Amount', 'Payment Type', 'M-Pesa Code', 'Date', 'Status'];
-            const rows = data.map(p => [
-                p.member_name || p.membership_number || 'N/A',
-                p.amount || 0,
-                p.payment_type || 'N/A',
-                p.mpesa_code || p.mpesa_receipt || 'N/A',
-                p.created_at ? new Date(p.created_at).toLocaleString() : 'N/A',
-                p.status || 'Pending'
-            ]);
+                const blob = new Blob([csv], { type: 'text/csv' });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `revenue_report_${new Date().toISOString().split('T')[0]}.csv`;
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                URL.revokeObjectURL(url);
 
-            return [headers.join(','), ...rows.map(r => r.join(','))].join('\n');
-        }
+                showToast('success', 'CSV downloaded successfully');
 
-        function downloadCSV(csv, filename) {
-            const blob = new Blob([csv], { type: 'text/csv' });
-            const url = URL.createObjectURL(blob);
-            const a = document.createElement('a');
-            a.href = url;
-            a.download = filename;
-            document.body.appendChild(a);
-            a.click();
-            document.body.removeChild(a);
-            URL.revokeObjectURL(url);
-            showToast('success', 'CSV downloaded successfully');
+            } catch (error) {
+                console.error('Export error:', error);
+                showToast('error', 'Failed to export data');
+            }
         }
 
         // ============================================================
@@ -1390,7 +1512,9 @@
         // ============================================================
         async function handleLogout() {
             try {
-                await supabase.auth.signOut();
+                await supabaseClient.auth.signOut();
+                localStorage.removeItem('admin_user');
+                localStorage.removeItem('admin_session');
                 sessionStorage.clear();
                 window.location.href = 'admin-login.html';
             } catch (error) {
@@ -1453,6 +1577,19 @@
         })();
 
         // ============================================================
+        // HELPER FUNCTIONS
+        // ============================================================
+        function escapeHtml(value) {
+            if (!value) return '';
+            return String(value)
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;')
+                .replace(/'/g, '&#039;');
+        }
+
+        // ============================================================
         // EXPOSE FUNCTIONS
         // ============================================================
         window.refreshData = refreshData;
@@ -1464,6 +1601,8 @@
         window.clearFilters = clearFilters;
         window.setChartPeriod = setChartPeriod;
         window.exportData = exportData;
+        window.loadRevenueData = loadRevenueData;
+        window.loadPayments = loadPayments;
     </script>
 
 </body>
