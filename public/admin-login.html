@@ -1,574 +1,583 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Staff Sign In — Masika Benevolent</title>
-    <meta name="robots" content="noindex, nofollow">
-    <link rel="icon" type="image/png" href="../assets/favicon-32x32.png">
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,500;8..60,600;8..60,700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Staff Sign In — Masika Benevolent</title>
+<meta name="robots" content="noindex, nofollow">
+<link rel="icon" type="image/png" href="../assets/favicon-32x32.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,500;8..60,600;8..60,700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
 
-    <!-- =========================================================
-         SUPABASE JS
-         ========================================================= -->
-    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<!-- =========================================================
+     SUPABASE JS
+     ========================================================= -->
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 
-    <style>
-        /* ============================================================
-           LOGIN STYLES
-           ============================================================ */
+<style>
+    /* ============================================================
+       LOGIN STYLES
+       ============================================================ */
 
-        :root {
-            --primary: #0b5d3b;
-            --primary-dark: #06452c;
-            --primary-light: #e8f5ee;
-            --gold: #d4a843;
-            --gold-light: #f5e6b8;
-            --bg-light: #f0f4f2;
-            --paper: #FFFFFF;
-            --ink: #1f2933;
-            --muted: #6b7280;
-            --line: #e5e7eb;
-            --error: #dc3545;
-            --success: #198754;
-            --radius: 12px;
-        }
+    :root {
+        --primary: #0b5d3b;
+        --primary-dark: #06452c;
+        --primary-light: #e8f5ee;
+        --gold: #d4a843;
+        --gold-light: #f5e6b8;
+        --bg-light: #f0f4f2;
+        --paper: #FFFFFF;
+        --ink: #1f2933;
+        --muted: #6b7280;
+        --line: #e5e7eb;
+        --error: #dc3545;
+        --success: #198754;
+        --radius: 12px;
+    }
 
-        * { box-sizing: border-box; }
+    * { box-sizing: border-box; }
 
-        html, body {
-            margin: 0;
-            padding: 0;
-            height: 100%;
-            font-family: 'Inter', sans-serif;
-            color: var(--ink);
-            background: var(--paper);
-        }
+    html, body {
+        margin: 0;
+        padding: 0;
+        height: 100%;
+        font-family: 'Inter', sans-serif;
+        color: var(--ink);
+        background: var(--paper);
+    }
 
-        body {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            min-height: 100vh;
-        }
+    body {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        min-height: 100vh;
+    }
 
-        /* ============================================================
-           BRAND PANEL
-           ============================================================ */
+    /* ============================================================
+       BRAND PANEL
+       ============================================================ */
 
-        .brand-panel {
-            background: var(--primary);
-            color: var(--gold-light);
-            position: relative;
-            padding: 4rem 3.5rem;
-            display: flex;
-            flex-direction: column;
-            justify-content: space-between;
-            overflow: hidden;
-        }
+    .brand-panel {
+        background: var(--primary);
+        color: var(--gold-light);
+        position: relative;
+        padding: 4rem 3.5rem;
+        display: flex;
+        flex-direction: column;
+        justify-content: space-between;
+        overflow: hidden;
+    }
 
-        .brand-panel::before {
-            content: '';
-            position: absolute;
-            inset: 0;
-            background-image: repeating-linear-gradient(
-                115deg,
-                transparent 0px,
-                transparent 64px,
-                rgba(246,243,238,0.035) 64px,
-                rgba(246,243,238,0.035) 65px
-            );
-            pointer-events: none;
-        }
+    .brand-panel::before {
+        content: '';
+        position: absolute;
+        inset: 0;
+        background-image: repeating-linear-gradient(
+            115deg,
+            transparent 0px,
+            transparent 64px,
+            rgba(246,243,238,0.035) 64px,
+            rgba(246,243,238,0.035) 65px
+        );
+        pointer-events: none;
+    }
 
-        .brand-mark {
-            font-family: 'Source Serif 4', serif;
-            font-weight: 600;
-            font-size: 1.05rem;
-            letter-spacing: 0.01em;
-            position: relative;
-            z-index: 1;
-        }
+    .brand-mark {
+        font-family: 'Source Serif 4', serif;
+        font-weight: 600;
+        font-size: 1.05rem;
+        letter-spacing: 0.01em;
+        position: relative;
+        z-index: 1;
+    }
 
-        .brand-mark span {
-            color: var(--gold);
-        }
+    .brand-mark span {
+        color: var(--gold);
+    }
 
-        .brand-copy {
-            position: relative;
-            z-index: 1;
-            max-width: 30ch;
-        }
+    .brand-copy {
+        position: relative;
+        z-index: 1;
+        max-width: 30ch;
+    }
 
-        .brand-copy h1 {
-            font-family: 'Source Serif 4', serif;
-            font-weight: 500;
-            font-size: 2.4rem;
-            line-height: 1.18;
-            margin: 0 0 1.1rem;
-        }
+    .brand-copy h1 {
+        font-family: 'Source Serif 4', serif;
+        font-weight: 500;
+        font-size: 2.4rem;
+        line-height: 1.18;
+        margin: 0 0 1.1rem;
+    }
 
-        .brand-copy p {
-            font-size: 0.95rem;
-            line-height: 1.6;
-            color: rgba(246,243,238,0.68);
-            margin: 0;
-        }
+    .brand-copy p {
+        font-size: 0.95rem;
+        line-height: 1.6;
+        color: rgba(246,243,238,0.68);
+        margin: 0;
+    }
 
-        .brand-foot {
-            position: relative;
-            z-index: 1;
-            font-size: 0.8rem;
-            color: rgba(246,243,238,0.45);
-            display: flex;
-            align-items: center;
-            gap: 0.6rem;
-        }
+    .brand-foot {
+        position: relative;
+        z-index: 1;
+        font-size: 0.8rem;
+        color: rgba(246,243,238,0.45);
+        display: flex;
+        align-items: center;
+        gap: 0.6rem;
+    }
 
-        .brand-foot .dot {
-            width: 6px;
-            height: 6px;
-            border-radius: 50%;
-            background: var(--gold);
-            flex-shrink: 0;
-        }
+    .brand-foot .dot {
+        width: 6px;
+        height: 6px;
+        border-radius: 50%;
+        background: var(--gold);
+        flex-shrink: 0;
+    }
 
-        /* ============================================================
-           FORM PANEL
-           ============================================================ */
+    /* ============================================================
+       FORM PANEL
+       ============================================================ */
 
-        .form-panel {
-            background: var(--bg-light);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            padding: 2.5rem;
-        }
+    .form-panel {
+        background: var(--bg-light);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 2.5rem;
+    }
 
-        .form-card {
-            width: 100%;
-            max-width: 380px;
-        }
+    .form-card {
+        width: 100%;
+        max-width: 380px;
+    }
 
-        .form-card h2 {
-            font-family: 'Source Serif 4', serif;
-            font-weight: 600;
-            font-size: 1.6rem;
-            margin: 0 0 0.35rem;
-            color: var(--ink);
-        }
+    .form-card h2 {
+        font-family: 'Source Serif 4', serif;
+        font-weight: 600;
+        font-size: 1.6rem;
+        margin: 0 0 0.35rem;
+        color: var(--ink);
+    }
 
-        .form-card .sub {
-            font-size: 0.88rem;
-            color: var(--muted);
-            margin: 0 0 2rem;
-            line-height: 1.5;
-        }
+    .form-card .sub {
+        font-size: 0.88rem;
+        color: var(--muted);
+        margin: 0 0 2rem;
+        line-height: 1.5;
+    }
 
-        /* ============================================================
-           ALERT
-           ============================================================ */
+    /* ============================================================
+       ALERT
+       ============================================================ */
 
-        .alert {
-            display: none;
-            font-size: 0.85rem;
-            line-height: 1.45;
-            padding: 0.7rem 0.9rem;
-            border-radius: var(--radius);
-            margin-bottom: 1.2rem;
-            border: 1px solid transparent;
-        }
+    .alert {
+        display: none;
+        font-size: 0.85rem;
+        line-height: 1.45;
+        padding: 0.7rem 0.9rem;
+        border-radius: var(--radius);
+        margin-bottom: 1.2rem;
+        border: 1px solid transparent;
+    }
 
-        .alert.show { display: block; }
+    .alert.show { display: block; }
 
-        .alert.error {
-            background: rgba(179,65,58,0.08);
-            border-color: rgba(179,65,58,0.25);
-            color: var(--error);
-        }
+    .alert.error {
+        background: rgba(179,65,58,0.08);
+        border-color: rgba(179,65,58,0.25);
+        color: var(--error);
+    }
 
-        .alert.success {
-            background: rgba(63,116,85,0.08);
-            border-color: rgba(63,116,85,0.25);
-            color: var(--success);
-        }
+    .alert.success {
+        background: rgba(63,116,85,0.08);
+        border-color: rgba(63,116,85,0.25);
+        color: var(--success);
+    }
 
-        /* ============================================================
-           FORM FIELDS
-           ============================================================ */
+    .alert.info {
+        background: rgba(13,202,240,0.08);
+        border-color: rgba(13,202,240,0.25);
+        color: #055160;
+    }
 
-        .field {
-            margin-bottom: 1.15rem;
-        }
+    /* ============================================================
+       FORM FIELDS
+       ============================================================ */
 
-        .field label {
-            display: block;
-            font-size: 0.82rem;
-            font-weight: 500;
-            color: var(--ink);
-            margin-bottom: 0.4rem;
-        }
+    .field {
+        margin-bottom: 1.15rem;
+    }
 
-        .field input {
-            width: 100%;
-            padding: 0.72rem 0.85rem;
-            font-size: 0.92rem;
-            font-family: 'Inter', sans-serif;
-            border: 1px solid var(--line);
-            border-radius: var(--radius);
-            background: var(--paper);
-            color: var(--ink);
-            transition: border-color 0.15s ease, box-shadow 0.15s ease;
-        }
+    .field label {
+        display: block;
+        font-size: 0.82rem;
+        font-weight: 500;
+        color: var(--ink);
+        margin-bottom: 0.4rem;
+    }
 
-        .field input:focus {
-            outline: none;
-            border-color: var(--primary);
-            box-shadow: 0 0 0 3px rgba(11,93,59,0.12);
-        }
+    .field input {
+        width: 100%;
+        padding: 0.72rem 0.85rem;
+        font-size: 0.92rem;
+        font-family: 'Inter', sans-serif;
+        border: 1px solid var(--line);
+        border-radius: var(--radius);
+        background: var(--paper);
+        color: var(--ink);
+        transition: border-color 0.15s ease, box-shadow 0.15s ease;
+    }
 
-        .field input.error {
-            border-color: var(--error);
-            box-shadow: 0 0 0 3px rgba(179,65,58,0.1);
-        }
+    .field input:focus {
+        outline: none;
+        border-color: var(--primary);
+        box-shadow: 0 0 0 3px rgba(11,93,59,0.12);
+    }
 
-        .form-options {
-            display: flex;
-            justify-content: flex-end;
-            margin: -0.35rem 0 1.5rem;
-        }
+    .field input.error {
+        border-color: var(--error);
+        box-shadow: 0 0 0 3px rgba(179,65,58,0.1);
+    }
 
-        .form-options a {
-            font-size: 0.82rem;
-            color: var(--primary);
-            text-decoration: none;
-        }
+    .form-options {
+        display: flex;
+        justify-content: flex-end;
+        margin: -0.35rem 0 1.5rem;
+    }
 
-        .form-options a:hover {
-            text-decoration: underline;
-        }
+    .form-options a {
+        font-size: 0.82rem;
+        color: var(--primary);
+        text-decoration: none;
+    }
 
-        /* ============================================================
-           BUTTONS
-           ============================================================ */
+    .form-options a:hover {
+        text-decoration: underline;
+    }
 
-        .btn {
-            width: 100%;
-            padding: 0.82rem 1rem;
-            border: none;
-            border-radius: var(--radius);
-            background: var(--primary);
-            color: var(--paper);
-            font-family: 'Inter', sans-serif;
-            font-size: 0.92rem;
-            font-weight: 500;
-            cursor: pointer;
-            position: relative;
-            transition: background 0.15s ease;
-        }
+    /* ============================================================
+       BUTTONS
+       ============================================================ */
 
-        .btn:hover:not(:disabled) {
-            background: var(--primary-dark);
-        }
+    .btn {
+        width: 100%;
+        padding: 0.82rem 1rem;
+        border: none;
+        border-radius: var(--radius);
+        background: var(--primary);
+        color: var(--paper);
+        font-family: 'Inter', sans-serif;
+        font-size: 0.92rem;
+        font-weight: 500;
+        cursor: pointer;
+        position: relative;
+        transition: background 0.15s ease;
+    }
 
-        .btn:disabled {
-            cursor: not-allowed;
-            opacity: 0.75;
-        }
+    .btn:hover:not(:disabled) {
+        background: var(--primary-dark);
+    }
 
-        .btn.loading .btn-label {
-            visibility: hidden;
-        }
+    .btn:disabled {
+        cursor: not-allowed;
+        opacity: 0.75;
+    }
 
-        .btn.loading::after {
-            content: '';
-            position: absolute;
-            top: 50%;
-            left: 50%;
-            width: 16px;
-            height: 16px;
-            margin: -8px 0 0 -8px;
-            border: 2px solid rgba(255,255,255,0.35);
-            border-top-color: var(--paper);
-            border-radius: 50%;
-            animation: spin 0.7s linear infinite;
-        }
+    .btn.loading .btn-label {
+        visibility: hidden;
+    }
 
-        @keyframes spin {
-            to { transform: rotate(360deg); }
-        }
+    .btn.loading::after {
+        content: '';
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        width: 16px;
+        height: 16px;
+        margin: -8px 0 0 -8px;
+        border: 2px solid rgba(255,255,255,0.35);
+        border-top-color: var(--paper);
+        border-radius: 50%;
+        animation: spin 0.7s linear infinite;
+    }
 
-        .restricted-note {
-            margin-top: 1.6rem;
-            font-size: 0.78rem;
-            color: var(--muted);
-            line-height: 1.5;
-            border-top: 1px solid var(--line);
-            padding-top: 1.1rem;
-        }
+    @keyframes spin {
+        to { transform: rotate(360deg); }
+    }
 
-        :focus-visible {
-            outline: 2px solid var(--primary);
-            outline-offset: 2px;
-        }
+    .restricted-note {
+        margin-top: 1.6rem;
+        font-size: 0.78rem;
+        color: var(--muted);
+        line-height: 1.5;
+        border-top: 1px solid var(--line);
+        padding-top: 1.1rem;
+    }
 
-        /* ============================================================
-           RESPONSIVE
-           ============================================================ */
+    :focus-visible {
+        outline: 2px solid var(--primary);
+        outline-offset: 2px;
+    }
 
-        @media (max-width: 860px) {
-            body { grid-template-columns: 1fr; }
-            .brand-panel { display: none; }
-            .form-panel { padding: 1.5rem; }
-        }
+    /* ============================================================
+       RESPONSIVE
+       ============================================================ */
 
-        @media (prefers-reduced-motion: reduce) {
-            .btn.loading::after { animation: none; }
-        }
-    </style>
+    @media (max-width: 860px) {
+        body { grid-template-columns: 1fr; }
+        .brand-panel { display: none; }
+        .form-panel { padding: 1.5rem; }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+        .btn.loading::after { animation: none; }
+    }
+</style>
 </head>
 <body>
 
-    <!-- ============================================================
-    BRAND PANEL
-    ============================================================ -->
+<!-- ============================================================
+BRAND PANEL
+============================================================ -->
 
-    <div class="brand-panel">
-        <div class="brand-mark">Masika<span>Benevolent</span></div>
-        <div class="brand-copy">
-            <h1>Staff access, held to a higher standard.</h1>
-            <p>This portal manages member records, contributions, and last-expense claims. Sign-in here is limited to Super Admin accounts only.</p>
-        </div>
-        <div class="brand-foot"><span class="dot"></span>Every action on this panel is logged.</div>
+<div class="brand-panel">
+    <div class="brand-mark">Masika<span>Benevolent</span></div>
+    <div class="brand-copy">
+        <h1>Staff access, held to a higher standard.</h1>
+        <p>This portal manages member records, contributions, and last-expense claims. Sign-in here is limited to Super Admin accounts only.</p>
     </div>
+    <div class="brand-foot"><span class="dot"></span>Every action on this panel is logged.</div>
+</div>
 
-    <!-- ============================================================
-    FORM PANEL
-    ============================================================ -->
+<!-- ============================================================
+FORM PANEL
+============================================================ -->
 
-    <div class="form-panel">
-        <div class="form-card">
+<div class="form-panel">
+    <div class="form-card">
 
-            <h2>Sign in</h2>
-            <p class="sub">Use your registered staff email and password.</p>
+        <h2>Sign in</h2>
+        <p class="sub">Use your registered staff email and password.</p>
 
-            <div id="alertBox" class="alert"></div>
+        <div id="alertBox" class="alert"></div>
 
-            <form id="loginForm" novalidate>
-                <div class="field">
-                    <label for="email">Email address</label>
-                    <input type="email" id="email" name="email" autocomplete="username" placeholder="you@masikabenevolent.co.ke" required>
-                </div>
+        <form id="loginForm" novalidate>
+            <div class="field">
+                <label for="email">Email address</label>
+                <input type="email" id="email" name="email" autocomplete="username" placeholder="you@masikabenevolent.co.ke" required>
+            </div>
 
-                <div class="field">
-                    <label for="password">Password</label>
-                    <input type="password" id="password" name="password" autocomplete="current-password" placeholder="Enter your password" required>
-                </div>
+            <div class="field">
+                <label for="password">Password</label>
+                <input type="password" id="password" name="password" autocomplete="current-password" placeholder="Enter your password" required>
+            </div>
 
-                <div class="form-options">
-                    <a href="#" onclick="event.preventDefault(); showAlert('Please contact support to reset your password.', 'info');">Forgot password?</a>
-                </div>
+            <div class="form-options">
+                <a href="#" onclick="event.preventDefault(); showAlert('Please contact support to reset your password.', 'info');">Forgot password?</a>
+            </div>
 
-                <button type="submit" id="loginBtn" class="btn">
-                    <span class="btn-label">Sign In</span>
-                </button>
-            </form>
+            <button type="submit" id="loginBtn" class="btn">
+                <span class="btn-label">Sign In</span>
+            </button>
+        </form>
 
-            <p class="restricted-note">Access is restricted to Super Admin roles. Branch managers, sales agents, and auditors should use their dedicated dashboards.</p>
+        <p class="restricted-note">Access is restricted to Super Admin roles. Branch managers, sales agents, and auditors should use their dedicated dashboards.</p>
 
-        </div>
     </div>
+</div>
 
-    <!-- ============================================================
-    JAVASCRIPT - ALIGNED WITH SUPABASE
-    ============================================================ -->
+<!-- ============================================================
+JAVASCRIPT - FIXED WITH UNIQUE VARIABLE NAME
+============================================================ -->
 
-    <script>
-        // ============================================================
-        // SUPABASE CONFIGURATION
-        // ============================================================
+<script>
+    // ============================================================
+    // SUPABASE CONFIGURATION - Use unique variable name
+    // ============================================================
 
-        const SUPABASE_URL = 'https://wpxzlcdrirlcyvfiquld.supabase.co';
-        const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6IndweHpsY2RyaXJsY3l2ZmlxdWxkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODc5Mjc4MDcsImV4cCI6MjEwMzUwMzgwN30.OUP9pmPbrML_egpHflZtDfLv1_UDM37_BYjtb842xjg';
+    const MASIKA_SUPABASE_URL = 'https://wpxzlcdrirlcyvfiquld.supabase.co';
+    const MASIKA_SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6IndweHpsY2RyaXJsY3l2ZmlxdWxkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODc5Mjc4MDcsImV4cCI6MjEwMzUwMzgwN30.OUP9pmPbrML_egpHflZtDfLv1_UDM37_BYjtb842xjg';
 
-        const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+    // Create Supabase client with unique variable name
+    const masikaSupabase = window.supabase.createClient(MASIKA_SUPABASE_URL, MASIKA_SUPABASE_ANON_KEY);
 
-        // ============================================================
-        // DOM REFS
-        // ============================================================
+    console.log('🚀 Admin Login loaded');
 
-        const form = document.getElementById('loginForm');
-        const emailInput = document.getElementById('email');
-        const passwordInput = document.getElementById('password');
-        const loginBtn = document.getElementById('loginBtn');
-        const alertBox = document.getElementById('alertBox');
+    // ============================================================
+    // DOM REFS
+    // ============================================================
 
-        // ============================================================
-        // CHECK IF ALREADY LOGGED IN
-        // ============================================================
+    const form = document.getElementById('loginForm');
+    const emailInput = document.getElementById('email');
+    const passwordInput = document.getElementById('password');
+    const loginBtn = document.getElementById('loginBtn');
+    const alertBox = document.getElementById('alertBox');
 
-        document.addEventListener('DOMContentLoaded', async function() {
-            try {
-                const { data: { session }, error } = await supabase.auth.getSession();
+    // ============================================================
+    // CHECK IF ALREADY LOGGED IN
+    // ============================================================
 
-                if (session) {
-                    // Check if user is admin
-                    const { data: admin, error: adminError } = await supabase
-                        .from('admins')
-                        .select('*')
-                        .eq('id', session.user.id)
-                        .single();
+    document.addEventListener('DOMContentLoaded', async function() {
+        try {
+            const { data: { session }, error } = await masikaSupabase.auth.getSession();
 
-                    if (!adminError && admin) {
-                        window.location.href = 'admin-dashboard.html';
-                        return;
-                    }
-                }
-            } catch (error) {
-                console.error('Session check error:', error);
-            }
-
-            // Focus on email field
-            emailInput.focus();
-        });
-
-        // ============================================================
-        // FORM SUBMISSION
-        // ============================================================
-
-        form.addEventListener('submit', async function(e) {
-            e.preventDefault();
-
-            const email = emailInput.value.trim();
-            const password = passwordInput.value;
-
-            // Validate
-            if (!email || !password) {
-                showAlert('Please enter both email and password.', 'error');
-                return;
-            }
-
-            if (!isValidEmail(email)) {
-                showAlert('Please enter a valid email address.', 'error');
-                return;
-            }
-
-            // Show loading state
-            setLoading(true);
-            hideAlert();
-
-            try {
-                // Sign in with Supabase
-                const { data, error } = await supabase.auth.signInWithPassword({
-                    email: email,
-                    password: password
-                });
-
-                if (error) {
-                    console.error('Login error:', error);
-                    showAlert(error.message || 'Invalid email or password.', 'error');
-                    setLoading(false);
-                    return;
-                }
-
-                if (!data.user) {
-                    showAlert('Invalid credentials. Please try again.', 'error');
-                    setLoading(false);
-                    return;
-                }
-
-                // Verify admin role
-                const { data: admin, error: adminError } = await supabase
+            if (session) {
+                // Check if user is admin
+                const { data: admin, error: adminError } = await masikaSupabase
                     .from('admins')
                     .select('*')
-                    .eq('id', data.user.id)
+                    .eq('id', session.user.id)
                     .single();
 
-                if (adminError || !admin) {
-                    showAlert('Access denied. Admin privileges required.', 'error');
-                    setLoading(false);
-                    // Sign out if not admin
-                    await supabase.auth.signOut();
+                if (!adminError && admin) {
+                    window.location.href = 'admin-dashboard.html';
                     return;
                 }
+            }
+        } catch (error) {
+            console.error('Session check error:', error);
+        }
 
-                // Store admin data
-                localStorage.setItem('admin_user', JSON.stringify(admin));
-                localStorage.setItem('admin_session', JSON.stringify(data.session));
+        // Focus on email field
+        emailInput.focus();
+    });
 
-                // Show success message
-                showAlert('Login successful! Redirecting to dashboard...', 'success');
+    // ============================================================
+    // FORM SUBMISSION
+    // ============================================================
 
-                // Redirect to admin dashboard
-                setTimeout(() => {
-                    window.location.href = 'admin-dashboard.html';
-                }, 1000);
+    form.addEventListener('submit', async function(e) {
+        e.preventDefault();
 
-            } catch (error) {
+        const email = emailInput.value.trim();
+        const password = passwordInput.value;
+
+        // Validate
+        if (!email || !password) {
+            showAlert('Please enter both email and password.', 'error');
+            return;
+        }
+
+        if (!isValidEmail(email)) {
+            showAlert('Please enter a valid email address.', 'error');
+            return;
+        }
+
+        // Show loading state
+        setLoading(true);
+        hideAlert();
+
+        try {
+            // Sign in with Supabase
+            const { data, error } = await masikaSupabase.auth.signInWithPassword({
+                email: email,
+                password: password
+            });
+
+            if (error) {
                 console.error('Login error:', error);
-                showAlert('An unexpected error occurred. Please try again.', 'error');
+                showAlert(error.message || 'Invalid email or password.', 'error');
                 setLoading(false);
+                return;
             }
-        });
 
-        // ============================================================
-        // KEYBOARD SHORTCUTS
-        // ============================================================
-
-        // Enter key to submit
-        form.addEventListener('keypress', function(e) {
-            if (e.key === 'Enter') {
-                e.preventDefault();
-                form.dispatchEvent(new Event('submit'));
+            if (!data.user) {
+                showAlert('Invalid credentials. Please try again.', 'error');
+                setLoading(false);
+                return;
             }
-        });
 
-        // ============================================================
-        // HELPER FUNCTIONS
-        // ============================================================
+            // Verify admin role
+            const { data: admin, error: adminError } = await masikaSupabase
+                .from('admins')
+                .select('*')
+                .eq('id', data.user.id)
+                .single();
 
-        function isValidEmail(email) {
-            const regex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-            return regex.test(email);
-        }
-
-        function showAlert(message, type = 'error') {
-            alertBox.textContent = message;
-            alertBox.className = `alert show ${type}`;
-            // Clear after 8 seconds
-            clearTimeout(alertBox._timeout);
-            alertBox._timeout = setTimeout(() => {
-                hideAlert();
-            }, 8000);
-        }
-
-        function hideAlert() {
-            alertBox.className = 'alert';
-            alertBox.textContent = '';
-        }
-
-        function setLoading(loading) {
-            if (loading) {
-                loginBtn.disabled = true;
-                loginBtn.classList.add('loading');
-            } else {
-                loginBtn.disabled = false;
-                loginBtn.classList.remove('loading');
+            if (adminError || !admin) {
+                showAlert('Access denied. Admin privileges required.', 'error');
+                setLoading(false);
+                // Sign out if not admin
+                await masikaSupabase.auth.signOut();
+                return;
             }
-        }
 
-        // Clear error state on input
-        emailInput.addEventListener('input', function() {
-            this.classList.remove('error');
+            // Store admin data
+            localStorage.setItem('masika_admin_user', JSON.stringify(admin));
+            localStorage.setItem('masika_admin_session', JSON.stringify(data.session));
+
+            // Show success message
+            showAlert('Login successful! Redirecting to dashboard...', 'success');
+
+            // Redirect to admin dashboard
+            setTimeout(() => {
+                window.location.href = 'admin-dashboard.html';
+            }, 1000);
+
+        } catch (error) {
+            console.error('Login error:', error);
+            showAlert('An unexpected error occurred. Please try again.', 'error');
+            setLoading(false);
+        }
+    });
+
+    // ============================================================
+    // KEYBOARD SHORTCUTS
+    // ============================================================
+
+    // Enter key to submit
+    form.addEventListener('keypress', function(e) {
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            form.dispatchEvent(new Event('submit'));
+        }
+    });
+
+    // ============================================================
+    // HELPER FUNCTIONS
+    // ============================================================
+
+    function isValidEmail(email) {
+        const regex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+        return regex.test(email);
+    }
+
+    function showAlert(message, type = 'error') {
+        alertBox.textContent = message;
+        alertBox.className = `alert show ${type}`;
+        // Clear after 8 seconds
+        clearTimeout(alertBox._timeout);
+        alertBox._timeout = setTimeout(() => {
             hideAlert();
-        });
+        }, 8000);
+    }
 
-        passwordInput.addEventListener('input', function() {
-            this.classList.remove('error');
-            hideAlert();
-        });
-    </script>
+    function hideAlert() {
+        alertBox.className = 'alert';
+        alertBox.textContent = '';
+    }
+
+    function setLoading(loading) {
+        if (loading) {
+            loginBtn.disabled = true;
+            loginBtn.classList.add('loading');
+        } else {
+            loginBtn.disabled = false;
+            loginBtn.classList.remove('loading');
+        }
+    }
+
+    // Clear error state on input
+    emailInput.addEventListener('input', function() {
+        this.classList.remove('error');
+        hideAlert();
+    });
+
+    passwordInput.addEventListener('input', function() {
+        this.classList.remove('error');
+        hideAlert();
+    });
+</script>
 
 </body>
 </html>
