@@ -1100,7 +1100,7 @@
     <div class="toast-container" id="toastContainer"></div>
 
     <!-- ============================================================
-    JAVASCRIPT - ALIGNED WITH SUPABASE
+    JAVASCRIPT - COMPLETE FIXED VERSION
     ============================================================ -->
     <script>
         // ============================================================
@@ -1108,9 +1108,13 @@
         // ============================================================
 
         const SUPABASE_URL = 'https://wpxzlcdrirlcyvfiquld.supabase.co';
-        const SUPABASE_ANON_KEY = 'YOUR_SUPABASE_ANON_KEY';
+        const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6IndweHpsY2RyaXJsY3l2ZmlxdWxkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODc5Mjc4MDcsImV4cCI6MjEwMzUwMzgwN30.OUP9pmPbrML_egpHflZtDfLv1_UDM37_BYjtb842xjg';
 
-        const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+        console.log('🚀 Agents script loaded');
+        console.log('📡 Supabase URL:', SUPABASE_URL);
+
+        // Use unique variable name
+        const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
         // ============================================================
         // STATE
@@ -1118,68 +1122,158 @@
 
         let allAgents = [];
         let allBranches = [];
-        let currentUser = null;
+        let currentStaff = null;
 
         // ============================================================
         // INITIALIZATION
         // ============================================================
 
         document.addEventListener('DOMContentLoaded', async function() {
-            await checkAuth();
-            await loadAdminProfile();
-            await loadBranches();
-            await loadAgents();
-            setupSidebarToggle();
-            updateClock();
+            console.log('📄 DOM loaded');
+            
+            // Check localStorage first
+            const storedStaff = localStorage.getItem('admin_user');
+            if (storedStaff) {
+                try {
+                    currentStaff = JSON.parse(storedStaff);
+                    console.log('✅ Staff loaded from localStorage:', currentStaff.full_name);
+                    updateAdminUI(currentStaff);
+                    await loadBranches();
+                    await loadAgents();
+                    setupSidebarToggle();
+                    updateClock();
+                    return;
+                } catch (e) {
+                    console.warn('⚠️ Invalid stored staff data');
+                }
+            }
+
+            const authResult = await checkAuth();
+            console.log('✅ Auth result:', authResult);
+            
+            if (authResult) {
+                await loadBranches();
+                await loadAgents();
+                setupSidebarToggle();
+                updateClock();
+            }
         });
 
         // ============================================================
-        // AUTH CHECK
+        // AUTH CHECK - Using Staff Table
         // ============================================================
 
         async function checkAuth() {
+            console.log('🔐 Checking authentication...');
+
             try {
-                const { data: { session }, error } = await supabase.auth.getSession();
+                const { data: { session }, error } = await supabaseClient.auth.getSession();
 
-                if (error || !session) {
+                if (error) {
+                    console.error('❌ Session error:', error);
                     window.location.href = 'admin-login.html';
-                    return;
+                    return false;
                 }
 
-                const { data: admin, error: adminError } = await supabase
-                    .from('admins')
-                    .select('*')
-                    .eq('id', session.user.id)
-                    .single();
-
-                if (adminError || !admin) {
+                if (!session) {
+                    console.log('⚠️ No session found');
                     window.location.href = 'admin-login.html';
-                    return;
+                    return false;
                 }
 
-                currentUser = admin;
+                console.log('✅ User authenticated:', session.user.email);
+
+                // Look up staff record with role
+                const { data: staff, error: staffError } = await supabaseClient
+                    .from('staff')
+                    .select(`
+                        id,
+                        auth_user_id,
+                        full_name,
+                        email,
+                        phone,
+                        role_id,
+                        branch_id,
+                        status,
+                        sales_code,
+                        roles:role_id (
+                            id,
+                            role_code,
+                            role_name,
+                            is_active
+                        )
+                    `)
+                    .eq('auth_user_id', session.user.id)
+                    .maybeSingle();
+
+                if (staffError) {
+                    console.error('❌ Staff lookup error:', staffError);
+                    // Check admins table as fallback
+                    const { data: admin, error: adminError } = await supabaseClient
+                        .from('admins')
+                        .select('*')
+                        .eq('id', session.user.id)
+                        .single();
+
+                    if (admin) {
+                        console.log('✅ Found in admins table (legacy)');
+                        currentStaff = admin;
+                        localStorage.setItem('admin_user', JSON.stringify(admin));
+                        updateAdminUI(admin);
+                        return true;
+                    }
+
+                    window.location.href = 'admin-login.html';
+                    return false;
+                }
+
+                if (!staff) {
+                    console.log('⚠️ No staff record found');
+                    window.location.href = 'admin-login.html';
+                    return false;
+                }
+
+                // Check if Super Admin
+                const roleCode = staff.roles?.role_code;
+                const roleActive = staff.roles?.is_active === true;
+                const staffActive = staff.status === 'ACTIVE';
+
+                const isAdmin = roleCode === 'SUPER_ADMIN' || roleCode === 'ADMIN';
+
+                if (!isAdmin || !roleActive || !staffActive) {
+                    console.warn('⚠️ Not authorized:', { roleCode, roleActive, staffActive });
+                    await supabaseClient.auth.signOut();
+                    window.location.href = 'admin-login.html';
+                    return false;
+                }
+
+                console.log('✅ Admin verified:', staff.full_name);
+                currentStaff = staff;
+
+                localStorage.setItem('admin_user', JSON.stringify(staff));
+                localStorage.setItem('admin_session', JSON.stringify(session));
+
+                updateAdminUI(staff);
+                return true;
 
             } catch (error) {
-                console.error('Auth check error:', error);
-                window.location.href = 'admin-login.html';
+                console.error('❌ Auth check error:', error);
+                showToast('error', 'Authentication error');
+                return false;
             }
         }
 
         // ============================================================
-        // ADMIN PROFILE
+        // UPDATE ADMIN UI
         // ============================================================
 
-        async function loadAdminProfile() {
-            try {
-                if (!currentUser) return;
+        function updateAdminUI(staff) {
+            const name = staff.full_name || staff.name || 'Admin';
+            const role = staff.roles?.role_name || staff.role || 'Administrator';
 
-                const name = currentUser.full_name || 'Admin';
-                document.getElementById('adminName').textContent = name;
-                document.getElementById('adminAvatar').textContent = name.charAt(0).toUpperCase();
-
-            } catch (error) {
-                console.error('Load admin profile error:', error);
-            }
+            document.getElementById('adminName').textContent = name;
+            document.getElementById('adminRole').textContent = role;
+            document.getElementById('adminAvatar').textContent = name.charAt(0).toUpperCase();
         }
 
         // ============================================================
@@ -1197,7 +1291,7 @@
             if (refreshIcon) refreshIcon.classList.add('fa-spin');
 
             try {
-                const { data, error } = await supabase
+                const { data, error } = await supabaseClient
                     .from('branches')
                     .select('id, branch_name, branch_code, is_active')
                     .order('branch_name', { ascending: true });
@@ -1268,7 +1362,7 @@
             `;
 
             try {
-                const { data, error } = await supabase
+                const { data, error } = await supabaseClient
                     .from('sales_agents')
                     .select('*')
                     .order('created_at', { ascending: false });
@@ -1509,7 +1603,7 @@
                     status: 'active'
                 };
 
-                const { data, error } = await supabase
+                const { data, error } = await supabaseClient
                     .from('sales_agents')
                     .insert(agentData)
                     .select()
@@ -1555,9 +1649,12 @@
             if (!confirm(confirmMsg)) return;
 
             try {
-                const { error } = await supabase
+                const { error } = await supabaseClient
                     .from('sales_agents')
-                    .update({ status: newStatus, updated_at: new Date().toISOString() })
+                    .update({ 
+                        status: newStatus, 
+                        updated_at: new Date().toISOString() 
+                    })
                     .eq('id', agentId);
 
                 if (error) throw error;
@@ -1706,7 +1803,9 @@
 
         async function handleLogout() {
             try {
-                await supabase.auth.signOut();
+                await supabaseClient.auth.signOut();
+                localStorage.removeItem('admin_user');
+                localStorage.removeItem('admin_session');
                 sessionStorage.clear();
                 window.location.href = 'admin-login.html';
             } catch (error) {
