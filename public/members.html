@@ -6,22 +6,336 @@
     <title>Members | Masika Benevolent</title>
     <meta name="description" content="Manage Masika Benevolent members.">
 
-    <!-- Supabase -->
+    <!-- =========================================================
+         SUPABASE & EXTERNAL JS
+         ========================================================= -->
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-
-    <link rel="stylesheet" href="css/app.css">
-    <link rel="icon" type="image/png" href="assets/favicon.png">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
 
     <style>
-        .member-actions {
+        /* ============================================================
+           COMPLETE STYLES
+           ============================================================ */
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        :root {
+            --primary: #0b5d3b;
+            --primary-dark: #06452c;
+            --primary-light: #e8f5ee;
+            --gold: #d4a843;
+            --gold-light: #f5e6b8;
+            --danger: #dc3545;
+            --danger-light: #fce4e8;
+            --success: #198754;
+            --success-light: #d4edda;
+            --warning: #ffc107;
+            --warning-light: #fff3cd;
+            --info: #0dcaf0;
+            --info-light: #d1f0f9;
+            --text: #1f2933;
+            --text-light: #6b7280;
+            --text-lighter: #9ca3af;
+            --white: #ffffff;
+            --gray-50: #f9fafb;
+            --gray-100: #f3f4f6;
+            --gray-200: #e5e7eb;
+            --gray-300: #d1d5db;
+            --gray-400: #9ca3af;
+            --shadow: 0 2px 12px rgba(0,0,0,0.08);
+            --shadow-hover: 0 4px 24px rgba(0,0,0,0.12);
+            --radius: 12px;
+            --radius-lg: 16px;
+            --transition: all 0.3s ease;
+        }
+
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif;
+            background: #f0f4f2;
+            color: var(--text);
+            min-height: 100vh;
+        }
+
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        ::-webkit-scrollbar-track { background: var(--gray-100); border-radius: 10px; }
+        ::-webkit-scrollbar-thumb { background: var(--gray-300); border-radius: 10px; }
+        ::-webkit-scrollbar-thumb:hover { background: var(--gray-400); }
+
+        /* ============================================================
+           TOPBAR
+           ============================================================ */
+
+        .topbar {
+            background: var(--primary);
+            color: white;
+            padding: 16px 32px;
             display: flex;
-            gap: 6px;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 12px;
+            position: sticky;
+            top: 0;
+            z-index: 100;
+            box-shadow: 0 2px 12px rgba(0,0,0,0.1);
+        }
+
+        .topbar .brand {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            text-decoration: none;
+            color: white;
+        }
+
+        .topbar .brand .brand-logo {
+            width: 44px;
+            height: 44px;
+            background: var(--gold);
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 900;
+            font-size: 20px;
+            color: var(--white);
+        }
+
+        .topbar .brand .brand-text strong {
+            display: block;
+            font-size: 18px;
+            font-weight: 800;
+        }
+
+        .topbar .brand .brand-text span {
+            font-size: 12px;
+            opacity: 0.7;
+            font-weight: 400;
+        }
+
+        .topbar .top-actions {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+            align-items: center;
+        }
+
+        /* ============================================================
+           BUTTONS
+           ============================================================ */
+
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 8px 16px;
+            border: none;
+            border-radius: 8px;
+            font-weight: 600;
+            font-size: 13px;
+            cursor: pointer;
+            transition: var(--transition);
+            font-family: inherit;
+            text-decoration: none;
+        }
+
+        .btn-primary {
+            background: var(--primary);
+            color: white;
+        }
+        .btn-primary:hover {
+            background: var(--primary-dark);
+            transform: translateY(-2px);
+            box-shadow: 0 4px 16px rgba(11, 93, 59, 0.3);
+        }
+
+        .btn-success {
+            background: var(--success);
+            color: white;
+        }
+        .btn-success:hover {
+            background: #157347;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 16px rgba(25, 135, 84, 0.3);
+        }
+
+        .btn-danger {
+            background: var(--danger);
+            color: white;
+        }
+        .btn-danger:hover {
+            background: #c82333;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 16px rgba(220, 53, 69, 0.3);
+        }
+
+        .btn-secondary {
+            background: var(--gray-200);
+            color: var(--text);
+        }
+        .btn-secondary:hover {
+            background: var(--gray-300);
+            transform: translateY(-2px);
+        }
+
+        .btn-gold {
+            background: var(--gold);
+            color: white;
+        }
+        .btn-gold:hover {
+            background: #c49a3a;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 16px rgba(212, 168, 67, 0.3);
+        }
+
+        .btn-light {
+            background: rgba(255,255,255,0.15);
+            color: white;
+        }
+        .btn-light:hover {
+            background: rgba(255,255,255,0.25);
+        }
+
+        .btn-outline-light {
+            background: transparent;
+            border: 2px solid rgba(255,255,255,0.2);
+            color: white;
+        }
+        .btn-outline-light:hover {
+            background: rgba(255,255,255,0.1);
+            border-color: rgba(255,255,255,0.4);
+        }
+
+        .btn-sm {
+            padding: 4px 12px;
+            font-size: 12px;
+            border-radius: 6px;
+        }
+
+        /* ============================================================
+           CONTAINER
+           ============================================================ */
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 24px 32px;
+        }
+
+        /* ============================================================
+           PAGE HEADER
+           ============================================================ */
+
+        .page-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 16px;
+            margin-bottom: 24px;
+        }
+
+        .page-header h1 {
+            font-size: 28px;
+            font-weight: 800;
+            letter-spacing: -0.5px;
+        }
+
+        .page-header h1 small {
+            font-size: 14px;
+            font-weight: 400;
+            color: var(--text-light);
+            display: block;
+            margin-top: 2px;
+        }
+
+        .page-header .actions {
+            display: flex;
+            gap: 10px;
             flex-wrap: wrap;
         }
 
-        .member-actions .btn {
-            padding: 4px 10px;
-            font-size: 12px;
+        /* ============================================================
+           CARDS
+           ============================================================ */
+
+        .card {
+            background: white;
+            border-radius: var(--radius);
+            padding: 24px;
+            box-shadow: var(--shadow);
+            margin-bottom: 24px;
+            transition: var(--transition);
+        }
+
+        .card:hover {
+            box-shadow: var(--shadow-hover);
+        }
+
+        .card-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 16px;
+            padding-bottom: 12px;
+            border-bottom: 1px solid var(--gray-200);
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+
+        .card-header h2 {
+            font-size: 18px;
+            font-weight: 700;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        /* ============================================================
+           ALERT
+           ============================================================ */
+
+        .alert {
+            display: none;
+            padding: 12px 16px;
+            border-radius: 8px;
+            font-size: 14px;
+            margin-bottom: 20px;
+        }
+
+        .alert.show { display: block; }
+        .alert.error { background: var(--danger-light); color: var(--danger); }
+        .alert.info { background: var(--info-light); color: #055160; }
+        .alert.success { background: var(--success-light); color: var(--success); }
+        .alert.warning { background: var(--warning-light); color: #856404; }
+
+        /* ============================================================
+           SEARCH & FILTERS
+           ============================================================ */
+
+        .search-bar {
+            display: flex;
+            gap: 12px;
+            flex-wrap: wrap;
+            align-items: center;
+        }
+
+        .search-bar .form-control {
+            padding: 10px 14px;
+            border: 2px solid var(--gray-200);
+            border-radius: 8px;
+            font-size: 14px;
+            font-family: inherit;
+            transition: var(--transition);
+            flex: 1;
+            min-width: 200px;
+        }
+
+        .search-bar .form-control:focus {
+            outline: none;
+            border-color: var(--primary);
+            box-shadow: 0 0 0 4px rgba(11, 93, 59, 0.1);
         }
 
         .filter-group {
@@ -32,48 +346,375 @@
         }
 
         .filter-group .form-control {
-            width: auto;
-            min-width: 150px;
+            padding: 10px 14px;
+            border: 2px solid var(--gray-200);
+            border-radius: 8px;
+            font-size: 14px;
+            font-family: inherit;
+            transition: var(--transition);
+            min-width: 140px;
+            background: white;
         }
 
+        .filter-group .form-control:focus {
+            outline: none;
+            border-color: var(--primary);
+            box-shadow: 0 0 0 4px rgba(11, 93, 59, 0.1);
+        }
+
+        /* ============================================================
+           STATS GRID
+           ============================================================ */
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 16px;
+            margin-bottom: 24px;
+        }
+
+        .stat-card {
+            background: white;
+            border-radius: var(--radius);
+            padding: 20px 24px;
+            box-shadow: var(--shadow);
+            transition: var(--transition);
+            border-left: 4px solid var(--primary);
+        }
+
+        .stat-card:hover {
+            box-shadow: var(--shadow-hover);
+            transform: translateY(-2px);
+        }
+
+        .stat-card .stat-icon {
+            font-size: 22px;
+            display: block;
+            margin-bottom: 4px;
+        }
+
+        .stat-card .stat-value {
+            font-size: 30px;
+            font-weight: 800;
+            color: var(--text);
+            letter-spacing: -0.5px;
+        }
+
+        .stat-card .stat-label {
+            font-size: 13px;
+            color: var(--text-light);
+            font-weight: 500;
+        }
+
+        .stat-card.success { border-left-color: var(--success); }
+        .stat-card.gold { border-left-color: var(--gold); }
+        .stat-card.blue { border-left-color: var(--info); }
+
+        /* ============================================================
+           TABLE
+           ============================================================ */
+
+        .table-wrapper {
+            overflow-x: auto;
+            border-radius: 8px;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 14px;
+        }
+
+        table thead {
+            background: var(--gray-50);
+        }
+
+        table thead th {
+            padding: 10px 14px;
+            text-align: left;
+            font-weight: 600;
+            font-size: 12px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            color: var(--text-light);
+            white-space: nowrap;
+        }
+
+        table tbody td {
+            padding: 10px 14px;
+            border-bottom: 1px solid var(--gray-100);
+            vertical-align: middle;
+        }
+
+        table tbody tr {
+            transition: var(--transition);
+        }
+
+        table tbody tr:hover {
+            background: var(--gray-50);
+        }
+
+        table tbody tr:last-child td {
+            border-bottom: none;
+        }
+
+        /* ============================================================
+           STATUS BADGES
+           ============================================================ */
+
+        .status-badge {
+            display: inline-block;
+            padding: 3px 12px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: 600;
+            white-space: nowrap;
+        }
+
+        .status-badge.active { background: var(--success-light); color: var(--success); }
+        .status-badge.inactive { background: var(--danger-light); color: var(--danger); }
+        .status-badge.pending { background: var(--warning-light); color: #856404; }
+        .status-badge.comfort { background: #e8f5e9; color: #2e7d32; }
+        .status-badge.dignity { background: #e3f2fd; color: #0d47a1; }
+        .status-badge.wazazi { background: #f3e5f5; color: #4a148c; }
+
+        /* ============================================================
+           PAGINATION
+           ============================================================ */
+
+        .pagination {
+            display: flex;
+            gap: 4px;
+            justify-content: center;
+            margin-top: 20px;
+            flex-wrap: wrap;
+        }
+
+        .pagination .page-item {
+            display: inline-block;
+        }
+
+        .pagination .page-link {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            min-width: 36px;
+            height: 36px;
+            padding: 0 10px;
+            border: 2px solid var(--gray-200);
+            border-radius: 8px;
+            color: var(--text);
+            text-decoration: none;
+            font-weight: 600;
+            font-size: 14px;
+            transition: var(--transition);
+        }
+
+        .pagination .page-link:hover {
+            border-color: var(--primary);
+            color: var(--primary);
+            background: var(--primary-light);
+        }
+
+        .pagination .page-link.active {
+            background: var(--primary);
+            border-color: var(--primary);
+            color: white;
+        }
+
+        .pagination .page-link.disabled {
+            opacity: 0.4;
+            cursor: not-allowed;
+            pointer-events: none;
+        }
+
+        /* ============================================================
+           EMPTY STATE
+           ============================================================ */
+
+        .empty-state {
+            text-align: center;
+            padding: 60px 20px;
+            color: var(--text-light);
+        }
+
+        .empty-state i {
+            font-size: 48px;
+            color: var(--gray-300);
+            display: block;
+            margin-bottom: 16px;
+        }
+
+        .empty-state h3 {
+            font-size: 20px;
+            margin-bottom: 8px;
+            color: var(--text);
+        }
+
+        .empty-state p {
+            font-size: 14px;
+            margin-bottom: 16px;
+        }
+
+        /* ============================================================
+           LOADING
+           ============================================================ */
+
+        .loading-spinner {
+            text-align: center;
+            padding: 40px;
+        }
+
+        .loading-spinner .spinner {
+            display: inline-block;
+            width: 40px;
+            height: 40px;
+            border: 4px solid var(--gray-200);
+            border-top-color: var(--primary);
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        .loading-spinner p {
+            color: var(--text-light);
+            margin-top: 12px;
+        }
+
+        /* ============================================================
+           RESPONSIVE
+           ============================================================ */
+
         @media (max-width: 768px) {
-            .filter-group {
+            .topbar {
+                padding: 12px 16px;
+            }
+            .topbar .brand .brand-text strong {
+                font-size: 15px;
+            }
+            .container {
+                padding: 16px;
+            }
+            .page-header {
                 flex-direction: column;
                 align-items: stretch;
+            }
+            .page-header .actions {
+                justify-content: stretch;
+            }
+            .page-header .actions .btn {
+                flex: 1;
+                justify-content: center;
+            }
+            .search-bar {
+                flex-direction: column;
+            }
+            .search-bar .form-control {
+                width: 100%;
+            }
+            .filter-group {
+                flex-direction: column;
+                width: 100%;
             }
             .filter-group .form-control {
                 width: 100%;
             }
+            .stats-grid {
+                grid-template-columns: 1fr 1fr;
+            }
+            .top-actions .btn {
+                font-size: 12px;
+                padding: 6px 12px;
+            }
+            .member-actions {
+                flex-direction: column;
+            }
+            .member-actions .btn {
+                width: 100%;
+                justify-content: center;
+            }
+        }
+
+        @media (max-width: 480px) {
+            .stats-grid {
+                grid-template-columns: 1fr;
+            }
+            .top-actions {
+                width: 100%;
+                justify-content: center;
+            }
+            .top-actions .btn {
+                font-size: 11px;
+                padding: 4px 10px;
+            }
+        }
+
+        /* ============================================================
+           MEMBER ACTIONS
+           ============================================================ */
+
+        .member-actions {
+            display: flex;
+            gap: 6px;
+            flex-wrap: wrap;
+        }
+
+        .member-actions .btn {
+            padding: 4px 10px;
+            font-size: 12px;
         }
     </style>
 </head>
 <body>
 
-    <!-- HEADER -->
+    <!-- ============================================================
+    TOPBAR
+    ============================================================ -->
+
     <header class="topbar">
-        <a href="dashboard.html" class="brand">
+        <a href="admin-dashboard.html" class="brand">
             <div class="brand-logo">MB</div>
             <div class="brand-text">
                 <strong>Masika Benevolent</strong>
-                <span>Staff Dashboard</span>
+                <span>Admin Panel</span>
             </div>
         </a>
 
         <div class="top-actions">
-            <a href="dashboard.html" class="btn btn-outline-light">← Dashboard</a>
-            <a href="members.html" class="btn btn-light">Members</a>
-            <a href="payments.html" class="btn btn-outline-light">Payments</a>
-            <a href="reports.html" class="btn btn-outline-light">Reports</a>
-            <button id="logoutBtn" class="btn btn-danger">Logout</button>
+            <a href="admin-dashboard.html" class="btn btn-outline-light">
+                <i class="fas fa-chart-pie"></i> Dashboard
+            </a>
+            <a href="admin-members.html" class="btn btn-light">
+                <i class="fas fa-users"></i> Members
+            </a>
+            <a href="admin-collectpayments.html" class="btn btn-outline-light">
+                <i class="fas fa-credit-card"></i> Payments
+            </a>
+            <a href="admin-reports.html" class="btn btn-outline-light">
+                <i class="fas fa-file-alt"></i> Reports
+            </a>
+            <button id="logoutBtn" class="btn btn-danger">
+                <i class="fas fa-sign-out-alt"></i> Logout
+            </button>
         </div>
     </header>
 
-    <!-- MAIN CONTENT -->
+    <!-- ============================================================
+    MAIN CONTENT
+    ============================================================ -->
+
     <main class="container">
 
+        <!-- Page Header -->
         <div class="page-header">
             <div>
-                <h1>Members <small>Manage all registered members</small></h1>
+                <h1>
+                    Members
+                    <small>Manage all registered members</small>
+                </h1>
             </div>
             <div class="actions">
                 <a href="register.html" class="btn btn-success">
@@ -81,6 +722,9 @@
                 </a>
                 <button onclick="exportMembers()" class="btn btn-secondary">
                     <i class="fas fa-download"></i> Export
+                </button>
+                <button onclick="refreshData()" class="btn btn-primary">
+                    <i class="fas fa-sync"></i> Refresh
                 </button>
             </div>
         </div>
@@ -91,7 +735,7 @@
         <!-- Search & Filters -->
         <div class="card">
             <div class="search-bar">
-                <input type="text" id="searchInput" class="form-control" placeholder="Search by name, phone, ID, or member number..." oninput="loadMembers()">
+                <input type="text" id="searchInput" class="form-control" placeholder="Search by name, phone, ID, or member number..." oninput="handleSearch()">
                 <div class="filter-group">
                     <select id="planFilter" class="form-control" onchange="loadMembers()">
                         <option value="">All Plans</option>
@@ -104,7 +748,9 @@
                         <option value="active">Active</option>
                         <option value="inactive">Inactive</option>
                     </select>
-                    <button onclick="resetFilters()" class="btn btn-secondary">Reset</button>
+                    <button onclick="resetFilters()" class="btn btn-secondary">
+                        <i class="fas fa-undo"></i> Reset
+                    </button>
                 </div>
             </div>
         </div>
@@ -136,20 +782,14 @@
         <!-- Members Table -->
         <div class="card">
             <div class="card-header">
-                <h2><i class="fas fa-users"></i> Member List</h2>
+                <h2><i class="fas fa-users" style="color:var(--primary);"></i> Member List</h2>
                 <span id="resultCount" style="font-size:14px;color:var(--text-light);">0 members</span>
             </div>
 
-            <div id="loadingSpinner" style="text-align:center;padding:40px;">
-                <div style="display:inline-block;width:40px;height:40px;border:4px solid var(--border);border-top-color:var(--primary);border-radius:50%;animation:spin 0.8s linear infinite;"></div>
-                <p style="margin-top:12px;color:var(--text-light);">Loading members...</p>
+            <div id="loadingSpinner" class="loading-spinner">
+                <div class="spinner"></div>
+                <p>Loading members...</p>
             </div>
-
-            <style>
-                @keyframes spin {
-                    to { transform: rotate(360deg); }
-                }
-            </style>
 
             <div id="membersContainer" style="display:none;">
                 <div class="table-wrapper">
@@ -190,10 +830,16 @@
     JAVASCRIPT
     ============================================================ -->
 
-    <script src="js/supabase-config.js"></script>
-    <script src="js/auth.js"></script>
-
     <script>
+        // ============================================================
+        // SUPABASE CONFIG
+        // ============================================================
+
+        const SUPABASE_URL = 'https://wpxzlcdrirlcyvfiquld.supabase.co';
+        const SUPABASE_ANON_KEY = 'YOUR_SUPABASE_ANON_KEY';
+
+        const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
         // ============================================================
         // STATE
         // ============================================================
@@ -201,6 +847,7 @@
         let currentPage = 1;
         const pageSize = 20;
         let totalRecords = 0;
+        let searchTimeout = null;
 
         // ============================================================
         // DOM REFS
@@ -216,6 +863,46 @@
         const membersContainer = document.getElementById('membersContainer');
         const emptyState = document.getElementById('emptyState');
         const resultCount = document.getElementById('resultCount');
+
+        // ============================================================
+        // INITIALIZATION
+        // ============================================================
+
+        document.addEventListener('DOMContentLoaded', function() {
+            checkAuth();
+            loadMembers();
+        });
+
+        // ============================================================
+        // AUTH CHECK
+        // ============================================================
+
+        async function checkAuth() {
+            try {
+                const { data: { session }, error } = await supabase.auth.getSession();
+
+                if (error || !session) {
+                    window.location.href = 'admin-login.html';
+                    return;
+                }
+
+                // Verify admin
+                const { data: admin, error: adminError } = await supabase
+                    .from('admins')
+                    .select('*')
+                    .eq('id', session.user.id)
+                    .single();
+
+                if (adminError || !admin) {
+                    window.location.href = 'admin-login.html';
+                    return;
+                }
+
+            } catch (error) {
+                console.error('Auth check error:', error);
+                window.location.href = 'admin-login.html';
+            }
+        }
 
         // ============================================================
         // LOAD MEMBERS
@@ -235,20 +922,24 @@
 
             try {
                 // Build query
-                let query = window.supabaseClient
+                let query = supabase
                     .from('members')
                     .select('*', { count: 'exact' });
 
                 // Search
                 if (search) {
                     query = query.or(
-                        `first_name.ilike.%${search}%,last_name.ilike.%${search}%,phone.ilike.%${search}%,id_number.ilike.%${search}%,member_number.ilike.%${search}%`
+                        `first_name.ilike.%${search}%,` +
+                        `last_name.ilike.%${search}%,` +
+                        `phone.ilike.%${search}%,` +
+                        `id_number.ilike.%${search}%,` +
+                        `membership_number.ilike.%${search}%`
                     );
                 }
 
                 // Plan filter
                 if (plan) {
-                    query = query.eq('plan', plan);
+                    query = query.eq('plan_type', plan);
                 }
 
                 // Status filter
@@ -291,7 +982,7 @@
         // ============================================================
 
         function renderMembers(members) {
-            if (!members.length) {
+            if (!members || members.length === 0) {
                 membersTableBody.innerHTML = '';
                 emptyState.style.display = 'block';
                 membersContainer.style.display = 'none';
@@ -305,22 +996,24 @@
                 const name = `${member.first_name || ''} ${member.last_name || ''}`.trim() || 'Unknown';
                 const statusClass = member.is_active ? 'active' : 'inactive';
                 const statusText = member.is_active ? 'Active' : 'Inactive';
-                const planName = member.plan ? member.plan.charAt(0).toUpperCase() + member.plan.slice(1) : '-';
+                const planName = member.plan_type ? member.plan_type.charAt(0).toUpperCase() + member.plan_type.slice(1) : '-';
                 const joined = member.created_at ? new Date(member.created_at).toLocaleDateString('en-KE') : '-';
 
                 return `
                     <tr>
-                        <td><strong>${member.member_number || '-'}</strong></td>
+                        <td><strong>${member.membership_number || '-'}</strong></td>
                         <td>${escapeHTML(name)}</td>
                         <td>${escapeHTML(member.phone || '-')}</td>
-                        <td><span class="status-badge ${member.plan}">${planName}</span></td>
+                        <td><span class="status-badge ${member.plan_type || ''}">${planName}</span></td>
                         <td><span class="status-badge ${statusClass}">${statusText}</span></td>
                         <td>${joined}</td>
                         <td>
                             <div class="member-actions">
-                                <a href="member-details.html?id=${member.id}" class="btn btn-primary btn-sm">View</a>
+                                <a href="member-details.html?id=${member.id}" class="btn btn-primary btn-sm">
+                                    <i class="fas fa-eye"></i> View
+                                </a>
                                 <button onclick="toggleStatus('${member.id}', ${!member.is_active})" class="btn btn-sm ${member.is_active ? 'btn-secondary' : 'btn-success'}">
-                                    ${member.is_active ? 'Deactivate' : 'Activate'}
+                                    ${member.is_active ? '<i class="fas fa-pause"></i> Deactivate' : '<i class="fas fa-play"></i> Activate'}
                                 </button>
                             </div>
                         </td>
@@ -352,7 +1045,9 @@
             // Previous
             html += `
                 <div class="page-item">
-                    <a href="#" class="page-link ${currentPage <= 1 ? 'disabled' : ''}" onclick="event.preventDefault(); if(${currentPage > 1}) loadMembers(${currentPage - 1})">‹</a>
+                    <a href="#" class="page-link ${currentPage <= 1 ? 'disabled' : ''}" onclick="event.preventDefault(); if(${currentPage > 1}) loadMembers(${currentPage - 1})">
+                        <i class="fas fa-chevron-left"></i>
+                    </a>
                 </div>
             `;
 
@@ -367,7 +1062,9 @@
             // Next
             html += `
                 <div class="page-item">
-                    <a href="#" class="page-link ${currentPage >= totalPages ? 'disabled' : ''}" onclick="event.preventDefault(); if(${currentPage < totalPages}) loadMembers(${currentPage + 1})">›</a>
+                    <a href="#" class="page-link ${currentPage >= totalPages ? 'disabled' : ''}" onclick="event.preventDefault(); if(${currentPage < totalPages}) loadMembers(${currentPage + 1})">
+                        <i class="fas fa-chevron-right"></i>
+                    </a>
                 </div>
             `;
 
@@ -381,26 +1078,26 @@
         async function updateStats() {
             try {
                 // Total members
-                const { count: total } = await window.supabaseClient
+                const { count: total } = await supabase
                     .from('members')
                     .select('*', { count: 'exact', head: true });
 
                 // Active members
-                const { count: active } = await window.supabaseClient
+                const { count: active } = await supabase
                     .from('members')
                     .select('*', { count: 'exact', head: true })
                     .eq('is_active', true);
 
                 // Plan counts
-                const { count: comfort } = await window.supabaseClient
+                const { count: comfort } = await supabase
                     .from('members')
                     .select('*', { count: 'exact', head: true })
-                    .eq('plan', 'comfort');
+                    .eq('plan_type', 'comfort');
 
-                const { count: dignity } = await window.supabaseClient
+                const { count: dignity } = await supabase
                     .from('members')
                     .select('*', { count: 'exact', head: true })
-                    .eq('plan', 'dignity');
+                    .eq('plan_type', 'dignity');
 
                 document.getElementById('totalMembers').textContent = total || 0;
                 document.getElementById('activeMembers').textContent = active || 0;
@@ -430,9 +1127,9 @@
             }
 
             try {
-                const { error } = await window.supabaseClient
+                const { error } = await supabase
                     .from('members')
-                    .update({ is_active: newStatus })
+                    .update({ is_active: newStatus, updated_at: new Date().toISOString() })
                     .eq('id', memberId);
 
                 if (error) {
@@ -455,9 +1152,9 @@
 
         async function exportMembers() {
             try {
-                const { data, error } = await window.supabaseClient
+                const { data, error } = await supabase
                     .from('members')
-                    .select('member_number, first_name, last_name, phone, email, plan, is_active, created_at')
+                    .select('membership_number, first_name, last_name, phone, email, plan_type, is_active, created_at')
                     .order('created_at', { ascending: false });
 
                 if (error) {
@@ -473,12 +1170,12 @@
                 // Create CSV
                 const headers = ['Member Number', 'First Name', 'Last Name', 'Phone', 'Email', 'Plan', 'Status', 'Joined'];
                 const rows = data.map(m => [
-                    m.member_number || '',
+                    m.membership_number || '',
                     m.first_name || '',
                     m.last_name || '',
                     m.phone || '',
                     m.email || '',
-                    m.plan || '',
+                    m.plan_type || '',
                     m.is_active ? 'Active' : 'Inactive',
                     m.created_at ? new Date(m.created_at).toLocaleDateString('en-KE') : ''
                 ]);
@@ -508,6 +1205,17 @@
         }
 
         // ============================================================
+        // HANDLE SEARCH (with debounce)
+        // ============================================================
+
+        function handleSearch() {
+            clearTimeout(searchTimeout);
+            searchTimeout = setTimeout(() => {
+                loadMembers(1);
+            }, 400);
+        }
+
+        // ============================================================
         // RESET FILTERS
         // ============================================================
 
@@ -519,13 +1227,23 @@
         }
 
         // ============================================================
+        // REFRESH DATA
+        // ============================================================
+
+        async function refreshData() {
+            await loadMembers(currentPage);
+            showAlert('Data refreshed successfully.', 'success');
+        }
+
+        // ============================================================
         // ALERT
         // ============================================================
 
         function showAlert(message, type = 'error') {
             alertBox.textContent = message;
             alertBox.className = `alert show ${type}`;
-            setTimeout(() => {
+            clearTimeout(alertBox._timeout);
+            alertBox._timeout = setTimeout(() => {
                 alertBox.className = 'alert';
             }, 5000);
         }
@@ -549,17 +1267,27 @@
         // ============================================================
 
         document.getElementById('logoutBtn').addEventListener('click', async function() {
-            await window.supabaseClient.auth.signOut();
-            window.location.href = 'login.html';
+            try {
+                await supabase.auth.signOut();
+                sessionStorage.clear();
+                window.location.href = 'admin-login.html';
+            } catch (error) {
+                console.error('Logout error:', error);
+                showAlert('Failed to logout.', 'error');
+            }
         });
 
         // ============================================================
-        // INIT
+        // EXPOSE FUNCTIONS
         // ============================================================
 
-        document.addEventListener('DOMContentLoaded', function() {
-            loadMembers();
-        });
+        window.loadMembers = loadMembers;
+        window.toggleStatus = toggleStatus;
+        window.exportMembers = exportMembers;
+        window.resetFilters = resetFilters;
+        window.refreshData = refreshData;
+        window.handleSearch = handleSearch;
+        window.showAlert = showAlert;
     </script>
 
 </body>
