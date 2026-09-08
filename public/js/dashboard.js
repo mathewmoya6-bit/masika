@@ -1,5 +1,6 @@
 // =========================================================
-// DASHBOARD.JS - Complete Fixed Dashboard Controller
+// DASHBOARD.JS - Complete Dashboard Controller
+// Aligned with your database schema
 // =========================================================
 
 (function() {
@@ -15,44 +16,6 @@
         payments: [],
         isLoading: true,
         initialized: false
-    };
-
-    // =========================================================
-    // DOM REFERENCES
-    // =========================================================
-    const DOM = {
-        loadingScreen: document.getElementById('loadingScreen'),
-        dashboardContent: document.getElementById('dashboardContent'),
-        welcomeCard: document.getElementById('welcomeCard'),
-        
-        // User
-        userNameDisplay: document.getElementById('userNameDisplay'),
-        welcomeName: document.getElementById('welcomeName'),
-        welcomeSubtext: document.getElementById('welcomeSubtext'),
-        memberNumberDisplay: document.getElementById('memberNumberDisplay'),
-        paymentMemberNumber: document.getElementById('paymentMemberNumber'),
-        
-        // Stats
-        planDisplay: document.getElementById('planDisplay'),
-        planStatus: document.getElementById('planStatus'),
-        dependantCount: document.getElementById('dependantCount'),
-        coverageStatusText: document.getElementById('coverageStatusText'),
-        coverageStatusBadge: document.getElementById('coverageStatusBadge'),
-        benefitAmount: document.getElementById('benefitAmount'),
-        
-        // Containers
-        planDetailsContainer: document.getElementById('planDetailsContainer'),
-        memberListContainer: document.getElementById('memberListContainer'),
-        paymentListContainer: document.getElementById('paymentListContainer'),
-        
-        // Modals
-        dependantModal: document.getElementById('dependantModal'),
-        paymentModal: document.getElementById('paymentModal'),
-        dependantForm: document.getElementById('dependantForm'),
-        paymentForm: document.getElementById('paymentForm'),
-        
-        // Toast
-        toastContainer: document.getElementById('toastContainer')
     };
 
     // =========================================================
@@ -105,6 +68,39 @@
     }
 
     // =========================================================
+    // DOM REFERENCES
+    // =========================================================
+    const DOM = {
+        loadingScreen: document.getElementById('loadingScreen'),
+        dashboardContent: document.getElementById('dashboardContent'),
+        welcomeCard: document.getElementById('welcomeCard'),
+        
+        userNameDisplay: document.getElementById('userNameDisplay'),
+        welcomeName: document.getElementById('welcomeName'),
+        welcomeSubtext: document.getElementById('welcomeSubtext'),
+        memberNumberDisplay: document.getElementById('memberNumberDisplay'),
+        paymentMemberNumber: document.getElementById('paymentMemberNumber'),
+        
+        planDisplay: document.getElementById('planDisplay'),
+        planStatus: document.getElementById('planStatus'),
+        dependantCount: document.getElementById('dependantCount'),
+        coverageStatusText: document.getElementById('coverageStatusText'),
+        coverageStatusBadge: document.getElementById('coverageStatusBadge'),
+        benefitAmount: document.getElementById('benefitAmount'),
+        
+        planDetailsContainer: document.getElementById('planDetailsContainer'),
+        memberListContainer: document.getElementById('memberListContainer'),
+        paymentListContainer: document.getElementById('paymentListContainer'),
+        
+        dependantModal: document.getElementById('dependantModal'),
+        paymentModal: document.getElementById('paymentModal'),
+        dependantForm: document.getElementById('dependantForm'),
+        paymentForm: document.getElementById('paymentForm'),
+        
+        toastContainer: document.getElementById('toastContainer')
+    };
+
+    // =========================================================
     // INITIALIZATION
     // =========================================================
     function init() {
@@ -112,11 +108,7 @@
         state.initialized = true;
 
         console.log('📊 Dashboard initializing...');
-
-        // Set up event listeners
         setupEventListeners();
-
-        // Check authentication and load data
         checkAuthAndLoad();
     }
 
@@ -139,12 +131,9 @@
             }
 
             state.user = user;
-            console.log('👤 User authenticated:', user.email);
+            console.log('👤 User authenticated:', user.id);
 
-            // Update greeting
             updateUserGreeting(user);
-
-            // Load dashboard data
             await loadDashboardData();
 
         } catch (error) {
@@ -161,16 +150,15 @@
         try {
             showLoading(true);
 
-            // Get member profile
+            // Get member profile using auth.uid()
             const memberResult = await supabaseClient.getMember(state.user.id);
             
             if (!memberResult.success) {
-                // Check if member doesn't exist (PGRST116 error)
                 if (memberResult.error && (
                     memberResult.error.includes('PGRST116') ||
                     memberResult.error.includes('0 rows')
                 )) {
-                    console.log('ℹ️ No member record found - showing registration prompt');
+                    console.log('ℹ️ No member record found');
                     showWelcomeCard();
                     showLoading(false);
                     return;
@@ -186,29 +174,18 @@
                 return;
             }
 
-            console.log('✅ Member loaded:', state.member.membership_number);
-            console.log('✅ Member ID (for dependants query):', state.member.id);
+            console.log('✅ Member found:', state.member.member_number);
 
-            // Store member in localStorage
-            if (typeof authManager !== 'undefined' && authManager.setMember) {
-                authManager.setMember(state.member);
-            }
+            // Store member
             localStorage.setItem('masika_member', JSON.stringify(state.member));
 
-            // =========================================================
-            // IMPORTANT: Load dependants using principal_member_id
-            // The database schema uses principal_member_id to link
-            // dependants to the primary member
-            // =========================================================
+            // Load dependants using principal_member_id
             await loadDependants();
 
-            // Load payments
+            // Load payments using member_number
             await loadPayments();
 
-            // Render dashboard
             renderDashboard();
-
-            // Show dashboard content
             showDashboardContent();
             showLoading(false);
 
@@ -221,20 +198,18 @@
 
     // =========================================================
     // LOAD DEPENDANTS
-    // FIXED: Uses principal_member_id (NOT member_id)
+    // CRITICAL: Uses principal_member_id
     // =========================================================
     async function loadDependants() {
         try {
             console.log('👨‍👩‍👦 Loading dependants for member:', state.member.id);
             console.log('🔍 Query: dependants.principal_member_id =', state.member.id);
             
-            // IMPORTANT: Query uses principal_member_id
             const result = await supabaseClient.getMemberDependants(state.member.id);
             
             if (result.success) {
                 state.dependants = result.data || [];
-                console.log(`✅ ${state.dependants.length} dependants loaded successfully`);
-                console.log('📋 Dependants:', state.dependants);
+                console.log(`✅ ${state.dependants.length} dependants loaded`);
             } else {
                 console.warn('⚠️ Failed to load dependants:', result.error);
                 state.dependants = [];
@@ -251,7 +226,7 @@
     async function loadPayments() {
         try {
             const result = await supabaseClient.getMemberPayments(
-                state.member.membership_number,
+                state.member.member_number,
                 5
             );
             if (result.success) {
@@ -284,14 +259,14 @@
     // =========================================================
     function renderWelcomeBanner() {
         const member = state.member;
-        const fullName = `${member.first_name || ''} ${member.last_name || ''}`.trim() || 'Member';
+        const fullName = `${member.first_name || ''} ${member.last_name || ''}`.trim() || 
+                        member.full_name || 'Member';
         
         if (DOM.userNameDisplay) DOM.userNameDisplay.textContent = member.first_name || 'Member';
         if (DOM.welcomeName) DOM.welcomeName.textContent = fullName;
-        if (DOM.memberNumberDisplay) DOM.memberNumberDisplay.textContent = member.membership_number || '---';
+        if (DOM.memberNumberDisplay) DOM.memberNumberDisplay.textContent = member.member_number || '---';
         
-        const joinDate = member.registration_date ? 
-            new Date(member.registration_date) : new Date();
+        const joinDate = member.registration_date ? new Date(member.registration_date) : new Date();
         if (DOM.welcomeSubtext) {
             DOM.welcomeSubtext.textContent = 
                 `Member since ${joinDate.toLocaleDateString('en-KE', { 
@@ -307,16 +282,18 @@
     // =========================================================
     function renderStats() {
         const member = state.member;
-        const planConfig = PLAN_CONFIG[member.plan_type] || PLAN_CONFIG.comfort;
+        const planType = member.plan ? member.plan.toLowerCase() : 'comfort';
+        const planConfig = PLAN_CONFIG[planType] || PLAN_CONFIG.comfort;
         
         if (DOM.planDisplay) DOM.planDisplay.textContent = planConfig.name;
         if (DOM.planStatus) {
-            DOM.planStatus.textContent = '● Active';
-            DOM.planStatus.className = 'stat-status active';
+            DOM.planStatus.textContent = member.is_active ? '● Active' : '● Inactive';
+            DOM.planStatus.className = `stat-status ${member.is_active ? 'active' : 'inactive'}`;
         }
         
         if (DOM.dependantCount) DOM.dependantCount.textContent = state.dependants.length;
         
+        // Coverage status based on waiting_period_months
         const isWaitingPeriodOver = checkWaitingPeriod(member);
         if (DOM.coverageStatusText) {
             DOM.coverageStatusText.textContent = isWaitingPeriodOver ? 'Active' : 'Waiting';
@@ -334,7 +311,8 @@
     // =========================================================
     function renderPlanDetails() {
         const member = state.member;
-        const planConfig = PLAN_CONFIG[member.plan_type] || PLAN_CONFIG.comfort;
+        const planType = member.plan ? member.plan.toLowerCase() : 'comfort';
+        const planConfig = PLAN_CONFIG[planType] || PLAN_CONFIG.comfort;
         
         if (!DOM.planDetailsContainer) return;
         
@@ -353,11 +331,11 @@
             </div>
             <div class="plan-detail-item">
                 <span class="label">Waiting Period</span>
-                <span class="value">${planConfig.waiting}</span>
+                <span class="value">${member.waiting_period_months || 4} months</span>
             </div>
             <div class="plan-detail-item">
                 <span class="label">Status</span>
-                <span class="value green">● Active</span>
+                <span class="value green">${member.is_active ? '● Active' : '● Inactive'}</span>
             </div>
         `;
     }
@@ -428,13 +406,13 @@
                             <div class="family-member-avatar">${escapeHtml(initials)}</div>
                             <div>
                                 <div class="family-member-name">${escapeHtml(fullName)}</div>
-                                <div class="family-member-label">Family Member</div>
+                                <div class="family-member-label">${dep.phone ? '📱 ' + escapeHtml(dep.phone) : 'Family Member'}</div>
                             </div>
                         </div>
                     </td>
                     <td class="family-relationship">${escapeHtml(relationship)}</td>
                     <td class="family-dob">${escapeHtml(dob)}</td>
-                    <td><span class="status-badge">Active</span></td>
+                    <td><span class="status-badge">${dep.is_active ? 'Active' : 'Inactive'}</span></td>
                 </tr>
             `;
         });
@@ -485,8 +463,8 @@
             
             const typeLabel = typeLabels[pay.payment_type] || pay.payment_type || 'Payment';
             
-            const date = pay.created_at ? 
-                new Date(pay.created_at).toLocaleDateString('en-KE', {
+            const date = pay.payment_date ? 
+                new Date(pay.payment_date).toLocaleDateString('en-KE', {
                     year: 'numeric', 
                     month: 'short', 
                     day: 'numeric'
@@ -519,7 +497,7 @@
     // =========================================================
     function updatePaymentModalMemberNumber() {
         if (state.member && DOM.paymentMemberNumber) {
-            DOM.paymentMemberNumber.textContent = state.member.membership_number || 'Your Membership Number';
+            DOM.paymentMemberNumber.textContent = state.member.member_number || 'Your Member Number';
         }
     }
 
@@ -538,8 +516,12 @@
     // CHECK WAITING PERIOD
     // =========================================================
     function checkWaitingPeriod(member) {
-        if (!member || !member.waiting_period_end) return false;
-        const waitEnd = new Date(member.waiting_period_end);
+        if (!member) return false;
+        // Use waiting_period_months from your schema
+        const waitingMonths = member.waiting_period_months || 4;
+        const regDate = member.registration_date ? new Date(member.registration_date) : new Date();
+        const waitEnd = new Date(regDate);
+        waitEnd.setMonth(waitEnd.getMonth() + waitingMonths);
         const today = new Date();
         return today >= waitEnd;
     }
@@ -595,7 +577,7 @@
 
     // =========================================================
     // HANDLE ADD DEPENDANT
-    // FIXED: Uses principal_member_id (NOT member_id)
+    // CRITICAL: Uses principal_member_id
     // =========================================================
     async function handleAddDependant(event) {
         event.preventDefault();
@@ -604,9 +586,10 @@
         const lastName = document.getElementById('depLastName')?.value?.trim();
         const dob = document.getElementById('depDob')?.value;
         const relationship = document.getElementById('depRelationship')?.value;
+        const phone = document.getElementById('depPhone')?.value?.trim();
 
         if (!firstName || !lastName || !dob || !relationship) {
-            showToast('error', 'Please fill in all fields.');
+            showToast('error', 'Please fill in all required fields.');
             return;
         }
 
@@ -617,7 +600,6 @@
         submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Adding...';
 
         try {
-            // Get authenticated user
             const user = authManager.getUser();
             if (!user?.id) {
                 throw new Error('Your login session has expired. Please login again.');
@@ -633,16 +615,14 @@
             console.log('👤 Adding dependant to member:', member.id);
             console.log('🔑 Using principal_member_id:', member.id);
 
-            // =========================================================
-            // IMPORTANT: Database column is principal_member_id
-            // NOT member_id
-            // =========================================================
+            // CRITICAL: Database column is principal_member_id
             const result = await supabaseClient.createDependant({
-                principal_member_id: member.id,  // ← FIXED: Use principal_member_id
+                principal_member_id: member.id,
                 first_name: firstName,
                 last_name: lastName,
                 date_of_birth: dob,
-                relationship: relationship
+                relationship: relationship,
+                phone: phone || null
             });
 
             if (!result.success) {
@@ -651,9 +631,7 @@
 
             console.log('✅ Dependant created:', result.data);
 
-            // =========================================================
-            // Reload dependants using principal_member_id
-            // =========================================================
+            // Reload dependants
             const depsResult = await supabaseClient.getMemberDependants(member.id);
             if (!depsResult.success) {
                 throw new Error(depsResult.error || 'Dependant was added but the family list could not be refreshed.');
@@ -678,7 +656,7 @@
             showToast('error', error.message || 'Failed to add dependant.');
         } finally {
             submitBtn.disabled = false;
-            submitBtn.innerHTML = '<i class="fas fa-plus"></i> Add Dependant';
+            submitBtn.innerHTML = '<i class="fas fa-plus"></i> Add Family Member';
         }
     }
 
@@ -717,7 +695,7 @@
             }
 
             const result = await supabaseClient.createPayment({
-                membership_number: state.member.membership_number,
+                member_number: state.member.member_number,
                 amount: amount,
                 payment_type: paymentType,
                 status: 'completed',
@@ -752,8 +730,8 @@
             showToast('error', 'Member profile not found');
             return;
         }
-        showToast('info', `Generating statement for ${state.member.membership_number}...`);
-        const url = `/api/v1/members/${state.member.membership_number}/statement`;
+        showToast('info', `Generating statement for ${state.member.member_number}...`);
+        const url = `/api/v1/members/${state.member.member_number}/statement`;
         window.open(url, '_blank');
     }
 
@@ -823,7 +801,6 @@
     // EVENT LISTENERS
     // =========================================================
     function setupEventListeners() {
-        // Close modals on overlay click
         document.querySelectorAll('.modal-overlay').forEach(overlay => {
             overlay.addEventListener('click', function(e) {
                 if (e.target === this) {
@@ -832,26 +809,22 @@
             });
         });
 
-        // Close modals with Escape key
         document.addEventListener('keydown', function(e) {
             if (e.key === 'Escape') {
                 document.querySelectorAll('.modal-overlay.show').forEach(modal => {
                     modal.classList.remove('show');
                 });
             }
-            // Ctrl+P = Open payment modal
             if (e.ctrlKey && e.key === 'p') {
                 e.preventDefault();
                 openPaymentModal();
             }
-            // Ctrl+D = Open dependant modal
             if (e.ctrlKey && e.key === 'd') {
                 e.preventDefault();
                 openDependantModal();
             }
         });
 
-        // Form submissions
         if (DOM.dependantForm) {
             DOM.dependantForm.addEventListener('submit', handleAddDependant);
         }
@@ -882,7 +855,6 @@
         refresh: loadDashboardData
     };
 
-    // Also expose individual functions for inline onclick handlers
     window.openDependantModal = openDependantModal;
     window.openPaymentModal = openPaymentModal;
     window.closeModal = closeModal;
@@ -894,7 +866,6 @@
     window.fileClaim = fileClaim;
     window.renderFamilyMembers = renderFamilyMembers;
 
-    // Auto-initialize on DOM ready
     if (document.readyState === 'loading') {
         document.addEventListener('DOMContentLoaded', init);
     } else {
