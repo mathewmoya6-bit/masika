@@ -1048,20 +1048,28 @@
     </footer>
 
     <!-- ============================================================
-    JAVASCRIPT - FIXED SALES AGENT LOADING
+    JAVASCRIPT - SELF-CONTAINED
     ============================================================ -->
     <script>
         // ============================================================
-        // SUPABASE CONFIG
+        // SUPABASE CONFIG - Same as admin-agents.html
         // ============================================================
+
         const SUPABASE_URL = 'https://wpxzlcdrirlcyvfiquld.supabase.co';
         const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6IndweHpsY2RyaXJsY3l2ZmlxdWxkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODc5Mjc4MDcsImV4cCI6MjEwMzUwMzgwN30.OUP9pmPbrML_egpHflZtDfLv1_UDM37_BYjtb842xjg';
 
         const API_BASE_URL = 'https://masika-c921.onrender.com/api';
 
+        console.log('🚀 Register page loaded');
+        console.log('📡 Supabase URL:', SUPABASE_URL);
+
+        // Initialize Supabase client
+        const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
         // ============================================================
         // PLAN CONFIGURATION
         // ============================================================
+
         const PLAN_CONFIG = {
             COMFORT: {
                 slug: 'comfort',
@@ -1097,15 +1105,16 @@
         // ============================================================
         // STATE
         // ============================================================
-        let supabaseClient = null;
+
         let selectedPlan = null;
         let parsedChamaMembers = [];
         let isSubmitting = false;
-        let agentsLoaded = false;
+        let allSalesAgents = [];
 
         // ============================================================
         // DOM ELEMENTS
         // ============================================================
+
         const $ = id => document.getElementById(id);
 
         const elements = {
@@ -1140,20 +1149,18 @@
         // ============================================================
         // INITIALIZATION
         // ============================================================
+
         document.addEventListener('DOMContentLoaded', function() {
-            console.log('🚀 Register page loaded');
+            console.log('📄 DOM loaded');
 
             // Set footer year
             const yearEl = document.getElementById('year');
             if (yearEl) yearEl.textContent = new Date().getFullYear();
 
-            // Initialize Supabase
-            initSupabase();
-
             // Load plans
             loadPlans();
 
-            // Load sales agents from Supabase public_agent_codes
+            // Load sales agents from Supabase (same pattern as admin-agents.html)
             loadSalesAgents();
 
             // Setup event listeners
@@ -1164,24 +1171,9 @@
         });
 
         // ============================================================
-        // SUPABASE INITIALIZATION
-        // ============================================================
-        function initSupabase() {
-            try {
-                if (typeof supabase !== 'undefined') {
-                    supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-                    console.log('✅ Supabase client initialized');
-                } else {
-                    console.warn('⚠️ Supabase library not loaded');
-                }
-            } catch (error) {
-                console.error('❌ Failed to initialize Supabase:', error);
-            }
-        }
-
-        // ============================================================
         // LOAD PLANS
         // ============================================================
+
         async function loadPlans() {
             try {
                 const container = elements.plansContainer;
@@ -1285,8 +1277,9 @@
         }
 
         // ============================================================
-        // LOAD SALES AGENTS - FROM Supabase public_agent_codes
+        // LOAD SALES AGENTS - FROM Supabase (same pattern as admin-agents.html)
         // ============================================================
+
         async function loadSalesAgents() {
             const select = elements.salesCode;
             if (!select) {
@@ -1296,28 +1289,10 @@
 
             select.innerHTML = '<option value="">Loading agents...</option>';
 
-            if (!supabaseClient) {
-                console.warn('⚠️ Supabase client not available');
-                select.innerHTML = '<option value="">Supabase not available</option>';
-                return;
-            }
-
             try {
                 console.log('🔄 Loading sales agents from public_agent_codes...');
 
-                // First, let's check if the table exists by trying to get a count
-                const { count, error: countError } = await supabaseClient
-                    .from('public_agent_codes')
-                    .select('*', { count: 'exact', head: true });
-
-                if (countError) {
-                    console.error('❌ Error checking public_agent_codes table:', countError);
-                    throw new Error(`Table error: ${countError.message}`);
-                }
-
-                console.log(`📊 Found ${count || 0} total agents in public_agent_codes`);
-
-                // Now get the active agents with full details
+                // Query the public_agent_codes table (same as admin-agents.html pattern)
                 const { data, error } = await supabaseClient
                     .from('public_agent_codes')
                     .select('agent_code, full_name, phone, email, is_active')
@@ -1329,24 +1304,12 @@
                     throw error;
                 }
 
+                // Store agents in state
+                allSalesAgents = data || [];
+
                 if (!data || data.length === 0) {
                     console.log('ℹ️ No active sales agents found in public_agent_codes');
                     select.innerHTML = '<option value="">No sales agents available</option>';
-                    
-                    // Try to get all agents (including inactive) to see what's there
-                    const { data: allData } = await supabaseClient
-                        .from('public_agent_codes')
-                        .select('agent_code, full_name, is_active')
-                        .order('full_name', { ascending: true });
-                    
-                    if (allData && allData.length > 0) {
-                        console.log(`📋 Found ${allData.length} total agents, ${allData.filter(a => a.is_active).length} active`);
-                        // Show inactive count in console
-                        const inactive = allData.filter(a => !a.is_active);
-                        if (inactive.length > 0) {
-                            console.log(`ℹ️ ${inactive.length} agents are inactive`);
-                        }
-                    }
                     return;
                 }
 
@@ -1354,7 +1317,7 @@
 
                 select.innerHTML = '<option value="">Select sales agent</option>';
 
-                data.forEach(agent => {
+                data.forEach(function(agent) {
                     const option = document.createElement('option');
                     option.value = agent.agent_code;
                     let label = agent.full_name || agent.agent_code;
@@ -1364,8 +1327,6 @@
                     option.textContent = label;
                     select.appendChild(option);
                 });
-
-                agentsLoaded = true;
 
             } catch (error) {
                 console.error('❌ Unable to load sales agents:', error);
@@ -1377,6 +1338,7 @@
         // ============================================================
         // EVENT LISTENERS
         // ============================================================
+
         function setupEventListeners() {
             // Mode switch
             elements.individualModeBtn.addEventListener('click', function() {
@@ -1411,7 +1373,7 @@
             // CSV upload
             elements.chamaCsv.addEventListener('change', handleChamaCsv);
 
-            // Summary updates - listen to all form inputs
+            // Summary updates
             document.querySelectorAll('#registrationForm input, #registrationForm select, #registrationForm textarea')
                 .forEach(el => {
                     el.addEventListener('change', updateSummary);
@@ -1422,6 +1384,7 @@
         // ============================================================
         // DEPENDANTS
         // ============================================================
+
         function addDependant() {
             const container = elements.dependantsContainer;
             const count = container.querySelectorAll('.dependant-card').length + 1;
@@ -1498,6 +1461,7 @@
         // ============================================================
         // SUMMARY UPDATES
         // ============================================================
+
         function getSelectedPlan() {
             const planInput = document.querySelector('input[name="plan_type"]:checked');
             if (!planInput) return { slug: 'comfort', plan: PLAN_CONFIG.COMFORT };
@@ -1552,6 +1516,7 @@
         // ============================================================
         // PHONE NORMALIZATION
         // ============================================================
+
         function normalizePhone(value) {
             let v = String(value || '').trim().replace(/\s+/g, '').replace(/-/g, '');
             if (!v) return '';
@@ -1564,6 +1529,7 @@
         // ============================================================
         // GET FORM DATA
         // ============================================================
+
         function getFormData() {
             const { slug: planSlug } = getSelectedPlan();
 
@@ -1580,6 +1546,7 @@
                 });
             });
 
+            // Get sales code from select (this is the agent_code from public_agent_codes)
             const salesCodeSelect = document.getElementById('salesCode');
             const salesCode = salesCodeSelect ? salesCodeSelect.value : null;
 
@@ -1598,7 +1565,7 @@
                 town: document.getElementById('town').value.trim() || null,
                 address: document.getElementById('address').value.trim() || null,
                 plan: planSlug,
-                sales_code: salesCode,
+                sales_code: salesCode, // This is the agent_code from public_agent_codes
                 benefit_option: document.getElementById('benefitOption').value,
                 dependants: dependants
             };
@@ -1607,6 +1574,7 @@
         // ============================================================
         // VALIDATE FORM DATA
         // ============================================================
+
         function validateFormData(data) {
             const required = ['first_name', 'last_name', 'id_number', 'date_of_birth', 'gender', 'phone', 'county', 'benefit_option'];
 
@@ -1658,6 +1626,7 @@
         // ============================================================
         // HANDLE REGISTRATION
         // ============================================================
+
         async function handleRegistration(event) {
             event.preventDefault();
 
@@ -1739,6 +1708,7 @@
         // ============================================================
         // HANDLE CHAMA REGISTRATION
         // ============================================================
+
         async function handleChamaRegistration(event) {
             event.preventDefault();
 
@@ -1847,6 +1817,7 @@
         // ============================================================
         // CHAMA CSV HANDLING
         // ============================================================
+
         function handleChamaCsv(event) {
             const file = event.target.files?.[0];
             if (!file) {
@@ -1951,6 +1922,7 @@
         // ============================================================
         // RESET FUNCTIONS
         // ============================================================
+
         function resetIndividualForm() {
             if (!confirm('Reset this registration form?')) return;
             elements.registrationForm.reset();
@@ -1971,6 +1943,7 @@
         // ============================================================
         // UTILITY FUNCTIONS
         // ============================================================
+
         function showAlert(message, type = 'info') {
             const alertBox = elements.alertBox;
             alertBox.className = `alert show ${type}`;
@@ -2010,6 +1983,7 @@
         // ============================================================
         // EXPOSE FUNCTIONS
         // ============================================================
+
         window.removeDependant = removeDependant;
         window.addDependant = addDependant;
         window.updateSummary = updateSummary;
