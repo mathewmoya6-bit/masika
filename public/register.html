@@ -29,7 +29,7 @@
 
     <style>
         /* =========================================================
-           ALL STYLES - Same as before
+           ALL STYLES
            ========================================================= */
         :root {
             --primary: #173f35;
@@ -813,7 +813,7 @@
         <nav class="nav">
             <a href="index.html">Home</a>
             <a href="#plans">Plans</a>
-            <a href="login.html">Staff Login</a>
+            <a href="login.html">Login</a>
             <a href="register.html" class="nav-register">Register</a>
         </nav>
     </div>
@@ -1673,7 +1673,7 @@
 </footer>
 
 <!-- =========================================================
-     JAVASCRIPT - COMPLETE ALIGNED
+     JAVASCRIPT - COMPLETE ALIGNED WITH BACKEND
      ========================================================= -->
 
 <script>
@@ -1692,48 +1692,66 @@
         }
         
         // Initialize registration
-        if (typeof initRegistration === 'function') {
-            initRegistration();
-        } else {
-            console.warn('register.js not loaded properly');
-        }
+        initRegistration();
     });
-</script>
 
-<!-- =========================================================
-     REGISTER.JS - COMPLETE ALIGNED
-     ========================================================= -->
-<script>
-    // ============================================================
-    // REGISTRATION - js/register.js (Aligned)
-    // ============================================================
+    // =========================================================
+    // REGISTRATION - COMPLETE ALIGNED
+    // =========================================================
 
-    // ============================================================
+    // =========================================================
+    // CONFIG
+    // =========================================================
+    const CONFIG = window.CONFIG || {
+        PLANS: {
+            COMFORT: {
+                slug: "comfort",
+                name: "Comfort Plan",
+                description: "Affordable individual membership protection.",
+                registration_fee: 200,
+                monthly_fee: 300,
+                waiting_period: 4
+            },
+            DIGNITY: {
+                slug: "dignity",
+                name: "Dignity Plan",
+                description: "Enhanced membership protection for your family.",
+                registration_fee: 300,
+                monthly_fee: 1000,
+                waiting_period: 6
+            },
+            WAZAZI: {
+                slug: "wazazi",
+                name: "Wazazi Plan",
+                description: "Membership protection designed for parents.",
+                registration_fee: 250,
+                monthly_fee: 350,
+                waiting_period: 6
+            }
+        },
+        ROUTES: {
+            LOGIN: 'login.html',
+            DASHBOARD: 'dashboard.html',
+            PAYMENT: 'payment.html'
+        },
+        API: {
+            BASE_URL: 'https://masika-c921.onrender.com/api'
+        }
+    };
+
+    // =========================================================
     // INITIALIZATION
-    // ============================================================
+    // =========================================================
 
     function initRegistration() {
         console.log('📋 Initializing registration...');
         
-        // Load plans
         loadPlans();
-
-        // Load agents
         loadAgents();
-
-        // Setup plan selection
         setupPlanSelection();
-
-        // Setup dependants
         setupDependants();
-
-        // Setup summary updates
         setupSummaryUpdates();
-
-        // Setup mode switch
         setupModeSwitch();
-
-        // Setup CSV upload for chama
         setupChamaUpload();
 
         // Form submission
@@ -1748,7 +1766,7 @@
             clearAlerts();
             updateSummary();
             document.getElementById('dependantsContainer').innerHTML = '';
-            addDependant(); // Add initial dependant
+            addDependant();
         });
 
         // Chama form submission
@@ -1766,128 +1784,147 @@
         });
     }
 
-    // ============================================================
-    // LOAD PLANS
-    // ============================================================
+    // =========================================================
+    // LOAD PLANS - FROM CONFIG (NO API CALL)
+    // =========================================================
 
-    async function loadPlans() {
+    function loadPlans() {
         try {
             const container = document.getElementById('plansContainer');
             
-            // Try to load from API first
-            let plans = CONFIG.PLANS;
-            
-            try {
-                const response = await fetch(`${CONFIG.API.BASE_URL}/plans`);
-                if (response.ok) {
-                    const data = await response.json();
-                    if (data && data.length > 0) {
-                        plans = data;
-                    }
-                }
-            } catch (e) {
-                console.log('Using fallback plans');
+            if (!container) {
+                console.error('plansContainer not found');
+                return;
+            }
+
+            const plans = CONFIG.PLANS;
+
+            if (!plans || typeof plans !== 'object') {
+                throw new Error('CONFIG.PLANS is missing or invalid');
             }
 
             container.innerHTML = '';
-            
-            Object.values(plans).forEach(plan => {
+
+            Object.entries(plans).forEach(([key, plan]) => {
+                const slug = plan.slug || key.toLowerCase();
+
                 const div = document.createElement('div');
                 div.className = 'plan-option';
-                
-                const slug = plan.slug || plan.id || Object.keys(CONFIG.PLANS).find(
-                    key => CONFIG.PLANS[key].name === plan.name
-                ) || 'comfort';
-                
+
                 div.innerHTML = `
-                    <input type="radio" name="plan_type" value="${slug}" id="plan_${slug}">
+                    <input
+                        type="radio"
+                        name="plan_type"
+                        value="${slug}"
+                        id="plan_${slug}"
+                    >
                     <label for="plan_${slug}" class="plan-label">
-                        <div class="plan-name">${plan.name}</div>
+                        <div class="plan-name">
+                            ${plan.name || key}
+                        </div>
                         <div class="plan-description">
-                            ${plan.description || `${slug.charAt(0).toUpperCase() + slug.slice(1)} Plan`}
+                            ${plan.description || ''}
                         </div>
                         <div class="plan-price">
-                            KES ${plan.registration_fee || 200} 
+                            KES ${Number(plan.registration_fee || 0).toLocaleString()}
                             <small>one-time registration</small>
                             <br>
-                            <small>KES ${plan.monthly_fee || 300}/month</small>
+                            <small>
+                                KES ${Number(plan.monthly_fee || 0).toLocaleString()}/month
+                            </small>
                         </div>
                     </label>
                 `;
-                
+
                 container.appendChild(div);
             });
 
-            // Add event listeners for plan selection
-            document.querySelectorAll('input[name="plan_type"]').forEach(input => {
-                input.addEventListener('change', function() {
-                    updateSummary();
-                    updateDependantEligibility(this.value);
+            document
+                .querySelectorAll('input[name="plan_type"]')
+                .forEach(input => {
+                    input.addEventListener('change', function () {
+                        updateSummary();
+                        updateDependantEligibility(this.value);
+                    });
                 });
-            });
 
-            // Select first plan by default
-            const firstPlan = container.querySelector('input[name="plan_type"]');
+            const firstPlan =
+                container.querySelector('input[name="plan_type"]');
+
             if (firstPlan) {
                 firstPlan.checked = true;
                 updateSummary();
             }
 
+            console.log('✅ Plans loaded successfully');
+
         } catch (error) {
             console.error('Error loading plans:', error);
-            showAlert('Failed to load plans. Please refresh.', 'error');
+
+            const container = document.getElementById('plansContainer');
+
+            if (container) {
+                container.innerHTML = `
+                    <div class="help-text" style="color:#b91c1c;">
+                        Unable to load membership plans.
+                        Please refresh the page or contact support.
+                    </div>
+                `;
+            }
+
+            showAlert(
+                'Failed to load membership plans. Please refresh.',
+                'error'
+            );
         }
     }
 
-    // ============================================================
+    // =========================================================
     // LOAD AGENTS
-    // ============================================================
+    // =========================================================
 
-    async function loadAgents() {
+    function loadAgents() {
         try {
             const select = document.getElementById('salesCode');
             
             // Try to load from API
-            try {
-                const response = await fetch(`${CONFIG.API.BASE_URL}/agents`);
-                if (response.ok) {
-                    const data = await response.json();
+            fetch(`${CONFIG.API.BASE_URL}/public/agents`)
+                .then(response => response.json())
+                .then(data => {
                     if (data && data.length > 0) {
+                        select.innerHTML = '<option value="">Select sales agent</option>';
                         data.forEach(agent => {
                             const option = document.createElement('option');
-                            option.value = agent.id || agent.sales_code;
+                            option.value = agent.id || agent.agent_code;
                             option.textContent = `${agent.full_name || agent.name} - ${agent.phone || ''}`;
                             select.appendChild(option);
                         });
-                        return;
                     }
-                }
-            } catch (e) {
-                console.log('Using fallback agents');
-            }
-            
-            // Fallback: Add some default agents
-            const defaultAgents = [
-                { id: 'AG001', name: 'John Mwangi' },
-                { id: 'AG002', name: 'Mary Wanjiru' },
-                { id: 'AG003', name: 'Peter Ochieng' }
-            ];
-            
-            defaultAgents.forEach(agent => {
-                const option = document.createElement('option');
-                option.value = agent.id;
-                option.textContent = agent.name;
-                select.appendChild(option);
-            });
+                })
+                .catch(() => {
+                    // Fallback: Add some default agents
+                    const defaultAgents = [
+                        { id: 'AG001', name: 'John Mwangi' },
+                        { id: 'AG002', name: 'Mary Wanjiru' },
+                        { id: 'AG003', name: 'Peter Ochieng' }
+                    ];
+                    
+                    defaultAgents.forEach(agent => {
+                        const option = document.createElement('option');
+                        option.value = agent.id;
+                        option.textContent = agent.name;
+                        select.appendChild(option);
+                    });
+                });
             
         } catch (error) {
             console.error('Error loading agents:', error);
         }
     }
 
-    // ============================================================
+    // =========================================================
     // PLAN SELECTION
-    // ============================================================
+    // =========================================================
 
     function setupPlanSelection() {
         document.querySelectorAll('input[name="plan_type"]').forEach(input => {
@@ -1897,12 +1934,11 @@
         });
     }
 
-    // ============================================================
+    // =========================================================
     // DEPENDANTS
-    // ============================================================
+    // =========================================================
 
     function setupDependants() {
-        // Add initial dependant
         addDependant();
         
         document.getElementById('addDependantBtn').addEventListener('click', function() {
@@ -1941,6 +1977,7 @@
                         <option value="spouse">Spouse</option>
                         <option value="child">Child</option>
                         <option value="parent">Parent</option>
+                        <option value="in_law">In-Law</option>
                     </select>
                 </div>
                 <div class="form-group">
@@ -1952,7 +1989,6 @@
         
         container.appendChild(card);
         
-        // Add change listeners for summary update
         card.querySelectorAll('input, select').forEach(el => {
             el.addEventListener('change', updateSummary);
             el.addEventListener('input', updateSummary);
@@ -1965,7 +2001,6 @@
             const container = document.getElementById('dependantsContainer');
             if (container.querySelectorAll('.dependant-card').length > 1) {
                 card.remove();
-                // Re-index
                 container.querySelectorAll('.dependant-card').forEach((el, i) => {
                     el.dataset.index = i + 1;
                     el.querySelector('.dependant-header strong').textContent = `Dependant #${i + 1}`;
@@ -1977,52 +2012,40 @@
         }
     }
 
-    // ============================================================
+    // =========================================================
     // SUMMARY UPDATES
-    // ============================================================
+    // =========================================================
 
     function setupSummaryUpdates() {
-        // Listen to all form inputs
         document.querySelectorAll('#registrationForm input, #registrationForm select, #registrationForm textarea')
             .forEach(el => {
                 el.addEventListener('change', updateSummary);
                 el.addEventListener('input', updateSummary);
             });
         
-        // Initial summary
         updateSummary();
     }
 
     function updateSummary() {
-        // Get selected plan
         const planInput = document.querySelector('input[name="plan_type"]:checked');
         const planSlug = planInput ? planInput.value : 'comfort';
         const plan = CONFIG.PLANS[planSlug.toUpperCase()] || CONFIG.PLANS.COMFORT;
         
-        // Get dependants
         const dependantCards = document.querySelectorAll('.dependant-card');
         const dependantCount = dependantCards.length;
         
-        // Calculate costs
         const registrationFee = plan.registration_fee || 200;
-        const dependantFee = dependantCount * 100; // KES 100 per dependant
+        const dependantFee = dependantCount * 100;
         
         const total = registrationFee + dependantFee;
         
-        // Update summary
         document.getElementById('summaryPlan').textContent = plan.name || 'Plan';
         document.getElementById('summaryPrincipal').textContent = `KES ${registrationFee.toLocaleString()}`;
         document.getElementById('summaryDependants').textContent = `KES ${dependantFee.toLocaleString()}`;
         document.getElementById('summaryTotal').textContent = `KES ${total.toLocaleString()}`;
-        
-        // Update hidden fields
-        document.getElementById('registrationFee').value = registrationFee;
-        document.getElementById('dependantFee').value = dependantFee;
-        document.getElementById('totalAmount').value = total;
     }
 
     function updateDependantEligibility(planSlug) {
-        const plan = CONFIG.PLANS[planSlug.toUpperCase()] || CONFIG.PLANS.COMFORT;
         const helpText = document.getElementById('planHelp');
         
         if (planSlug === 'wazazi') {
@@ -2034,9 +2057,9 @@
         }
     }
 
-    // ============================================================
+    // =========================================================
     // MODE SWITCH
-    // ============================================================
+    // =========================================================
 
     function setupModeSwitch() {
         const individualBtn = document.getElementById('individualModeBtn');
@@ -2063,13 +2086,12 @@
         });
     }
 
-    // ============================================================
+    // =========================================================
     // CHAMA UPLOAD
-    // ============================================================
+    // =========================================================
 
     function setupChamaUpload() {
         const fileInput = document.getElementById('chamaCsv');
-        let parsedData = [];
         
         fileInput.addEventListener('change', function(e) {
             const file = this.files[0];
@@ -2095,10 +2117,9 @@
                     return;
                 }
                 
-                parsedData = result.data;
+                const parsedData = result.data;
                 displayCsvPreview(parsedData);
                 
-                // Update count
                 document.getElementById('chamaMemberCount').textContent = parsedData.length;
                 document.getElementById('chamaTotal').textContent = `KES ${(parsedData.length * 100).toLocaleString()}`;
                 
@@ -2147,16 +2168,14 @@
         container.textContent = `Total members: ${data.length}`;
     }
 
-    // ============================================================
-    // HANDLE REGISTRATION - Uses Supabase Auth
-    // ============================================================
+    // =========================================================
+    // HANDLE REGISTRATION
+    // =========================================================
 
     async function handleRegistration() {
-        const alertBox = document.getElementById('alertBox');
         const loadingBox = document.getElementById('loadingBox');
         const submitBtn = document.getElementById('submitBtn');
         
-        // Validate form
         const formData = getFormData();
         const validation = validateFormData(formData);
         
@@ -2165,27 +2184,31 @@
             return;
         }
         
-        // Show loading
         loadingBox.classList.add('show');
         submitBtn.disabled = true;
         clearAlerts();
         
         try {
-            // Register with Supabase
-            const result = await authManager.register(formData);
+            // Register with backend API
+            const response = await fetch(`${CONFIG.API.BASE_URL}/auth/register`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(formData)
+            });
+            
+            const result = await response.json();
             
             if (!result.success) {
-                throw new Error(result.error);
+                throw new Error(result.message || 'Registration failed');
             }
             
-            // Show success
             showAlert('Registration successful! Redirecting to payment...', 'success');
             
-            // Store member data for payment
-            localStorage.setItem('pending_member', JSON.stringify(result.data.member));
-            localStorage.setItem('pending_user', JSON.stringify(result.data.user));
+            localStorage.setItem('pending_member', JSON.stringify(result.member));
+            localStorage.setItem('pending_credentials', JSON.stringify(result.credentials));
             
-            // Redirect to payment page
             setTimeout(() => {
                 window.location.href = CONFIG.ROUTES.PAYMENT;
             }, 2000);
@@ -2204,7 +2227,6 @@
         const planSlug = planInput ? planInput.value : 'comfort';
         const plan = CONFIG.PLANS[planSlug.toUpperCase()] || CONFIG.PLANS.COMFORT;
         
-        // Get dependants
         const dependantCards = document.querySelectorAll('.dependant-card');
         const dependants = [];
         dependantCards.forEach((card, index) => {
@@ -2231,18 +2253,17 @@
             location: document.getElementById('location').value,
             town: document.getElementById('town').value,
             address: document.getElementById('address').value,
-            plan_type: planSlug,
+            plan: planSlug,
             sales_code: document.getElementById('salesCode').value,
             benefit_option: document.getElementById('benefitOption').value,
             dependants: dependants,
-            password: 'TempPass123!', // Will be set during registration flow
+            password: 'TempPass123!',
             registration_fee: plan.registration_fee || 200,
-            branch: document.getElementById('county').value || 'Nairobi'
+            accept_terms: true
         };
     }
 
     function validateFormData(data) {
-        // Check required fields
         const required = ['first_name', 'last_name', 'id_number', 'date_of_birth', 'gender', 'phone', 'county', 'benefit_option'];
         
         for (const field of required) {
@@ -2251,18 +2272,15 @@
             }
         }
         
-        // Validate phone
         const phone = data.phone.replace(/\D/g, '');
         if (phone.length < 10) {
             return { valid: false, error: 'Please enter a valid phone number' };
         }
         
-        // Validate ID
         if (data.id_number.length < 5) {
             return { valid: false, error: 'Please enter a valid ID number' };
         }
         
-        // Validate age
         const birthDate = new Date(data.date_of_birth);
         const age = new Date().getFullYear() - birthDate.getFullYear();
         if (age < 1 || age > 80) {
@@ -2272,16 +2290,14 @@
         return { valid: true };
     }
 
-    // ============================================================
+    // =========================================================
     // CHAMA REGISTRATION
-    // ============================================================
+    // =========================================================
 
     async function handleChamaRegistration() {
-        const alertBox = document.getElementById('alertBox');
         const loadingBox = document.getElementById('loadingBox');
         const submitBtn = document.getElementById('chamaSubmitBtn');
         
-        // Validate chama form
         const chamaName = document.getElementById('chamaName').value;
         const chamaPhone = document.getElementById('chamaPhone').value;
         
@@ -2290,20 +2306,17 @@
             return;
         }
         
-        // Get CSV data
         const fileInput = document.getElementById('chamaCsv');
         if (!fileInput.files || !fileInput.files[0]) {
             showAlert('Please upload a CSV file with members.', 'error');
             return;
         }
         
-        // Show loading
         loadingBox.classList.add('show');
         submitBtn.disabled = true;
         clearAlerts();
         
         try {
-            // Parse CSV again to get data
             const file = fileInput.files[0];
             const csvText = await file.text();
             const result = Papa.parse(csvText, { header: true, skipEmptyLines: true });
@@ -2318,7 +2331,6 @@
                 throw new Error('Minimum 30 members required for chama registration.');
             }
             
-            // Create chama registration
             const chamaData = {
                 name: chamaName,
                 phone: chamaPhone,
@@ -2342,7 +2354,6 @@
                 total_amount: members.length * 100
             };
             
-            // Store chama data for payment
             localStorage.setItem('chama_registration', JSON.stringify(chamaData));
             
             showAlert(`Chama registration successful! ${members.length} members loaded. Redirecting to payment...`, 'success');
@@ -2360,9 +2371,9 @@
         }
     }
 
-    // ============================================================
+    // =========================================================
     // UTILITY FUNCTIONS
-    // ============================================================
+    // =========================================================
 
     function showAlert(message, type = 'info') {
         const alertBox = document.getElementById('alertBox');
@@ -2378,9 +2389,9 @@
         alertBox.style.display = 'none';
     }
 
-    // ============================================================
+    // =========================================================
     // EXPOSE FUNCTIONS
-    // ============================================================
+    // =========================================================
 
     window.initRegistration = initRegistration;
     window.addDependant = addDependant;
