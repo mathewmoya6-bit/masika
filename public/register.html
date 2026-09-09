@@ -1160,7 +1160,7 @@
             // Load plans
             loadPlans();
 
-            // Load sales agents from public_agent_codes (CORRECT TABLE)
+            // Load sales agents from sales_agents table (CORRECT TABLE)
             loadSalesAgents();
 
             // Setup event listeners
@@ -1277,7 +1277,7 @@
         }
 
         // ============================================================
-        // LOAD SALES AGENTS - FROM public_agent_codes (CORRECT TABLE)
+        // LOAD SALES AGENTS - FROM sales_agents (CORRECT TABLE)
         // ============================================================
 
         async function loadSalesAgents() {
@@ -1290,13 +1290,13 @@
             select.innerHTML = '<option value="">Loading agents...</option>';
 
             try {
-                console.log('🔄 Loading sales agents from public_agent_codes...');
+                console.log('🔄 Loading sales agents from sales_agents...');
 
-                // Query the public_agent_codes table (CORRECT TABLE)
+                // Query the sales_agents table (CORRECT TABLE)
                 const { data, error } = await supabaseClient
-                    .from('public_agent_codes')
-                    .select('agent_code, full_name, phone, email, is_active')
-                    .eq('is_active', true)
+                    .from('sales_agents')
+                    .select('sales_code, full_name, phone, status')
+                    .eq('status', 'active')
                     .order('full_name', { ascending: true });
 
                 if (error) {
@@ -1308,19 +1308,19 @@
                 allSalesAgents = data || [];
 
                 if (!data || data.length === 0) {
-                    console.log('ℹ️ No active sales agents found in public_agent_codes');
+                    console.log('ℹ️ No active sales agents found in sales_agents');
                     select.innerHTML = '<option value="">No sales agents available</option>';
                     return;
                 }
 
-                console.log(`✅ Loaded ${data.length} active sales agents from public_agent_codes`);
+                console.log(`✅ Loaded ${data.length} active sales agents from sales_agents`);
 
                 select.innerHTML = '<option value="">Select sales agent</option>';
 
                 data.forEach(function(agent) {
                     const option = document.createElement('option');
-                    option.value = agent.agent_code;  // Use agent_code as the value
-                    let label = agent.full_name || agent.agent_code;
+                    option.value = agent.sales_code;  // Use sales_code as the value
+                    let label = agent.full_name || agent.sales_code;
                     if (agent.phone) {
                         label += ` (${agent.phone})`;
                     }
@@ -1546,7 +1546,7 @@
                 });
             });
 
-            // Get sales code from select (this is the agent_code from public_agent_codes)
+            // Get sales code from select (this is the sales_code from sales_agents)
             const salesCodeSelect = document.getElementById('salesCode');
             const salesCode = salesCodeSelect ? salesCodeSelect.value : null;
 
@@ -1565,7 +1565,7 @@
                 town: document.getElementById('town').value.trim() || null,
                 address: document.getElementById('address').value.trim() || null,
                 plan: planSlug,
-                sales_code: salesCode, // This is the agent_code from public_agent_codes
+                sales_code: salesCode, // This is the sales_code from sales_agents
                 benefit_option: document.getElementById('benefitOption').value,
                 dependants: dependants
             };
@@ -1995,7 +1995,7 @@
         window.escapeHtml = escapeHtml;
 
         console.log('✅ Registration page initialized');
-        console.log('📌 Sales agents are loaded from public_agent_codes table');
+        console.log('📌 Sales agents are loaded from sales_agents table');
     </script>
 
 </body>
