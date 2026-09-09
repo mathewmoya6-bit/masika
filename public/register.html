@@ -1277,7 +1277,7 @@
         // ============================================================
         // LOAD SALES AGENTS - FROM sales_agents
         // ============================================================
-        // DISPLAYS: sales_code (NOT phone)
+        // DISPLAYS: sales_code - Full Name (phone number removed)
         // ============================================================
 
         async function loadSalesAgents() {
@@ -1298,7 +1298,7 @@
 
                 const { data, error } = await supabaseClient
                     .from('sales_agents')
-                    .select('sales_code, full_name, phone, status')
+                    .select('sales_code, full_name, status')
                     .ilike('status', 'active')
                     .order('full_name', { ascending: true });
 
@@ -1324,23 +1324,17 @@
 
                     const option = document.createElement('option');
                     
-                    // CRITICAL FIX: Display sales_code prominently, not phone
-                    // The value is the sales_code, which is what gets stored in the member record
+                    // CRITICAL FIX: Display sales_code and full_name only (no phone)
                     option.value = String(agent.sales_code).trim();
                     
                     // Display: sales_code - Full Name
                     let label = `${agent.sales_code} - ${agent.full_name || 'Agent'}`;
                     
-                    // Optionally show phone in parentheses for reference
-                    if (agent.phone) {
-                        label += ` (${agent.phone})`;
-                    }
-                    
                     option.textContent = label;
                     select.appendChild(option);
                 });
 
-                console.log('📋 Sales agents loaded with sales_code as primary display');
+                console.log('📋 Sales agents loaded with sales_code as primary display (phone removed)');
 
             } catch (error) {
                 console.error('❌ Failed to load sales agents:', error);
