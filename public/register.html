@@ -885,7 +885,7 @@
                                 <div class="form-group">
                                     <label for="salesCode">Sales Agent Code</label>
                                     <select id="salesCode" name="sales_code">
-                                        <option value="">Select sales agent</option>
+                                        <option value="">Loading agents...</option>
                                     </select>
                                     <span class="help-text">Select the agent who assisted with your registration.</span>
                                 </div>
@@ -1048,7 +1048,7 @@
     </footer>
 
     <!-- ============================================================
-    ALL JAVASCRIPT INLINE - Self-contained
+    JAVASCRIPT - FIXED SALES AGENT LOADING
     ============================================================ -->
     <script>
         // ============================================================
@@ -1099,9 +1099,9 @@
         // ============================================================
         let supabaseClient = null;
         let selectedPlan = null;
-        let dependantIndex = 0;
         let parsedChamaMembers = [];
         let isSubmitting = false;
+        let agentsLoaded = false;
 
         // ============================================================
         // DOM ELEMENTS
@@ -1298,16 +1298,29 @@
 
             if (!supabaseClient) {
                 console.warn('⚠️ Supabase client not available');
-                select.innerHTML = '<option value="">Sales agents unavailable</option>';
+                select.innerHTML = '<option value="">Supabase not available</option>';
                 return;
             }
 
             try {
                 console.log('🔄 Loading sales agents from public_agent_codes...');
 
+                // First, let's check if the table exists by trying to get a count
+                const { count, error: countError } = await supabaseClient
+                    .from('public_agent_codes')
+                    .select('*', { count: 'exact', head: true });
+
+                if (countError) {
+                    console.error('❌ Error checking public_agent_codes table:', countError);
+                    throw new Error(`Table error: ${countError.message}`);
+                }
+
+                console.log(`📊 Found ${count || 0} total agents in public_agent_codes`);
+
+                // Now get the active agents with full details
                 const { data, error } = await supabaseClient
                     .from('public_agent_codes')
-                    .select('agent_code, full_name')
+                    .select('agent_code, full_name, phone, email, is_active')
                     .eq('is_active', true)
                     .order('full_name', { ascending: true });
 
@@ -1317,26 +1330,47 @@
                 }
 
                 if (!data || data.length === 0) {
-                    console.log('ℹ️ No active sales agents found');
+                    console.log('ℹ️ No active sales agents found in public_agent_codes');
                     select.innerHTML = '<option value="">No sales agents available</option>';
+                    
+                    // Try to get all agents (including inactive) to see what's there
+                    const { data: allData } = await supabaseClient
+                        .from('public_agent_codes')
+                        .select('agent_code, full_name, is_active')
+                        .order('full_name', { ascending: true });
+                    
+                    if (allData && allData.length > 0) {
+                        console.log(`📋 Found ${allData.length} total agents, ${allData.filter(a => a.is_active).length} active`);
+                        // Show inactive count in console
+                        const inactive = allData.filter(a => !a.is_active);
+                        if (inactive.length > 0) {
+                            console.log(`ℹ️ ${inactive.length} agents are inactive`);
+                        }
+                    }
                     return;
                 }
 
-                console.log(`✅ Loaded ${data.length} sales agents from public_agent_codes`);
+                console.log(`✅ Loaded ${data.length} active sales agents from public_agent_codes`);
 
                 select.innerHTML = '<option value="">Select sales agent</option>';
 
                 data.forEach(agent => {
                     const option = document.createElement('option');
                     option.value = agent.agent_code;
-                    option.textContent = `${agent.full_name} (${agent.agent_code})`;
+                    let label = agent.full_name || agent.agent_code;
+                    if (agent.phone) {
+                        label += ` (${agent.phone})`;
+                    }
+                    option.textContent = label;
                     select.appendChild(option);
                 });
+
+                agentsLoaded = true;
 
             } catch (error) {
                 console.error('❌ Unable to load sales agents:', error);
                 select.innerHTML = '<option value="">Error loading agents</option>';
-                showAlert('Failed to load sales agents. Please refresh the page.', 'warning');
+                showAlert(`Failed to load sales agents: ${error.message}`, 'warning');
             }
         }
 
@@ -1546,7 +1580,6 @@
                 });
             });
 
-            // Get the selected sales agent code
             const salesCodeSelect = document.getElementById('salesCode');
             const salesCode = salesCodeSelect ? salesCodeSelect.value : null;
 
@@ -1623,7 +1656,7 @@
         }
 
         // ============================================================
-        // HANDLE REGISTRATION - POST to /api/public/register
+        // HANDLE REGISTRATION
         // ============================================================
         async function handleRegistration(event) {
             event.preventDefault();
@@ -1634,7 +1667,6 @@
 
             const formData = getFormData();
 
-            // Log the form data for debugging
             console.log('📝 Registration payload:', {
                 ...formData,
                 sales_code: formData.sales_code || 'none'
@@ -1673,7 +1705,6 @@
                     throw new Error('Registration succeeded but no member ID was returned.');
                 }
 
-                // Calculate amount
                 const { plan } = getSelectedPlan();
                 const registrationAmount = Number(plan.registration_fee || 0);
                 let dependantFee = 0;
@@ -1683,7 +1714,6 @@
                 }
                 const totalAmount = registrationAmount + dependantFee;
 
-                // Store for payment page
                 sessionStorage.setItem('newMemberId', String(memberId));
                 if (result.member_number) sessionStorage.setItem('newMemberNumber', String(result.member_number));
                 sessionStorage.setItem('newMemberName', `${formData.first_name} ${formData.last_name}`.trim());
