@@ -4,31 +4,103 @@
 // ============================================================
 
 // ============================================================
+// CONFIGURATION - Self-contained if CONFIG is not available
+// ============================================================
+if (typeof CONFIG === 'undefined') {
+    var CONFIG = {
+        API: {
+            BASE_URL: 'https://masika-c921.onrender.com/api'
+        },
+        PLANS: {
+            COMFORT: {
+                slug: 'comfort',
+                name: 'Comfort Plan',
+                description: 'Affordable individual membership protection.',
+                registration_fee: 200,
+                monthly_fee: 300,
+                waiting_period_months: 4
+            },
+            DIGNITY: {
+                slug: 'dignity',
+                name: 'Dignity Plan',
+                description: 'Enhanced membership protection with premium benefits.',
+                registration_fee: 500,
+                monthly_fee: 1000,
+                waiting_period_months: 6
+            },
+            WAZAZI: {
+                slug: 'wazazi',
+                name: 'Wazazi Plan',
+                description: 'Membership protection designed for parents and elders.',
+                registration_fee: 200,
+                monthly_fee: 650,
+                waiting_period_months: 6
+            }
+        },
+        WAZAZI_PARENT_FEE: 100,
+        CHAMA_REGISTRATION_RATE: 100,
+        MIN_CHAMA_MEMBERS: 30,
+        MAX_DEPENDANTS: 10,
+        ROUTES: {
+            PAYMENT: 'payment.html'
+        }
+    };
+}
+
+// ============================================================
+// SUPABASE CONFIG - Same as admin-agents.html
+// ============================================================
+const SUPABASE_URL = 'https://wpxzlcdrirlcyvfiquld.supabase.co';
+const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6IndweHpsY2RyaXJsY3l2ZmlxdWxkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODc5Mjc4MDcsImV4cCI6MjEwMzUwMzgwN30.OUP9pmPbrML_egpHflZtDfLv1_UDM37_BYjtb842xjg';
+
+console.log('🚀 Register.js loaded');
+console.log('📡 Supabase URL:', SUPABASE_URL);
+
+// Initialize Supabase client
+let supabaseClient = null;
+
+function initSupabase() {
+    try {
+        if (typeof supabase !== 'undefined') {
+            supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+            console.log('✅ Supabase client initialized');
+            return supabaseClient;
+        } else {
+            console.warn('⚠️ Supabase library not loaded');
+            return null;
+        }
+    } catch (error) {
+        console.error('❌ Failed to initialize Supabase:', error);
+        return null;
+    }
+}
+
+// ============================================================
 // MAIN INITIALIZATION
 // ============================================================
 document.addEventListener('DOMContentLoaded', function() {
+    console.log('📄 DOM loaded - Register page');
+
     // Set footer year
     const yearEl = document.getElementById('year');
     if (yearEl) yearEl.textContent = new Date().getFullYear();
 
     // Initialize Supabase
-    if (typeof initSupabase === 'function') {
-        initSupabase();
-    }
+    initSupabase();
 
     // Initialize registration
     initRegistration();
 });
 
 function initRegistration() {
-    console.log('Initializing registration...');
+    console.log('🔧 Initializing registration...');
 
     const form = document.getElementById('registrationForm');
 
     // Load plans from API or config
     loadPlans();
 
-    // Load agents from Supabase
+    // Load agents from Supabase (public_agent_codes)
     loadAgentsFromSupabase();
 
     // Setup plan selection
@@ -85,7 +157,7 @@ async function loadPlans() {
     try {
         const container = document.getElementById('plansContainer');
         if (!container) {
-            console.error('plansContainer not found');
+            console.error('❌ plansContainer not found');
             return;
         }
 
@@ -149,6 +221,7 @@ function renderPlans(plans) {
                     value="${slug}"
                     id="plan_${index}"
                     ${index === 0 ? 'checked' : ''}
+                    data-plan='${JSON.stringify(plan)}'
                 >
                 <label for="plan_${index}" class="plan-label">
                     <div class="plan-name">${name}</div>
@@ -186,51 +259,67 @@ function renderPlans(plans) {
 // ============================================================
 async function loadAgentsFromSupabase() {
     const select = document.getElementById('salesCode');
-    if (!select) return;
+    if (!select) {
+        console.warn('⚠️ Sales code select element not found');
+        return;
+    }
 
-    select.innerHTML = '<option value="">Select sales agent</option>';
+    select.innerHTML = '<option value="">Loading agents...</option>';
 
-    // Get Supabase client from global scope
-    const client = window.supabaseClient || supabaseClient;
+    // Get Supabase client
+    const client = supabaseClient;
     
     if (!client) {
-        console.warn('Supabase client not available. Trying to initialize...');
-        if (typeof initSupabase === 'function') {
-            const newClient = initSupabase();
-            if (newClient) {
-                return loadAgentsFromSupabase(); // Retry with initialized client
-            }
+        console.warn('⚠️ Supabase client not available. Trying to initialize...');
+        const newClient = initSupabase();
+        if (newClient) {
+            // Retry after initialization
+            setTimeout(() => loadAgentsFromSupabase(), 500);
+            return;
         }
-        select.innerHTML = '<option value="">Sales agents unavailable</option>';
+        select.innerHTML = '<option value="">Supabase not available</option>';
         return;
     }
 
     try {
+        console.log('🔄 Loading sales agents from public_agent_codes...');
+
         const { data, error } = await client
             .from("public_agent_codes")
-            .select("agent_code, full_name")
+            .select("agent_code, full_name, phone")
             .eq("is_active", true)
             .order("full_name", { ascending: true });
 
-        if (error) throw error;
+        if (error) {
+            console.error('❌ Supabase query error:', error);
+            throw error;
+        }
 
         if (!data || data.length === 0) {
+            console.log('ℹ️ No active sales agents found in public_agent_codes');
             select.innerHTML = '<option value="">No sales agents available</option>';
             return;
         }
 
+        console.log(`✅ Loaded ${data.length} sales agents from public_agent_codes`);
+
+        select.innerHTML = '<option value="">Select sales agent</option>';
+
         data.forEach(agent => {
             const option = document.createElement('option');
             option.value = agent.agent_code;
-            option.textContent = `${agent.full_name} (${agent.agent_code})`;
+            let label = agent.full_name || agent.agent_code;
+            if (agent.phone) {
+                label += ` (${agent.phone})`;
+            }
+            option.textContent = label;
             select.appendChild(option);
         });
 
-        console.log(`Loaded ${data.length} sales agents from Supabase`);
-
     } catch (error) {
-        console.error('Unable to load sales agents from Supabase:', error);
+        console.error('❌ Unable to load sales agents from Supabase:', error);
         select.innerHTML = '<option value="">Error loading agents</option>';
+        showAlert('Failed to load sales agents. Please refresh the page.', 'warning');
     }
 }
 
@@ -601,6 +690,10 @@ function getFormData() {
         });
     });
 
+    // Get sales code from select (agent_code from public_agent_codes)
+    const salesCodeSelect = document.getElementById('salesCode');
+    const salesCode = salesCodeSelect ? salesCodeSelect.value : null;
+
     return {
         first_name: document.getElementById('firstName').value.trim(),
         last_name: document.getElementById('lastName').value.trim(),
@@ -616,7 +709,7 @@ function getFormData() {
         town: document.getElementById('town').value.trim() || null,
         address: document.getElementById('address').value.trim() || null,
         plan: planSlug,
-        sales_code: document.getElementById('salesCode').value || null,
+        sales_code: salesCode, // This is the agent_code from public_agent_codes
         benefit_option: document.getElementById('benefitOption').value,
         dependants: dependants
     };
@@ -799,3 +892,8 @@ window.loadPlans = loadPlans;
 window.loadAgentsFromSupabase = loadAgentsFromSupabase;
 window.initRegistration = initRegistration;
 window.normalizePhone = normalizePhone;
+window.initSupabase = initSupabase;
+window.supabaseClient = supabaseClient;
+
+console.log('✅ Register.js fully loaded');
+console.log('📌 Sales agents will be loaded from public_agent_codes table');
