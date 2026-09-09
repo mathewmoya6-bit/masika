@@ -16,20 +16,14 @@
     />
 
     <!-- =========================================================
-         EXTERNAL JS - ALIGNED WITH SUPABASE/BACKEND
+         EXTERNAL JS
          ========================================================= -->
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.3/papaparse.min.js"></script>
     
-    <!-- Masika JS Modules -->
-    <script src="js/config.js"></script>
-    <script src="js/supabase.js"></script>
-    <script src="js/auth.js"></script>
-    <script src="js/masika-utils.js"></script>
-
     <style>
         /* =========================================================
-           ALL STYLES
+           STYLES
            ========================================================= */
         :root {
             --primary: #173f35;
@@ -48,13 +42,8 @@
             --radius: 16px;
         }
 
-        * {
-            box-sizing: border-box;
-        }
-
-        html {
-            scroll-behavior: smooth;
-        }
+        * { box-sizing: border-box; }
+        html { scroll-behavior: smooth; }
 
         body {
             margin: 0;
@@ -64,22 +53,10 @@
             line-height: 1.6;
         }
 
-        a {
-            color: inherit;
-            text-decoration: none;
-        }
+        a { color: inherit; text-decoration: none; }
+        button, input, select, textarea { font: inherit; }
 
-        button,
-        input,
-        select,
-        textarea {
-            font: inherit;
-        }
-
-        .container {
-            width: min(1180px, calc(100% - 32px));
-            margin: 0 auto;
-        }
+        .container { width: min(1180px, calc(100% - 32px)); margin: 0 auto; }
 
         .site-header {
             background: var(--primary);
@@ -125,13 +102,11 @@
         .brand-text {
             line-height: 1.1;
         }
-
         .brand-text strong {
             display: block;
             font-size: 17px;
             letter-spacing: .08em;
         }
-
         .brand-text small {
             color: #ead9b3;
             font-size: 11px;
@@ -144,17 +119,12 @@
             align-items: center;
             gap: 22px;
         }
-
         .nav a {
             color: rgba(255,255,255,.9);
             font-size: 14px;
             font-weight: 600;
         }
-
-        .nav a:hover {
-            color: white;
-        }
-
+        .nav a:hover { color: white; }
         .nav-register {
             background: var(--gold);
             padding: 10px 17px;
@@ -162,11 +132,7 @@
         }
 
         .hero {
-            background: linear-gradient(
-                135deg,
-                rgba(23,63,53,.98),
-                rgba(14,44,37,.94)
-            );
+            background: linear-gradient(135deg, rgba(23,63,53,.98), rgba(14,44,37,.94));
             color: white;
             padding: 65px 0 85px;
         }
@@ -192,7 +158,6 @@
             font-size: clamp(34px, 5vw, 58px);
             line-height: 1.08;
         }
-
         .hero p {
             max-width: 680px;
             color: rgba(255,255,255,.82);
@@ -207,21 +172,10 @@
             padding: 28px;
             backdrop-filter: blur(8px);
         }
+        .hero-card h3 { margin-top: 0; color: #fff; }
+        .hero-card ul { padding-left: 20px; margin-bottom: 0; color: rgba(255,255,255,.85); }
 
-        .hero-card h3 {
-            margin-top: 0;
-            color: #fff;
-        }
-
-        .hero-card ul {
-            padding-left: 20px;
-            margin-bottom: 0;
-            color: rgba(255,255,255,.85);
-        }
-
-        .main {
-            padding: 50px 0 80px;
-        }
+        .main { padding: 50px 0 80px; }
 
         .registration-layout {
             display: grid;
@@ -237,60 +191,14 @@
             border: 1px solid var(--border);
         }
 
-        .form-card {
-            padding: 32px;
-        }
-
+        .form-card { padding: 32px; }
         .side-card {
             padding: 25px;
             position: sticky;
             top: 100px;
         }
 
-        .section-heading {
-            margin-bottom: 24px;
-        }
-
-        .section-heading h2 {
-            margin: 0 0 7px;
-            font-size: 24px;
-        }
-
-        .section-heading p {
-            margin: 0;
-            color: var(--muted);
-            font-size: 14px;
-        }
-
-        .mode-switch {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 10px;
-            background: #f1f4f2;
-            border-radius: 13px;
-            padding: 6px;
-            margin-bottom: 30px;
-        }
-
-        .mode-button {
-            border: 0;
-            background: transparent;
-            border-radius: 9px;
-            padding: 13px;
-            cursor: pointer;
-            font-weight: 700;
-            color: var(--muted);
-        }
-
-        .mode-button.active {
-            background: var(--primary);
-            color: white;
-            box-shadow: 0 5px 15px rgba(23,63,53,.18);
-        }
-
-        .form-section {
-            margin-bottom: 35px;
-        }
+        .form-section { margin-bottom: 35px; }
 
         .form-section-title {
             display: flex;
@@ -314,10 +222,7 @@
             flex-shrink: 0;
         }
 
-        .form-section-title h3 {
-            margin: 0;
-            font-size: 17px;
-        }
+        .form-section-title h3 { margin: 0; font-size: 17px; }
 
         .form-grid {
             display: grid;
@@ -330,24 +235,16 @@
             flex-direction: column;
             gap: 7px;
         }
-
-        .form-group.full {
-            grid-column: 1 / -1;
-        }
+        .form-group.full { grid-column: 1 / -1; }
 
         label {
             font-size: 13px;
             font-weight: 700;
             color: #34423e;
         }
+        label .required { color: var(--danger); }
 
-        label .required {
-            color: var(--danger);
-        }
-
-        input,
-        select,
-        textarea {
+        input, select, textarea {
             width: 100%;
             border: 1px solid var(--border);
             background: white;
@@ -358,22 +255,14 @@
             transition: .2s;
         }
 
-        input:focus,
-        select:focus,
-        textarea:focus {
+        input:focus, select:focus, textarea:focus {
             border-color: var(--gold);
             box-shadow: 0 0 0 3px rgba(201,154,62,.12);
         }
 
-        textarea {
-            min-height: 90px;
-            resize: vertical;
-        }
+        textarea { min-height: 90px; resize: vertical; }
 
-        .help-text {
-            font-size: 12px;
-            color: var(--muted);
-        }
+        .help-text { font-size: 12px; color: var(--muted); }
 
         .plans-grid {
             display: grid;
@@ -381,10 +270,7 @@
             gap: 12px;
         }
 
-        .plan-option {
-            position: relative;
-        }
-
+        .plan-option { position: relative; }
         .plan-option input {
             position: absolute;
             opacity: 0;
@@ -400,10 +286,7 @@
             height: 100%;
             transition: .2s;
         }
-
-        .plan-label:hover {
-            border-color: #c9d1ce;
-        }
+        .plan-label:hover { border-color: #c9d1ce; }
 
         .plan-option input:checked + .plan-label {
             border-color: var(--gold);
@@ -416,28 +299,22 @@
             font-size: 16px;
             margin-bottom: 5px;
         }
-
         .plan-description {
             color: var(--muted);
             font-size: 12px;
             min-height: 38px;
         }
-
         .plan-price {
             margin-top: 12px;
             color: var(--primary);
             font-weight: 800;
         }
-
         .plan-price small {
             font-weight: 500;
             color: var(--muted);
         }
 
-        .dependant-list {
-            display: grid;
-            gap: 15px;
-        }
+        .dependant-list { display: grid; gap: 15px; }
 
         .dependant-card {
             border: 1px solid var(--border);
@@ -452,10 +329,7 @@
             align-items: center;
             margin-bottom: 14px;
         }
-
-        .dependant-header strong {
-            font-size: 14px;
-        }
+        .dependant-header strong { font-size: 14px; }
 
         .remove-dependant {
             border: 0;
@@ -478,10 +352,7 @@
             cursor: pointer;
             font-weight: 700;
         }
-
-        .add-button:hover {
-            border-color: var(--primary);
-        }
+        .add-button:hover { border-color: var(--primary); }
 
         .summary {
             background: #f6f8f6;
@@ -496,7 +367,6 @@
             padding: 8px 0;
             font-size: 14px;
         }
-
         .summary-row.total {
             border-top: 1px solid var(--border);
             margin-top: 10px;
@@ -521,30 +391,20 @@
             font-weight: 800;
             transition: .2s;
         }
-
         .btn-primary {
             background: var(--primary);
             color: white;
         }
-
-        .btn-primary:hover {
-            background: var(--primary-dark);
-        }
-
+        .btn-primary:hover { background: var(--primary-dark); }
         .btn-gold {
             background: var(--gold);
             color: white;
         }
-
-        .btn-gold:hover {
-            background: var(--gold-dark);
-        }
-
+        .btn-gold:hover { background: var(--gold-dark); }
         .btn-secondary {
             background: #eef2f0;
             color: var(--primary);
         }
-
         .btn:disabled {
             opacity: .55;
             cursor: not-allowed;
@@ -558,29 +418,22 @@
             font-size: 14px;
             font-weight: 600;
         }
-
-        .alert.show {
-            display: block;
-        }
-
+        .alert.show { display: block; }
         .alert.success {
             background: #eaf7ef;
             color: #17683d;
             border: 1px solid #bce5cc;
         }
-
         .alert.error {
             background: #fcebea;
             color: #922b21;
             border: 1px solid #f0c4bf;
         }
-
         .alert.warning {
             background: #fff7df;
             color: #8a6116;
             border: 1px solid #ead49a;
         }
-
         .alert.info {
             background: #edf5fa;
             color: #245b79;
@@ -596,10 +449,7 @@
             font-weight: 700;
             padding: 10px;
         }
-
-        .loading.show {
-            display: flex;
-        }
+        .loading.show { display: flex; }
 
         .spinner {
             width: 19px;
@@ -611,18 +461,11 @@
         }
 
         @keyframes spin {
-            to {
-                transform: rotate(360deg);
-            }
+            to { transform: rotate(360deg); }
         }
 
-        .chama-only {
-            display: none;
-        }
-
-        .chama-only.show {
-            display: block;
-        }
+        .chama-only { display: none; }
+        .chama-only.show { display: block; }
 
         .csv-box {
             border: 2px dashed #bbc8c3;
@@ -631,7 +474,6 @@
             text-align: center;
             background: #fafcfb;
         }
-
         .csv-box input {
             border: 0;
             padding: 0;
@@ -646,10 +488,7 @@
             border: 1px solid var(--border);
             border-radius: 10px;
         }
-
-        .csv-preview.show {
-            display: block;
-        }
+        .csv-preview.show { display: block; }
 
         .csv-preview table {
             width: 100%;
@@ -657,29 +496,20 @@
             font-size: 12px;
             background: white;
         }
-
-        .csv-preview th,
-        .csv-preview td {
+        .csv-preview th, .csv-preview td {
             padding: 9px;
             border-bottom: 1px solid var(--border);
             text-align: left;
             white-space: nowrap;
         }
-
-        .csv-preview th {
-            background: #f4f7f5;
-        }
-
+        .csv-preview th { background: #f4f7f5; }
         .csv-count {
             margin-top: 10px;
             font-size: 13px;
             font-weight: 700;
         }
 
-        .side-card h3 {
-            margin-top: 0;
-            color: var(--primary);
-        }
+        .side-card h3 { margin-top: 0; color: var(--primary); }
 
         .side-item {
             display: flex;
@@ -687,10 +517,7 @@
             padding: 13px 0;
             border-bottom: 1px solid var(--border);
         }
-
-        .side-item:last-child {
-            border-bottom: 0;
-        }
+        .side-item:last-child { border-bottom: 0; }
 
         .side-icon {
             width: 35px;
@@ -703,12 +530,10 @@
             font-weight: 800;
             flex-shrink: 0;
         }
-
         .side-item strong {
             display: block;
             font-size: 13px;
         }
-
         .side-item span {
             color: var(--muted);
             font-size: 12px;
@@ -719,7 +544,6 @@
             color: rgba(255,255,255,.8);
             padding: 35px 0;
         }
-
         .footer-inner {
             display: flex;
             justify-content: space-between;
@@ -729,53 +553,20 @@
         }
 
         @media (max-width: 900px) {
-            .hero-grid,
-            .registration-layout {
-                grid-template-columns: 1fr;
-            }
-
-            .side-card {
-                position: static;
-            }
-
-            .plans-grid {
-                grid-template-columns: 1fr;
-            }
+            .hero-grid, .registration-layout { grid-template-columns: 1fr; }
+            .side-card { position: static; }
+            .plans-grid { grid-template-columns: 1fr; }
         }
 
         @media (max-width: 650px) {
-            .nav {
-                display: none;
-            }
-
-            .form-card {
-                padding: 20px;
-            }
-
-            .form-grid {
-                grid-template-columns: 1fr;
-            }
-
-            .form-group.full {
-                grid-column: auto;
-            }
-
-            .hero {
-                padding: 45px 0 55px;
-            }
-
-            .button-row {
-                flex-direction: column;
-            }
-
-            .button-row .btn {
-                width: 100%;
-            }
-
-            .footer-inner {
-                flex-direction: column;
-                text-align: center;
-            }
+            .nav { display: none; }
+            .form-card { padding: 20px; }
+            .form-grid { grid-template-columns: 1fr; }
+            .form-group.full { grid-column: auto; }
+            .hero { padding: 45px 0 55px; }
+            .button-row { flex-direction: column; }
+            .button-row .btn { width: 100%; }
+            .footer-inner { flex-direction: column; text-align: center; }
         }
 
         .county-select {
@@ -785,10 +576,7 @@
             background-position: right 16px center;
             background-size: 14px;
         }
-
-        .county-select option {
-            padding: 6px;
-        }
+        .county-select option { padding: 6px; }
     </style>
 
 </head>
@@ -798,12 +586,7 @@
 <header class="site-header">
     <div class="container header-inner">
         <a href="index.html" class="brand">
-            <img
-                src="assets/branding/favicon.svg"
-                alt="Masika Benevolent"
-                class="brand-mark"
-            />
-
+            <img src="assets/branding/favicon.svg" alt="Masika Benevolent" class="brand-mark" />
             <span class="brand-text">
                 <strong>MASIKA</strong>
                 <small>Benevolent</small>
@@ -821,23 +604,13 @@
 
 <section class="hero">
     <div class="container hero-grid">
-
         <div>
             <div class="eyebrow">Masika Benevolent</div>
-
-            <h1>
-                Protect your family with dignity and peace of mind.
-            </h1>
-
-            <p>
-                Complete your registration below. Your registration will remain
-                pending until the required payment is successfully completed.
-            </p>
+            <h1>Protect your family with dignity and peace of mind.</h1>
+            <p>Complete your registration below. Your registration will remain pending until the required payment is successfully completed.</p>
         </div>
-
         <div class="hero-card">
             <h3>How registration works</h3>
-
             <ul>
                 <li>Complete the registration form.</li>
                 <li>Submit your details.</li>
@@ -847,189 +620,75 @@
                 <li>Your membership number, receipt and membership identity card can then be generated.</li>
             </ul>
         </div>
-
     </div>
 </section>
 
 <main class="main">
     <div class="container">
-
         <div class="registration-layout">
 
             <section class="card form-card">
 
                 <div id="alertBox" class="alert" role="alert" aria-live="assertive"></div>
-
                 <div id="loadingBox" class="loading">
                     <span class="spinner"></span>
                     <span id="loadingText">Processing...</span>
                 </div>
 
-                <div class="mode-switch">
-                    <button
-                        type="button"
-                        id="individualModeBtn"
-                        class="mode-button active"
-                    >
-                        Individual / Family
-                    </button>
-
-                    <button
-                        type="button"
-                        id="chamaModeBtn"
-                        class="mode-button"
-                    >
-                        Chama / Group
-                    </button>
-                </div>
-
-                <!-- =====================================================
-                     INDIVIDUAL REGISTRATION
-                     ===================================================== -->
-
                 <form id="registrationForm" novalidate>
 
+                    <!-- Step 1: Personal Details -->
                     <div class="form-section">
-
                         <div class="form-section-title">
                             <span class="step-number">1</span>
                             <h3>Principal Member Details</h3>
                         </div>
 
                         <div class="form-grid">
-
                             <div class="form-group">
-                                <label for="firstName">
-                                    First Name <span class="required">*</span>
-                                </label>
-                                <input
-                                    type="text"
-                                    id="firstName"
-                                    name="first_name"
-                                    autocomplete="given-name"
-                                    required
-                                />
+                                <label for="firstName">First Name <span class="required">*</span></label>
+                                <input type="text" id="firstName" name="first_name" autocomplete="given-name" required />
                             </div>
-
                             <div class="form-group">
-                                <label for="lastName">
-                                    Last Name <span class="required">*</span>
-                                </label>
-                                <input
-                                    type="text"
-                                    id="lastName"
-                                    name="last_name"
-                                    autocomplete="family-name"
-                                    required
-                                />
+                                <label for="lastName">Last Name <span class="required">*</span></label>
+                                <input type="text" id="lastName" name="last_name" autocomplete="family-name" required />
                             </div>
-
                             <div class="form-group">
                                 <label for="otherName">Other Name</label>
-                                <input
-                                    type="text"
-                                    id="otherName"
-                                    name="other_name"
-                                    autocomplete="additional-name"
-                                />
+                                <input type="text" id="otherName" name="other_name" autocomplete="additional-name" />
                             </div>
-
                             <div class="form-group">
-                                <label for="idNumber">
-                                    National ID / Passport
-                                    <span class="required">*</span>
-                                </label>
-                                <input
-                                    type="text"
-                                    id="idNumber"
-                                    name="id_number"
-                                    required
-                                />
+                                <label for="idNumber">National ID / Passport <span class="required">*</span></label>
+                                <input type="text" id="idNumber" name="id_number" required />
                             </div>
-
                             <div class="form-group">
-                                <label for="dateOfBirth">
-                                    Date of Birth <span class="required">*</span>
-                                </label>
-                                <input
-                                    type="date"
-                                    id="dateOfBirth"
-                                    name="date_of_birth"
-                                    required
-                                />
+                                <label for="dateOfBirth">Date of Birth <span class="required">*</span></label>
+                                <input type="date" id="dateOfBirth" name="date_of_birth" required />
                             </div>
-
                             <div class="form-group">
-                                <label for="gender">
-                                    Gender <span class="required">*</span>
-                                </label>
-
-                                <select
-                                    id="gender"
-                                    name="gender"
-                                    required
-                                >
+                                <label for="gender">Gender <span class="required">*</span></label>
+                                <select id="gender" name="gender" required>
                                     <option value="">Select gender</option>
                                     <option value="MALE">Male</option>
                                     <option value="FEMALE">Female</option>
                                 </select>
                             </div>
-
                             <div class="form-group">
-                                <label for="phone">
-                                    Phone Number <span class="required">*</span>
-                                </label>
-
-                                <input
-                                    type="tel"
-                                    id="phone"
-                                    name="phone"
-                                    placeholder="07XXXXXXXX or 2547XXXXXXXX"
-                                    autocomplete="tel"
-                                    required
-                                />
+                                <label for="phone">Phone Number <span class="required">*</span></label>
+                                <input type="tel" id="phone" name="phone" placeholder="07XXXXXXXX or 2547XXXXXXXX" autocomplete="tel" required />
                             </div>
-
                             <div class="form-group">
-                                <label for="alternativePhone">
-                                    Alternative Phone
-                                </label>
-
-                                <input
-                                    type="tel"
-                                    id="alternativePhone"
-                                    name="alternative_phone"
-                                    placeholder="Optional"
-                                />
+                                <label for="alternativePhone">Alternative Phone</label>
+                                <input type="tel" id="alternativePhone" name="alternative_phone" placeholder="Optional" />
                             </div>
-
                             <div class="form-group">
                                 <label for="email">Email Address</label>
-
-                                <input
-                                    type="email"
-                                    id="email"
-                                    name="email"
-                                    autocomplete="email"
-                                    placeholder="Optional"
-                                />
-
-                                <span class="help-text">
-                                    Optional. If provided, enter a valid email address.
-                                </span>
+                                <input type="email" id="email" name="email" autocomplete="email" placeholder="Optional" />
+                                <span class="help-text">Optional. If provided, enter a valid email address.</span>
                             </div>
-
                             <div class="form-group">
-                                <label for="county">
-                                    County <span class="required">*</span>
-                                </label>
-
-                                <select
-                                    id="county"
-                                    name="county"
-                                    class="county-select"
-                                    required
-                                >
+                                <label for="county">County <span class="required">*</span></label>
+                                <select id="county" name="county" class="county-select" required>
                                     <option value="">— Select your county —</option>
                                     <option value="Mombasa">Mombasa</option>
                                     <option value="Kwale">Kwale</option>
@@ -1080,524 +739,224 @@
                                     <option value="Nairobi">Nairobi</option>
                                 </select>
                             </div>
-
                             <div class="form-group">
                                 <label for="location">Location / Area</label>
-                                <input
-                                    type="text"
-                                    id="location"
-                                    name="location"
-                                />
+                                <input type="text" id="location" name="location" />
                             </div>
-
                             <div class="form-group">
                                 <label for="town">Town</label>
-                                <input
-                                    type="text"
-                                    id="town"
-                                    name="town"
-                                    autocomplete="address-level2"
-                                />
+                                <input type="text" id="town" name="town" autocomplete="address-level2" />
                             </div>
-
                             <div class="form-group full">
-                                <label for="address">
-                                    Physical / Postal Address
-                                </label>
-
-                                <textarea
-                                    id="address"
-                                    name="address"
-                                ></textarea>
+                                <label for="address">Physical / Postal Address</label>
+                                <textarea id="address" name="address"></textarea>
                             </div>
-
                         </div>
                     </div>
 
-                    <!-- PLAN -->
-
+                    <!-- Step 2: Plan -->
                     <div class="form-section">
-
                         <div class="form-section-title">
                             <span class="step-number">2</span>
                             <h3>Select Membership Plan</h3>
                         </div>
-
-                        <div
-                            id="plansContainer"
-                            class="plans-grid"
-                        >
-                            <div class="help-text">
-                                Loading available plans...
-                            </div>
+                        <div id="plansContainer" class="plans-grid">
+                            <!-- Plans loaded by JavaScript -->
                         </div>
-
-                        <div
-                            id="planHelp"
-                            class="help-text"
-                            style="margin-top:12px;"
-                        >
+                        <div id="planHelp" class="help-text" style="margin-top:12px;">
                             Select a plan to continue.
                         </div>
-
                     </div>
 
-                    <!-- SOURCE -->
-
+                    <!-- Step 3: Registration Source -->
                     <div class="form-section">
-
                         <div class="form-section-title">
                             <span class="step-number">3</span>
                             <h3>Registration Source</h3>
                         </div>
 
                         <div class="form-grid">
-
                             <div class="form-group">
-                                <label for="salesCode">
-                                    Sales Agent Code
-                                </label>
-
-                                <select
-                                    id="salesCode"
-                                    name="sales_code"
-                                >
-                                    <option value="">
-                                        Select sales agent
-                                    </option>
+                                <label for="salesCode">Sales Agent Code</label>
+                                <select id="salesCode" name="sales_code">
+                                    <option value="">Select sales agent</option>
                                 </select>
-
-                                <span
-                                    class="help-text"
-                                    id="salesCodeHelp"
-                                >
-                                    Select the agent who assisted with your registration.
-                                </span>
+                                <span class="help-text" id="salesCodeHelp">Select the agent who assisted with your registration.</span>
                             </div>
-
                             <div class="form-group">
-                                <label for="benefitOption">
-                                    Benefit Option
-                                    <span class="required">*</span>
-                                </label>
-
-                                <select
-                                    id="benefitOption"
-                                    name="benefit_option"
-                                    required
-                                >
-                                    <option value="">
-                                        Select benefit option
-                                    </option>
-
-                                    <option value="service">
-                                        Service
-                                    </option>
-
-                                    <option value="cash">
-                                        Cash
-                                    </option>
+                                <label for="benefitOption">Benefit Option <span class="required">*</span></label>
+                                <select id="benefitOption" name="benefit_option" required>
+                                    <option value="">Select benefit option</option>
+                                    <option value="service">Service</option>
+                                    <option value="cash">Cash</option>
                                 </select>
-
-                                <span class="help-text">
-                                    Select how the applicable benevolent benefit is to be provided.
-                                </span>
+                                <span class="help-text">Select how the applicable benevolent benefit is to be provided.</span>
                             </div>
-
                         </div>
                     </div>
 
-                    <!-- DEPENDANTS -->
-
+                    <!-- Step 4: Dependants -->
                     <div class="form-section">
-
                         <div class="form-section-title">
                             <span class="step-number">4</span>
                             <h3>Dependants</h3>
                         </div>
-
-                        <p class="help-text">
-                            You may add eligible spouse, children or parents according to the selected plan.
-                        </p>
-
-                        <div
-                            id="dependantsContainer"
-                            class="dependant-list"
-                        ></div>
-
-                        <button
-                            type="button"
-                            id="addDependantBtn"
-                            class="add-button"
-                        >
-                            + Add Dependant
-                        </button>
-
+                        <p class="help-text">You may add eligible spouse, children or parents according to the selected plan.</p>
+                        <div id="dependantsContainer" class="dependant-list"></div>
+                        <button type="button" id="addDependantBtn" class="add-button">+ Add Dependant</button>
                     </div>
 
-                    <!-- SUMMARY -->
-
+                    <!-- Step 5: Summary -->
                     <div class="form-section">
-
                         <div class="form-section-title">
                             <span class="step-number">5</span>
                             <h3>Registration Summary</h3>
                         </div>
-
                         <div class="summary">
-
                             <div class="summary-row">
                                 <span>Plan</span>
                                 <strong id="summaryPlan">—</strong>
                             </div>
-
                             <div class="summary-row">
                                 <span>Principal registration</span>
-                                <strong id="summaryPrincipal">
-                                    KES 0
-                                </strong>
+                                <strong id="summaryPrincipal">KES 0</strong>
                             </div>
-
                             <div class="summary-row">
                                 <span>Dependant registration</span>
-                                <strong id="summaryDependants">
-                                    KES 0
-                                </strong>
+                                <strong id="summaryDependants">KES 0</strong>
                             </div>
-
                             <div class="summary-row total">
                                 <span>Amount to pay now</span>
-                                <strong id="summaryTotal">
-                                    KES 0
-                                </strong>
+                                <strong id="summaryTotal">KES 0</strong>
                             </div>
-
                         </div>
                     </div>
 
                     <div class="button-row">
-
-                        <button
-                            type="button"
-                            id="resetBtn"
-                            class="btn btn-secondary"
-                        >
-                            Reset
-                        </button>
-
-                        <button
-                            type="submit"
-                            id="submitBtn"
-                            class="btn btn-primary"
-                        >
-                            Continue to Payment
-                        </button>
-
+                        <button type="button" id="resetBtn" class="btn btn-secondary">Reset</button>
+                        <button type="submit" id="submitBtn" class="btn btn-primary">Continue to Payment</button>
                     </div>
 
                 </form>
 
-                <!-- =====================================================
-                     CHAMA REGISTRATION
-                     ===================================================== -->
-
-                <section
-                    id="chamaSection"
-                    class="chama-only"
-                >
-
+                <!-- Chama Section -->
+                <section id="chamaSection" class="chama-only">
                     <div class="section-heading">
-
                         <h2>Chama / Group Registration</h2>
-
-                        <p>
-                            Upload a CSV containing the members of your chama/group.
-                            A minimum of 30 members is required.
-                        </p>
-
+                        <p>Upload a CSV containing the members of your chama/group. A minimum of 30 members is required.</p>
                     </div>
 
-                    <form
-                        id="chamaForm"
-                        novalidate
-                    >
-
+                    <form id="chamaForm" novalidate>
                         <div class="form-section">
-
                             <div class="form-section-title">
                                 <span class="step-number">1</span>
                                 <h3>Group Details</h3>
                             </div>
-
                             <div class="form-grid">
-
                                 <div class="form-group">
-
-                                    <label for="chamaName">
-                                        Chama / Group Name
-                                        <span class="required">*</span>
-                                    </label>
-
-                                    <input
-                                        type="text"
-                                        id="chamaName"
-                                        required
-                                    />
-
+                                    <label for="chamaName">Chama / Group Name <span class="required">*</span></label>
+                                    <input type="text" id="chamaName" required />
                                 </div>
-
                                 <div class="form-group">
-
-                                    <label for="chamaPhone">
-                                        Group Contact Phone
-                                        <span class="required">*</span>
-                                    </label>
-
-                                    <input
-                                        type="tel"
-                                        id="chamaPhone"
-                                        placeholder="07XXXXXXXX"
-                                        required
-                                    />
-
+                                    <label for="chamaPhone">Group Contact Phone <span class="required">*</span></label>
+                                    <input type="tel" id="chamaPhone" placeholder="07XXXXXXXX" required />
                                 </div>
-
                             </div>
                         </div>
 
                         <div class="form-section">
-
                             <div class="form-section-title">
                                 <span class="step-number">2</span>
                                 <h3>Group Officials</h3>
                             </div>
-
                             <div class="form-grid">
-
                                 <div class="form-group">
-                                    <label for="chairpersonName">
-                                        Chairperson Name
-                                        <span class="required">*</span>
-                                    </label>
-
-                                    <input
-                                        type="text"
-                                        id="chairpersonName"
-                                        required
-                                    />
+                                    <label for="chairpersonName">Chairperson Name <span class="required">*</span></label>
+                                    <input type="text" id="chairpersonName" required />
                                 </div>
-
                                 <div class="form-group">
-                                    <label for="chairpersonPhone">
-                                        Chairperson Phone
-                                        <span class="required">*</span>
-                                    </label>
-
-                                    <input
-                                        type="tel"
-                                        id="chairpersonPhone"
-                                        required
-                                    />
+                                    <label for="chairpersonPhone">Chairperson Phone <span class="required">*</span></label>
+                                    <input type="tel" id="chairpersonPhone" required />
                                 </div>
-
                                 <div class="form-group">
-                                    <label for="chairpersonId">
-                                        Chairperson ID
-                                        <span class="required">*</span>
-                                    </label>
-
-                                    <input
-                                        type="text"
-                                        id="chairpersonId"
-                                        required
-                                    />
+                                    <label for="chairpersonId">Chairperson ID <span class="required">*</span></label>
+                                    <input type="text" id="chairpersonId" required />
                                 </div>
-
                                 <div class="form-group">
-                                    <label for="treasurerName">
-                                        Treasurer Name
-                                        <span class="required">*</span>
-                                    </label>
-
-                                    <input
-                                        type="text"
-                                        id="treasurerName"
-                                        required                                    />
+                                    <label for="treasurerName">Treasurer Name <span class="required">*</span></label>
+                                    <input type="text" id="treasurerName" required />
                                 </div>
-
                                 <div class="form-group">
-                                    <label for="treasurerPhone">
-                                        Treasurer Phone
-                                        <span class="required">*</span>
-                                    </label>
-
-                                    <input
-                                        type="tel"
-                                        id="treasurerPhone"
-                                        required
-                                    />
+                                    <label for="treasurerPhone">Treasurer Phone <span class="required">*</span></label>
+                                    <input type="tel" id="treasurerPhone" required />
                                 </div>
-
                                 <div class="form-group">
-                                    <label for="treasurerId">
-                                        Treasurer ID
-                                        <span class="required">*</span>
-                                    </label>
-
-                                    <input
-                                        type="text"
-                                        id="treasurerId"
-                                        required
-                                    />
+                                    <label for="treasurerId">Treasurer ID <span class="required">*</span></label>
+                                    <input type="text" id="treasurerId" required />
                                 </div>
-
                                 <div class="form-group">
-                                    <label for="secretaryName">
-                                        Secretary Name
-                                        <span class="required">*</span>
-                                    </label>
-
-                                    <input
-                                        type="text"
-                                        id="secretaryName"
-                                        required
-                                    />
+                                    <label for="secretaryName">Secretary Name <span class="required">*</span></label>
+                                    <input type="text" id="secretaryName" required />
                                 </div>
-
                                 <div class="form-group">
-                                    <label for="secretaryPhone">
-                                        Secretary Phone
-                                        <span class="required">*</span>
-                                    </label>
-
-                                    <input
-                                        type="tel"
-                                        id="secretaryPhone"
-                                        required
-                                    />
+                                    <label for="secretaryPhone">Secretary Phone <span class="required">*</span></label>
+                                    <input type="tel" id="secretaryPhone" required />
                                 </div>
-
                                 <div class="form-group">
-                                    <label for="secretaryId">
-                                        Secretary ID
-                                        <span class="required">*</span>
-                                    </label>
-
-                                    <input
-                                        type="text"
-                                        id="secretaryId"
-                                        required
-                                    />
+                                    <label for="secretaryId">Secretary ID <span class="required">*</span></label>
+                                    <input type="text" id="secretaryId" required />
                                 </div>
-
                             </div>
                         </div>
 
                         <div class="form-section">
-
                             <div class="form-section-title">
                                 <span class="step-number">3</span>
                                 <h3>Upload Members CSV</h3>
                             </div>
-
                             <div class="csv-box">
-
-                                <strong>
-                                    Upload your chama member list
-                                </strong>
-
-                                <p class="help-text">
-                                    Required columns:
-                                    first_name, last_name, phone,
-                                    id_number, date_of_birth, gender
-                                </p>
-
-                                <input
-                                    type="file"
-                                    id="chamaCsv"
-                                    accept=".csv,text/csv"
-                                />
-
+                                <strong>Upload your chama member list</strong>
+                                <p class="help-text">Required columns: first_name, last_name, phone, id_number, date_of_birth, gender</p>
+                                <input type="file" id="chamaCsv" accept=".csv,text/csv" />
                             </div>
-
-                            <div
-                                id="csvCount"
-                                class="csv-count"
-                            ></div>
-
-                            <div
-                                id="csvPreview"
-                                class="csv-preview"
-                            ></div>
-
+                            <div id="csvCount" class="csv-count"></div>
+                            <div id="csvPreview" class="csv-preview"></div>
                         </div>
 
                         <div class="form-section">
-
                             <div class="summary">
-
                                 <div class="summary-row">
                                     <span>Members</span>
-                                    <strong id="chamaMemberCount">
-                                        0
-                                    </strong>
+                                    <strong id="chamaMemberCount">0</strong>
                                 </div>
-
                                 <div class="summary-row">
                                     <span>Registration rate</span>
-                                    <strong>
-                                        KES 100 per member
-                                    </strong>
+                                    <strong>KES 100 per member</strong>
                                 </div>
-
                                 <div class="summary-row total">
                                     <span>Amount to pay</span>
-                                    <strong id="chamaTotal">
-                                        KES 0
-                                    </strong>
+                                    <strong id="chamaTotal">KES 0</strong>
                                 </div>
-
                             </div>
-
                         </div>
 
                         <div class="button-row">
-
-                            <button
-                                type="button"
-                                id="chamaResetBtn"
-                                class="btn btn-secondary"
-                            >
-                                Reset
-                            </button>
-
-                            <button
-                                type="submit"
-                                id="chamaSubmitBtn"
-                                class="btn btn-primary"
-                            >
-                                Continue to Payment
-                            </button>
-
+                            <button type="button" id="chamaResetBtn" class="btn btn-secondary">Reset</button>
+                            <button type="submit" id="chamaSubmitBtn" class="btn btn-primary">Continue to Payment</button>
                         </div>
-
                     </form>
-
                 </section>
 
             </section>
 
             <aside class="card side-card">
-
                 <h3>Registration Information</h3>
 
                 <div class="side-item">
                     <div class="side-icon">1</div>
                     <div>
                         <strong>Registration first</strong>
-                        <span>
-                            Your details are created as a pending registration.
-                        </span>
+                        <span>Your details are created as a pending registration.</span>
                     </div>
                 </div>
 
@@ -1605,9 +964,7 @@
                     <div class="side-icon">2</div>
                     <div>
                         <strong>Pay securely</strong>
-                        <span>
-                            You will proceed to the M-Pesa payment page.
-                        </span>
+                        <span>You will proceed to the M-Pesa payment page.</span>
                     </div>
                 </div>
 
@@ -1615,9 +972,7 @@
                     <div class="side-icon">3</div>
                     <div>
                         <strong>Automatic verification</strong>
-                        <span>
-                            M-Pesa callback confirms the transaction.
-                        </span>
+                        <span>M-Pesa callback confirms the transaction.</span>
                     </div>
                 </div>
 
@@ -1625,9 +980,7 @@
                     <div class="side-icon">4</div>
                     <div>
                         <strong>Membership finalized</strong>
-                        <span>
-                            The backend activates the membership after successful payment.
-                        </span>
+                        <span>The backend activates the membership after successful payment.</span>
                     </div>
                 </div>
 
@@ -1635,9 +988,7 @@
                     <div class="side-icon">5</div>
                     <div>
                         <strong>Membership number</strong>
-                        <span>
-                            The final member number is generated during finalization.
-                        </span>
+                        <span>The final member number is generated during finalization.</span>
                     </div>
                 </div>
 
@@ -1645,9 +996,7 @@
                     <div class="side-icon">✓</div>
                     <div>
                         <strong>Receipt &amp; ID card</strong>
-                        <span>
-                            Your finalized membership can be used for receipt and identity-card generation.
-                        </span>
+                        <span>Your finalized membership can be used for receipt and identity-card generation.</span>
                     </div>
                 </div>
 
@@ -1659,74 +1008,44 @@
 
 <footer>
     <div class="container footer-inner">
-
-        <div>
-            © <span id="year"></span> Masika Benevolent.
-            All rights reserved.
-        </div>
-
-        <div>
-            Dignity. Support. Together.
-        </div>
-
+        <div>© <span id="year"></span> Masika Benevolent. All rights reserved.</div>
+        <div>Dignity. Support. Together.</div>
     </div>
 </footer>
 
 <!-- =========================================================
-     JAVASCRIPT - COMPLETE ALIGNED WITH BACKEND
+     JAVASCRIPT - COMPLETE SELF-CONTAINED
      ========================================================= -->
 
 <script>
     // =========================================================
-    // SET YEAR IN FOOTER
+    // CONFIGURATION
     // =========================================================
-    document.getElementById('year').textContent = new Date().getFullYear();
-
-    // =========================================================
-    // CHECK IF ALREADY LOGGED IN
-    // =========================================================
-    document.addEventListener('DOMContentLoaded', function() {
-        if (typeof authManager !== 'undefined' && authManager.isAuthenticated) {
-            window.location.href = CONFIG.ROUTES.DASHBOARD;
-            return;
-        }
-        
-        // Initialize registration
-        initRegistration();
-    });
-
-    // =========================================================
-    // REGISTRATION - COMPLETE ALIGNED
-    // =========================================================
-
-    // =========================================================
-    // CONFIG
-    // =========================================================
-    const CONFIG = window.CONFIG || {
+    const CONFIG = {
         PLANS: {
             COMFORT: {
                 slug: "comfort",
                 name: "Comfort Plan",
-                description: "Affordable individual membership protection.",
+                description: "Affordable individual membership protection for you and your family.",
                 registration_fee: 200,
                 monthly_fee: 300,
-                waiting_period: 4
+                waiting_period_months: 4
             },
             DIGNITY: {
                 slug: "dignity",
                 name: "Dignity Plan",
-                description: "Enhanced membership protection for your family.",
+                description: "Enhanced membership protection with premium benefits for your entire family.",
                 registration_fee: 300,
                 monthly_fee: 1000,
-                waiting_period: 6
+                waiting_period_months: 6
             },
             WAZAZI: {
                 slug: "wazazi",
                 name: "Wazazi Plan",
-                description: "Membership protection designed for parents.",
+                description: "Membership protection specifically designed for parents and elders.",
                 registration_fee: 250,
                 monthly_fee: 350,
-                waiting_period: 6
+                waiting_period_months: 6
             }
         },
         ROUTES: {
@@ -1740,8 +1059,22 @@
     };
 
     // =========================================================
+    // SET YEAR IN FOOTER
+    // =========================================================
+    document.getElementById('year').textContent = new Date().getFullYear();
+
+    // =========================================================
     // INITIALIZATION
     // =========================================================
+    document.addEventListener('DOMContentLoaded', function() {
+        // Check if already logged in
+        if (typeof authManager !== 'undefined' && authManager.isAuthenticated) {
+            window.location.href = CONFIG.ROUTES.DASHBOARD;
+            return;
+        }
+        
+        initRegistration();
+    });
 
     function initRegistration() {
         console.log('📋 Initializing registration...');
@@ -1762,7 +1095,7 @@
 
         // Reset button
         document.getElementById('resetBtn').addEventListener('click', function() {
-            this.closest('form').reset();
+            document.getElementById('registrationForm').reset();
             clearAlerts();
             updateSummary();
             document.getElementById('dependantsContainer').innerHTML = '';
@@ -1785,9 +1118,8 @@
     }
 
     // =========================================================
-    // LOAD PLANS - FROM CONFIG (NO API CALL)
+    // LOAD PLANS - FROM CONFIG
     // =========================================================
-
     function loadPlans() {
         try {
             const container = document.getElementById('plansContainer');
@@ -1819,19 +1151,13 @@
                         id="plan_${slug}"
                     >
                     <label for="plan_${slug}" class="plan-label">
-                        <div class="plan-name">
-                            ${plan.name || key}
-                        </div>
-                        <div class="plan-description">
-                            ${plan.description || ''}
-                        </div>
+                        <div class="plan-name">${plan.name || key}</div>
+                        <div class="plan-description">${plan.description || ''}</div>
                         <div class="plan-price">
                             KES ${Number(plan.registration_fee || 0).toLocaleString()}
                             <small>one-time registration</small>
                             <br>
-                            <small>
-                                KES ${Number(plan.monthly_fee || 0).toLocaleString()}/month
-                            </small>
+                            <small>KES ${Number(plan.monthly_fee || 0).toLocaleString()}/month</small>
                         </div>
                     </label>
                 `;
@@ -1839,57 +1165,51 @@
                 container.appendChild(div);
             });
 
-            document
-                .querySelectorAll('input[name="plan_type"]')
-                .forEach(input => {
-                    input.addEventListener('change', function () {
-                        updateSummary();
-                        updateDependantEligibility(this.value);
-                    });
+            // Add event listeners
+            document.querySelectorAll('input[name="plan_type"]').forEach(input => {
+                input.addEventListener('change', function() {
+                    updateSummary();
+                    updateDependantEligibility(this.value);
                 });
+            });
 
-            const firstPlan =
-                container.querySelector('input[name="plan_type"]');
-
+            // Select first plan by default
+            const firstPlan = container.querySelector('input[name="plan_type"]');
             if (firstPlan) {
                 firstPlan.checked = true;
                 updateSummary();
             }
 
-            console.log('✅ Plans loaded successfully');
+            console.log('✅ Plans loaded successfully from config');
 
         } catch (error) {
             console.error('Error loading plans:', error);
-
+            
             const container = document.getElementById('plansContainer');
-
             if (container) {
                 container.innerHTML = `
                     <div class="help-text" style="color:#b91c1c;">
-                        Unable to load membership plans.
-                        Please refresh the page or contact support.
+                        Unable to load membership plans. Please refresh the page.
                     </div>
                 `;
             }
-
-            showAlert(
-                'Failed to load membership plans. Please refresh.',
-                'error'
-            );
+            showAlert('Failed to load plans. Please refresh.', 'error');
         }
     }
 
     // =========================================================
     // LOAD AGENTS
     // =========================================================
-
     function loadAgents() {
         try {
             const select = document.getElementById('salesCode');
             
             // Try to load from API
             fetch(`${CONFIG.API.BASE_URL}/public/agents`)
-                .then(response => response.json())
+                .then(response => {
+                    if (response.ok) return response.json();
+                    throw new Error('API failed');
+                })
                 .then(data => {
                     if (data && data.length > 0) {
                         select.innerHTML = '<option value="">Select sales agent</option>';
@@ -1902,7 +1222,7 @@
                     }
                 })
                 .catch(() => {
-                    // Fallback: Add some default agents
+                    // Fallback: Add default agents
                     const defaultAgents = [
                         { id: 'AG001', name: 'John Mwangi' },
                         { id: 'AG002', name: 'Mary Wanjiru' },
@@ -1925,7 +1245,6 @@
     // =========================================================
     // PLAN SELECTION
     // =========================================================
-
     function setupPlanSelection() {
         document.querySelectorAll('input[name="plan_type"]').forEach(input => {
             input.addEventListener('change', function() {
@@ -1937,13 +1256,9 @@
     // =========================================================
     // DEPENDANTS
     // =========================================================
-
     function setupDependants() {
         addDependant();
-        
-        document.getElementById('addDependantBtn').addEventListener('click', function() {
-            addDependant();
-        });
+        document.getElementById('addDependantBtn').addEventListener('click', addDependant);
     }
 
     function addDependant() {
@@ -1984,6 +1299,10 @@
                     <label>Date of Birth <span class="required">*</span></label>
                     <input type="date" name="dep_dob_${count}" required>
                 </div>
+                <div class="form-group">
+                    <label>Phone</label>
+                    <input type="tel" name="dep_phone_${count}" placeholder="Optional">
+                </div>
             </div>
         `;
         
@@ -2015,14 +1334,12 @@
     // =========================================================
     // SUMMARY UPDATES
     // =========================================================
-
     function setupSummaryUpdates() {
         document.querySelectorAll('#registrationForm input, #registrationForm select, #registrationForm textarea')
             .forEach(el => {
                 el.addEventListener('change', updateSummary);
                 el.addEventListener('input', updateSummary);
             });
-        
         updateSummary();
     }
 
@@ -2060,7 +1377,6 @@
     // =========================================================
     // MODE SWITCH
     // =========================================================
-
     function setupModeSwitch() {
         const individualBtn = document.getElementById('individualModeBtn');
         const chamaBtn = document.getElementById('chamaModeBtn');
@@ -2089,7 +1405,6 @@
     // =========================================================
     // CHAMA UPLOAD
     // =========================================================
-
     function setupChamaUpload() {
         const fileInput = document.getElementById('chamaCsv');
         
@@ -2142,17 +1457,13 @@
         
         const headers = Object.keys(data[0]);
         let html = '<table><thead><tr>';
-        headers.forEach(h => {
-            html += `<th>${h}</th>`;
-        });
+        headers.forEach(h => { html += `<th>${h}</th>`; });
         html += '</tr></thead><tbody>';
         
         const previewRows = data.slice(0, 5);
         previewRows.forEach(row => {
             html += '<tr>';
-            headers.forEach(h => {
-                html += `<td>${row[h] || ''}</td>`;
-            });
+            headers.forEach(h => { html += `<td>${row[h] || ''}</td>`; });
             html += '</tr>';
         });
         
@@ -2171,7 +1482,6 @@
     // =========================================================
     // HANDLE REGISTRATION
     // =========================================================
-
     async function handleRegistration() {
         const loadingBox = document.getElementById('loadingBox');
         const submitBtn = document.getElementById('submitBtn');
@@ -2189,12 +1499,10 @@
         clearAlerts();
         
         try {
-            // Register with backend API
+            // Send to backend API
             const response = await fetch(`${CONFIG.API.BASE_URL}/auth/register`, {
                 method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
+                headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(formData)
             });
             
@@ -2235,7 +1543,8 @@
                 first_name: document.querySelector(`[name="dep_first_name_${num}"]`)?.value || '',
                 last_name: document.querySelector(`[name="dep_last_name_${num}"]`)?.value || '',
                 relationship: document.querySelector(`[name="dep_relationship_${num}"]`)?.value || '',
-                date_of_birth: document.querySelector(`[name="dep_dob_${num}"]`)?.value || ''
+                date_of_birth: document.querySelector(`[name="dep_dob_${num}"]`)?.value || '',
+                phone: document.querySelector(`[name="dep_phone_${num}"]`)?.value || ''
             });
         });
         
@@ -2257,10 +1566,18 @@
             sales_code: document.getElementById('salesCode').value,
             benefit_option: document.getElementById('benefitOption').value,
             dependants: dependants,
-            password: 'TempPass123!',
-            registration_fee: plan.registration_fee || 200,
+            password: generatePassword(),
             accept_terms: true
         };
+    }
+
+    function generatePassword() {
+        const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789!@#$%^&*';
+        let password = '';
+        for (let i = 0; i < 12; i++) {
+            password += chars.charAt(Math.floor(Math.random() * chars.length));
+        }
+        return password;
     }
 
     function validateFormData(data) {
@@ -2293,7 +1610,6 @@
     // =========================================================
     // CHAMA REGISTRATION
     // =========================================================
-
     async function handleChamaRegistration() {
         const loadingBox = document.getElementById('loadingBox');
         const submitBtn = document.getElementById('chamaSubmitBtn');
@@ -2374,7 +1690,6 @@
     // =========================================================
     // UTILITY FUNCTIONS
     // =========================================================
-
     function showAlert(message, type = 'info') {
         const alertBox = document.getElementById('alertBox');
         alertBox.className = `alert show ${type}`;
@@ -2392,15 +1707,11 @@
     // =========================================================
     // EXPOSE FUNCTIONS
     // =========================================================
-
-    window.initRegistration = initRegistration;
-    window.addDependant = addDependant;
     window.removeDependant = removeDependant;
+    window.addDependant = addDependant;
     window.updateSummary = updateSummary;
     window.showAlert = showAlert;
     window.clearAlerts = clearAlerts;
-    window.loadPlans = loadPlans;
-    window.loadAgents = loadAgents;
 </script>
 
 </body>
