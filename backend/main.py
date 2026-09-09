@@ -334,50 +334,41 @@ class DashboardStats(BaseModel):
     active_dependants: int
 
 # ============================================================
-# NEW: PUBLIC REGISTRATION MODELS
+# NEW: PUBLIC REGISTRATION MODELS (FIXED)
 # ============================================================
 
-class PublicMemberCreate(BaseModel):
+class PublicRegistrationRequest(BaseModel):
+    """Schema for public registration endpoint."""
     first_name: str
     last_name: str
     other_name: Optional[str] = None
+    
     phone: str
     alternative_phone: Optional[str] = None
     email: Optional[EmailStr] = None
+    
     id_number: str
-    date_of_birth: str
-    gender: str  # "MALE" or "FEMALE"
-    county: str
+    date_of_birth: Optional[str] = None
+    gender: Optional[GenderEnum] = None
+    
+    county: Optional[str] = None
     location: Optional[str] = None
     town: Optional[str] = None
     address: Optional[str] = None
+    
     sales_code: Optional[str] = None
-    plan: str  # "comfort", "dignity", "wazazi"
-    benefit_option: str  # "service" or "cash"
+    
+    plan: PlanEnum
+    benefit_option: Optional[BenefitOptionEnum] = None
+    
     dependants: List[Dict[str, Any]] = []
 
 class PublicRegisterResponse(BaseModel):
+    """Response schema for public registration."""
     success: bool
     member_id: str
     member_number: str
     registration_amount: float
-    message: str
-
-class ChamaMemberCreate(BaseModel):
-    first_name: str
-    last_name: str
-    phone: str
-    id_number: str
-    date_of_birth: str
-    gender: str
-
-class ChamaRegistrationRequest(BaseModel):
-    group_name: str
-    phone: str
-    chairperson: Dict[str, str]
-    treasurer: Dict[str, str]
-    secretary: Dict[str, str]
-    members: List[Dict[str, Any]]
 
 class PaymentInitRequest(BaseModel):
     member_id: Optional[str] = None
@@ -569,14 +560,16 @@ public_router = APIRouter(prefix="/api/public", tags=["Public"])
 
 @public_router.get("/plans", response_model=List[PlanResponse])
 async def get_public_plans():
+    """Get available membership plans."""
     return [
         {"slug": "comfort", "name": "Comfort Plan", "description": "Affordable individual membership protection.", "registration_fee": 200.00, "monthly_fee": 300.00, "waiting_period_months": 4},
-        {"slug": "dignity", "name": "Dignity Plan", "description": "Enhanced membership protection with premium benefits.", "registration_fee": 300.00, "monthly_fee": 1000.00, "waiting_period_months": 6},
-        {"slug": "wazazi", "name": "Wazazi Plan", "description": "Membership protection designed for parents and elders.", "registration_fee": 250.00, "monthly_fee": 350.00, "waiting_period_months": 6}
+        {"slug": "dignity", "name": "Dignity Plan", "description": "Enhanced membership protection with premium benefits.", "registration_fee": 500.00, "monthly_fee": 1000.00, "waiting_period_months": 6},
+        {"slug": "wazazi", "name": "Wazazi Plan", "description": "Membership protection designed for parents and elders.", "registration_fee": 200.00, "monthly_fee": 650.00, "waiting_period_months": 6}
     ]
 
 @public_router.get("/agents", response_model=List[AgentResponse])
 async def get_public_agents(branch_id: Optional[str] = None):
+    """Get available sales agents."""
     if not supabase:
         return []
     try:
@@ -590,6 +583,7 @@ async def get_public_agents(branch_id: Optional[str] = None):
 
 @public_router.get("/branches", response_model=List[BranchResponse])
 async def get_public_branches():
+    """Get available branches."""
     if not supabase:
         return [{"id": "1", "name": "Nairobi", "code": "NBO", "location": "Nairobi CBD", "phone": "0712345678", "email": "nairobi@masika.co.ke", "is_active": True}]
     try:
@@ -599,26 +593,32 @@ async def get_public_branches():
         return []
 
 # ============================================================
-# NEW: PUBLIC REGISTRATION ENDPOINTS
+# NEW: PUBLIC REGISTRATION ENDPOINT (FIXED)
 # ============================================================
 
 @public_router.post("/register", response_model=PublicRegisterResponse)
-async def public_register_member(member_data: PublicMemberCreate):
+async def public_register(payload: PublicRegistrationRequest):
     """
-    Public registration endpoint for new members.
+    Public registration endpoint.
     Creates a pending member record with a payment record.
+    
+    Returns:
+        - success: bool
+        - member_id: str
+        - member_number: str
+        - registration_amount: float
     """
     if not supabase:
         raise HTTPException(status_code=500, detail="Database not available")
     
     # Check if email already exists
-    if member_data.email:
-        existing = supabase.table("members").select("email").eq("email", member_data.email).execute()
+    if payload.email:
+        existing = supabase.table("members").select("email").eq("email", payload.email).execute()
         if existing.data:
             raise HTTPException(status_code=400, detail="Email already registered")
     
     # Check if ID number already exists
-    existing = supabase.table("members").select("id_number").eq("id_number", member_data.id_number).execute()
+    existing = supabase.table("members").select("id_number").eq("id_number", payload.id_number).execute()
     if existing.data:
         raise HTTPException(status_code=400, detail="ID number already registered")
     
@@ -627,42 +627,42 @@ async def public_register_member(member_data: PublicMemberCreate):
         member_number = generate_member_number()
         
         # Determine waiting period based on plan
-        plan = member_data.plan.lower()
-        waiting_period = 6 if plan == "dignity" else 4
+        plan = payload.plan.value if hasattr(payload.plan, 'value') else str(payload.plan)
+        waiting_period = 6 if plan.lower() == "dignity" else 4
         
-        # Calculate registration amount
+        # Calculate registration amount based on plan
         plan_amounts = {
             "comfort": 200.00,
             "dignity": 500.00,
             "wazazi": 200.00
         }
-        registration_amount = plan_amounts.get(plan, 200.00)
+        registration_amount = plan_amounts.get(plan.lower(), 200.00)
         
         # Add dependant fees if Wazazi plan
-        if plan == "wazazi":
-            parent_count = sum(1 for d in member_data.dependants if d.get("relationship", "").upper() == "PARENT")
+        if plan.lower() == "wazazi":
+            parent_count = sum(1 for d in payload.dependants if d.get("relationship", "").upper() == "PARENT")
             registration_amount += parent_count * 100.00
         
-        # Create member record
+        # Prepare member record
         member_record = {
             "member_number": member_number,
             "username": member_number,
-            "first_name": member_data.first_name,
-            "last_name": member_data.last_name,
-            "other_name": member_data.other_name,
-            "email": member_data.email,
-            "phone": member_data.phone,
-            "alternative_phone": member_data.alternative_phone,
-            "id_number": member_data.id_number,
-            "date_of_birth": member_data.date_of_birth,
-            "gender": member_data.gender.upper(),
-            "county": member_data.county,
-            "location": member_data.location,
-            "town": member_data.town,
-            "address": member_data.address,
-            "plan": plan,
-            "benefit_option": member_data.benefit_option.lower(),
-            "sales_code": member_data.sales_code,
+            "first_name": payload.first_name,
+            "last_name": payload.last_name,
+            "other_name": payload.other_name,
+            "email": payload.email,
+            "phone": payload.phone,
+            "alternative_phone": payload.alternative_phone,
+            "id_number": payload.id_number,
+            "date_of_birth": payload.date_of_birth,
+            "gender": payload.gender.value if hasattr(payload.gender, 'value') else payload.gender,
+            "county": payload.county,
+            "location": payload.location,
+            "town": payload.town,
+            "address": payload.address,
+            "plan": plan.lower(),
+            "benefit_option": payload.benefit_option.value if hasattr(payload.benefit_option, 'value') else payload.benefit_option,
+            "sales_code": payload.sales_code,
             "password_hash": None,
             "temp_password": None,
             "member_status": "PENDING",
@@ -692,14 +692,14 @@ async def public_register_member(member_data: PublicMemberCreate):
             "mpesa_receipt": None,
             "status": "pending",
             "payment_date": datetime.now().date().isoformat(),
-            "phone": member_data.phone,
+            "phone": payload.phone,
             "created_at": datetime.now().isoformat(),
             "updated_at": datetime.now().isoformat()
         }
         supabase.table("payments").insert(payment_record).execute()
         
         # Insert dependants
-        for dep in member_data.dependants:
+        for dep in payload.dependants:
             supabase.table("dependants").insert({
                 "principal_member_id": member_id,
                 "first_name": dep.get("first_name"),
@@ -716,98 +716,16 @@ async def public_register_member(member_data: PublicMemberCreate):
             success=True,
             member_id=member_id,
             member_number=member_number,
-            registration_amount=registration_amount,
-            message="Registration created successfully. Please complete payment."
+            registration_amount=registration_amount
         )
         
     except Exception as e:
         logger.error(f"Public registration failed: {e}")
         raise HTTPException(status_code=400, detail=f"Registration failed: {str(e)}")
 
-@public_router.post("/register/chama")
-async def public_register_chama(chama_data: ChamaRegistrationRequest):
-    """
-    Public registration endpoint for Chama/Group registrations.
-    """
-    if not supabase:
-        raise HTTPException(status_code=500, detail="Database not available")
-    
-    # Validate minimum members
-    if len(chama_data.members) < 30:
-        raise HTTPException(
-            status_code=400, 
-            detail=f"Minimum 30 members required. Currently {len(chama_data.members)}."
-        )
-    
-    try:
-        # Create chama group record
-        group_record = {
-            "group_name": chama_data.group_name,
-            "phone": chama_data.phone,
-            "chairperson_name": chama_data.chairperson.get("name"),
-            "chairperson_phone": chama_data.chairperson.get("phone"),
-            "chairperson_id": chama_data.chairperson.get("id_number"),
-            "treasurer_name": chama_data.treasurer.get("name"),
-            "treasurer_phone": chama_data.treasurer.get("phone"),
-            "treasurer_id": chama_data.treasurer.get("id_number"),
-            "secretary_name": chama_data.secretary.get("name"),
-            "secretary_phone": chama_data.secretary.get("phone"),
-            "secretary_id": chama_data.secretary.get("id_number"),
-            "member_count": len(chama_data.members),
-            "status": "PENDING",
-            "registration_amount": len(chama_data.members) * 100.00,
-            "created_at": datetime.now().isoformat(),
-            "updated_at": datetime.now().isoformat()
-        }
-        
-        result = supabase.table("chama_groups").insert(group_record).execute()
-        if not result.data:
-            raise HTTPException(status_code=400, detail="Failed to create chama group")
-        
-        group = result.data[0]
-        group_id = group["id"]
-        registration_amount = group["registration_amount"]
-        
-        # Create payment record for chama
-        payment_record = {
-            "group_id": group_id,
-            "group_name": chama_data.group_name,
-            "amount": registration_amount,
-            "payment_type": "chama_registration",
-            "payment_method": "mpesa",
-            "status": "pending",
-            "phone": chama_data.phone,
-            "created_at": datetime.now().isoformat(),
-            "updated_at": datetime.now().isoformat()
-        }
-        supabase.table("payments").insert(payment_record).execute()
-        
-        # Insert individual members
-        for member in chama_data.members:
-            supabase.table("chama_members").insert({
-                "chama_group_id": group_id,
-                "first_name": member.get("first_name"),
-                "last_name": member.get("last_name"),
-                "phone": member.get("phone"),
-                "id_number": member.get("id_number"),
-                "date_of_birth": member.get("date_of_birth"),
-                "gender": member.get("gender", "").upper(),
-                "is_active": True,
-                "created_at": datetime.now().isoformat()
-            }).execute()
-        
-        return {
-            "success": True,
-            "group_id": group_id,
-            "group_name": chama_data.group_name,
-            "member_count": len(chama_data.members),
-            "registration_amount": registration_amount,
-            "message": "Chama registration created successfully. Please complete payment."
-        }
-        
-    except Exception as e:
-        logger.error(f"Chama registration failed: {e}")
-        raise HTTPException(status_code=400, detail=f"Chama registration failed: {str(e)}")
+# ============================================================
+# PAYMENT INITIATION ENDPOINT
+# ============================================================
 
 @public_router.post("/initiate-payment")
 async def initiate_payment(request: PaymentInitRequest):
@@ -850,7 +768,6 @@ async def initiate_payment(request: PaymentInitRequest):
             stk_result = await initiate_mpesa_stk_push(phone, request.amount, transaction_id)
             if stk_result.get("success"):
                 checkout_request_id = stk_result.get("checkout_request_id")
-                # Update payment with checkout request ID
                 supabase.table("payments").update({
                     "checkout_request_id": checkout_request_id,
                     "updated_at": datetime.now().isoformat()
@@ -870,7 +787,6 @@ async def initiate_mpesa_stk_push(phone: str, amount: float, transaction_id: str
     if not requests:
         return {"success": False, "message": "Requests library not available"}
     
-    # Get access token
     token = get_mpesa_access_token()
     if not token:
         return {"success": False, "message": "Failed to get M-Pesa access token"}
@@ -929,19 +845,16 @@ async def check_payment_status(transaction_id: str):
     
     payment = result.data[0]
     
-    # If still pending and we have a checkout_request_id, query M-Pesa
     if payment.get("status") == "pending" and payment.get("checkout_request_id"):
         try:
             status_result = await query_mpesa_status(payment.get("checkout_request_id"))
             if status_result.get("success"):
-                # Update payment status
                 supabase.table("payments").update({
                     "status": "completed",
                     "mpesa_receipt": status_result.get("receipt"),
                     "updated_at": datetime.now().isoformat()
                 }).eq("transaction_id", transaction_id).execute()
                 
-                # If payment completed, update member status
                 if payment.get("member_id"):
                     supabase.table("members").update({
                         "registration_fee_paid": True,
@@ -1007,27 +920,23 @@ async def query_mpesa_status(checkout_request_id: str) -> dict:
 @public_router.post("/payment-callback")
 async def payment_callback(request: Request):
     """
-    M-Pesa payment callback endpoint.
+    M-Pesa payment callback webhook.
     """
     try:
         data = await request.json()
         logger.info(f"Payment callback received: {data}")
         
-        # Extract transaction details
         body = data.get("Body", {})
         stk_callback = body.get("stkCallback", {})
         
         result_code = stk_callback.get("ResultCode")
-        result_desc = stk_callback.get("ResultDesc")
         checkout_request_id = stk_callback.get("CheckoutRequestID")
         callback_metadata = stk_callback.get("CallbackMetadata", {})
         
         if result_code == 0:
-            # Payment successful
             mpesa_receipt = None
             amount = None
             
-            # Extract from metadata
             items = callback_metadata.get("Item", [])
             for item in items:
                 if item.get("Name") == "MpesaReceiptNumber":
@@ -1035,20 +944,15 @@ async def payment_callback(request: Request):
                 elif item.get("Name") == "Amount":
                     amount = item.get("Value")
             
-            # Update payment record
-            update_data = {
-                "status": "completed",
-                "mpesa_receipt": mpesa_receipt,
-                "updated_at": datetime.now().isoformat()
-            }
-            
-            # Find payment by checkout_request_id
             payment_result = supabase.table("payments").select("*").eq("checkout_request_id", checkout_request_id).execute()
             if payment_result.data:
                 payment = payment_result.data[0]
-                supabase.table("payments").update(update_data).eq("id", payment["id"]).execute()
+                supabase.table("payments").update({
+                    "status": "completed",
+                    "mpesa_receipt": mpesa_receipt,
+                    "updated_at": datetime.now().isoformat()
+                }).eq("id", payment["id"]).execute()
                 
-                # Update member if this was a registration
                 if payment.get("member_id"):
                     supabase.table("members").update({
                         "registration_fee_paid": True,
