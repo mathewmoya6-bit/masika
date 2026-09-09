@@ -48,7 +48,7 @@ if (typeof CONFIG === 'undefined') {
 }
 
 // ============================================================
-// SUPABASE CONFIG - Same as admin-agents.html
+// SUPABASE CONFIG
 // ============================================================
 const SUPABASE_URL = 'https://wpxzlcdrirlcyvfiquld.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6IndweHpsY2RyaXJsY3l2ZmlxdWxkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODc5Mjc4MDcsImV4cCI6MjEwMzUwMzgwN30.OUP9pmPbrML_egpHflZtDfLv1_UDM37_BYjtb842xjg';
@@ -100,7 +100,7 @@ function initRegistration() {
     // Load plans from API or config
     loadPlans();
 
-    // Load agents from Supabase (public_agent_codes)
+    // Load agents from Supabase (sales_agents table - CORRECT)
     loadAgentsFromSupabase();
 
     // Setup plan selection
@@ -255,7 +255,7 @@ function renderPlans(plans) {
 }
 
 // ============================================================
-// LOAD AGENTS - From Supabase (public_agent_codes table)
+// LOAD AGENTS - From Supabase (sales_agents table - CORRECT)
 // ============================================================
 async function loadAgentsFromSupabase() {
     const select = document.getElementById('salesCode');
@@ -282,12 +282,13 @@ async function loadAgentsFromSupabase() {
     }
 
     try {
-        console.log('🔄 Loading sales agents from public_agent_codes...');
+        console.log('🔄 Loading sales agents from sales_agents...');
 
+        // Query the sales_agents table (CORRECT TABLE)
         const { data, error } = await client
-            .from("public_agent_codes")
-            .select("agent_code, full_name, phone")
-            .eq("is_active", true)
+            .from("sales_agents")
+            .select("sales_code, full_name, phone, status")
+            .eq("status", "active")
             .order("full_name", { ascending: true });
 
         if (error) {
@@ -296,19 +297,19 @@ async function loadAgentsFromSupabase() {
         }
 
         if (!data || data.length === 0) {
-            console.log('ℹ️ No active sales agents found in public_agent_codes');
+            console.log('ℹ️ No active sales agents found in sales_agents');
             select.innerHTML = '<option value="">No sales agents available</option>';
             return;
         }
 
-        console.log(`✅ Loaded ${data.length} sales agents from public_agent_codes`);
+        console.log(`✅ Loaded ${data.length} sales agents from sales_agents`);
 
         select.innerHTML = '<option value="">Select sales agent</option>';
 
         data.forEach(agent => {
             const option = document.createElement('option');
-            option.value = agent.agent_code;
-            let label = agent.full_name || agent.agent_code;
+            option.value = agent.sales_code;  // Use sales_code as the value
+            let label = agent.full_name || agent.sales_code;
             if (agent.phone) {
                 label += ` (${agent.phone})`;
             }
@@ -376,10 +377,9 @@ function addDependant() {
                 <label>Relationship <span class="required">*</span></label>
                 <select name="dep_relationship_${count}" required>
                     <option value="">Select</option>
-                    <option value="spouse">Spouse</option>
-                    <option value="child">Child</option>
-                    <option value="parent">Parent</option>
-                    <option value="in_law">In-Law</option>
+                    <option value="SPOUSE">Spouse</option>
+                    <option value="CHILD">Child</option>
+                    <option value="PARENT">Parent</option>
                 </select>
             </div>
             <div class="form-group">
@@ -448,7 +448,7 @@ function countParentDependants() {
     document.querySelectorAll('.dependant-card').forEach((card, index) => {
         const num = index + 1;
         const rel = document.querySelector(`[name="dep_relationship_${num}"]`)?.value || '';
-        if (rel === 'parent') count++;
+        if (rel === 'PARENT') count++;
     });
     return count;
 }
@@ -690,7 +690,7 @@ function getFormData() {
         });
     });
 
-    // Get sales code from select (agent_code from public_agent_codes)
+    // Get sales code from select (this is the sales_code from sales_agents)
     const salesCodeSelect = document.getElementById('salesCode');
     const salesCode = salesCodeSelect ? salesCodeSelect.value : null;
 
@@ -709,7 +709,7 @@ function getFormData() {
         town: document.getElementById('town').value.trim() || null,
         address: document.getElementById('address').value.trim() || null,
         plan: planSlug,
-        sales_code: salesCode, // This is the agent_code from public_agent_codes
+        sales_code: salesCode, // This is the sales_code from sales_agents
         benefit_option: document.getElementById('benefitOption').value,
         dependants: dependants
     };
@@ -738,7 +738,7 @@ function validateFormData(data) {
         return { valid: false, error: 'Age must be between 1 and 80 years' };
     }
 
-    const parents = data.dependants.filter(d => d.relationship === 'parent');
+    const parents = data.dependants.filter(d => d.relationship === 'PARENT');
     if (data.plan !== 'wazazi' && parents.length > 0) {
         return { valid: false, error: 'Parent dependants require the Wazazi plan.' };
     }
@@ -896,4 +896,4 @@ window.initSupabase = initSupabase;
 window.supabaseClient = supabaseClient;
 
 console.log('✅ Register.js fully loaded');
-console.log('📌 Sales agents will be loaded from public_agent_codes table');
+console.log('📌 Sales agents will be loaded from sales_agents table');
