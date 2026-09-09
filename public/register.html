@@ -9,9 +9,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
-    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.3/papaparse.min.js"></script>
-    <script src="js/supabase-config.js"></script>
     <style>
         /* ===== RESET & VARIABLES ===== */
         :root {
@@ -1059,34 +1057,34 @@
             CHAMA_REGISTRATION_RATE: 100,
             REQUEST_TIMEOUT: 60000,
             MAX_DEPENDANTS: 10,
+            // Must match the per-parent surcharge the backend applies for the
+            // Wazazi plan in POST /api/public/register (see plan_amounts /
+            // parent_count logic in main.py). The /api/public/plans endpoint
+            // doesn't expose this fee separately, so it's mirrored here.
+            WAZAZI_PARENT_FEE: 100,
+            // Used only if GET /api/public/plans is unreachable. Field names
+            // and values mirror exactly what that endpoint returns.
             FALLBACK_PLANS: [{
-                plan_code: "Comfort",
-                plan_name: "Comfort",
-                description: "Basic membership protection for individuals and families.",
-                principal_registration_fee: 200,
-                dependant_registration_fee: 0,
-                principal_monthly_premium: 300
+                slug: "comfort",
+                name: "Comfort Plan",
+                description: "Affordable individual membership protection.",
+                registration_fee: 200,
+                monthly_fee: 300,
+                waiting_period_months: 4
             }, {
-                plan_code: "Dignity",
-                plan_name: "Dignity",
-                description: "Enhanced family protection and benevolent support.",
-                principal_registration_fee: 500,
-                dependant_registration_fee: 0,
-                principal_monthly_premium: 1000
+                slug: "dignity",
+                name: "Dignity Plan",
+                description: "Enhanced membership protection with premium benefits.",
+                registration_fee: 500,
+                monthly_fee: 1000,
+                waiting_period_months: 6
             }, {
-                plan_code: "Wazazi",
-                plan_name: "Wazazi",
-                description: "Comprehensive parent and family protection.",
-                principal_registration_fee: 200,
-                dependant_registration_fee: 100,
-                principal_monthly_premium: 650
-            }, {
-                plan_code: "Chama",
-                plan_name: "Chama",
-                description: "Group membership for communities and organizations.",
-                principal_registration_fee: 100,
-                dependant_registration_fee: 0,
-                principal_monthly_premium: 0
+                slug: "wazazi",
+                name: "Wazazi Plan",
+                description: "Membership protection designed for parents and elders.",
+                registration_fee: 200,
+                monthly_fee: 650,
+                waiting_period_months: 6
             }]
         };
 
@@ -1258,21 +1256,18 @@
         }
 
         // ===== PLANS =====
+        // Calls the backend directly (GET /api/public/plans) instead of
+        // querying Supabase from the browser. Falls back to a static local
+        // copy only if the API request fails outright.
         async function loadPlans() {
             let plans = [];
             try {
-                if (typeof supabaseClient !== "undefined" && supabaseClient) {
-                    const { data, error } = await supabaseClient
-                        .from("plans")
-                        .select(`plan_code,plan_name,description,principal_registration_fee,dependant_registration_fee,principal_monthly_premium`)
-                        .eq("is_active", true)
-                        .order("principal_monthly_premium", { ascending: true });
-                    if (!error && Array.isArray(data)) plans = data;
-                    else if (error) console.warn("Unable to load plans from Supabase:", error);
-                }
-            } catch (error) { console.warn("Plan loading failed:", error); }
-            if (!plans.length) plans = CONFIG.FALLBACK_PLANS;
-            state.plans = plans.filter(plan => String(plan.plan_code || "").toLowerCase() !== "chama");
+                const result = await apiRequest("/api/public/plans");
+                if (Array.isArray(result)) plans = result;
+            } catch (error) {
+                console.warn("Unable to load plans from API, using fallback list:", error);
+            }
+            state.plans = plans.length ? plans : CONFIG.FALLBACK_PLANS;
             renderPlans();
         }
 
@@ -1282,14 +1277,14 @@
                 return;
             }
             elements.plansContainer.innerHTML = state.plans.map((plan, index) => {
-                const code = escapeHtml(plan.plan_code || "");
-                const name = escapeHtml(plan.plan_name || plan.plan_code || "Plan");
+                const slug = escapeHtml(plan.slug || "");
+                const name = escapeHtml(plan.name || plan.slug || "Plan");
                 const description = escapeHtml(plan.description || "");
-                const registrationFee = money(plan.principal_registration_fee);
-                const monthly = money(plan.principal_monthly_premium);
+                const registrationFee = money(plan.registration_fee);
+                const monthly = money(plan.monthly_fee);
                 return `
                     <div class="plan-option">
-                        <input type="radio" id="plan_${index}" name="plan" value="${code}" data-index="${index}">
+                        <input type="radio" id="plan_${index}" name="plan" value="${slug}" data-index="${index}">
                         <label for="plan_${index}" class="plan-label">
                             <div class="plan-name">${name}</div>
                             <div class="plan-description">${description}</div>
@@ -1302,7 +1297,7 @@
             document.querySelectorAll('input[name="plan"]').forEach(input => {
                 input.addEventListener("change", handlePlanChange);
             });
-            const defaultPlan = state.plans.find(plan => String(plan.plan_code).toLowerCase() === "comfort") || state.plans[0];
+            const defaultPlan = state.plans.find(plan => String(plan.slug).toLowerCase() === "comfort") || state.plans[0];
             if (defaultPlan) {
                 const index = state.plans.indexOf(defaultPlan);
                 const input = document.querySelector(`input[name="plan"][data-index="${index}"]`);
@@ -1317,7 +1312,7 @@
                 updateSummary(); return; }
             const index = Number(selected.dataset.index);
             state.selectedPlan = state.plans[index] || null;
-            if (state.selectedPlan && String(state.selectedPlan.plan_code).toLowerCase() === "wazazi") {
+            if (state.selectedPlan && String(state.selectedPlan.slug).toLowerCase() === "wazazi") {
                 elements.planHelp.textContent = "Wazazi requires at least 1 parent and allows a maximum of 4 parents.";
             } else {
                 elements.planHelp.textContent = "Add eligible dependants if required.";
@@ -1327,20 +1322,23 @@
         }
 
         // ===== SALES CODES =====
+        // Calls the backend directly (GET /api/public/agents) instead of
+        // querying Supabase from the browser.
         async function loadSalesCodes() {
-            if (typeof supabaseClient === "undefined" || !supabaseClient) return;
             try {
-                const { data, error } = await supabaseClient.from("public_agent_codes").select("code, agent_name").order(
-                    "agent_name", { ascending: true });
-                if (error) { console.warn("Sales code loading failed:", error); return; }
+                const agents = await apiRequest("/api/public/agents");
                 elements.salesCode.innerHTML = `<option value="">Select sales agent</option>`;
-                (data || []).forEach(agent => {
+                (Array.isArray(agents) ? agents : []).forEach(agent => {
                     const option = document.createElement("option");
-                    option.value = agent.code || "";
-                    option.textContent = agent.agent_name ? `${agent.agent_name} (${agent.code})` : agent.code || "Agent";
+                    option.value = agent.agent_code || "";
+                    option.textContent = agent.full_name ?
+                        `${agent.full_name} (${agent.agent_code})` :
+                        (agent.agent_code || "Agent");
                     elements.salesCode.appendChild(option);
                 });
-            } catch (error) { console.warn("Sales code error:", error); }
+            } catch (error) {
+                console.warn("Sales code loading failed:", error);
+            }
         }
 
         // ===== DEPENDANTS =====
@@ -1446,7 +1444,7 @@
 
         function validateDependantsForPlan() {
             if (!state.selectedPlan) return;
-            const plan = String(state.selectedPlan.plan_code || "").toLowerCase();
+            const plan = String(state.selectedPlan.slug || "").toLowerCase();
             if (plan !== "wazazi") {
                 const parents = state.dependants.filter(dependant => String(dependant.relationship || "").toUpperCase() ===
                     "PARENT");
@@ -1481,7 +1479,9 @@
                 town: optionalString($("town").value),
                 address: optionalString($("address").value),
                 sales_code: optionalString($("salesCode").value),
-                plan: state.selectedPlan ? clean(state.selectedPlan.plan_code) : "",
+                // slug values ("comfort" | "dignity" | "wazazi") match the
+                // backend's PlanEnum exactly, which is case-sensitive.
+                plan: state.selectedPlan ? clean(state.selectedPlan.slug) : "",
                 benefit_option: clean($("benefitOption").value).toLowerCase(),
                 dependants
             };
@@ -1500,7 +1500,7 @@
             if (!["service", "cash"].includes(payload.benefit_option)) return "Please select a valid benefit option: Service or Cash.";
             if (payload.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(payload.email)) return "Please enter a valid email address.";
             if (!state.selectedPlan) return "Please select a membership plan.";
-            const plan = String(state.selectedPlan.plan_code || "").toLowerCase();
+            const plan = String(state.selectedPlan.slug || "").toLowerCase();
             const parents = payload.dependants.filter(d => String(d.relationship || "").toUpperCase() === "PARENT");
             const spouses = payload.dependants.filter(d => String(d.relationship || "").toUpperCase() === "SPOUSE");
             const children = payload.dependants.filter(d => String(d.relationship || "").toUpperCase() === "CHILD");
@@ -1527,15 +1527,14 @@
 
         function calculateRegistrationAmount() {
             if (!state.selectedPlan) return 0;
-            const principal = Number(state.selectedPlan.principal_registration_fee || 0);
-            const dependantFee = Number(state.selectedPlan.dependant_registration_fee || 0);
-            const plan = String(state.selectedPlan.plan_code || "").toLowerCase();
-            let chargeableDependants = state.dependants.length;
+            const principal = Number(state.selectedPlan.registration_fee || 0);
+            const plan = String(state.selectedPlan.slug || "").toLowerCase();
+            let dependantTotal = 0;
             if (plan === "wazazi") {
-                chargeableDependants = state.dependants.filter(d => String(d.relationship || "").toUpperCase() === "PARENT")
-                    .length;
+                const parentCount = state.dependants.filter(d => String(d.relationship || "").toUpperCase() === "PARENT").length;
+                dependantTotal = CONFIG.WAZAZI_PARENT_FEE * parentCount;
             }
-            return principal + dependantFee * chargeableDependants;
+            return principal + dependantTotal;
         }
 
         // ===== SUMMARY =====
@@ -1548,17 +1547,15 @@
                 elements.summaryTotal.textContent = "KES 0";
                 return;
             }
-            const principal = Number(plan.principal_registration_fee || 0);
-            const dependantFee = Number(plan.dependant_registration_fee || 0);
-            const planCode = String(plan.plan_code || "").toLowerCase();
-            let chargeableDependants = state.dependants.length;
-            if (planCode === "wazazi") {
-                chargeableDependants = state.dependants.filter(d => String(d.relationship || "").toUpperCase() === "PARENT")
-                    .length;
+            const principal = Number(plan.registration_fee || 0);
+            const planSlug = String(plan.slug || "").toLowerCase();
+            let dependantTotal = 0;
+            if (planSlug === "wazazi") {
+                const parentCount = state.dependants.filter(d => String(d.relationship || "").toUpperCase() === "PARENT").length;
+                dependantTotal = CONFIG.WAZAZI_PARENT_FEE * parentCount;
             }
-            const dependantTotal = dependantFee * chargeableDependants;
             const total = principal + dependantTotal;
-            elements.summaryPlan.textContent = plan.plan_name || plan.plan_code;
+            elements.summaryPlan.textContent = plan.name || plan.slug;
             elements.summaryPrincipal.textContent = `KES ${money(principal)}`;
             elements.summaryDependants.textContent = `KES ${money(dependantTotal)}`;
             elements.summaryTotal.textContent = `KES ${money(total)}`;
@@ -1954,7 +1951,7 @@
             state.selectedPlan = null;
             renderDependants();
             if (state.plans.length) {
-                const defaultPlan = state.plans.find(plan => String(plan.plan_code).toLowerCase() === "comfort") || state
+                const defaultPlan = state.plans.find(plan => String(plan.slug).toLowerCase() === "comfort") || state
                 .plans[0];
                 const index = state.plans.indexOf(defaultPlan);
                 const input = document.querySelector(`input[name="plan"][data-index="${index}"]`);
