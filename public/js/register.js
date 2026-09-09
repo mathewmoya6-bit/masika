@@ -1,10 +1,56 @@
 // ============================================================
 // REGISTER - js/register.js
+// Complete fixed version
 // ============================================================
 
+// ============================================================
+// CONFIGURATION - Fallback if not loaded from config.js
+// ============================================================
+if (typeof CONFIG === 'undefined') {
+    var CONFIG = {
+        PLANS: {
+            COMFORT: {
+                slug: "comfort",
+                name: "Comfort Plan",
+                description: "Affordable individual membership protection for you and your family.",
+                registration_fee: 200,
+                monthly_fee: 300,
+                waiting_period_months: 4
+            },
+            DIGNITY: {
+                slug: "dignity",
+                name: "Dignity Plan",
+                description: "Enhanced membership protection with premium benefits for your entire family.",
+                registration_fee: 300,
+                monthly_fee: 1000,
+                waiting_period_months: 6
+            },
+            WAZAZI: {
+                slug: "wazazi",
+                name: "Wazazi Plan",
+                description: "Membership protection specifically designed for parents and elders.",
+                registration_fee: 250,
+                monthly_fee: 350,
+                waiting_period_months: 6
+            }
+        },
+        ROUTES: {
+            LOGIN: 'login.html',
+            DASHBOARD: 'dashboard.html',
+            PAYMENT: 'payment.html'
+        },
+        API: {
+            BASE_URL: 'https://masika-c921.onrender.com/api'
+        }
+    };
+}
+
+// ============================================================
+// MAIN INITIALIZATION
+// ============================================================
 document.addEventListener('DOMContentLoaded', function() {
     // Check if already logged in
-    if (authManager.isAuthenticated) {
+    if (typeof authManager !== 'undefined' && authManager.isAuthenticated) {
         window.location.href = CONFIG.ROUTES.DASHBOARD;
         return;
     }
@@ -14,6 +60,8 @@ document.addEventListener('DOMContentLoaded', function() {
 });
 
 function initRegistration() {
+    console.log('📋 Initializing registration...');
+    
     const form = document.getElementById('registrationForm');
     const alertBox = document.getElementById('alertBox');
     const loadingBox = document.getElementById('loadingBox');
@@ -71,54 +119,50 @@ function initRegistration() {
 }
 
 // ============================================================
-// LOAD PLANS
+// LOAD PLANS - From CONFIG directly
 // ============================================================
-
-async function loadPlans() {
+function loadPlans() {
     try {
         const container = document.getElementById('plansContainer');
         
-        // Try to load from API first
-        let plans = CONFIG.PLANS;
-        
-        try {
-            const response = await fetch(`${CONFIG.API.BASE_URL}/plans`);
-            if (response.ok) {
-                const data = await response.json();
-                if (data && data.length > 0) {
-                    plans = data;
-                }
-            }
-        } catch (e) {
-            console.log('Using fallback plans');
+        if (!container) {
+            console.error('plansContainer not found');
+            return;
+        }
+
+        const plans = CONFIG.PLANS;
+
+        if (!plans || typeof plans !== 'object') {
+            throw new Error('CONFIG.PLANS is missing or invalid');
         }
 
         container.innerHTML = '';
-        
-        Object.values(plans).forEach(plan => {
+
+        Object.entries(plans).forEach(([key, plan]) => {
+            const slug = plan.slug || key.toLowerCase();
+
             const div = document.createElement('div');
             div.className = 'plan-option';
-            
-            const slug = plan.slug || plan.id || Object.keys(CONFIG.PLANS).find(
-                key => CONFIG.PLANS[key].name === plan.name
-            ) || 'comfort';
-            
+
             div.innerHTML = `
-                <input type="radio" name="plan_type" value="${slug}" id="plan_${slug}">
+                <input
+                    type="radio"
+                    name="plan_type"
+                    value="${slug}"
+                    id="plan_${slug}"
+                >
                 <label for="plan_${slug}" class="plan-label">
-                    <div class="plan-name">${plan.name}</div>
-                    <div class="plan-description">
-                        ${plan.description || `${slug.charAt(0).toUpperCase() + slug.slice(1)} Plan`}
-                    </div>
+                    <div class="plan-name">${plan.name || key}</div>
+                    <div class="plan-description">${plan.description || ''}</div>
                     <div class="plan-price">
-                        KES ${plan.registration_fee || 200} 
+                        KES ${Number(plan.registration_fee || 0).toLocaleString()}
                         <small>one-time registration</small>
                         <br>
-                        <small>KES ${plan.monthly_fee || 300}/month</small>
+                        <small>KES ${Number(plan.monthly_fee || 0).toLocaleString()}/month</small>
                     </div>
                 </label>
             `;
-            
+
             container.appendChild(div);
         });
 
@@ -137,34 +181,51 @@ async function loadPlans() {
             updateSummary();
         }
 
+        console.log('✅ Plans loaded successfully from config');
+
     } catch (error) {
         console.error('Error loading plans:', error);
+        
+        const container = document.getElementById('plansContainer');
+        if (container) {
+            container.innerHTML = `
+                <div class="help-text" style="color:#b91c1c;">
+                    Unable to load membership plans. Please refresh the page.
+                </div>
+            `;
+        }
         showAlert('Failed to load plans. Please refresh.', 'error');
     }
 }
 
 // ============================================================
-// LOAD AGENTS
+// LOAD AGENTS - From API
 // ============================================================
-
 async function loadAgents() {
     try {
         const select = document.getElementById('salesCode');
-        const response = await fetch(`${CONFIG.API.BASE_URL}/members?role=agent`);
         
-        if (response.ok) {
-            const data = await response.json();
-            if (data && data.length > 0) {
-                data.forEach(agent => {
-                    const option = document.createElement('option');
-                    option.value = agent.id;
-                    option.textContent = `${agent.first_name} ${agent.last_name} - ${agent.phone}`;
-                    select.appendChild(option);
-                });
+        // Try to load from API
+        try {
+            const response = await fetch(`${CONFIG.API.BASE_URL}/public/agents`);
+            if (response.ok) {
+                const data = await response.json();
+                if (data && data.length > 0) {
+                    select.innerHTML = '<option value="">Select sales agent</option>';
+                    data.forEach(agent => {
+                        const option = document.createElement('option');
+                        option.value = agent.id || agent.agent_code;
+                        option.textContent = `${agent.full_name || agent.name} - ${agent.phone || ''}`;
+                        select.appendChild(option);
+                    });
+                    return;
+                }
             }
+        } catch (e) {
+            console.log('API fetch failed, using fallback agents');
         }
         
-        // Add some default agents
+        // Fallback: Add default agents
         const defaultAgents = [
             { id: 'AG001', name: 'John Mwangi' },
             { id: 'AG002', name: 'Mary Wanjiru' },
@@ -174,7 +235,7 @@ async function loadAgents() {
         defaultAgents.forEach(agent => {
             const option = document.createElement('option');
             option.value = agent.id;
-            option.textContent = `${agent.name}`;
+            option.textContent = agent.name;
             select.appendChild(option);
         });
         
@@ -186,7 +247,6 @@ async function loadAgents() {
 // ============================================================
 // PLAN SELECTION
 // ============================================================
-
 function setupPlanSelection() {
     document.querySelectorAll('input[name="plan_type"]').forEach(input => {
         input.addEventListener('change', function() {
@@ -198,7 +258,6 @@ function setupPlanSelection() {
 // ============================================================
 // DEPENDANTS
 // ============================================================
-
 function setupDependants() {
     // Add initial dependant
     addDependant();
@@ -239,11 +298,16 @@ function addDependant() {
                     <option value="spouse">Spouse</option>
                     <option value="child">Child</option>
                     <option value="parent">Parent</option>
+                    <option value="in_law">In-Law</option>
                 </select>
             </div>
             <div class="form-group">
                 <label>Date of Birth <span class="required">*</span></label>
                 <input type="date" name="dep_dob_${count}" required>
+            </div>
+            <div class="form-group">
+                <label>Phone</label>
+                <input type="tel" name="dep_phone_${count}" placeholder="Optional">
             </div>
         </div>
     `;
@@ -278,7 +342,6 @@ function removeDependant(btn) {
 // ============================================================
 // SUMMARY UPDATES
 // ============================================================
-
 function setupSummaryUpdates() {
     // Listen to all form inputs
     document.querySelectorAll('#registrationForm input, #registrationForm select, #registrationForm textarea')
@@ -313,10 +376,14 @@ function updateSummary() {
     document.getElementById('summaryDependants').textContent = `KES ${dependantFee.toLocaleString()}`;
     document.getElementById('summaryTotal').textContent = `KES ${total.toLocaleString()}`;
     
-    // Update hidden fields
-    document.getElementById('registrationFee').value = registrationFee;
-    document.getElementById('dependantFee').value = dependantFee;
-    document.getElementById('totalAmount').value = total;
+    // Update hidden fields if they exist
+    const regFeeEl = document.getElementById('registrationFee');
+    const depFeeEl = document.getElementById('dependantFee');
+    const totalEl = document.getElementById('totalAmount');
+    
+    if (regFeeEl) regFeeEl.value = registrationFee;
+    if (depFeeEl) depFeeEl.value = dependantFee;
+    if (totalEl) totalEl.value = total;
 }
 
 function updateDependantEligibility(planSlug) {
@@ -335,7 +402,6 @@ function updateDependantEligibility(planSlug) {
 // ============================================================
 // MODE SWITCH
 // ============================================================
-
 function setupModeSwitch() {
     const individualBtn = document.getElementById('individualModeBtn');
     const chamaBtn = document.getElementById('chamaModeBtn');
@@ -364,7 +430,6 @@ function setupModeSwitch() {
 // ============================================================
 // CHAMA UPLOAD
 // ============================================================
-
 function setupChamaUpload() {
     const fileInput = document.getElementById('chamaCsv');
     let parsedData = [];
@@ -446,9 +511,8 @@ function displayCsvPreview(data) {
 }
 
 // ============================================================
-// HANDLE REGISTRATION
+// HANDLE REGISTRATION - Uses Backend API
 // ============================================================
-
 async function handleRegistration() {
     const alertBox = document.getElementById('alertBox');
     const loadingBox = document.getElementById('loadingBox');
@@ -469,19 +533,28 @@ async function handleRegistration() {
     clearAlerts();
     
     try {
-        // Register with Supabase
-        const result = await authManager.register(formData);
+        // Send registration to backend API
+        const response = await fetch(`${CONFIG.API.BASE_URL}/auth/register`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(formData)
+        });
         
-        if (!result.success) {
-            throw new Error(result.error);
+        const result = await response.json();
+        
+        if (!response.ok || !result.success) {
+            throw new Error(result.message || result.detail || 'Registration failed');
         }
         
         // Show success
         showAlert('Registration successful! Redirecting to payment...', 'success');
         
         // Store member data for payment
-        localStorage.setItem('pending_member', JSON.stringify(result.data.member));
-        localStorage.setItem('pending_user', JSON.stringify(result.data.user));
+        localStorage.setItem('pending_member', JSON.stringify(result.member));
+        localStorage.setItem('pending_credentials', JSON.stringify(result.credentials));
+        localStorage.setItem('pending_user', JSON.stringify(result.user || {}));
         
         // Redirect to payment page
         setTimeout(() => {
@@ -511,31 +584,30 @@ function getFormData() {
             first_name: document.querySelector(`[name="dep_first_name_${num}"]`)?.value || '',
             last_name: document.querySelector(`[name="dep_last_name_${num}"]`)?.value || '',
             relationship: document.querySelector(`[name="dep_relationship_${num}"]`)?.value || '',
-            date_of_birth: document.querySelector(`[name="dep_dob_${num}"]`)?.value || ''
+            date_of_birth: document.querySelector(`[name="dep_dob_${num}"]`)?.value || '',
+            phone: document.querySelector(`[name="dep_phone_${num}"]`)?.value || ''
         });
     });
     
     return {
-        first_name: document.getElementById('firstName').value,
-        last_name: document.getElementById('lastName').value,
-        other_name: document.getElementById('otherName').value,
-        id_number: document.getElementById('idNumber').value,
+        first_name: document.getElementById('firstName').value.trim(),
+        last_name: document.getElementById('lastName').value.trim(),
+        other_name: document.getElementById('otherName').value.trim(),
+        id_number: document.getElementById('idNumber').value.trim(),
         date_of_birth: document.getElementById('dateOfBirth').value,
         gender: document.getElementById('gender').value,
-        phone: document.getElementById('phone').value,
-        alternative_phone: document.getElementById('alternativePhone').value,
-        email: document.getElementById('email').value,
+        phone: document.getElementById('phone').value.trim(),
+        alternative_phone: document.getElementById('alternativePhone').value.trim(),
+        email: document.getElementById('email').value.trim(),
         county: document.getElementById('county').value,
-        location: document.getElementById('location').value,
-        town: document.getElementById('town').value,
-        address: document.getElementById('address').value,
-        plan_type: planSlug,
+        location: document.getElementById('location').value.trim(),
+        town: document.getElementById('town').value.trim(),
+        address: document.getElementById('address').value.trim(),
+        plan: planSlug,
         sales_code: document.getElementById('salesCode').value,
         benefit_option: document.getElementById('benefitOption').value,
         dependants: dependants,
-        password: 'TempPass123!', // Will be set during registration flow
-        registration_fee: plan.registration_fee || 200,
-        branch: document.getElementById('county').value || 'Nairobi'
+        accept_terms: true
     };
 }
 
@@ -573,7 +645,6 @@ function validateFormData(data) {
 // ============================================================
 // CHAMA REGISTRATION
 // ============================================================
-
 async function handleChamaRegistration() {
     const alertBox = document.getElementById('alertBox');
     const loadingBox = document.getElementById('loadingBox');
@@ -661,7 +732,6 @@ async function handleChamaRegistration() {
 // ============================================================
 // UTILITY FUNCTIONS
 // ============================================================
-
 function showAlert(message, type = 'info') {
     const alertBox = document.getElementById('alertBox');
     alertBox.className = `alert show ${type}`;
@@ -679,15 +749,16 @@ function clearAlerts() {
 // ============================================================
 // SET YEAR IN FOOTER
 // ============================================================
-
 document.getElementById('year').textContent = new Date().getFullYear();
 
 // ============================================================
 // EXPOSE FUNCTIONS
 // ============================================================
-
 window.removeDependant = removeDependant;
 window.addDependant = addDependant;
 window.updateSummary = updateSummary;
 window.showAlert = showAlert;
 window.clearAlerts = clearAlerts;
+window.loadPlans = loadPlans;
+window.loadAgents = loadAgents;
+window.initRegistration = initRegistration;
