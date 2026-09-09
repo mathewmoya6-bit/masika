@@ -7,7 +7,7 @@
 import sys
 import os
 from pathlib import Path
-from fastapi import FastAPI, HTTPException, status, Query, Request, Depends
+from fastapi import FastAPI, HTTPException, status, Query, Request, Depends, APIRouter
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.openapi.utils import get_openapi
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
