@@ -1130,11 +1130,12 @@
                                         <th>Phone</th>
                                         <th>Date</th>
                                         <th>Status</th>
+                                        <th>Actions</th>
                                     </tr>
                                 </thead>
                                 <tbody id="recentMembersBody">
                                     <tr>
-                                        <td colspan="4" class="empty-state">Loading…</td>
+                                        <td colspan="5" class="empty-state">Loading…</td>
                                     </tr>
                                 </tbody>
                             </table>
@@ -1156,11 +1157,12 @@
                                         <th>Phone</th>
                                         <th>Date</th>
                                         <th>Status</th>
+                                        <th>Actions</th>
                                     </tr>
                                 </thead>
                                 <tbody id="pendingAgentsBody">
                                     <tr>
-                                        <td colspan="4" class="empty-state">Loading…</td>
+                                        <td colspan="5" class="empty-state">Loading…</td>
                                     </tr>
                                 </tbody>
                             </table>
@@ -1207,7 +1209,7 @@
     <div class="toast-container" id="toastContainer"></div>
 
     <!-- ============================================================
-    JAVASCRIPT - COMPLETE FIXED VERSION (Using Staff Table)
+    JAVASCRIPT - WITH RPC DELETE FUNCTIONS
     ============================================================ -->
     <script>
         // ============================================================
@@ -1621,7 +1623,7 @@
                 if (!data || data.length === 0) {
                     tbody.innerHTML = `
                         <tr>
-                            <td colspan="4" class="empty-state">
+                            <td colspan="5" class="empty-state">
                                 <i class="fas fa-users"></i>
                                 No members registered yet
                             </td>
@@ -1631,11 +1633,16 @@
                 }
 
                 tbody.innerHTML = data.map(m => `
-                    <tr onclick="window.location.href='admin-members.html?id=${m.id}'" style="cursor:pointer;">
+                    <tr>
                         <td><strong>${escapeHtml(m.first_name || '')} ${escapeHtml(m.last_name || '')}</strong></td>
                         <td>${escapeHtml(m.phone || 'N/A')}</td>
                         <td>${m.created_at ? new Date(m.created_at).toLocaleDateString('en-KE') : 'N/A'}</td>
                         <td><span class="status-badge ${m.is_active ? 'active' : 'inactive'}">${m.is_active ? 'Active' : 'Inactive'}</span></td>
+                        <td>
+                            <button onclick="deleteMember('${m.id}')" class="btn btn-danger btn-sm" title="Delete Member">
+                                <i class="fas fa-trash"></i>
+                            </button>
+                        </td>
                     </tr>
                 `).join('');
 
@@ -1669,7 +1676,7 @@
                 if (!data || data.length === 0) {
                     tbody.innerHTML = `
                         <tr>
-                            <td colspan="4" class="empty-state">
+                            <td colspan="5" class="empty-state">
                                 <i class="fas fa-user-tie"></i>
                                 No agents registered yet
                             </td>
@@ -1684,11 +1691,16 @@
                                      agentStatus === 'inactive' ? 'inactive' : 'pending';
 
                     return `
-                        <tr onclick="window.location.href='admin-agents.html?id=${a.id}'" style="cursor:pointer;">
+                        <tr>
                             <td><strong>${escapeHtml(a.full_name || a.first_name || 'N/A')}</strong></td>
                             <td>${escapeHtml(a.phone || 'N/A')}</td>
                             <td>${a.created_at ? new Date(a.created_at).toLocaleDateString('en-KE') : 'N/A'}</td>
                             <td><span class="status-badge ${badgeClass}">${escapeHtml(a.status || 'Pending')}</span></td>
+                            <td>
+                                <button onclick="deleteAgent('${a.id}')" class="btn btn-danger btn-sm" title="Delete Agent">
+                                    <i class="fas fa-trash"></i>
+                                </button>
+                            </td>
                         </tr>
                     `;
                 }).join('');
@@ -1776,4 +1788,508 @@
                                         badgeClass = 'failed';
                                     }
 
-                                    const receipt = payment.mpesa_receipt_number || payment.mp
+                                    const receipt = payment.mpesa_receipt_number || payment.mpesa_receipt || payment.transaction_reference || payment.reference || '—';
+                                    const phone = payment.phone_number || payment.phone || '—';
+                                    const account = payment.account_number || payment.account_reference || 'Payment';
+
+                                    return `
+                                        <tr>
+                                            <td>
+                                                <strong>${escapeHtml(account)}</strong>
+                                                <small style="display:block;font-size:12px;color:var(--text-light);">${escapeHtml(phone)}</small>
+                                            </td>
+                                            <td>
+                                                <strong>${formatKES(payment.amount)}</strong>
+                                                <small style="display:block;font-size:12px;color:var(--text-light);">${escapeHtml(receipt)}</small>
+                                            </td>
+                                            <td>
+                                                <span class="status-badge ${badgeClass}">
+                                                    ${escapeHtml(payment.payment_status || payment.status || 'UNKNOWN')}
+                                                </span>
+                                            </td>
+                                            <td>${formatDate(payment.payment_date || payment.created_at)}</td>
+                                        </tr>
+                                    `;
+                                }).join('')}
+                            </tbody>
+                        </table>
+                    </div>
+                `;
+
+            } catch (error) {
+                console.error('❌ Load recent payments error:', error);
+                document.getElementById('recentPayments').innerHTML = `
+                    <div class="error-state">
+                        <i class="fas fa-exclamation-triangle"></i>
+                        <p>Failed to load payments</p>
+                    </div>
+                `;
+            }
+        }
+
+        // ============================================================
+        // LOAD UNASSIGNED PAYMENTS
+        // ============================================================
+        async function loadUnassignedPayments() {
+            console.log('📋 Loading unassigned payments...');
+
+            try {
+                const { data, error } = await supabaseClient
+                    .from('payments')
+                    .select(`
+                        id,
+                        member_id,
+                        membership_id,
+                        amount,
+                        payment_status,
+                        payment_date,
+                        account_number,
+                        account_reference,
+                        phone,
+                        phone_number,
+                        mpesa_receipt,
+                        mpesa_receipt_number,
+                        transaction_reference,
+                        created_at
+                    `)
+                    .eq('payment_status', 'SUCCESSFUL')
+                    .is('member_id', null)
+                    .order('created_at', { ascending: false });
+
+                if (error) {
+                    console.error('❌ Unassigned payments error:', error);
+                    return;
+                }
+
+                console.log('📋 Unassigned payments:', data?.length || 0);
+
+                const container = document.getElementById('unassignedPaymentsList');
+
+                if (!container) {
+                    console.warn('⚠️ unassignedPaymentsList container not found');
+                    return;
+                }
+
+                if (!data || data.length === 0) {
+                    container.innerHTML = `
+                        <div class="empty-state">
+                            <i class="fas fa-check-circle"></i>
+                            <p>No unassigned successful payments.</p>
+                        </div>
+                    `;
+                    return;
+                }
+
+                container.innerHTML = `
+                    <div class="table-wrapper">
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>Amount</th>
+                                    <th>Reference / Account</th>
+                                    <th>Date</th>
+                                    <th>Action</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                ${data.map(payment => {
+                                    const receipt = payment.mpesa_receipt_number || payment.mpesa_receipt || payment.transaction_reference || '—';
+                                    const account = payment.account_number || payment.account_reference || 'No account';
+
+                                    return `
+                                        <tr>
+                                            <td><strong>${formatKES(payment.amount)}</strong></td>
+                                            <td>
+                                                ${escapeHtml(receipt)}
+                                                <small style="display:block;font-size:12px;color:var(--text-light);">${escapeHtml(account)}</small>
+                                            </td>
+                                            <td>${formatDate(payment.payment_date || payment.created_at)}</td>
+                                            <td>
+                                                <button onclick="assignPayment('${payment.id}')" class="btn btn-primary btn-sm">
+                                                    <i class="fas fa-link"></i> Assign
+                                                </button>
+                                            </td>
+                                        </tr>
+                                    `;
+                                }).join('')}
+                            </tbody>
+                        </table>
+                    </div>
+                `;
+
+            } catch (error) {
+                console.error('❌ Load unassigned payments error:', error);
+                document.getElementById('unassignedPaymentsList').innerHTML = `
+                    <div class="error-state">
+                        <i class="fas fa-exclamation-triangle"></i>
+                        <p>Failed to load unassigned payments</p>
+                    </div>
+                `;
+            }
+        }
+
+        // ============================================================
+        // DELETE MEMBER - Uses PostgreSQL RPC
+        // ------------------------------------------------------------
+        // Uses PostgreSQL RPC: delete_member_admin
+        // Do NOT delete dependants/payments manually from JavaScript.
+        // PostgreSQL handles the entire transaction.
+        // ============================================================
+
+        window.deleteMember = async function (memberId) {
+
+            if (!memberId) {
+                showToast('error', 'Invalid member ID.');
+                return;
+            }
+
+            const confirmed = confirm(
+                '⚠️ DELETE MEMBER\n\n' +
+                'This will permanently delete this member and the ' +
+                'member records allowed by the database deletion policy.\n\n' +
+                'This action cannot be undone.\n\n' +
+                'Are you sure you want to continue?'
+            );
+
+            if (!confirmed) {
+                return;
+            }
+
+            try {
+
+                showToast('info', 'Deleting member...');
+
+                const { data, error } = await supabaseClient.rpc(
+                    'delete_member_admin',
+                    {
+                        p_member_id: memberId
+                    }
+                );
+
+                if (error) {
+                    console.error('❌ Delete member RPC error:', error);
+                    throw error;
+                }
+
+                console.log('✅ Member deletion result:', data);
+
+                showToast(
+                    'success',
+                    'Member deleted successfully.'
+                );
+
+                // Refresh dashboard
+                await loadDashboardData();
+
+            } catch (error) {
+
+                console.error('❌ Delete member error:', error);
+
+                showToast(
+                    'error',
+                    'Failed to delete member: ' +
+                    (error?.message || 'Unknown error')
+                );
+            }
+        };
+
+        // ============================================================
+        // DELETE SALES AGENT - Uses PostgreSQL RPC
+        // ------------------------------------------------------------
+        // Uses PostgreSQL RPC: delete_agent_admin
+        // Members assigned to the agent are automatically unassigned
+        // by PostgreSQL before the agent is deleted.
+        // ============================================================
+
+        window.deleteAgent = async function (agentId) {
+
+            if (!agentId) {
+                showToast('error', 'Invalid agent ID.');
+                return;
+            }
+
+            const confirmed = confirm(
+                '⚠️ DELETE SALES AGENT\n\n' +
+                'Members assigned to this agent will be unassigned.\n\n' +
+                'The sales agent will then be permanently deleted.\n\n' +
+                'Are you sure you want to continue?'
+            );
+
+            if (!confirmed) {
+                return;
+            }
+
+            try {
+
+                showToast('info', 'Deleting sales agent...');
+
+                const { data, error } = await supabaseClient.rpc(
+                    'delete_agent_admin',
+                    {
+                        p_agent_id: agentId
+                    }
+                );
+
+                if (error) {
+                    console.error('❌ Delete agent RPC error:', error);
+                    throw error;
+                }
+
+                console.log('✅ Agent deletion result:', data);
+
+                showToast(
+                    'success',
+                    'Sales agent deleted successfully.'
+                );
+
+                // Refresh dashboard
+                await loadDashboardData();
+
+            } catch (error) {
+
+                console.error('❌ Delete agent error:', error);
+
+                showToast(
+                    'error',
+                    'Failed to delete sales agent: ' +
+                    (error?.message || 'Unknown error')
+                );
+            }
+        };
+
+        // ============================================================
+        // ASSIGN PAYMENT
+        // ============================================================
+        window.assignPayment = async function(paymentId) {
+            if (!paymentId) {
+                showToast('Payment ID is required.', 'error');
+                return;
+            }
+
+            const memberNumber = prompt('Enter member number to assign this payment to:');
+            if (!memberNumber) return;
+
+            try {
+                const { data: member, error: memberError } = await supabaseClient
+                    .from('members')
+                    .select('id, membership_number, first_name, last_name')
+                    .eq('membership_number', memberNumber)
+                    .single();
+
+                if (memberError || !member) {
+                    showToast('Member not found. Please check the membership number.', 'error');
+                    return;
+                }
+
+                const { data, error: updateError } = await supabaseClient
+                    .from('payments')
+                    .update({
+                        member_id: member.id,
+                        membership_id: member.id,
+                        updated_at: new Date().toISOString()
+                    })
+                    .eq('id', paymentId)
+                    .select()
+                    .single();
+
+                if (updateError) {
+                    console.error('Assign payment error:', updateError);
+                    showToast(`Unable to assign payment: ${updateError.message}`, 'error');
+                    return;
+                }
+
+                console.log('✅ Payment assigned:', data);
+                showToast(`Payment assigned to ${member.membership_number} successfully.`, 'success');
+                await loadDashboardData();
+
+            } catch (error) {
+                console.error('❌ Assign payment error:', error);
+                showToast('Failed to assign payment: ' + error.message, 'error');
+            }
+        };
+
+        // ============================================================
+        // REFRESH DATA
+        // ============================================================
+        window.refreshData = async function() {
+            const icon = document.getElementById('refreshIcon');
+            const btn = document.getElementById('refreshBtn');
+
+            if (icon) icon.classList.add('spinning');
+            if (btn) btn.disabled = true;
+
+            try {
+                await loadDashboardData();
+                showToast('success', 'Dashboard refreshed successfully');
+            } catch (error) {
+                showToast('error', 'Failed to refresh data');
+            } finally {
+                if (icon) icon.classList.remove('spinning');
+                if (btn) btn.disabled = false;
+            }
+        };
+
+        // ============================================================
+        // REAL-TIME SUBSCRIPTIONS
+        // ============================================================
+        function setupRealtime() {
+            console.log('🔌 Setting up real-time subscriptions...');
+
+            const channel = supabaseClient.channel('dashboard-changes')
+                .on(
+                    'postgres_changes',
+                    { event: '*', schema: 'public', table: 'payments' },
+                    () => debounceRefresh()
+                )
+                .on(
+                    'postgres_changes',
+                    { event: '*', schema: 'public', table: 'members' },
+                    () => debounceRefresh()
+                )
+                .on(
+                    'postgres_changes',
+                    { event: '*', schema: 'public', table: 'sales_agents' },
+                    () => debounceRefresh()
+                )
+                .subscribe((status) => {
+                    console.log('🔌 Subscription status:', status);
+                    if (status === 'SUBSCRIBED') {
+                        document.getElementById('liveIndicator').classList.add('connected');
+                        document.getElementById('liveIndicatorLabel').textContent = 'Live';
+                    }
+                });
+        }
+
+        function debounceRefresh() {
+            clearTimeout(refreshTimeout);
+            refreshTimeout = setTimeout(() => {
+                loadDashboardData();
+            }, 1000);
+        }
+
+        function setupAutoRefresh() {
+            console.log('⏰ Setting up auto-refresh (60s)');
+            setInterval(() => {
+                loadDashboardData();
+            }, 60000);
+        }
+
+        // ============================================================
+        // TOAST NOTIFICATIONS
+        // ============================================================
+        function showToast(type, message) {
+            const container = document.getElementById('toastContainer');
+
+            const icons = {
+                success: 'fa-check-circle',
+                error: 'fa-exclamation-circle',
+                warning: 'fa-triangle-exclamation',
+                info: 'fa-info-circle'
+            };
+
+            const toast = document.createElement('div');
+            toast.className = `toast ${type}`;
+            toast.innerHTML = `
+                <i class="fas ${icons[type] || icons.info}"></i>
+                <span>${message}</span>
+                <button class="toast-close" onclick="this.parentElement.remove()">&times;</button>
+            `;
+
+            container.appendChild(toast);
+
+            setTimeout(() => {
+                toast.style.opacity = '0';
+                toast.style.transform = 'translateX(100px)';
+                toast.style.transition = 'all 0.4s ease';
+                setTimeout(() => toast.remove(), 400);
+            }, 4000);
+        }
+
+        // ============================================================
+        // LOGOUT
+        // ============================================================
+        window.handleLogout = async function() {
+            try {
+                await supabaseClient.auth.signOut();
+                localStorage.removeItem('admin_user');
+                localStorage.removeItem('admin_session');
+                sessionStorage.clear();
+                window.location.href = 'admin-login.html';
+            } catch (error) {
+                console.error('Logout error:', error);
+                showToast('error', 'Failed to logout');
+            }
+        };
+
+        // ============================================================
+        // SHELL BEHAVIOR
+        // ============================================================
+        (function() {
+            const sidebar = document.getElementById('sidebar');
+            const backdrop = document.getElementById('sidebarBackdrop');
+            const toggleBtn = document.getElementById('sidebarToggle');
+            const clockEl = document.getElementById('currentDateTime');
+
+            function openSidebar() {
+                sidebar.classList.add('open');
+                backdrop.classList.add('show');
+            }
+
+            function closeSidebar() {
+                sidebar.classList.remove('open');
+                backdrop.classList.remove('show');
+            }
+
+            if (toggleBtn) {
+                toggleBtn.addEventListener('click', function() {
+                    if (sidebar.classList.contains('open')) {
+                        closeSidebar();
+                    } else {
+                        openSidebar();
+                    }
+                });
+            }
+
+            if (backdrop) {
+                backdrop.addEventListener('click', closeSidebar);
+            }
+
+            document.querySelectorAll('.sidebar-nav a').forEach(function(link) {
+                link.addEventListener('click', closeSidebar);
+            });
+
+            function updateClock() {
+                if (!clockEl) return;
+                const now = new Date();
+                clockEl.textContent = now.toLocaleString('en-KE', {
+                    weekday: 'short',
+                    day: '2-digit',
+                    month: 'short',
+                    year: 'numeric',
+                    hour: '2-digit',
+                    minute: '2-digit'
+                });
+            }
+            updateClock();
+            setInterval(updateClock, 30000);
+        })();
+
+        // ============================================================
+        // EXPOSE FUNCTIONS
+        // ============================================================
+        window.refreshData = refreshData;
+        window.handleLogout = handleLogout;
+        window.showToast = showToast;
+        window.assignPayment = assignPayment;
+        window.deleteMember = deleteMember;
+        window.deleteAgent = deleteAgent;
+        window.loadDashboardData = loadDashboardData;
+        window.formatKES = formatKES;
+        window.formatDate = formatDate;
+
+        console.log('✅ All functions registered');
+        console.log('📌 Open browser console to see debug output');
+    </script>
+
+</body>
+</html>
