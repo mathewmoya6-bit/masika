@@ -1471,10 +1471,10 @@
                 console.log('✅ Members:', totalMembers);
 
                 // ============================================
-                // 2. AGENTS COUNT
+                // 2. AGENTS COUNT - FROM public_agent_codes
                 // ============================================
                 const { count: agentsCount, error: agentsError } = await supabaseClient
-                    .from('sales_agents')
+                    .from('public_agent_codes')
                     .select('*', { count: 'exact', head: true });
 
                 if (agentsError) {
@@ -1484,12 +1484,12 @@
                 console.log('✅ Total Agents:', totalAgents);
 
                 // ============================================
-                // 3. ACTIVE AGENTS
+                // 3. ACTIVE AGENTS - FROM public_agent_codes
                 // ============================================
                 const { count: activeAgentsCount, error: activeError } = await supabaseClient
-                    .from('sales_agents')
+                    .from('public_agent_codes')
                     .select('*', { count: 'exact', head: true })
-                    .ilike('status', 'active');
+                    .eq('is_active', true);
 
                 if (activeError) {
                     console.error('❌ Active agents error:', activeError);
@@ -1652,14 +1652,14 @@
         }
 
         // ============================================================
-        // LOAD RECENT AGENTS
+        // LOAD RECENT AGENTS - FROM public_agent_codes
         // ============================================================
         async function loadRecentAgents() {
-            console.log('📋 Loading recent agents...');
+            console.log('📋 Loading recent agents from public_agent_codes...');
 
             try {
                 const { data, error } = await supabaseClient
-                    .from('sales_agents')
+                    .from('public_agent_codes')
                     .select('*')
                     .order('created_at', { ascending: false })
                     .limit(5);
@@ -1686,16 +1686,15 @@
                 }
 
                 tbody.innerHTML = data.map(a => {
-                    const agentStatus = String(a.status || '').toLowerCase();
-                    const badgeClass = agentStatus === 'active' ? 'active' :
-                                     agentStatus === 'inactive' ? 'inactive' : 'pending';
+                    const agentStatus = a.is_active ? 'Active' : 'Inactive';
+                    const badgeClass = a.is_active ? 'active' : 'inactive';
 
                     return `
                         <tr>
-                            <td><strong>${escapeHtml(a.full_name || a.first_name || 'N/A')}</strong></td>
+                            <td><strong>${escapeHtml(a.full_name || a.agent_code || 'N/A')}</strong></td>
                             <td>${escapeHtml(a.phone || 'N/A')}</td>
                             <td>${a.created_at ? new Date(a.created_at).toLocaleDateString('en-KE') : 'N/A'}</td>
-                            <td><span class="status-badge ${badgeClass}">${escapeHtml(a.status || 'Pending')}</span></td>
+                            <td><span class="status-badge ${badgeClass}">${agentStatus}</span></td>
                             <td>
                                 <button onclick="deleteAgent('${a.id}')" class="btn btn-danger btn-sm" title="Delete Agent">
                                     <i class="fas fa-trash"></i>
@@ -1930,14 +1929,8 @@
 
         // ============================================================
         // DELETE MEMBER - Uses PostgreSQL RPC
-        // ------------------------------------------------------------
-        // Uses PostgreSQL RPC: delete_member_admin
-        // Do NOT delete dependants/payments manually from JavaScript.
-        // PostgreSQL handles the entire transaction.
         // ============================================================
-
         window.deleteMember = async function (memberId) {
-
             if (!memberId) {
                 showToast('error', 'Invalid member ID.');
                 return;
@@ -1956,7 +1949,6 @@
             }
 
             try {
-
                 showToast('info', 'Deleting member...');
 
                 const { data, error } = await supabaseClient.rpc(
@@ -1972,37 +1964,19 @@
                 }
 
                 console.log('✅ Member deletion result:', data);
-
-                showToast(
-                    'success',
-                    'Member deleted successfully.'
-                );
-
-                // Refresh dashboard
+                showToast('success', 'Member deleted successfully.');
                 await loadDashboardData();
 
             } catch (error) {
-
                 console.error('❌ Delete member error:', error);
-
-                showToast(
-                    'error',
-                    'Failed to delete member: ' +
-                    (error?.message || 'Unknown error')
-                );
+                showToast('error', 'Failed to delete member: ' + (error?.message || 'Unknown error'));
             }
         };
 
         // ============================================================
-        // DELETE SALES AGENT - Uses PostgreSQL RPC
-        // ------------------------------------------------------------
-        // Uses PostgreSQL RPC: delete_agent_admin
-        // Members assigned to the agent are automatically unassigned
-        // by PostgreSQL before the agent is deleted.
+        // DELETE SALES AGENT - FROM public_agent_codes
         // ============================================================
-
         window.deleteAgent = async function (agentId) {
-
             if (!agentId) {
                 showToast('error', 'Invalid agent ID.');
                 return;
@@ -2010,8 +1984,7 @@
 
             const confirmed = confirm(
                 '⚠️ DELETE SALES AGENT\n\n' +
-                'Members assigned to this agent will be unassigned.\n\n' +
-                'The sales agent will then be permanently deleted.\n\n' +
+                'This will permanently delete this sales agent.\n\n' +
                 'Are you sure you want to continue?'
             );
 
@@ -2020,40 +1993,26 @@
             }
 
             try {
-
                 showToast('info', 'Deleting sales agent...');
 
-                const { data, error } = await supabaseClient.rpc(
-                    'delete_agent_admin',
-                    {
-                        p_agent_id: agentId
-                    }
-                );
+                // Delete directly from public_agent_codes table
+                const { error } = await supabaseClient
+                    .from('public_agent_codes')
+                    .delete()
+                    .eq('id', agentId);
 
                 if (error) {
-                    console.error('❌ Delete agent RPC error:', error);
+                    console.error('❌ Delete agent error:', error);
                     throw error;
                 }
 
-                console.log('✅ Agent deletion result:', data);
-
-                showToast(
-                    'success',
-                    'Sales agent deleted successfully.'
-                );
-
-                // Refresh dashboard
+                console.log('✅ Agent deleted successfully');
+                showToast('success', 'Sales agent deleted successfully.');
                 await loadDashboardData();
 
             } catch (error) {
-
                 console.error('❌ Delete agent error:', error);
-
-                showToast(
-                    'error',
-                    'Failed to delete sales agent: ' +
-                    (error?.message || 'Unknown error')
-                );
+                showToast('error', 'Failed to delete sales agent: ' + (error?.message || 'Unknown error'));
             }
         };
 
@@ -2148,7 +2107,7 @@
                 )
                 .on(
                     'postgres_changes',
-                    { event: '*', schema: 'public', table: 'sales_agents' },
+                    { event: '*', schema: 'public', table: 'public_agent_codes' },
                     () => debounceRefresh()
                 )
                 .subscribe((status) => {
