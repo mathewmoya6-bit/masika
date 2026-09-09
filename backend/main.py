@@ -37,20 +37,20 @@ except ImportError:
 try:
     from supabase import create_client, Client
 except ImportError:
-    print("❌ Supabase not installed. Run: pip install supabase")
+    print("Supabase not installed. Run: pip install supabase")
     Client = None
     create_client = None
 
 try:
     import requests
 except ImportError:
-    print("⚠️ requests not installed. M-Pesa features will be disabled.")
+    print("requests not installed. M-Pesa features will be disabled.")
     requests = None
 
 try:
     import jwt
 except ImportError:
-    print("⚠️ PyJWT not installed. JWT features will be disabled.")
+    print("PyJWT not installed. JWT features will be disabled.")
     jwt = None
 
 # ============================================================
@@ -67,8 +67,8 @@ logger = logging.getLogger(__name__)
 # ENVIRONMENT VARIABLES
 # ============================================================
 
-SUPABASE_URL = os.getenv("SUPABASE_URL", "https://wpxzlcdrirlcyvfiquld.supabase.co")
-SUPABASE_KEY = os.getenv("SUPABASE_KEY", "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6IndweHpsY2RyaXJsY3l2ZmlxdWxkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODc5Mjc4MDcsImV4cCI6MjEwMzUwMzgwN30.OUP9pmPbrML_egpHflZtDfLv1_UDM37_BYjtb842xjg")
+SUPABASE_URL = os.getenv("SUPABASE_URL", "")
+SUPABASE_KEY = os.getenv("SUPABASE_KEY", "")
 
 SECRET_KEY = os.getenv("SECRET_KEY", "your-secret-key-change-in-production")
 ALGORITHM = os.getenv("ALGORITHM", "HS256")
@@ -100,9 +100,9 @@ supabase = None
 if create_client:
     try:
         supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
-        logger.info("✅ Supabase client initialized successfully")
+        logger.info("Supabase client initialized successfully")
     except Exception as e:
-        logger.error(f"❌ Failed to initialize Supabase client: {e}")
+        logger.error(f"Failed to initialize Supabase client: {e}")
 
 # ============================================================
 # ENUMS
@@ -319,7 +319,7 @@ class DashboardStats(BaseModel):
     active_dependants: int
 
 # ============================================================
-# NEW: PUBLIC REGISTRATION MODELS
+# PUBLIC REGISTRATION MODELS
 # ============================================================
 
 class PublicRegistrationRequest(BaseModel):
@@ -327,25 +327,25 @@ class PublicRegistrationRequest(BaseModel):
     first_name: str
     last_name: str
     other_name: Optional[str] = None
-    
+
     phone: str
     alternative_phone: Optional[str] = None
     email: Optional[EmailStr] = None
-    
+
     id_number: str
     date_of_birth: Optional[str] = None
     gender: Optional[GenderEnum] = None
-    
+
     county: Optional[str] = None
     location: Optional[str] = None
     town: Optional[str] = None
     address: Optional[str] = None
-    
+
     sales_code: Optional[str] = None
-    
+
     plan: PlanEnum
     benefit_option: Optional[BenefitOptionEnum] = None
-    
+
     dependants: List[Dict[str, Any]] = []
 
 class PublicRegisterResponse(BaseModel):
@@ -535,15 +535,15 @@ def format_phone_number(phone: str) -> str:
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    logger.info("🚀 Starting Masika Benevolent API...")
+    logger.info("Starting Masika Benevolent API...")
     if supabase:
         try:
             supabase.table("members").select("count", count="exact").limit(1).execute()
-            logger.info("✅ Database connection successful")
+            logger.info("Database connection successful")
         except Exception as e:
-            logger.error(f"❌ Database connection failed: {e}")
+            logger.error(f"Database connection failed: {e}")
     yield
-    logger.info("🛑 Shutting down Masika Benevolent API...")
+    logger.info("Shutting down Masika Benevolent API...")
 
 app = FastAPI(
     title="Masika Benevolent API",
@@ -591,9 +591,9 @@ async def health_check():
 
 public_router = APIRouter(prefix="/api/public", tags=["Public"])
 
-# ============================================================
+# ------------------------------------------------------------
 # 1. PUBLIC PLANS
-# ============================================================
+# ------------------------------------------------------------
 
 @public_router.get("/plans", response_model=List[PlanResponse])
 async def get_public_plans():
@@ -625,9 +625,9 @@ async def get_public_plans():
         }
     ]
 
-# ============================================================
+# ------------------------------------------------------------
 # 2. PUBLIC AGENTS
-# ============================================================
+# ------------------------------------------------------------
 
 @public_router.get("/agents", response_model=List[AgentResponse])
 async def get_public_agents(branch_id: Optional[str] = None):
@@ -656,9 +656,9 @@ async def get_public_agents(branch_id: Optional[str] = None):
         logger.error(f"Error fetching agents: {e}")
         return []
 
-# ============================================================
+# ------------------------------------------------------------
 # 3. PUBLIC BRANCHES
-# ============================================================
+# ------------------------------------------------------------
 
 @public_router.get("/branches", response_model=List[BranchResponse])
 async def get_public_branches():
@@ -682,9 +682,9 @@ async def get_public_branches():
         logger.error(f"Error fetching branches: {e}")
         return []
 
-# ============================================================
+# ------------------------------------------------------------
 # 4. PUBLIC REGISTER (INDIVIDUAL)
-# ============================================================
+# ------------------------------------------------------------
 
 @public_router.post("/register", response_model=PublicRegisterResponse)
 async def public_register(payload: PublicRegistrationRequest):
@@ -694,8 +694,7 @@ async def public_register(payload: PublicRegistrationRequest):
     """
     if not supabase:
         raise HTTPException(status_code=500, detail="Database not available")
-    
-    # Validate required fields
+
     if not payload.first_name:
         raise HTTPException(status_code=400, detail="First name is required")
     if not payload.last_name:
@@ -704,41 +703,34 @@ async def public_register(payload: PublicRegistrationRequest):
         raise HTTPException(status_code=400, detail="ID number is required")
     if not payload.phone:
         raise HTTPException(status_code=400, detail="Phone number is required")
-    
-    # Check if email already exists
+
     if payload.email:
         existing = supabase.table("members").select("email").eq("email", payload.email).execute()
         if existing.data:
             raise HTTPException(status_code=400, detail="Email already registered")
-    
-    # Check if ID number already exists
+
     existing = supabase.table("members").select("id_number").eq("id_number", payload.id_number).execute()
     if existing.data:
         raise HTTPException(status_code=400, detail="ID number already registered")
-    
+
     try:
-        # Generate member number
         member_number = generate_member_number()
-        
-        # Determine plan and waiting period
+
         plan = payload.plan.value if hasattr(payload.plan, 'value') else str(payload.plan)
         plan = plan.lower()
         waiting_period = 6 if plan == "dignity" else 4
-        
-        # Calculate registration amount based on plan
+
         plan_amounts = {
             "comfort": 200.00,
             "dignity": 500.00,
             "wazazi": 200.00
         }
         registration_amount = plan_amounts.get(plan, 200.00)
-        
-        # Add dependant fees if Wazazi plan
+
         if plan == "wazazi":
             parent_count = sum(1 for d in payload.dependants if d.get("relationship", "").upper() == "PARENT")
             registration_amount += parent_count * 100.00
-        
-        # Prepare member record
+
         member_record = {
             "member_number": member_number,
             "username": member_number,
@@ -768,16 +760,14 @@ async def public_register(payload: PublicRegistrationRequest):
             "created_at": datetime.now().isoformat(),
             "updated_at": datetime.now().isoformat()
         }
-        
-        # Insert member
+
         result = supabase.table("members").insert(member_record).execute()
         if not result.data:
             raise HTTPException(status_code=400, detail="Failed to create member")
-        
+
         new_member = result.data[0]
         member_id = new_member["id"]
-        
-        # Create payment record
+
         payment_record = {
             "member_number": member_number,
             "member_id": member_id,
@@ -792,8 +782,7 @@ async def public_register(payload: PublicRegistrationRequest):
             "updated_at": datetime.now().isoformat()
         }
         supabase.table("payments").insert(payment_record).execute()
-        
-        # Insert dependants
+
         for dep in payload.dependants:
             supabase.table("dependants").insert({
                 "principal_member_id": member_id,
@@ -806,21 +795,21 @@ async def public_register(payload: PublicRegistrationRequest):
                 "is_active": True,
                 "created_at": datetime.now().isoformat()
             }).execute()
-        
+
         return PublicRegisterResponse(
             success=True,
             member_id=member_id,
             member_number=member_number,
             registration_amount=registration_amount
         )
-        
+
     except Exception as e:
         logger.error(f"Public registration failed: {e}")
         raise HTTPException(status_code=400, detail=f"Registration failed: {str(e)}")
 
-# ============================================================
+# ------------------------------------------------------------
 # 5. PUBLIC REGISTER (CHAMA)
-# ============================================================
+# ------------------------------------------------------------
 
 @public_router.post("/register/chama")
 async def public_register_chama(payload: ChamaRegistrationRequest):
@@ -829,21 +818,18 @@ async def public_register_chama(payload: ChamaRegistrationRequest):
     """
     if not supabase:
         raise HTTPException(status_code=500, detail="Database not available")
-    
-    # Validate minimum members
+
     if len(payload.members) < 30:
         raise HTTPException(
-            status_code=400, 
+            status_code=400,
             detail=f"Minimum 30 members required. Currently {len(payload.members)}."
         )
-    
-    # Validate required fields
+
     if not payload.group_name:
         raise HTTPException(status_code=400, detail="Group name is required")
     if not payload.phone:
         raise HTTPException(status_code=400, detail="Contact phone is required")
-    
-    # Validate officials
+
     officials = [
         ("Chairperson", payload.chairperson),
         ("Treasurer", payload.treasurer),
@@ -856,9 +842,8 @@ async def public_register_chama(payload: ChamaRegistrationRequest):
             raise HTTPException(status_code=400, detail=f"{label} phone is required")
         if not official.get("id_number"):
             raise HTTPException(status_code=400, detail=f"{label} ID is required")
-    
+
     try:
-        # Create chama group record
         group_record = {
             "group_name": payload.group_name,
             "phone": payload.phone,
@@ -877,16 +862,15 @@ async def public_register_chama(payload: ChamaRegistrationRequest):
             "created_at": datetime.now().isoformat(),
             "updated_at": datetime.now().isoformat()
         }
-        
+
         result = supabase.table("chama_groups").insert(group_record).execute()
         if not result.data:
             raise HTTPException(status_code=400, detail="Failed to create chama group")
-        
+
         group = result.data[0]
         group_id = group["id"]
         registration_amount = group["registration_amount"]
-        
-        # Create payment record for chama
+
         payment_record = {
             "group_id": group_id,
             "group_name": payload.group_name,
@@ -899,8 +883,7 @@ async def public_register_chama(payload: ChamaRegistrationRequest):
             "updated_at": datetime.now().isoformat()
         }
         supabase.table("payments").insert(payment_record).execute()
-        
-        # Insert individual members
+
         for member in payload.members:
             supabase.table("chama_members").insert({
                 "chama_group_id": group_id,
@@ -913,7 +896,7 @@ async def public_register_chama(payload: ChamaRegistrationRequest):
                 "is_active": True,
                 "created_at": datetime.now().isoformat()
             }).execute()
-        
+
         return {
             "success": True,
             "group_id": group_id,
@@ -922,14 +905,14 @@ async def public_register_chama(payload: ChamaRegistrationRequest):
             "registration_amount": registration_amount,
             "message": "Chama registration created successfully. Please complete payment."
         }
-        
+
     except Exception as e:
         logger.error(f"Chama registration failed: {e}")
         raise HTTPException(status_code=400, detail=f"Chama registration failed: {str(e)}")
 
-# ============================================================
+# ------------------------------------------------------------
 # 6. M-PESA STK PUSH
-# ============================================================
+# ------------------------------------------------------------
 
 @public_router.post("/payment/stk-push", response_model=STKPushResponse)
 async def initiate_stk_push(request: STKPushRequest):
@@ -939,32 +922,27 @@ async def initiate_stk_push(request: STKPushRequest):
     """
     if not supabase:
         raise HTTPException(status_code=500, detail="Database not available")
-    
-    # Validate phone
+
     phone = format_phone_number(request.phone)
     if not phone or not re.match(r"^254[17]\d{8}$", phone):
         raise HTTPException(status_code=400, detail="Invalid phone number format")
-    
-    # Validate amount
+
     if request.amount <= 0:
         raise HTTPException(status_code=400, detail="Amount must be greater than 0")
-    
-    # Validate either member_id or group_id is provided
+
     if not request.member_id and not request.group_id:
         raise HTTPException(status_code=400, detail="Either member_id or group_id is required")
-    
+
     try:
-        # Generate transaction ID
         transaction_id = f"TXN-{datetime.now().strftime('%Y%m%d')}-{secrets.token_hex(4).upper()}"
-        
-        # Check if there's already a pending payment
+
         payment_check = supabase.table("payments").select("*").eq("status", "pending")
         if request.member_id:
             payment_check = payment_check.eq("member_id", request.member_id)
         elif request.group_id:
             payment_check = payment_check.eq("group_id", request.group_id)
         payment_check = payment_check.execute()
-        
+
         if payment_check.data:
             existing = payment_check.data[0]
             if existing.get("checkout_request_id"):
@@ -974,8 +952,7 @@ async def initiate_stk_push(request: STKPushRequest):
                     checkout_request_id=existing.get("checkout_request_id"),
                     merchant_request_id=existing.get("merchant_request_id")
                 )
-        
-        # Store payment record
+
         payment_record = {
             "transaction_id": transaction_id,
             "phone": phone,
@@ -985,23 +962,22 @@ async def initiate_stk_push(request: STKPushRequest):
             "created_at": datetime.now().isoformat(),
             "updated_at": datetime.now().isoformat()
         }
-        
+
         if request.member_id:
             payment_record["member_id"] = request.member_id
         if request.group_id:
             payment_record["group_id"] = request.group_id
-        
+
         supabase.table("payments").insert(payment_record).execute()
-        
-        # Try to initiate STK push if M-Pesa is configured
+
         checkout_request_id = None
         merchant_request_id = None
-        
+
         if MPESA_CONSUMER_KEY and MPESA_CONSUMER_SECRET:
             try:
                 stk_result = await initiate_mpesa_stk_push(
-                    phone, 
-                    request.amount, 
+                    phone,
+                    request.amount,
                     transaction_id,
                     request.transaction_desc
                 )
@@ -1015,14 +991,14 @@ async def initiate_stk_push(request: STKPushRequest):
                     }).eq("transaction_id", transaction_id).execute()
             except Exception as e:
                 logger.error(f"STK push failed: {e}")
-        
+
         return STKPushResponse(
             success=True,
             message="Payment initiated. Please check your phone for the M-Pesa prompt.",
             checkout_request_id=checkout_request_id,
             merchant_request_id=merchant_request_id
         )
-        
+
     except Exception as e:
         logger.error(f"STK push initiation failed: {e}")
         raise HTTPException(status_code=400, detail=f"Payment initiation failed: {str(e)}")
@@ -1031,14 +1007,14 @@ async def initiate_mpesa_stk_push(phone: str, amount: float, transaction_id: str
     """Initiate M-Pesa STK push."""
     if not requests:
         return {"success": False, "message": "Requests library not available"}
-    
+
     token = get_mpesa_access_token()
     if not token:
         return {"success": False, "message": "Failed to get M-Pesa access token"}
-    
+
     timestamp = generate_timestamp()
     password = generate_mpesa_password(MPESA_SHORTCODE, MPESA_PASSKEY, timestamp)
-    
+
     payload = {
         "BusinessShortCode": MPESA_SHORTCODE,
         "Password": password,
@@ -1052,7 +1028,7 @@ async def initiate_mpesa_stk_push(phone: str, amount: float, transaction_id: str
         "AccountReference": transaction_id[:12],
         "TransactionDesc": description[:20]
     }
-    
+
     try:
         response = requests.post(
             MPESA_STK_PUSH_URL,
@@ -1060,7 +1036,7 @@ async def initiate_mpesa_stk_push(phone: str, amount: float, transaction_id: str
             headers={"Authorization": f"Bearer {token}"},
             timeout=30
         )
-        
+
         if response.status_code == 200:
             data = response.json()
             if data.get("ResponseCode") == "0":
@@ -1072,16 +1048,16 @@ async def initiate_mpesa_stk_push(phone: str, amount: float, transaction_id: str
             else:
                 logger.error(f"M-Pesa error: {data}")
                 return {"success": False, "message": data.get("ResponseDescription", "STK push failed")}
-        
+
         return {"success": False, "message": f"HTTP {response.status_code}"}
-        
+
     except Exception as e:
         logger.error(f"STK push error: {e}")
         return {"success": False, "message": str(e)}
 
-# ============================================================
+# ------------------------------------------------------------
 # 7. PAYMENT STATUS
-# ============================================================
+# ------------------------------------------------------------
 
 @public_router.get("/payment/status/{checkout_request_id}", response_model=PaymentStatusResponse)
 async def get_payment_status(checkout_request_id: str):
@@ -1090,14 +1066,14 @@ async def get_payment_status(checkout_request_id: str):
     """
     if not supabase:
         raise HTTPException(status_code=500, detail="Database not available")
-    
+
     try:
         result = supabase.table("payments").select("*").eq("checkout_request_id", checkout_request_id).execute()
         if not result.data:
             raise HTTPException(status_code=404, detail="Payment not found")
-        
+
         payment = result.data[0]
-        
+
         if payment.get("status") == "pending" and payment.get("checkout_request_id"):
             try:
                 status_result = await query_mpesa_transaction_status(payment.get("checkout_request_id"))
@@ -1108,9 +1084,9 @@ async def get_payment_status(checkout_request_id: str):
                         "updated_at": datetime.now().isoformat()
                     }
                     supabase.table("payments").update(update_data).eq("id", payment["id"]).execute()
-                    
+
                     await activate_registration(payment)
-                    
+
                     return PaymentStatusResponse(
                         status="completed",
                         amount=payment.get("amount"),
@@ -1122,7 +1098,7 @@ async def get_payment_status(checkout_request_id: str):
                         "status": "failed",
                         "updated_at": datetime.now().isoformat()
                     }).eq("id", payment["id"]).execute()
-                    
+
                     return PaymentStatusResponse(
                         status="failed",
                         amount=payment.get("amount"),
@@ -1130,13 +1106,13 @@ async def get_payment_status(checkout_request_id: str):
                     )
             except Exception as e:
                 logger.error(f"Status query failed: {e}")
-        
+
         return PaymentStatusResponse(
             status=payment.get("status", "pending"),
             amount=payment.get("amount"),
             transaction_id=payment.get("transaction_id")
         )
-        
+
     except Exception as e:
         logger.error(f"Payment status check failed: {e}")
         raise HTTPException(status_code=400, detail=f"Status check failed: {str(e)}")
@@ -1145,21 +1121,21 @@ async def query_mpesa_transaction_status(checkout_request_id: str) -> dict:
     """Query M-Pesa transaction status."""
     if not requests:
         return {"success": False}
-    
+
     token = get_mpesa_access_token()
     if not token:
         return {"success": False}
-    
+
     timestamp = generate_timestamp()
     password = generate_mpesa_password(MPESA_SHORTCODE, MPESA_PASSKEY, timestamp)
-    
+
     payload = {
         "BusinessShortCode": MPESA_SHORTCODE,
         "Password": password,
         "Timestamp": timestamp,
         "CheckoutRequestID": checkout_request_id
     }
-    
+
     try:
         response = requests.post(
             MPESA_STK_QUERY_URL,
@@ -1167,7 +1143,7 @@ async def query_mpesa_transaction_status(checkout_request_id: str) -> dict:
             headers={"Authorization": f"Bearer {token}"},
             timeout=30
         )
-        
+
         if response.status_code == 200:
             data = response.json()
             if data.get("ResultCode") == "0":
@@ -1179,16 +1155,16 @@ async def query_mpesa_transaction_status(checkout_request_id: str) -> dict:
                 return {"success": False, "pending": True}
             else:
                 return {"success": False, "failed": True}
-        
+
         return {"success": False}
-        
+
     except Exception as e:
         logger.error(f"Status query error: {e}")
         return {"success": False}
 
-# ============================================================
+# ------------------------------------------------------------
 # 8. PAYMENT CALLBACK
-# ============================================================
+# ------------------------------------------------------------
 
 @public_router.post("/payment/callback")
 async def payment_callback(request: Request):
@@ -1199,45 +1175,45 @@ async def payment_callback(request: Request):
     try:
         data = await request.json()
         logger.info(f"Payment callback received: {data}")
-        
+
         body = data.get("Body", {})
         stk_callback = body.get("stkCallback", {})
-        
+
         result_code = stk_callback.get("ResultCode")
         result_desc = stk_callback.get("ResultDesc")
         checkout_request_id = stk_callback.get("CheckoutRequestID")
         callback_metadata = stk_callback.get("CallbackMetadata", {})
-        
+
         if result_code == 0:
             mpesa_receipt = None
             amount = None
-            
+
             items = callback_metadata.get("Item", [])
             for item in items:
                 if item.get("Name") == "MpesaReceiptNumber":
                     mpesa_receipt = item.get("Value")
                 elif item.get("Name") == "Amount":
                     amount = item.get("Value")
-            
+
             payment_result = supabase.table("payments").select("*").eq("checkout_request_id", checkout_request_id).execute()
             if payment_result.data:
                 payment = payment_result.data[0]
-                
+
                 update_data = {
                     "status": "completed",
                     "mpesa_receipt": mpesa_receipt,
                     "updated_at": datetime.now().isoformat()
                 }
                 supabase.table("payments").update(update_data).eq("id", payment["id"]).execute()
-                
+
                 await activate_registration(payment)
-                
+
                 logger.info(f"Payment completed: {checkout_request_id}, receipt: {mpesa_receipt}")
             else:
                 logger.warning(f"Payment not found for checkout_request_id: {checkout_request_id}")
         else:
             logger.error(f"Payment failed: {checkout_request_id} - {result_desc}")
-            
+
             payment_result = supabase.table("payments").select("*").eq("checkout_request_id", checkout_request_id).execute()
             if payment_result.data:
                 supabase.table("payments").update({
@@ -1245,16 +1221,16 @@ async def payment_callback(request: Request):
                     "failure_reason": result_desc,
                     "updated_at": datetime.now().isoformat()
                 }).eq("id", payment_result.data[0]["id"]).execute()
-        
+
         return {"ResultCode": 0, "ResultDesc": "Success"}
-        
+
     except Exception as e:
         logger.error(f"Payment callback error: {e}")
         return {"ResultCode": 1, "ResultDesc": "Failed"}
 
-# ============================================================
+# ------------------------------------------------------------
 # 9. ACTIVATE REGISTRATION
-# ============================================================
+# ------------------------------------------------------------
 
 async def activate_registration(payment: dict):
     """Activate member or chama registration after successful payment."""
@@ -1265,29 +1241,48 @@ async def activate_registration(payment: dict):
                 "member_status": "ACTIVE",
                 "updated_at": datetime.now().isoformat()
             }).eq("id", payment["member_id"]).execute()
-            
+
             logger.info(f"Member {payment['member_id']} activated")
-            
+
         elif payment.get("group_id"):
             supabase.table("chama_groups").update({
                 "status": "ACTIVE",
                 "payment_status": "paid",
                 "updated_at": datetime.now().isoformat()
             }).eq("id", payment["group_id"]).execute()
-            
+
             supabase.table("chama_members").update({
                 "is_active": True,
                 "updated_at": datetime.now().isoformat()
             }).eq("chama_group_id", payment["group_id"]).execute()
-            
+
             logger.info(f"Chama group {payment['group_id']} activated")
-            
+
     except Exception as e:
         logger.error(f"Activation failed: {e}")
 
-# ============================================================
-# 10. MEMBER STATUS
-# ============================================================
+# ------------------------------------------------------------
+# 10. PUBLIC MEMBER LOOKUP (plain record)
+# ------------------------------------------------------------
+
+@public_router.get("/member/{member_id}")
+async def get_public_member(member_id: str):
+    """
+    Fetch a member's public-safe record (used by receipt/ID-card/confirmation
+    pages that only have the member_id from the registration response).
+    """
+    if not supabase:
+        raise HTTPException(status_code=500, detail="Database not available")
+
+    result = supabase.table("members").select("*").eq("id", member_id).execute()
+    if not result.data:
+        raise HTTPException(status_code=404, detail="Member not found")
+
+    return {"success": True, "data": get_member_safe(result.data[0])}
+
+# ------------------------------------------------------------
+# 11. MEMBER STATUS
+# ------------------------------------------------------------
 
 @public_router.get("/member/{member_id}/status", response_model=MemberStatusResponse)
 async def get_member_status(member_id: str):
@@ -1296,26 +1291,26 @@ async def get_member_status(member_id: str):
     """
     if not supabase:
         raise HTTPException(status_code=500, detail="Database not available")
-    
+
     try:
         member_result = supabase.table("members").select("*").eq("id", member_id).execute()
         if not member_result.data:
             raise HTTPException(status_code=404, detail="Member not found")
-        
+
         member = member_result.data[0]
-        
+
         dependants_result = supabase.table("dependants").select("count", count="exact").eq("principal_member_id", member_id).execute()
         dependants_count = dependants_result.count or 0
-        
+
         waiting_months = member.get("waiting_period_months", 4)
         reg_date = member.get("registration_date")
         coverage_status = "Pending"
-        
+
         if reg_date:
             reg_date = datetime.fromisoformat(reg_date) if isinstance(reg_date, str) else reg_date
             wait_end = reg_date + timedelta(days=waiting_months * 30)
             coverage_status = "Active" if datetime.now() >= wait_end else "Waiting"
-        
+
         return MemberStatusResponse(
             member_id=member_id,
             member_number=member.get("member_number"),
@@ -1326,14 +1321,14 @@ async def get_member_status(member_id: str):
             registration_date=member.get("registration_date"),
             dependants_count=dependants_count
         )
-        
+
     except Exception as e:
         logger.error(f"Member status check failed: {e}")
         raise HTTPException(status_code=400, detail=f"Status check failed: {str(e)}")
 
-# ============================================================
-# 11. RECEIPT GENERATION
-# ============================================================
+# ------------------------------------------------------------
+# 12. RECEIPT GENERATION
+# ------------------------------------------------------------
 
 @public_router.get("/receipt/{payment_id}", response_model=ReceiptResponse)
 async def get_receipt(payment_id: str):
@@ -1342,24 +1337,24 @@ async def get_receipt(payment_id: str):
     """
     if not supabase:
         raise HTTPException(status_code=500, detail="Database not available")
-    
+
     try:
         payment_result = supabase.table("payments").select("*").eq("id", payment_id).execute()
         if not payment_result.data:
             raise HTTPException(status_code=404, detail="Payment not found")
-        
+
         payment = payment_result.data[0]
-        
+
         if payment.get("status") != "completed":
             raise HTTPException(status_code=400, detail="Payment not completed")
-        
+
         member_name = "Unknown"
         if payment.get("member_id"):
             member_result = supabase.table("members").select("first_name, last_name, member_number").eq("id", payment["member_id"]).execute()
             if member_result.data:
                 member = member_result.data[0]
                 member_name = f"{member.get('first_name', '')} {member.get('last_name', '')}".strip()
-        
+
         return ReceiptResponse(
             payment_id=payment_id,
             member_number=payment.get("member_number", "N/A"),
@@ -1369,14 +1364,14 @@ async def get_receipt(payment_id: str):
             member_name=member_name,
             plan=payment.get("plan", "N/A")
         )
-        
+
     except Exception as e:
         logger.error(f"Receipt generation failed: {e}")
         raise HTTPException(status_code=400, detail=f"Receipt generation failed: {str(e)}")
 
-# ============================================================
-# 12. ID CARD GENERATION
-# ============================================================
+# ------------------------------------------------------------
+# 13. ID CARD GENERATION
+# ------------------------------------------------------------
 
 @public_router.get("/id-card/{member_id}", response_model=IDCardResponse)
 async def get_id_card(member_id: str):
@@ -1385,16 +1380,16 @@ async def get_id_card(member_id: str):
     """
     if not supabase:
         raise HTTPException(status_code=500, detail="Database not available")
-    
+
     try:
         member_result = supabase.table("members").select("*").eq("id", member_id).execute()
         if not member_result.data:
             raise HTTPException(status_code=404, detail="Member not found")
-        
+
         member = member_result.data[0]
-        
+
         full_name = f"{member.get('first_name', '')} {member.get('last_name', '')}".strip()
-        
+
         return IDCardResponse(
             member_id=member_id,
             member_number=member.get("member_number", "N/A"),
@@ -1404,10 +1399,15 @@ async def get_id_card(member_id: str):
             registration_date=member.get("registration_date", ""),
             qr_code=None
         )
-        
+
     except Exception as e:
         logger.error(f"ID card generation failed: {e}")
         raise HTTPException(status_code=400, detail=f"ID card generation failed: {str(e)}")
+
+# This is the piece that was missing: without this line, every
+# /api/public/* route defined above never gets mounted on the app,
+# so FastAPI returns 404 for all of them.
+app.include_router(public_router)
 
 # ============================================================
 # AUTH ROUTES
