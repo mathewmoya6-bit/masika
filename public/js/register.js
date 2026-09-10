@@ -288,7 +288,7 @@ async function loadAgentsFromSupabase() {
         const { data, error } = await client
             .from("sales_agents")
             .select("sales_code, full_name, phone, status")
-            .eq("status", "active")
+            .eq("status", "ACTIVE")
             .order("full_name", { ascending: true });
 
         if (error) {
