@@ -1465,15 +1465,15 @@
                         <td>
                             <div style="display:flex; gap:6px; flex-wrap:wrap;">
                                 ${statusClass === 'active' ? `
-                                    <button onclick="changeAgentStatus('${escapeJs(agent.id)}', 'suspended')" class="btn btn-warning btn-sm" title="Suspend agent">
+                                    <button onclick="changeAgentStatus('${escapeJs(agent.id)}', 'SUSPENDED')" class="btn btn-warning btn-sm" title="Suspend agent">
                                         <i class="fas fa-pause"></i>
                                     </button>
                                 ` : `
-                                    <button onclick="changeAgentStatus('${escapeJs(agent.id)}', 'active')" class="btn btn-success btn-sm" title="Activate agent">
+                                    <button onclick="changeAgentStatus('${escapeJs(agent.id)}', 'ACTIVE')" class="btn btn-success btn-sm" title="Activate agent">
                                         <i class="fas fa-play"></i>
                                     </button>
                                 `}
-                                <button onclick="changeAgentStatus('${escapeJs(agent.id)}', 'inactive')" class="btn btn-danger btn-sm" title="Deactivate agent">
+                                <button onclick="changeAgentStatus('${escapeJs(agent.id)}', 'INACTIVE')" class="btn btn-danger btn-sm" title="Deactivate agent">
                                     <i class="fas fa-user-slash"></i>
                                 </button>
                             </div>
@@ -1600,7 +1600,7 @@
                     phone: phone || null,
                     national_id: nationalId || null,
                     branch_id: branchId,
-                    status: 'active'
+                    status: 'ACTIVE'
                 };
 
                 const { data, error } = await supabaseClient
