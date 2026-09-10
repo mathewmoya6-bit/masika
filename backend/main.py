@@ -775,8 +775,11 @@ async def public_register(payload: PublicRegistrationRequest):
         new_member = result.data[0]
         member_id = new_member["id"]
 
+        # FIX: "payments" has no member_number column — only member_id/membership_id.
+        # The stray "member_number" key here was the cause of the PGRST204 error.
+        # If you need the member_number visible on the payment row for reporting,
+        # look it up via a join on member_id instead of duplicating it here.
         payment_record = {
-            "member_number": member_number,
             "member_id": member_id,
             "amount": registration_amount,
             "payment_type": "registration",
@@ -878,9 +881,10 @@ async def public_register_chama(payload: ChamaRegistrationRequest):
         group_id = group["id"]
         registration_amount = group["registration_amount"]
 
+        # FIX: "payments" has no group_name column. Only chama_group_id identifies
+        # the group on this table; look up the name via a join if you need it later.
         payment_record = {
-            "group_id": group_id,
-            "group_name": payload.group_name,
+            "chama_group_id": group_id,
             "amount": registration_amount,
             "payment_type": "chama_registration",
             "payment_method": "mpesa",
@@ -941,7 +945,9 @@ async def initiate_stk_push(request: STKPushRequest):
         raise HTTPException(status_code=400, detail="Either member_id or group_id is required")
 
     try:
-        transaction_id = f"TXN-{datetime.now().strftime('%Y%m%d')}-{secrets.token_hex(4).upper()}"
+        # FIX: kept as a Python-side reference; no longer written to a
+        # "transaction_id" column (doesn't exist — see payment_record below).
+        transaction_ref = f"TXN-{datetime.now().strftime('%Y%m%d')}-{secrets.token_hex(4).upper()}"
 
         payment_check = supabase.table("payments").select("*").eq("status", "pending")
         if request.member_id:
@@ -960,8 +966,11 @@ async def initiate_stk_push(request: STKPushRequest):
                     merchant_request_id=existing.get("merchant_request_id")
                 )
 
+        # FIX: "transaction_id" isn't a payments column — the schema's equivalent
+        # is "transaction_reference". Also "group_id" isn't a column either;
+        # the correct FK is "chama_group_id" (matches the chama insert above).
         payment_record = {
-            "transaction_id": transaction_id,
+            "transaction_reference": transaction_ref,
             "phone": phone,
             "amount": request.amount,
             "payment_type": "registration" if request.member_id else "chama_registration",
@@ -973,7 +982,7 @@ async def initiate_stk_push(request: STKPushRequest):
         if request.member_id:
             payment_record["member_id"] = request.member_id
         if request.group_id:
-            payment_record["group_id"] = request.group_id
+            payment_record["chama_group_id"] = request.group_id
 
         supabase.table("payments").insert(payment_record).execute()
 
@@ -985,7 +994,7 @@ async def initiate_stk_push(request: STKPushRequest):
                 stk_result = await initiate_mpesa_stk_push(
                     phone,
                     request.amount,
-                    transaction_id,
+                    transaction_ref,
                     request.transaction_desc
                 )
                 if stk_result.get("success"):
@@ -995,7 +1004,7 @@ async def initiate_stk_push(request: STKPushRequest):
                         "checkout_request_id": checkout_request_id,
                         "merchant_request_id": merchant_request_id,
                         "updated_at": datetime.now().isoformat()
-                    }).eq("transaction_id", transaction_id).execute()
+                    }).eq("transaction_reference", transaction_ref).execute()
             except Exception as e:
                 logger.error(f"STK push failed: {e}")
 
@@ -1098,7 +1107,7 @@ async def get_payment_status(checkout_request_id: str):
                         status="completed",
                         amount=payment.get("amount"),
                         receipt=status_result.get("receipt"),
-                        transaction_id=payment.get("transaction_id")
+                        transaction_id=payment.get("transaction_reference")
                     )
                 elif status_result.get("failed"):
                     supabase.table("payments").update({
@@ -1109,7 +1118,7 @@ async def get_payment_status(checkout_request_id: str):
                     return PaymentStatusResponse(
                         status="failed",
                         amount=payment.get("amount"),
-                        transaction_id=payment.get("transaction_id")
+                        transaction_id=payment.get("transaction_reference")
                     )
             except Exception as e:
                 logger.error(f"Status query failed: {e}")
@@ -1117,7 +1126,7 @@ async def get_payment_status(checkout_request_id: str):
         return PaymentStatusResponse(
             status=payment.get("status", "pending"),
             amount=payment.get("amount"),
-            transaction_id=payment.get("transaction_id")
+            transaction_id=payment.get("transaction_reference")
         )
 
     except Exception as e:
@@ -1251,19 +1260,19 @@ async def activate_registration(payment: dict):
 
             logger.info(f"Member {payment['member_id']} activated")
 
-        elif payment.get("group_id"):
+        elif payment.get("chama_group_id"):
             supabase.table("chama_groups").update({
                 "status": "ACTIVE",
                 "payment_status": "paid",
                 "updated_at": datetime.now().isoformat()
-            }).eq("id", payment["group_id"]).execute()
+            }).eq("id", payment["chama_group_id"]).execute()
 
             supabase.table("chama_members").update({
                 "is_active": True,
                 "updated_at": datetime.now().isoformat()
-            }).eq("chama_group_id", payment["group_id"]).execute()
+            }).eq("chama_group_id", payment["chama_group_id"]).execute()
 
-            logger.info(f"Chama group {payment['group_id']} activated")
+            logger.info(f"Chama group {payment['chama_group_id']} activated")
 
     except Exception as e:
         logger.error(f"Activation failed: {e}")
@@ -1356,20 +1365,24 @@ async def get_receipt(payment_id: str):
             raise HTTPException(status_code=400, detail="Payment not completed")
 
         member_name = "Unknown"
+        member_number = "N/A"
+        plan = "N/A"
         if payment.get("member_id"):
-            member_result = supabase.table("members").select("first_name, last_name, member_number").eq("id", payment["member_id"]).execute()
+            member_result = supabase.table("members").select("first_name, last_name, member_number, plan").eq("id", payment["member_id"]).execute()
             if member_result.data:
                 member = member_result.data[0]
                 member_name = f"{member.get('first_name', '')} {member.get('last_name', '')}".strip()
+                member_number = member.get("member_number", "N/A")
+                plan = member.get("plan", "N/A")
 
         return ReceiptResponse(
             payment_id=payment_id,
-            member_number=payment.get("member_number", "N/A"),
+            member_number=member_number,
             amount=payment.get("amount", 0),
             payment_date=payment.get("payment_date", datetime.now().date().isoformat()),
-            receipt_number=payment.get("mpesa_receipt", f"REC-{payment_id[:8]}"),
+            receipt_number=payment.get("mpesa_receipt") or f"REC-{payment_id[:8]}",
             member_name=member_name,
-            plan=payment.get("plan", "N/A")
+            plan=plan
         )
 
     except Exception as e:
@@ -1590,7 +1603,7 @@ async def get_member_stats(member_id: str):
     member_number = member.get("member_number")
     dependants = supabase.table("dependants").select("count", count="exact").eq("principal_member_id", member_id).execute()
     active_dependants = supabase.table("dependants").select("count", count="exact").eq("principal_member_id", member_id).eq("is_active", True).execute()
-    payments = supabase.table("payments").select("*").eq("member_number", member_number).eq("status", "completed").execute()
+    payments = supabase.table("payments").select("*").eq("member_id", member_id).eq("status", "completed").execute()
     total_payments = sum(float(p.get("amount", 0)) for p in (payments.data or []))
     waiting_months = member.get("waiting_period_months", 4)
     reg_date = member.get("registration_date")
@@ -1678,20 +1691,18 @@ async def get_member_payments(member_id: str, limit: int = 10, offset: int = 0):
     member = supabase.table("members").select("member_number").eq("id", member_id).execute()
     if not member.data:
         raise HTTPException(status_code=404, detail="Member not found")
-    member_number = member.data[0]["member_number"]
-    result = supabase.table("payments").select("*").eq("member_number", member_number).order("created_at", desc=True).range(offset, offset + limit - 1).execute()
+    result = supabase.table("payments").select("*").eq("member_id", member_id).order("created_at", desc=True).range(offset, offset + limit - 1).execute()
     return result.data or []
 
 @payments_router.post("/", response_model=PaymentResponse)
 async def create_payment(payment: PaymentCreate):
     if not supabase:
         raise HTTPException(status_code=500, detail="Database not available")
-    member = supabase.table("members").select("member_number").eq("id", payment.member_id).execute()
+    member = supabase.table("members").select("id").eq("id", payment.member_id).execute()
     if not member.data:
         raise HTTPException(status_code=404, detail="Member not found")
-    member_number = member.data[0]["member_number"]
     result = supabase.table("payments").insert({
-        "member_number": member_number, "amount": payment.amount,
+        "member_id": payment.member_id, "amount": payment.amount,
         "payment_type": payment.payment_type.value, "payment_method": "mpesa",
         "mpesa_receipt": None, "status": "pending",
         "payment_date": datetime.now().date().isoformat(), "phone": payment.phone,
@@ -1724,10 +1735,9 @@ async def get_dashboard_summary(member_id: str):
     if not member.data:
         raise HTTPException(status_code=404, detail="Member not found")
     member = member.data[0]
-    member_number = member.get("member_number")
     dependants = supabase.table("dependants").select("*").eq("principal_member_id", member_id).execute()
-    payments = supabase.table("payments").select("*").eq("member_number", member_number).order("created_at", desc=True).limit(5).execute()
-    all_payments = supabase.table("payments").select("*").eq("member_number", member_number).eq("status", "completed").execute()
+    payments = supabase.table("payments").select("*").eq("member_id", member_id).order("created_at", desc=True).limit(5).execute()
+    all_payments = supabase.table("payments").select("*").eq("member_id", member_id).eq("status", "completed").execute()
     total_payments = sum(float(p.get("amount", 0)) for p in (all_payments.data or []))
     waiting_months = member.get("waiting_period_months", 4)
     reg_date = member.get("registration_date")
@@ -1753,8 +1763,7 @@ async def get_recent_activity(member_id: str, limit: int = 5):
     member = supabase.table("members").select("member_number").eq("id", member_id).execute()
     if not member.data:
         raise HTTPException(status_code=404, detail="Member not found")
-    member_number = member.data[0]["member_number"]
-    payments = supabase.table("payments").select("*").eq("member_number", member_number).order("created_at", desc=True).limit(limit).execute()
+    payments = supabase.table("payments").select("*").eq("member_id", member_id).order("created_at", desc=True).limit(limit).execute()
     dependants = supabase.table("dependants").select("*").eq("principal_member_id", member_id).order("created_at", desc=True).limit(limit).execute()
     return {
         "success": True,
