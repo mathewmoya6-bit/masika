@@ -288,7 +288,7 @@ class SupabaseClient {
             const { data, error } = await this.client
                 .from('sales_agents')
                 .select('*')
-                .eq('status', 'active')
+                .eq('status', 'ACTIVE')
                 .order('full_name', { ascending: true });
             if (error) throw error;
             return { success: true, data };
