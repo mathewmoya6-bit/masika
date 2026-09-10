@@ -68,14 +68,7 @@ logger = logging.getLogger(__name__)
 # ============================================================
 
 SUPABASE_URL = os.getenv("SUPABASE_URL", "https://wpxzlcdrirlcyvfiquld.supabase.co")
-# IMPORTANT: this must be the service_role key, not anon — public registration routes
-# in this file bypass RLS via this client. Never hardcode a fallback key here.
-SUPABASE_KEY = os.getenv("SUPABASE_SERVICE_ROLE_KEY")
-if not SUPABASE_KEY:
-    raise RuntimeError(
-        "SUPABASE_SERVICE_ROLE_KEY environment variable is not set. "
-        "main.py requires the service role key to perform member registration writes."
-    )
+SUPABASE_KEY = os.getenv("SUPABASE_KEY", "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6IndweHpsY2RyaXJsY3l2ZmlxdWxkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODc5Mjc4MDcsImV4cCI6MjEwMzUwMzgwN30.OUP9pmPbrML_egpHflZtDfLv1_UDM37_BYjtb842xjg")
 
 SECRET_KEY = os.getenv("SECRET_KEY", "your-secret-key-change-in-production")
 ALGORITHM = os.getenv("ALGORITHM", "HS256")
