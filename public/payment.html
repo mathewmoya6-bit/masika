@@ -566,6 +566,15 @@
     <script>
         // ============================================================
         // CONFIG
+        //
+        // PRICING SOURCE OF TRUTH: Supabase `plans` table — same
+        // columns admin-pricing.html writes (plan_code, plan_name,
+        // registration_fee, is_active). This page treats the LIVE
+        // Supabase price as authoritative for what's displayed and
+        // charged, so a price change in admin-pricing is reflected
+        // here even if the backend API or a session value is stale.
+        // The backend/session amount is used only as a last-resort
+        // fallback if the live plan price can't be found.
         // ============================================================
         const SUPABASE_URL = 'https://wpxzlcdrirlcyvfiquld.supabase.co';
         const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6IndweHpsY2RyaXJsY3l2ZmlxdWxkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODc5Mjc4MDcsImV4cCI6MjEwMzUwMzgwN30.OUP9pmPbrML_egpHflZtDfLv1_UDM37_BYjtb842xjg';
@@ -584,16 +593,19 @@
             memberNumber: null,
             name: null,
             phone: null,
-            planSlug: null,     // ← we keep this to look up the plan price
+            planSlug: null,     // ← used to look up the LIVE plan price
             amount: 0,
+            amountSource: null, // 'live-plan' | 'backend' | 'session' | 'none' — shown in console for debugging
             isProcessing: false,
             pollTimer: null,
             pollAttempts: 0,
             maxPollAttempts: 40
         };
 
-        // Cache: { comfort: 200, dignity: 500, wazazi: 200 }
+        // Cache: { comfort: 1, dignity: 500, wazazi: 200 } — keyed by plan_code.toLowerCase()
         let planPricesCache = null;
+        // Per-member chama rate, read from the plans row where plan_code = 'CHAMA'
+        let chamaRateCache = undefined; // undefined = not loaded yet, null = not configured
 
         const $ = id => document.getElementById(id);
 
@@ -603,6 +615,10 @@
         document.addEventListener('DOMContentLoaded', () => {
             const yearEl = $('year');
             if (yearEl) yearEl.textContent = new Date().getFullYear();
+
+            if (!supabaseClient) {
+                showAlert('Could not connect to the pricing service. The amount shown may be out of date — please refresh.', 'warning');
+            }
 
             setupEventListeners();
 
@@ -634,7 +650,8 @@
                 return false;
             }
 
-            // Optional fallbacks from sessionStorage
+            // Optional fallbacks from sessionStorage — used only if the
+            // live Supabase price can't be resolved (see loadPaymentDetails).
             paymentState.memberNumber = sessionStorage.getItem('newMemberNumber') || null;
             paymentState.name = sessionStorage.getItem('newMemberName')
                 || sessionStorage.getItem('newChamaGroupName')
@@ -642,11 +659,12 @@
             paymentState.phone = sessionStorage.getItem('newMemberPhone')
                 || sessionStorage.getItem('newChamaPhone')
                 || null;
-            paymentState.planSlug = sessionStorage.getItem('newPlanSlug') || null;
+            paymentState.planSlug = (sessionStorage.getItem('newPlanSlug') || '').toLowerCase() || null;
 
             const storedAmount = sessionStorage.getItem('registrationAmount');
-            if (storedAmount) {
+            if (storedAmount && Number(storedAmount) > 0) {
                 paymentState.amount = Number(storedAmount);
+                paymentState.amountSource = 'session';
             }
 
             return true;
@@ -679,7 +697,10 @@
         }
 
         // ============================================================
-        // LOAD PLAN PRICES FROM SUPABASE plans TABLE
+        // LOAD LIVE PLAN PRICES FROM SUPABASE `plans` TABLE
+        // Columns match admin-pricing.html exactly: plan_code,
+        // registration_fee, is_active. A row with plan_code = 'CHAMA'
+        // supplies the per-member chama rate and is kept separate.
         // ============================================================
         async function loadPlanPrices() {
             if (planPricesCache) return planPricesCache;
@@ -688,28 +709,34 @@
             try {
                 const { data, error } = await supabaseClient
                     .from('plans')
-                    .select('slug, registration_fee, is_active');
+                    .select('plan_code, registration_fee, is_active')
+                    .eq('is_active', true);
 
                 if (error) throw error;
 
                 planPricesCache = {};
+                chamaRateCache = null;
+
                 (data || []).forEach(p => {
-                    // Skip inactive plans
-                    if (p.is_active === false) return;
-                    planPricesCache[p.slug] = Number(p.registration_fee || 0);
+                    const slug = String(p.plan_code || '').trim().toLowerCase();
+                    if (!slug) return;
+                    if (slug === 'chama') {
+                        chamaRateCache = Number(p.registration_fee || 0);
+                    } else {
+                        planPricesCache[slug] = Number(p.registration_fee || 0);
+                    }
                 });
 
-                console.log('📋 Loaded plan prices from Supabase:', planPricesCache);
+                console.log('📋 Loaded LIVE plan prices from Supabase:', planPricesCache, 'chama rate:', chamaRateCache);
                 return planPricesCache;
             } catch (error) {
-                console.warn('Could not load plan prices from Supabase:', error);
+                console.warn('⚠️ Could not load live plan prices from Supabase:', error);
                 return null;
             }
         }
 
         // ============================================================
-        // FETCH PENDING PAYMENT AMOUNT
-        // (Most reliable — the amount that was written at registration)
+        // FETCH PENDING PAYMENT AMOUNT (last-resort fallback only)
         // ============================================================
         async function fetchPendingPaymentAmount() {
             if (!supabaseClient) return null;
@@ -737,29 +764,34 @@
 
         // ============================================================
         // LOAD PAYMENT DETAILS
-        // Priority:
-        //   1. sessionStorage (fast)
-        //   2. Backend /api/public/member/:id  (has registration_amount)
-        //   3. Supabase payments row            (expected_amount)
-        //   4. Supabase plans table             (registration_fee by slug)
+        //
+        // Priority for the AMOUNT (Supabase live price is authoritative):
+        //   1. Supabase `plans` table — current registration_fee for
+        //      this member/group's plan. Always tried first.
+        //   2. Backend /api/public/member|chama/:id (registration_amount)
+        //   3. Supabase `payments` row (expected_amount)
+        //   4. sessionStorage (fastest, set at registration time)
+        //
+        // Name / phone / member number are taken from whichever source
+        // answers first — those aren't price-sensitive.
         // ============================================================
         async function loadPaymentDetails() {
             try {
-                // 1. If sessionStorage gave us a name AND amount, trust it
-                //    BUT still refresh from backend to make sure
-                //    the amount matches the current plan price.
                 if (paymentState.type === 'member') {
                     await fetchMemberDetails();
                 } else {
                     await fetchChamaDetails();
                 }
 
-                // If we still don't have an amount, try the pending payment row
                 if (!paymentState.amount || paymentState.amount <= 0) {
                     const pending = await fetchPendingPaymentAmount();
-                    if (pending) paymentState.amount = pending;
+                    if (pending) {
+                        paymentState.amount = pending;
+                        paymentState.amountSource = 'payments-row';
+                    }
                 }
 
+                console.log('💰 Final amount:', paymentState.amount, '(source:', paymentState.amountSource, ')');
                 renderPaymentDetails();
 
             } catch (error) {
@@ -772,7 +804,10 @@
         // MEMBER DETAILS
         // ============================================================
         async function fetchMemberDetails() {
-            // 1. Backend
+            let backendAmount = null;
+
+            // Backend — used for name/phone/member number, and as a
+            // fallback amount ONLY if the live Supabase price is unavailable.
             try {
                 const response = await fetch(
                     `${API_BASE_URL}/public/member/${encodeURIComponent(paymentState.id)}`,
@@ -786,46 +821,50 @@
                     if (fullName) paymentState.name = fullName;
                     paymentState.phone = data.phone || paymentState.phone;
                     paymentState.memberNumber = data.member_number || paymentState.memberNumber;
-                    paymentState.planSlug = data.plan || paymentState.planSlug;
+                    if (data.plan) paymentState.planSlug = String(data.plan).toLowerCase();
 
-                    const amount = Number(
-                        data.registration_amount ??
-                        data.amount ??
-                        0
-                    );
-
-                    if (amount > 0) {
-                        paymentState.amount = amount;
-                        return;
-                    }
+                    const amount = Number(data.registration_amount ?? data.amount ?? 0);
+                    if (amount > 0) backendAmount = amount;
                 }
             } catch (error) {
-                console.warn('Backend member fetch failed, trying Supabase:', error);
+                console.warn('Backend member fetch failed:', error);
             }
 
-            // 2. Supabase members table
-            if (!supabaseClient) return;
+            // Supabase members table — authoritative for the plan slug.
+            if (supabaseClient) {
+                try {
+                    const { data, error } = await supabaseClient
+                        .from('members')
+                        .select('first_name, last_name, phone, membership_number, plan')
+                        .eq('id', paymentState.id)
+                        .maybeSingle();
 
-            const { data, error } = await supabaseClient
-                .from('members')
-                .select('first_name, last_name, phone, membership_number, plan')
-                .eq('id', paymentState.id)
-                .maybeSingle();
+                    if (!error && data) {
+                        const fullName = `${data.first_name || ''} ${data.last_name || ''}`.trim();
+                        if (fullName) paymentState.name = fullName;
+                        paymentState.phone = data.phone || paymentState.phone;
+                        paymentState.memberNumber = data.membership_number || paymentState.memberNumber;
+                        if (data.plan) paymentState.planSlug = String(data.plan).trim().toLowerCase();
+                    }
+                } catch (e) {
+                    console.warn('Supabase member fetch failed:', e);
+                }
+            }
 
-            if (error || !data) return;
-
-            const fullName = `${data.first_name || ''} ${data.last_name || ''}`.trim();
-            if (fullName) paymentState.name = fullName;
-            paymentState.phone = data.phone || paymentState.phone;
-            paymentState.memberNumber = data.membership_number || paymentState.memberNumber;
-            paymentState.planSlug = data.plan || paymentState.planSlug;
-
-            // Look up the price from the plans table — NOT hardcoded
+            // LIVE price from the plans table — this wins over everything else.
             if (paymentState.planSlug) {
                 const prices = await loadPlanPrices();
                 if (prices && prices[paymentState.planSlug] !== undefined) {
                     paymentState.amount = prices[paymentState.planSlug];
+                    paymentState.amountSource = 'live-plan';
+                    return;
                 }
+            }
+
+            // Live price unavailable — fall back to the backend's amount.
+            if (backendAmount) {
+                paymentState.amount = backendAmount;
+                paymentState.amountSource = 'backend';
             }
         }
 
@@ -833,7 +872,10 @@
         // CHAMA DETAILS
         // ============================================================
         async function fetchChamaDetails() {
-            // 1. Backend
+            let backendAmount = null;
+            let memberCount = null;
+
+            // Backend
             try {
                 const response = await fetch(
                     `${API_BASE_URL}/public/chama/${encodeURIComponent(paymentState.id)}`,
@@ -845,45 +887,48 @@
 
                     if (data.group_name) paymentState.name = data.group_name;
                     paymentState.phone = data.phone || paymentState.phone;
+                    if (data.member_count) memberCount = Number(data.member_count);
 
-                    const amount = Number(
-                        data.registration_amount ??
-                        data.amount ??
-                        (data.member_count ? data.member_count * 100 : 0)
-                    );
-                    if (amount > 0) {
-                        paymentState.amount = amount;
-                        return;
-                    }
+                    const amount = Number(data.registration_amount ?? data.amount ?? 0);
+                    if (amount > 0) backendAmount = amount;
                 }
             } catch (error) {
                 console.warn('Backend chama fetch failed:', error);
             }
 
-            // 2. Supabase chama_groups table
-            if (!supabaseClient) return;
+            // Supabase chama_groups table
+            if (supabaseClient) {
+                try {
+                    const { data, error } = await supabaseClient
+                        .from('chama_groups')
+                        .select('group_name, phone, member_count')
+                        .eq('id', paymentState.id)
+                        .maybeSingle();
 
-            try {
-                const { data, error } = await supabaseClient
-                    .from('chama_groups')
-                    .select('group_name, phone, member_count')
-                    .eq('id', paymentState.id)
-                    .maybeSingle();
-
-                if (error || !data) return;
-
-                if (data.group_name) paymentState.name = data.group_name;
-                paymentState.phone = data.phone || paymentState.phone;
-
-                // Chama rate — try to read from plans (if it has a 'chama' slug)
-                // otherwise default to 100 per member
-                if (data.member_count) {
-                    const prices = await loadPlanPrices();
-                    const chamaRate = prices?.chama ?? 100;
-                    paymentState.amount = data.member_count * chamaRate;
+                    if (!error && data) {
+                        if (data.group_name) paymentState.name = data.group_name;
+                        paymentState.phone = data.phone || paymentState.phone;
+                        if (data.member_count) memberCount = Number(data.member_count);
+                    }
+                } catch (e) {
+                    console.warn('Supabase chama fetch failed:', e);
                 }
-            } catch (e) {
-                console.warn('Supabase chama fetch failed:', e);
+            }
+
+            // LIVE chama rate from the plans table — wins over everything else.
+            if (memberCount) {
+                await loadPlanPrices(); // populates chamaRateCache as a side effect
+                if (chamaRateCache !== null && chamaRateCache !== undefined && chamaRateCache > 0) {
+                    paymentState.amount = memberCount * chamaRateCache;
+                    paymentState.amountSource = 'live-plan';
+                    return;
+                }
+            }
+
+            // Live rate unavailable — fall back to the backend's amount.
+            if (backendAmount) {
+                paymentState.amount = backendAmount;
+                paymentState.amountSource = 'backend';
             }
         }
 
@@ -913,11 +958,17 @@
                 $('regMemberNumberRow').style.display = 'none';
             }
 
-            // If amount is 0, warn the user
             if (amount <= 0) {
                 showAlert(
-                    'We could not determine the payment amount. Please refresh the page or contact support.',
+                    'We could not determine the current payment amount. Please refresh the page or contact support.',
                     'warning'
+                );
+            } else if (paymentState.amountSource && paymentState.amountSource !== 'live-plan') {
+                // The amount shown did not come from the live Supabase price —
+                // let the visitor know it may not reflect the latest pricing.
+                showAlert(
+                    'Showing the amount recorded at registration. If pricing has changed since then, contact support before paying.',
+                    'info'
                 );
             }
         }
@@ -1186,6 +1237,7 @@
         window.addEventListener('beforeunload', stopPolling);
 
         console.log('✅ Payment page initialized');
+        console.log('📌 Amount is sourced LIVE from Supabase plans table when possible (admin-pricing writes here)');
     </script>
 
 </body>
