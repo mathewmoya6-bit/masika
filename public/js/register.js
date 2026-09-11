@@ -1,46 +1,29 @@
 // js/register.js
 // ============================================================
 // MASIKA BENEVOLENT - Registration Logic
+//
+// PRICING SOURCE OF TRUTH: Supabase `plans` table only.
+// Columns read here MATCH exactly what admin-pricing.html writes:
+//   plan_code, plan_name, description, monthly_premium,
+//   registration_fee, waiting_period_months, max_dependants,
+//   is_active
+// (Previously this file queried `slug` / `name` / `monthly_fee`,
+// which don't exist in the admin-pricing schema — that mismatch
+// is why price edits in the admin panel never showed up here.)
+//
+// There is NO hardcoded price fallback anywhere below. If Supabase
+// can't be reached, the form surfaces an error instead of quietly
+// using stale numbers.
 // ============================================================
 
-// ============================================================
-// CONFIGURATION - Fallback only (used if Supabase AND backend fail)
-// ============================================================
+// Non-price configuration only (API endpoints, routes, limits).
 if (typeof CONFIG === 'undefined') {
     var CONFIG = {
         API: {
             BASE_URL: 'https://masika-c921.onrender.com/api'
         },
-        PLANS: {
-            COMFORT: {
-                slug: 'comfort',
-                name: 'Comfort Plan',
-                description: 'Affordable individual membership protection.',
-                registration_fee: 200,
-                monthly_fee: 300,
-                waiting_period_months: 4
-            },
-            DIGNITY: {
-                slug: 'dignity',
-                name: 'Dignity Plan',
-                description: 'Enhanced membership protection with premium benefits.',
-                registration_fee: 500,
-                monthly_fee: 1000,
-                waiting_period_months: 6
-            },
-            WAZAZI: {
-                slug: 'wazazi',
-                name: 'Wazazi Plan',
-                description: 'Membership protection designed for parents and elders.',
-                registration_fee: 200,
-                monthly_fee: 650,
-                waiting_period_months: 6
-            }
-        },
-        WAZAZI_PARENT_FEE: 100,
-        CHAMA_REGISTRATION_RATE: 100,
-        MIN_CHAMA_MEMBERS: 30,
         MAX_DEPENDANTS: 10,
+        MIN_CHAMA_MEMBERS: 30,
         ROUTES: {
             PAYMENT: 'payment.html'
         }
@@ -56,13 +39,15 @@ const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBh
 console.log('🚀 Register.js loaded');
 console.log('📡 Supabase URL:', SUPABASE_URL);
 
-// Initialize Supabase client
 let supabaseClient = null;
 
-// Cache plans loaded from Supabase (or fallbacks)
+// Cache of live plans loaded from Supabase (excludes the CHAMA rate row)
 let allPlans = [];
-// Chama rate read from plans table (or default)
-let chamaRegistrationRate = CONFIG.CHAMA_REGISTRATION_RATE;
+// Per-member chama registration rate, read from plans where plan_code = CHAMA
+let chamaRegistrationFee = null;
+// Preserve the user's plan choice across a realtime re-render
+let selectedPlanSlug = null;
+let plansChannel = null;
 
 function initSupabase() {
     try {
@@ -98,37 +83,37 @@ function initRegistration() {
 
     const form = document.getElementById('registrationForm');
 
-    // IMPORTANT: load plans BEFORE anything else so summary + agent loads work
     loadPlans().then(() => {
-        // After plans are loaded, refresh summary in case it changed
         updateSummary();
     });
 
-    // Load agents from Supabase
     loadAgentsFromSupabase();
+    subscribeToPlanChanges();
 
-    // Setup plan selection
     setupPlanSelection();
     setupDependants();
     setupSummaryUpdates();
     setupModeSwitch();
     setupChamaUpload();
 
-    // Form submission
     form.addEventListener('submit', async function(e) {
         e.preventDefault();
         await handleRegistration();
     });
 
-    // Reset button
     document.getElementById('resetBtn').addEventListener('click', function() {
         form.reset();
         clearAlerts();
         document.getElementById('dependantsContainer').innerHTML = '';
+        selectedPlanSlug = null;
+        const firstPlan = document.querySelector('input[name="plan_type"]');
+        if (firstPlan) {
+            firstPlan.checked = true;
+            selectedPlanSlug = firstPlan.value;
+        }
         updateSummary();
     });
 
-    // Chama form submission
     document.getElementById('chamaForm').addEventListener('submit', async function(e) {
         e.preventDefault();
         await handleChamaRegistration();
@@ -140,18 +125,15 @@ function initRegistration() {
         document.getElementById('csvPreview').innerHTML = '';
         document.getElementById('csvCount').textContent = '';
         document.getElementById('chamaMemberCount').textContent = '0';
-        document.getElementById('chamaTotal').textContent = 'KES 0';
+        document.getElementById('chamaTotal').textContent = chamaRegistrationFee === null ? 'Rate not configured' : 'KES 0';
         window.__parsedChamaMembers = [];
         clearAlerts();
     });
 }
 
 // ============================================================
-// LOAD PLANS
-// Priority:
-//   1. Supabase `plans` table   ← admin-pricing writes here
-//   2. Backend /api/public/plans
-//   3. Hard-coded CONFIG.PLANS
+// LOAD PLANS — Supabase `plans` table only, columns matching
+// admin-pricing.html exactly.
 // ============================================================
 async function loadPlans() {
     const container = document.getElementById('plansContainer');
@@ -160,74 +142,75 @@ async function loadPlans() {
         return;
     }
 
-    let plans = [];
+    if (!supabaseClient) {
+        container.innerHTML = '<div class="help-text" style="color:var(--danger)">Pricing service unavailable. Please refresh the page.</div>';
+        return;
+    }
 
-    // ---------------------------------------------------------
-    // 1. Supabase plans table
-    // ---------------------------------------------------------
-    if (supabaseClient) {
-        try {
-            console.log('🔄 Loading plans from Supabase plans table...');
+    try {
+        console.log('🔄 Loading live plans from Supabase plans table...');
 
-            const { data, error } = await supabaseClient
-                .from('plans')
-                .select('slug, name, description, registration_fee, monthly_fee, waiting_period_months, is_active')
-                .order('registration_fee', { ascending: true });
+        const { data, error } = await supabaseClient
+            .from('plans')
+            .select('id, plan_code, plan_name, description, monthly_premium, registration_fee, waiting_period_months, max_dependants, is_active')
+            .eq('is_active', true)
+            .order('registration_fee', { ascending: true });
 
-            if (error) throw error;
+        if (error) throw error;
 
-            plans = (data || []).filter(p => p.is_active !== false);
+        const rows = data || [];
 
-            console.log(`✅ Loaded ${plans.length} plans from Supabase plans table`);
+        const chamaRow = rows.find(p => (p.plan_code || '').trim().toLowerCase() === 'chama');
+        const memberPlans = rows.filter(p => (p.plan_code || '').trim().toLowerCase() !== 'chama');
 
-            // Read chama rate if a 'chama' slug exists
-            const chamaPlan = (data || []).find(p => p.slug === 'chama');
-            if (chamaPlan && chamaPlan.registration_fee) {
-                chamaRegistrationRate = Number(chamaPlan.registration_fee);
-                console.log(`✅ Chama rate set to ${chamaRegistrationRate}`);
-
-                // Update the display in the chama form
-                const chamaRateEl = document.getElementById('chamaRateDisplay');
-                if (chamaRateEl) {
-                    chamaRateEl.textContent = `KES ${chamaRegistrationRate.toLocaleString()} per member`;
-                }
+        if (chamaRow) {
+            chamaRegistrationFee = Number(chamaRow.registration_fee || 0);
+            const chamaRateEl = document.getElementById('chamaRateDisplay');
+            if (chamaRateEl) {
+                chamaRateEl.textContent = `KES ${chamaRegistrationFee.toLocaleString()} per member`;
             }
-
-        } catch (sbError) {
-            console.warn('⚠️ Supabase plans load failed:', sbError);
+        } else {
+            chamaRegistrationFee = null;
+            const chamaRateEl = document.getElementById('chamaRateDisplay');
+            if (chamaRateEl) chamaRateEl.textContent = 'Rate not configured';
         }
-    }
 
-    // ---------------------------------------------------------
-    // 2. Backend API
-    // ---------------------------------------------------------
-    if (plans.length === 0) {
-        try {
-            const response = await fetch(`${CONFIG.API.BASE_URL}/public/plans`);
-            if (response.ok) {
-                const data = await response.json();
-                if (Array.isArray(data) && data.length > 0) {
-                    plans = data;
-                    console.log(`✅ Loaded ${plans.length} plans from backend API`);
-                }
+        if (typeof displayCsvPreview === 'function' && window.__parsedChamaMembers) {
+            updateChamaTotals();
+        }
+
+        allPlans = memberPlans;
+        renderPlans(memberPlans);
+
+        console.log(`✅ Loaded ${memberPlans.length} plan(s) from Supabase (live pricing)`);
+
+    } catch (sbError) {
+        console.error('❌ Failed to load plans from Supabase:', sbError);
+        container.innerHTML = '<div class="help-text" style="color:var(--danger)">Unable to load membership plans. Please refresh the page.</div>';
+        showAlert('Failed to load current pricing. Please refresh and try again.', 'error');
+    }
+}
+
+// ============================================================
+// REALTIME — reflect admin-pricing changes immediately, with no
+// page reload needed.
+// ============================================================
+function subscribeToPlanChanges() {
+    if (!supabaseClient) return;
+
+    plansChannel = supabaseClient
+        .channel('plans-pricing-changes')
+        .on(
+            'postgres_changes',
+            { event: '*', schema: 'public', table: 'plans' },
+            (payload) => {
+                console.log('🔄 Plan pricing changed in Supabase, refreshing…', payload);
+                loadPlans().then(updateSummary);
             }
-        } catch (apiError) {
-            console.warn('⚠️ Backend plans load failed:', apiError);
-        }
-    }
-
-    // ---------------------------------------------------------
-    // 3. Hard-coded fallback
-    // ---------------------------------------------------------
-    if (plans.length === 0) {
-        plans = Object.values(CONFIG.PLANS);
-        console.warn('⚠️ Using hard-coded plan fallback');
-    }
-
-    // Cache the loaded plans
-    allPlans = plans;
-
-    renderPlans(plans);
+        )
+        .subscribe((status) => {
+            console.log('📡 Realtime plans channel status:', status);
+        });
 }
 
 function renderPlans(plans) {
@@ -239,20 +222,25 @@ function renderPlans(plans) {
         return;
     }
 
+    const previouslySelected = selectedPlanSlug;
+
     container.innerHTML = plans.map((plan, index) => {
-        const slug = plan.slug || plan.plan_type || 'plan';
-        const name = plan.name || plan.plan_name || 'Plan';
+        const slug = (plan.plan_code || '').trim().toLowerCase();
+        const name = plan.plan_name || 'Plan';
         const description = plan.description || '';
         const registrationFee = Number(plan.registration_fee || 0);
-        const monthlyFee = Number(plan.monthly_fee || 0);
+        const monthlyFee = Number(plan.monthly_premium || 0);
 
-        // Escape JSON for the data attribute
         const planJson = String(JSON.stringify({ ...plan, slug }))
             .replace(/&/g, '&amp;')
             .replace(/</g, '&lt;')
             .replace(/>/g, '&gt;')
             .replace(/"/g, '&quot;')
             .replace(/'/g, '&#039;');
+
+        const shouldCheck = previouslySelected
+            ? previouslySelected === slug
+            : index === 0;
 
         return `
             <div class="plan-option">
@@ -261,7 +249,7 @@ function renderPlans(plans) {
                     name="plan_type"
                     value="${slug}"
                     id="plan_${index}"
-                    ${index === 0 ? 'checked' : ''}
+                    ${shouldCheck ? 'checked' : ''}
                     data-plan="${planJson}"
                 >
                 <label for="plan_${index}" class="plan-label">
@@ -278,26 +266,28 @@ function renderPlans(plans) {
         `;
     }).join('');
 
-    // Add change listeners
     document.querySelectorAll('input[name="plan_type"]').forEach(input => {
         input.addEventListener('change', function() {
+            selectedPlanSlug = this.value;
             updateSummary();
             updateDependantEligibility(this.value);
         });
     });
 
-    // Select first plan and update
-    const firstPlan = container.querySelector('input[name="plan_type"]');
-    if (firstPlan) {
-        firstPlan.checked = true;
-        updateDependantEligibility(firstPlan.value);
-        updateSummary();
+    const checkedPlan = container.querySelector('input[name="plan_type"]:checked')
+        || container.querySelector('input[name="plan_type"]');
+
+    if (checkedPlan) {
+        checkedPlan.checked = true;
+        selectedPlanSlug = checkedPlan.value;
+        updateDependantEligibility(checkedPlan.value);
     }
+
+    updateSummary();
 }
 
 // ============================================================
 // LOAD AGENTS - From Supabase sales_agents table
-// Displays: sales_code - Full Name (phone removed)
 // ============================================================
 async function loadAgentsFromSupabase() {
     const select = document.getElementById('salesCode');
@@ -350,8 +340,6 @@ async function loadAgentsFromSupabase() {
 
             const option = document.createElement('option');
             option.value = String(agent.sales_code).trim();
-
-            // Display: sales_code - Full Name (NO phone)
             option.textContent = `${agent.sales_code} - ${agent.full_name || 'Agent'}`;
             select.appendChild(option);
         });
@@ -369,6 +357,7 @@ async function loadAgentsFromSupabase() {
 function setupPlanSelection() {
     document.querySelectorAll('input[name="plan_type"]').forEach(input => {
         input.addEventListener('change', function() {
+            selectedPlanSlug = this.value;
             updateSummary();
         });
     });
@@ -472,40 +461,27 @@ function setupSummaryUpdates() {
 // ------------------------------------------------------------
 // getSelectedPlan()
 // Reads the selected radio button's data-plan attribute, which
-// holds the FULL plan object (with the price from Supabase).
-// Falls back to CONFIG.PLANS only if the data attribute is missing.
+// holds the FULL live plan row from Supabase (plan_code, plan_name,
+// registration_fee, monthly_premium, ...). No hardcoded fallback.
 // ------------------------------------------------------------
 function getSelectedPlan() {
     const planInput = document.querySelector('input[name="plan_type"]:checked');
-    const planSlug = planInput ? planInput.value : 'comfort';
+    if (!planInput) return null;
 
-    // Try to read the plan from the radio's data attribute
-    if (planInput && planInput.dataset && planInput.dataset.plan) {
-        try {
-            const planFromAttr = JSON.parse(
-                planInput.dataset.plan
-                    .replace(/&quot;/g, '"')
-                    .replace(/&#039;/g, "'")
-                    .replace(/&amp;/g, '&')
-                    .replace(/&lt;/g, '<')
-                    .replace(/&gt;/g, '>')
-            );
-
-            if (planFromAttr && planFromAttr.slug) {
-                return { slug: planSlug, plan: planFromAttr };
-            }
-        } catch (e) {
-            console.warn('Could not parse plan data attribute:', e);
-        }
+    try {
+        const planFromAttr = JSON.parse(
+            planInput.dataset.plan
+                .replace(/&quot;/g, '"')
+                .replace(/&#039;/g, "'")
+                .replace(/&amp;/g, '&')
+                .replace(/&lt;/g, '<')
+                .replace(/&gt;/g, '>')
+        );
+        return { slug: planInput.value, plan: planFromAttr };
+    } catch (e) {
+        console.error('Could not parse plan data attribute:', e);
+        return null;
     }
-
-    // Fallback: hard-coded config
-    const planKey = Object.keys(CONFIG.PLANS).find(key =>
-        CONFIG.PLANS[key].slug === planSlug
-    );
-
-    const plan = planKey ? CONFIG.PLANS[planKey] : CONFIG.PLANS.COMFORT;
-    return { slug: planSlug, plan };
 }
 
 function countParentDependants() {
@@ -519,28 +495,39 @@ function countParentDependants() {
 }
 
 function updateSummary() {
-    const { slug: planSlug, plan } = getSelectedPlan();
+    const selected = getSelectedPlan();
 
+    const planEl = document.getElementById('summaryPlan');
+    const principalEl = document.getElementById('summaryPrincipal');
+    const depEl = document.getElementById('summaryDependants');
+    const totalEl = document.getElementById('summaryTotal');
+
+    if (!selected) {
+        if (planEl) planEl.textContent = '—';
+        if (principalEl) principalEl.textContent = 'KES 0';
+        if (depEl) depEl.textContent = 'KES 0';
+        if (totalEl) totalEl.textContent = 'KES 0';
+        return;
+    }
+
+    const { slug: planSlug, plan } = selected;
     const registrationFee = Number(plan.registration_fee || 0);
 
-    // Dependants are free except parents on the Wazazi plan
+    // Per-dependant fee (e.g. per parent on Wazazi) comes from the plan
+    // row itself — add a `dependant_fee` numeric column in Supabase for
+    // any plan that charges per extra dependant. No hardcoded amount.
+    const perDependantFee = Number(plan.dependant_fee || 0);
+
     let dependantFee = 0;
-    if (planSlug === 'wazazi') {
-        dependantFee = countParentDependants() * CONFIG.WAZAZI_PARENT_FEE;
+    if (planSlug === 'wazazi' && perDependantFee > 0) {
+        dependantFee = countParentDependants() * perDependantFee;
     }
 
     const total = registrationFee + dependantFee;
 
-    const planEl = document.getElementById('summaryPlan');
-    if (planEl) planEl.textContent = plan.name || 'Plan';
-
-    const principalEl = document.getElementById('summaryPrincipal');
+    if (planEl) planEl.textContent = plan.plan_name || plan.name || 'Plan';
     if (principalEl) principalEl.textContent = `KES ${registrationFee.toLocaleString()}`;
-
-    const depEl = document.getElementById('summaryDependants');
     if (depEl) depEl.textContent = `KES ${dependantFee.toLocaleString()}`;
-
-    const totalEl = document.getElementById('summaryTotal');
     if (totalEl) totalEl.textContent = `KES ${total.toLocaleString()}`;
 }
 
@@ -549,7 +536,7 @@ function updateDependantEligibility(planSlug) {
     if (!helpText) return;
 
     if (planSlug === 'wazazi') {
-        helpText.textContent = 'Wazazi Plan: add up to 4 parents (KES 100 registration fee per parent).';
+        helpText.textContent = 'Wazazi Plan: add up to 4 parents. Registration fee per parent is set in Pricing.';
     } else if (planSlug === 'dignity') {
         helpText.textContent = 'Dignity Plan: covers spouse and children under 18, at no extra registration cost.';
     } else {
@@ -618,15 +605,26 @@ function setupChamaUpload() {
 
             window.__parsedChamaMembers = result.data;
             displayCsvPreview(window.__parsedChamaMembers);
-
-            document.getElementById('chamaMemberCount').textContent = window.__parsedChamaMembers.length;
-            document.getElementById('chamaTotal').textContent =
-                `KES ${(window.__parsedChamaMembers.length * chamaRegistrationRate).toLocaleString()}`;
+            updateChamaTotals();
 
             showAlert(`Successfully loaded ${window.__parsedChamaMembers.length} members.`, 'success');
         };
         reader.readAsText(file);
     });
+}
+
+function updateChamaTotals() {
+    const members = window.__parsedChamaMembers || [];
+    const countEl = document.getElementById('chamaMemberCount');
+    const totalEl = document.getElementById('chamaTotal');
+
+    if (countEl) countEl.textContent = members.length;
+
+    if (totalEl) {
+        totalEl.textContent = chamaRegistrationFee === null
+            ? 'Rate not configured'
+            : `KES ${(members.length * chamaRegistrationFee).toLocaleString()}`;
+    }
 }
 
 function displayCsvPreview(data) {
@@ -695,6 +693,12 @@ async function handleRegistration() {
         return;
     }
 
+    const selected = getSelectedPlan();
+    if (!selected) {
+        showAlert('Please select a membership plan.', 'error');
+        return;
+    }
+
     loadingBox.classList.add('show');
     submitBtn.disabled = true;
     clearAlerts();
@@ -722,12 +726,13 @@ async function handleRegistration() {
             throw new Error('Registration succeeded but no member ID was returned.');
         }
 
-        // Compute amount — trust backend, fall back to frontend
-        const { plan } = getSelectedPlan();
-        const frontendPrincipal = Number(plan.registration_fee || 0);
+        // Trust backend amount; fall back to the LIVE Supabase-sourced
+        // frontend total only if the backend doesn't supply one.
+        const registrationFee = Number(selected.plan.registration_fee || 0);
+        const perDependantFee = Number(selected.plan.dependant_fee || 0);
         const parentCount = formData.dependants.filter(d => d.relationship === 'PARENT').length;
-        const frontendDependantFee = formData.plan === 'wazazi' ? parentCount * CONFIG.WAZAZI_PARENT_FEE : 0;
-        const frontendTotal = frontendPrincipal + frontendDependantFee;
+        const frontendDependantFee = formData.plan === 'wazazi' ? parentCount * perDependantFee : 0;
+        const frontendTotal = registrationFee + frontendDependantFee;
 
         const registrationAmount = Number(
             result.registration_amount ??
@@ -737,7 +742,6 @@ async function handleRegistration() {
 
         showAlert('Registration successful! Redirecting to payment...', 'success');
 
-        // Store data for payment page
         sessionStorage.removeItem('newChamaGroupId');
         sessionStorage.setItem('newMemberId', String(memberId));
         if (result.member_number) sessionStorage.setItem('newMemberNumber', String(result.member_number));
@@ -745,7 +749,7 @@ async function handleRegistration() {
         sessionStorage.setItem('newMemberPhone', formData.phone);
         sessionStorage.setItem('registrationAmount', String(registrationAmount));
         sessionStorage.setItem('isChamaRegistration', 'false');
-        sessionStorage.setItem('newPlanSlug', formData.plan); // ← payment.html can use this
+        sessionStorage.setItem('newPlanSlug', formData.plan);
 
         if (formData.sales_code) {
             sessionStorage.setItem('newSalesCode', formData.sales_code);
@@ -765,7 +769,8 @@ async function handleRegistration() {
 }
 
 function getFormData() {
-    const { slug: planSlug } = getSelectedPlan();
+    const selected = getSelectedPlan();
+    const planSlug = selected ? selected.slug : '';
 
     const dependantCards = document.querySelectorAll('.dependant-card');
     const dependants = [];
@@ -806,6 +811,10 @@ function getFormData() {
 
 function validateFormData(data) {
     const required = ['first_name', 'last_name', 'id_number', 'date_of_birth', 'gender', 'phone', 'county', 'benefit_option'];
+
+    if (!data.plan) {
+        return { valid: false, error: 'Please select a membership plan.' };
+    }
 
     for (const field of required) {
         if (!data[field] || String(data[field]).trim() === '') {
@@ -852,6 +861,11 @@ function validateFormData(data) {
 async function handleChamaRegistration() {
     const loadingBox = document.getElementById('loadingBox');
     const submitBtn = document.getElementById('chamaSubmitBtn');
+
+    if (chamaRegistrationFee === null) {
+        showAlert('Chama registration rate is not configured. Please contact the office before proceeding.', 'error');
+        return;
+    }
 
     const chamaName = document.getElementById('chamaName').value.trim();
     const chamaPhone = normalizePhone(document.getElementById('chamaPhone').value);
@@ -929,11 +943,10 @@ async function handleChamaRegistration() {
             throw new Error('Chama registration succeeded but no group ID was returned.');
         }
 
-        // Use the configurable chama rate
         const totalAmount = Number(
             result.registration_amount ??
             result.amount ??
-            (normalizedMembers.length * chamaRegistrationRate)
+            (normalizedMembers.length * chamaRegistrationFee)
         );
 
         sessionStorage.removeItem('newMemberId');
@@ -989,9 +1002,9 @@ window.loadAgentsFromSupabase = loadAgentsFromSupabase;
 window.initRegistration = initRegistration;
 window.normalizePhone = normalizePhone;
 window.initSupabase = initSupabase;
-window.supabaseClient = supabaseClient;
 
 console.log('✅ Register.js fully loaded');
-console.log('📌 Plans are loaded from Supabase plans table (admin-pricing)');
+console.log('📌 Plans are loaded LIVE from Supabase plans table (admin-pricing writes here)');
+console.log('📌 Realtime subscription active — admin price edits push instantly');
 console.log('📌 Sales agents are loaded from sales_agents table');
-console.log('📌 Chama rate is read from plans table (slug = chama)');
+console.log('📌 Chama rate is read from plans table (plan_code = CHAMA)');
