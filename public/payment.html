@@ -548,7 +548,7 @@
                         </div>
 
                         <div class="next-payment-box">
-                            <h4>Your ongoing contribution details</h4>
+                            <h4>Your Monthly Contribution Details</h4>
                             <div class="np-row">
                                 <span>Paybill Number</span>
                                 <strong id="nextPaybill">348127</strong>
@@ -556,6 +556,10 @@
                             <div class="np-row">
                                 <span>Account Number</span>
                                 <strong id="nextAccount">—</strong>
+                            </div>
+                            <div class="np-row">
+                                <span>Monthly Contribution</span>
+                                <strong id="nextMonthlyAmount">—</strong>
                             </div>
                             <div class="np-note">
                                 Use your membership number as the Account Number for all future contributions on this Paybill.
@@ -683,13 +687,18 @@
             // Populated once payment is confirmed — feeds the receipt.
             mpesaReceipt: null,
             paidPhone: null,
-            paidAt: null // ISO timestamp
+            paidAt: null, // ISO timestamp
+            // Monthly ongoing-contribution amount, read live from the
+            // `plans.monthly_premium` column (see loadPlanPrices).
+            monthlyContribution: null
         };
 
         // Cache: { comfort: 1, dignity: 500, wazazi: 200 } — keyed by plan_code.toLowerCase()
         let planPricesCache = null;
         // Per-member chama rate, read from the plans row where plan_code = 'CHAMA'
         let chamaRateCache = undefined; // undefined = not loaded yet, null = not configured
+        // Monthly premium per plan_code, keyed the same way as planPricesCache.
+        let planMonthlyCache = null;
 
         const $ = id => document.getElementById(id);
 
@@ -797,25 +806,29 @@
             try {
                 const { data, error } = await supabaseClient
                     .from('plans')
-                    .select('plan_code, registration_fee, is_active')
+                    .select('plan_code, registration_fee, monthly_premium, is_active')
                     .eq('is_active', true);
 
                 if (error) throw error;
 
                 planPricesCache = {};
+                planMonthlyCache = {};
                 chamaRateCache = null;
 
                 (data || []).forEach(p => {
                     const slug = String(p.plan_code || '').trim().toLowerCase();
                     if (!slug) return;
+                    const monthly = Number(p.monthly_premium ?? 0) || null;
                     if (slug === 'chama') {
                         chamaRateCache = Number(p.registration_fee || 0);
+                        planMonthlyCache.chama = monthly;
                     } else {
                         planPricesCache[slug] = Number(p.registration_fee || 0);
+                        planMonthlyCache[slug] = monthly;
                     }
                 });
 
-                console.log('📋 Loaded LIVE plan prices from Supabase:', planPricesCache, 'chama rate:', chamaRateCache);
+                console.log('📋 Loaded LIVE plan prices from Supabase:', planPricesCache, 'chama rate:', chamaRateCache, 'monthly:', planMonthlyCache);
                 return planPricesCache;
             } catch (error) {
                 console.warn('⚠️ Could not load live plan prices from Supabase:', error);
@@ -945,6 +958,7 @@
                 if (prices && prices[paymentState.planSlug] !== undefined) {
                     paymentState.amount = prices[paymentState.planSlug];
                     paymentState.amountSource = 'live-plan';
+                    paymentState.monthlyContribution = planMonthlyCache ? (planMonthlyCache[paymentState.planSlug] ?? null) : null;
                     return;
                 }
             }
@@ -1005,10 +1019,15 @@
 
             // LIVE chama rate from the plans table — wins over everything else.
             if (memberCount) {
-                await loadPlanPrices(); // populates chamaRateCache as a side effect
+                await loadPlanPrices(); // populates chamaRateCache/planMonthlyCache as a side effect
                 if (chamaRateCache !== null && chamaRateCache !== undefined && chamaRateCache > 0) {
                     paymentState.amount = memberCount * chamaRateCache;
                     paymentState.amountSource = 'live-plan';
+                    // Assumes the chama monthly rate is also per-member, same
+                    // pattern as the registration fee — adjust if it's a flat
+                    // group rate instead.
+                    const chamaMonthly = planMonthlyCache ? planMonthlyCache.chama : null;
+                    paymentState.monthlyContribution = chamaMonthly ? memberCount * chamaMonthly : null;
                     return;
                 }
             }
@@ -1317,6 +1336,9 @@
 
             $('nextPaybill').textContent = MPESA_PAYBILL;
             $('nextAccount').textContent = accountNumber;
+            $('nextMonthlyAmount').textContent = paymentState.monthlyContribution
+                ? `KES ${paymentState.monthlyContribution.toLocaleString()}`
+                : 'Contact support';
 
             void isChama; // reserved for chama-specific receipt wording if needed later
 
@@ -1402,7 +1424,7 @@
             doc.setFont('helvetica', 'bold');
             doc.setFontSize(11);
             doc.setTextColor(...gold);
-            doc.text('ONGOING CONTRIBUTION DETAILS', 30, y);
+            doc.text('YOUR MONTHLY CONTRIBUTION DETAILS', 30, y);
             y += 20;
 
             doc.setFontSize(10.5);
@@ -1420,6 +1442,17 @@
             doc.setTextColor(23, 33, 31);
             doc.setFont('helvetica', 'bold');
             doc.text(paymentState.memberNumber || 'Pending', pageW - 30, y, { align: 'right' });
+            y += 20;
+
+            doc.setTextColor(...muted);
+            doc.setFont('helvetica', 'normal');
+            doc.text('Monthly Contribution', 30, y);
+            doc.setTextColor(23, 33, 31);
+            doc.setFont('helvetica', 'bold');
+            doc.text(
+                paymentState.monthlyContribution ? `KES ${paymentState.monthlyContribution.toLocaleString()}` : 'Contact support',
+                pageW - 30, y, { align: 'right' }
+            );
             y += 18;
 
             doc.setFont('helvetica', 'italic');
@@ -1450,9 +1483,10 @@
                 `M-Pesa receipt: ${paymentState.mpesaReceipt || 'Confirmation received'}`,
                 `Date & time: ${formatDateTime(paymentState.paidAt)}`,
                 '',
-                'Ongoing contributions:',
+                'Your Monthly Contribution Details:',
                 `Paybill: ${MPESA_PAYBILL}`,
-                `Account Number: ${paymentState.memberNumber || 'Pending'}`
+                `Account Number: ${paymentState.memberNumber || 'Pending'}`,
+                `Monthly Contribution: ${paymentState.monthlyContribution ? `KES ${paymentState.monthlyContribution.toLocaleString()}` : 'Contact support'}`
             ].join('\n');
         }
 
