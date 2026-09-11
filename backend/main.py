@@ -565,6 +565,53 @@ def find_member_by_id(member_id: str) -> Optional[dict]:
 def get_member_safe(member: dict) -> dict:
     return {k: v for k, v in member.items() if k not in ["password_hash", "temp_password"]}
 
+
+# ------------------------------------------------------------
+# LIVE PRICING HELPER
+# ------------------------------------------------------------
+# Single source of truth for plan pricing: the Supabase `plans` table —
+# the SAME table admin-pricing.html writes to. Nothing in this file
+# should hardcode a fee; every place that needs a price calls this.
+#
+# Requires a `dependant_fee` numeric column on `plans` (used for the
+# Wazazi per-parent fee; defaults to 0 if unset):
+#   alter table public.plans add column if not exists dependant_fee numeric default 0;
+
+def get_live_plan_pricing(plan_slug: str) -> Dict[str, float]:
+    """
+    Fetch the CURRENT registration fee (and per-dependant fee, if
+    configured) for a plan from Supabase's `plans` table.
+    """
+    if not supabase:
+        raise HTTPException(status_code=500, detail="Database not available")
+
+    result = (
+        supabase.table("plans")
+        .select("registration_fee, dependant_fee, is_active")
+        .ilike("plan_code", plan_slug)
+        .limit(1)
+        .execute()
+    )
+
+    if not result.data:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Plan '{plan_slug}' was not found in pricing. Contact support before retrying."
+        )
+
+    row = result.data[0]
+
+    if row.get("is_active") is False:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Plan '{plan_slug}' is not currently available for registration."
+        )
+
+    return {
+        "registration_fee": float(row.get("registration_fee") or 0),
+        "dependant_fee": float(row.get("dependant_fee") or 0),
+    }
+
 # ============================================================
 # M-PESA HELPERS
 # ============================================================
@@ -769,33 +816,41 @@ public_router = APIRouter(prefix="/api/public", tags=["Public"])
 
 @public_router.get("/plans", response_model=List[PlanResponse])
 async def get_public_plans():
-    """Get available membership plans with their fees."""
-    return [
-        {
-            "slug": "comfort",
-            "name": "Comfort Plan",
-            "description": "Affordable individual membership protection.",
-            "registration_fee": 200.00,
-            "monthly_fee": 300.00,
-            "waiting_period_months": 4
-        },
-        {
-            "slug": "dignity",
-            "name": "Dignity Plan",
-            "description": "Enhanced membership protection with premium benefits.",
-            "registration_fee": 500.00,
-            "monthly_fee": 1000.00,
-            "waiting_period_months": 6
-        },
-        {
-            "slug": "wazazi",
-            "name": "Wazazi Plan",
-            "description": "Membership protection designed for parents and elders.",
-            "registration_fee": 200.00,
-            "monthly_fee": 650.00,
-            "waiting_period_months": 6
-        }
-    ]
+    """
+    Get available membership plans with their LIVE fees from Supabase —
+    the same `plans` table admin-pricing.html writes to. Previously this
+    returned a hardcoded list, so a price change in admin-pricing never
+    reached anything that called this route.
+    """
+    if not supabase:
+        raise HTTPException(status_code=500, detail="Database not available")
+
+    try:
+        result = (
+            supabase.table("plans")
+            .select("plan_code, plan_name, description, registration_fee, monthly_premium, waiting_period_months, is_active")
+            .eq("is_active", True)
+            .execute()
+        )
+    except Exception as e:
+        logger.error(f"Failed to load plans from Supabase: {e}")
+        raise HTTPException(status_code=500, detail="Could not load current pricing")
+
+    plans = []
+    for p in (result.data or []):
+        slug = (p.get("plan_code") or "").strip().lower()
+        if not slug or slug == "chama":
+            continue  # chama has its own registration flow/rate, not a member plan card
+        plans.append({
+            "slug": slug,
+            "name": p.get("plan_name") or "",
+            "description": p.get("description") or "",
+            "registration_fee": float(p.get("registration_fee") or 0),
+            "monthly_fee": float(p.get("monthly_premium") or 0),
+            "waiting_period_months": int(p.get("waiting_period_months") or 0),
+        })
+
+    return plans
 
 # ------------------------------------------------------------
 # 2. PUBLIC AGENTS
@@ -892,16 +947,14 @@ async def public_register(payload: PublicRegistrationRequest):
         plan = plan.lower()
         waiting_period = 6 if plan == "dignity" else 4
 
-        plan_amounts = {
-            "comfort": 200.00,
-            "dignity": 500.00,
-            "wazazi": 200.00
-        }
-        registration_amount = plan_amounts.get(plan, 200.00)
+        # Live pricing from Supabase — the SAME `plans` table
+        # admin-pricing.html writes to. No hardcoded amounts here.
+        pricing = get_live_plan_pricing(plan)
+        registration_amount = pricing["registration_fee"]
 
-        if plan == "wazazi":
+        if plan == "wazazi" and pricing["dependant_fee"] > 0:
             parent_count = sum(1 for d in payload.dependants if d.get("relationship", "").upper() == "PARENT")
-            registration_amount += parent_count * 100.00
+            registration_amount += parent_count * pricing["dependant_fee"]
 
         member_record = {
             "member_number": member_number,
@@ -978,6 +1031,8 @@ async def public_register(payload: PublicRegistrationRequest):
             registration_amount=registration_amount
         )
 
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error(f"Public registration failed: {e}")
         raise HTTPException(status_code=400, detail=f"Registration failed: {str(e)}")
@@ -1019,6 +1074,11 @@ async def public_register_chama(payload: ChamaRegistrationRequest):
             raise HTTPException(status_code=400, detail=f"{label} ID is required")
 
     try:
+        # Live per-member chama rate from Supabase's `plans` table
+        # (plan_code = 'CHAMA'), instead of a hardcoded 100.00.
+        chama_pricing = get_live_plan_pricing("chama")
+        chama_rate = chama_pricing["registration_fee"]
+
         group_record = {
             "group_name": payload.group_name,
             "phone": payload.phone,
@@ -1033,7 +1093,7 @@ async def public_register_chama(payload: ChamaRegistrationRequest):
             "secretary_id": payload.secretary.get("id_number"),
             "member_count": len(payload.members),
             "status": "PENDING",
-            "registration_amount": len(payload.members) * 100.00,
+            "registration_amount": len(payload.members) * chama_rate,
             "created_at": datetime.now().isoformat(),
             "updated_at": datetime.now().isoformat()
         }
@@ -1082,6 +1142,8 @@ async def public_register_chama(payload: ChamaRegistrationRequest):
             "message": "Chama registration created successfully. Please complete payment."
         }
 
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error(f"Chama registration failed: {e}")
         raise HTTPException(status_code=400, detail=f"Chama registration failed: {str(e)}")
@@ -1095,6 +1157,13 @@ async def initiate_stk_push(request: STKPushRequest):
     """
     Initiate M-Pesa STK push payment.
     Supports both individual member_id and chama group_id.
+
+    SECURITY: the amount actually charged is computed SERVER-SIDE from
+    the member's/group's live plan price below (`verified_amount`) —
+    `request.amount` from the client is only used for a basic sanity
+    check and is otherwise ignored. Previously this endpoint charged
+    whatever amount the client sent, which meant a modified request
+    could pay any figure it wanted.
     """
     if not supabase:
         raise HTTPException(status_code=500, detail="Database not available")
@@ -1109,6 +1178,41 @@ async def initiate_stk_push(request: STKPushRequest):
     if not request.member_id and not request.group_id:
         raise HTTPException(status_code=400, detail="Either member_id or group_id is required")
 
+    # ---- Recompute the amount server-side; never trust request.amount ----
+    verified_amount: float
+
+    if request.member_id:
+        member_result = supabase.table("members").select("plan").eq("id", request.member_id).limit(1).execute()
+        if not member_result.data:
+            raise HTTPException(status_code=404, detail="Member not found")
+        member_plan = (member_result.data[0].get("plan") or "").lower()
+
+        pricing = get_live_plan_pricing(member_plan)
+        verified_amount = pricing["registration_fee"]
+
+        if member_plan == "wazazi" and pricing["dependant_fee"] > 0:
+            parent_count_result = (
+                supabase.table("dependants")
+                .select("id", count="exact")
+                .eq("principal_member_id", request.member_id)
+                .ilike("relationship", "parent")
+                .execute()
+            )
+            parent_count = parent_count_result.count or 0
+            verified_amount += parent_count * pricing["dependant_fee"]
+
+    else:  # request.group_id
+        group_result = supabase.table("chama_groups").select("registration_amount").eq("id", request.group_id).limit(1).execute()
+        if not group_result.data:
+            raise HTTPException(status_code=404, detail="Chama group not found")
+        # registration_amount was already computed correctly at chama
+        # registration time (member_count * live rate) — trust that
+        # stored value rather than recomputing it here.
+        verified_amount = float(group_result.data[0].get("registration_amount") or 0)
+
+    if verified_amount <= 0:
+        raise HTTPException(status_code=400, detail="Could not determine a valid amount for this registration")
+
     try:
         # FIX: kept as a Python-side reference; no longer written to a
         # "transaction_id" column (doesn't exist — see payment_record below).
@@ -1118,7 +1222,9 @@ async def initiate_stk_push(request: STKPushRequest):
         if request.member_id:
             payment_check = payment_check.eq("member_id", request.member_id)
         elif request.group_id:
-            payment_check = payment_check.eq("group_id", request.group_id)
+            # FIX: the FK column on `payments` is "chama_group_id", not
+            # "group_id" — the old filter here silently matched nothing.
+            payment_check = payment_check.eq("chama_group_id", request.group_id)
         payment_check = payment_check.execute()
 
         if payment_check.data:
@@ -1137,7 +1243,7 @@ async def initiate_stk_push(request: STKPushRequest):
         payment_record = {
             "transaction_reference": transaction_ref,
             "phone": phone,
-            "amount": request.amount,
+            "amount": verified_amount,
             "payment_type": "registration" if request.member_id else "chama_registration",
             "status": "pending",
             "created_at": datetime.now().isoformat(),
@@ -1158,7 +1264,7 @@ async def initiate_stk_push(request: STKPushRequest):
             try:
                 stk_result = await initiate_mpesa_stk_push(
                     phone,
-                    request.amount,
+                    verified_amount,
                     transaction_ref,
                     request.transaction_desc
                 )
@@ -1180,6 +1286,8 @@ async def initiate_stk_push(request: STKPushRequest):
             merchant_request_id=merchant_request_id
         )
 
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error(f"STK push initiation failed: {e}")
         raise HTTPException(status_code=400, detail=f"Payment initiation failed: {str(e)}")
@@ -1309,6 +1417,8 @@ async def get_payment_status(checkout_request_id: str):
             transaction_id=payment.get("transaction_reference")
         )
 
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error(f"Payment status check failed: {e}")
         raise HTTPException(status_code=400, detail=f"Status check failed: {str(e)}")
@@ -1638,6 +1748,8 @@ async def get_member_status(member_id: str):
             dependants_count=dependants_count
         )
 
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error(f"Member status check failed: {e}")
         raise HTTPException(status_code=400, detail=f"Status check failed: {str(e)}")
@@ -1685,6 +1797,8 @@ async def get_receipt(payment_id: str):
             plan=plan
         )
 
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error(f"Receipt generation failed: {e}")
         raise HTTPException(status_code=400, detail=f"Receipt generation failed: {str(e)}")
@@ -1720,6 +1834,8 @@ async def get_id_card(member_id: str):
             qr_code=None
         )
 
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error(f"ID card generation failed: {e}")
         raise HTTPException(status_code=400, detail=f"ID card generation failed: {str(e)}")
