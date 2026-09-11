@@ -9,13 +9,11 @@
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
-    
-    <!-- External Libraries -->
+
     <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.3/papaparse.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-    
+
     <style>
-        /* ===== RESET & VARIABLES ===== */
         :root {
             --primary: #173f35;
             --primary-dark: #0e2c25;
@@ -32,12 +30,8 @@
             --shadow: 0 15px 45px rgba(20, 45, 38, 0.10);
             --radius: 16px;
         }
-        * {
-            box-sizing: border-box;
-        }
-        html {
-            scroll-behavior: smooth;
-        }
+        * { box-sizing: border-box; }
+        html { scroll-behavior: smooth; }
         body {
             margin: 0;
             font-family: "Inter", Arial, sans-serif;
@@ -45,22 +39,10 @@
             color: var(--text);
             line-height: 1.6;
         }
-        a {
-            color: inherit;
-            text-decoration: none;
-        }
-        button,
-        input,
-        select,
-        textarea {
-            font: inherit;
-        }
-        .container {
-            width: min(1180px, calc(100% - 32px));
-            margin: 0 auto;
-        }
+        a { color: inherit; text-decoration: none; }
+        button, input, select, textarea { font: inherit; }
+        .container { width: min(1180px, calc(100% - 32px)); margin: 0 auto; }
 
-        /* ===== HEADER ===== */
         .site-header {
             background: var(--primary);
             color: white;
@@ -76,11 +58,7 @@
             justify-content: space-between;
             gap: 20px;
         }
-        .brand {
-            display: flex;
-            align-items: center;
-            gap: 12px;
-        }
+        .brand { display: flex; align-items: center; gap: 12px; }
         .brand-mark {
             width: 44px;
             height: 44px;
@@ -92,45 +70,20 @@
             font-size: 22px;
             font-weight: 800;
         }
-        img.brand-mark {
-            background: transparent;
-            object-fit: contain;
-            padding: 2px;
-        }
-        .brand-text {
-            line-height: 1.1;
-        }
-        .brand-text strong {
-            display: block;
-            font-size: 17px;
-            letter-spacing: .08em;
-        }
+        img.brand-mark { background: transparent; object-fit: contain; padding: 2px; }
+        .brand-text { line-height: 1.1; }
+        .brand-text strong { display: block; font-size: 17px; letter-spacing: .08em; }
         .brand-text small {
             color: #ead9b3;
             font-size: 11px;
             letter-spacing: .12em;
             text-transform: uppercase;
         }
-        .nav {
-            display: flex;
-            align-items: center;
-            gap: 22px;
-        }
-        .nav a {
-            color: rgba(255, 255, 255, .9);
-            font-size: 14px;
-            font-weight: 600;
-        }
-        .nav a:hover {
-            color: white;
-        }
-        .nav-register {
-            background: var(--gold);
-            padding: 10px 17px;
-            border-radius: 9px;
-        }
+        .nav { display: flex; align-items: center; gap: 22px; }
+        .nav a { color: rgba(255, 255, 255, .9); font-size: 14px; font-weight: 600; }
+        .nav a:hover { color: white; }
+        .nav-register { background: var(--gold); padding: 10px 17px; border-radius: 9px; }
 
-        /* ===== HERO ===== */
         .hero {
             background: linear-gradient(135deg, rgba(23, 63, 53, .98), rgba(14, 44, 37, .94));
             color: white;
@@ -168,20 +121,10 @@
             padding: 28px;
             backdrop-filter: blur(8px);
         }
-        .hero-card h3 {
-            margin-top: 0;
-            color: #fff;
-        }
-        .hero-card ul {
-            padding-left: 20px;
-            margin-bottom: 0;
-            color: rgba(255, 255, 255, .85);
-        }
+        .hero-card h3 { margin-top: 0; color: #fff; }
+        .hero-card ul { padding-left: 20px; margin-bottom: 0; color: rgba(255, 255, 255, .85); }
 
-        /* ===== MAIN LAYOUT ===== */
-        .main {
-            padding: 50px 0 80px;
-        }
+        .main { padding: 50px 0 80px; }
         .registration-layout {
             display: grid;
             grid-template-columns: minmax(0, 1fr) 340px;
@@ -194,28 +137,12 @@
             box-shadow: var(--shadow);
             border: 1px solid var(--border);
         }
-        .form-card {
-            padding: 32px;
-        }
-        .side-card {
-            padding: 25px;
-            position: sticky;
-            top: 100px;
-        }
-        .section-heading {
-            margin-bottom: 24px;
-        }
-        .section-heading h2 {
-            margin: 0 0 7px;
-            font-size: 24px;
-        }
-        .section-heading p {
-            margin: 0;
-            color: var(--muted);
-            font-size: 14px;
-        }
+        .form-card { padding: 32px; }
+        .side-card { padding: 25px; position: sticky; top: 100px; }
+        .section-heading { margin-bottom: 24px; }
+        .section-heading h2 { margin: 0 0 7px; font-size: 24px; }
+        .section-heading p { margin: 0; color: var(--muted); font-size: 14px; }
 
-        /* ===== MODE SWITCH ===== */
         .mode-switch {
             display: grid;
             grid-template-columns: 1fr 1fr;
@@ -240,10 +167,7 @@
             box-shadow: 0 5px 15px rgba(23, 63, 53, .18);
         }
 
-        /* ===== FORMS ===== */
-        .form-section {
-            margin-bottom: 35px;
-        }
+        .form-section { margin-bottom: 35px; }
         .form-section-title {
             display: flex;
             align-items: center;
@@ -264,34 +188,13 @@
             font-weight: 800;
             flex-shrink: 0;
         }
-        .form-section-title h3 {
-            margin: 0;
-            font-size: 17px;
-        }
-        .form-grid {
-            display: grid;
-            grid-template-columns: repeat(2, minmax(0, 1fr));
-            gap: 17px;
-        }
-        .form-group {
-            display: flex;
-            flex-direction: column;
-            gap: 7px;
-        }
-        .form-group.full {
-            grid-column: 1 / -1;
-        }
-        label {
-            font-size: 13px;
-            font-weight: 700;
-            color: #34423e;
-        }
-        label .required {
-            color: var(--danger);
-        }
-        input,
-        select,
-        textarea {
+        .form-section-title h3 { margin: 0; font-size: 17px; }
+        .form-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 17px; }
+        .form-group { display: flex; flex-direction: column; gap: 7px; }
+        .form-group.full { grid-column: 1 / -1; }
+        label { font-size: 13px; font-weight: 700; color: #34423e; }
+        label .required { color: var(--danger); }
+        input, select, textarea {
             width: 100%;
             border: 1px solid var(--border);
             background: white;
@@ -301,35 +204,16 @@
             color: var(--text);
             transition: .2s;
         }
-        input:focus,
-        select:focus,
-        textarea:focus {
+        input:focus, select:focus, textarea:focus {
             border-color: var(--gold);
             box-shadow: 0 0 0 3px rgba(201, 154, 62, .12);
         }
-        textarea {
-            min-height: 90px;
-            resize: vertical;
-        }
-        .help-text {
-            font-size: 12px;
-            color: var(--muted);
-        }
+        textarea { min-height: 90px; resize: vertical; }
+        .help-text { font-size: 12px; color: var(--muted); }
 
-        /* ===== PLAN CARDS ===== */
-        .plans-grid {
-            display: grid;
-            grid-template-columns: repeat(3, 1fr);
-            gap: 12px;
-        }
-        .plan-option {
-            position: relative;
-        }
-        .plan-option input {
-            position: absolute;
-            opacity: 0;
-            pointer-events: none;
-        }
+        .plans-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
+        .plan-option { position: relative; }
+        .plan-option input { position: absolute; opacity: 0; pointer-events: none; }
         .plan-label {
             display: block;
             border: 2px solid var(--border);
@@ -339,39 +223,18 @@
             height: 100%;
             transition: .2s;
         }
-        .plan-label:hover {
-            border-color: #c9d1ce;
-        }
+        .plan-label:hover { border-color: #c9d1ce; }
         .plan-option input:checked+.plan-label {
             border-color: var(--gold);
             background: #fffaf0;
             box-shadow: 0 7px 20px rgba(201, 154, 62, .12);
         }
-        .plan-name {
-            font-weight: 800;
-            font-size: 16px;
-            margin-bottom: 5px;
-        }
-        .plan-description {
-            color: var(--muted);
-            font-size: 12px;
-            min-height: 38px;
-        }
-        .plan-price {
-            margin-top: 12px;
-            color: var(--primary);
-            font-weight: 800;
-        }
-        .plan-price small {
-            font-weight: 500;
-            color: var(--muted);
-        }
+        .plan-name { font-weight: 800; font-size: 16px; margin-bottom: 5px; }
+        .plan-description { color: var(--muted); font-size: 12px; min-height: 38px; }
+        .plan-price { margin-top: 12px; color: var(--primary); font-weight: 800; }
+        .plan-price small { font-weight: 500; color: var(--muted); }
 
-        /* ===== DEPENDANTS ===== */
-        .dependant-list {
-            display: grid;
-            gap: 15px;
-        }
+        .dependant-list { display: grid; gap: 15px; }
         .dependant-card {
             border: 1px solid var(--border);
             border-radius: 12px;
@@ -384,9 +247,7 @@
             align-items: center;
             margin-bottom: 14px;
         }
-        .dependant-header strong {
-            font-size: 14px;
-        }
+        .dependant-header strong { font-size: 14px; }
         .remove-dependant {
             border: 0;
             background: #fbe9e7;
@@ -407,16 +268,9 @@
             cursor: pointer;
             font-weight: 700;
         }
-        .add-button:hover {
-            border-color: var(--primary);
-        }
+        .add-button:hover { border-color: var(--primary); }
 
-        /* ===== SUMMARY ===== */
-        .summary {
-            background: #f6f8f6;
-            border-radius: 13px;
-            padding: 20px;
-        }
+        .summary { background: #f6f8f6; border-radius: 13px; padding: 20px; }
         .summary-row {
             display: flex;
             justify-content: space-between;
@@ -446,30 +300,13 @@
             font-weight: 800;
             transition: .2s;
         }
-        .btn-primary {
-            background: var(--primary);
-            color: white;
-        }
-        .btn-primary:hover {
-            background: var(--primary-dark);
-        }
-        .btn-gold {
-            background: var(--gold);
-            color: white;
-        }
-        .btn-gold:hover {
-            background: var(--gold-dark);
-        }
-        .btn-secondary {
-            background: #eef2f0;
-            color: var(--primary);
-        }
-        .btn:disabled {
-            opacity: .55;
-            cursor: not-allowed;
-        }
+        .btn-primary { background: var(--primary); color: white; }
+        .btn-primary:hover { background: var(--primary-dark); }
+        .btn-gold { background: var(--gold); color: white; }
+        .btn-gold:hover { background: var(--gold-dark); }
+        .btn-secondary { background: #eef2f0; color: var(--primary); }
+        .btn:disabled { opacity: .55; cursor: not-allowed; }
 
-        /* ===== ALERTS & LOADING ===== */
         .alert {
             display: none;
             border-radius: 10px;
@@ -478,29 +315,12 @@
             font-size: 14px;
             font-weight: 600;
         }
-        .alert.show {
-            display: block;
-        }
-        .alert.success {
-            background: #eaf7ef;
-            color: #17683d;
-            border: 1px solid #bce5cc;
-        }
-        .alert.error {
-            background: #fcebea;
-            color: #922b21;
-            border: 1px solid #f0c4bf;
-        }
-        .alert.warning {
-            background: #fff7df;
-            color: #8a6116;
-            border: 1px solid #ead49a;
-        }
-        .alert.info {
-            background: #edf5fa;
-            color: #245b79;
-            border: 1px solid #c5deec;
-        }
+        .alert.show { display: block; }
+        .alert.success { background: #eaf7ef; color: #17683d; border: 1px solid #bce5cc; }
+        .alert.error { background: #fcebea; color: #922b21; border: 1px solid #f0c4bf; }
+        .alert.warning { background: #fff7df; color: #8a6116; border: 1px solid #ead49a; }
+        .alert.info { background: #edf5fa; color: #245b79; border: 1px solid #c5deec; }
+
         .loading {
             display: none;
             align-items: center;
@@ -510,9 +330,7 @@
             font-weight: 700;
             padding: 10px;
         }
-        .loading.show {
-            display: flex;
-        }
+        .loading.show { display: flex; }
         .spinner {
             width: 19px;
             height: 19px;
@@ -521,19 +339,10 @@
             border-radius: 50%;
             animation: spin .8s linear infinite;
         }
-        @keyframes spin {
-            to {
-                transform: rotate(360deg);
-            }
-        }
+        @keyframes spin { to { transform: rotate(360deg); } }
 
-        /* ===== CHAMA ===== */
-        .chama-only {
-            display: none;
-        }
-        .chama-only.show {
-            display: block;
-        }
+        .chama-only { display: none; }
+        .chama-only.show { display: block; }
         .csv-box {
             border: 2px dashed #bbc8c3;
             border-radius: 13px;
@@ -541,12 +350,7 @@
             text-align: center;
             background: #fafcfb;
         }
-        .csv-box input {
-            border: 0;
-            padding: 0;
-            max-width: 350px;
-            margin-top: 12px;
-        }
+        .csv-box input { border: 0; padding: 0; max-width: 350px; margin-top: 12px; }
         .csv-preview {
             display: none;
             margin-top: 18px;
@@ -554,45 +358,30 @@
             border: 1px solid var(--border);
             border-radius: 10px;
         }
-        .csv-preview.show {
-            display: block;
-        }
+        .csv-preview.show { display: block; }
         .csv-preview table {
             width: 100%;
             border-collapse: collapse;
             font-size: 12px;
             background: white;
         }
-        .csv-preview th,
-        .csv-preview td {
+        .csv-preview th, .csv-preview td {
             padding: 9px;
             border-bottom: 1px solid var(--border);
             text-align: left;
             white-space: nowrap;
         }
-        .csv-preview th {
-            background: #f4f7f5;
-        }
-        .csv-count {
-            margin-top: 10px;
-            font-size: 13px;
-            font-weight: 700;
-        }
+        .csv-preview th { background: #f4f7f5; }
+        .csv-count { margin-top: 10px; font-size: 13px; font-weight: 700; }
 
-        /* ===== SIDEBAR ===== */
-        .side-card h3 {
-            margin-top: 0;
-            color: var(--primary);
-        }
+        .side-card h3 { margin-top: 0; color: var(--primary); }
         .side-item {
             display: flex;
             gap: 12px;
             padding: 13px 0;
             border-bottom: 1px solid var(--border);
         }
-        .side-item:last-child {
-            border-bottom: 0;
-        }
+        .side-item:last-child { border-bottom: 0; }
         .side-icon {
             width: 35px;
             height: 35px;
@@ -604,21 +393,10 @@
             font-weight: 800;
             flex-shrink: 0;
         }
-        .side-item strong {
-            display: block;
-            font-size: 13px;
-        }
-        .side-item span {
-            color: var(--muted);
-            font-size: 12px;
-        }
+        .side-item strong { display: block; font-size: 13px; }
+        .side-item span { color: var(--muted); font-size: 12px; }
 
-        /* ===== FOOTER ===== */
-        footer {
-            background: var(--primary-dark);
-            color: rgba(255, 255, 255, .8);
-            padding: 35px 0;
-        }
+        footer { background: var(--primary-dark); color: rgba(255, 255, 255, .8); padding: 35px 0; }
         .footer-inner {
             display: flex;
             justify-content: space-between;
@@ -627,48 +405,22 @@
             font-size: 13px;
         }
 
-        /* ===== RESPONSIVE ===== */
         @media (max-width: 900px) {
-            .hero-grid,
-            .registration-layout {
-                grid-template-columns: 1fr;
-            }
-            .side-card {
-                position: static;
-            }
-            .plans-grid {
-                grid-template-columns: 1fr;
-            }
+            .hero-grid, .registration-layout { grid-template-columns: 1fr; }
+            .side-card { position: static; }
+            .plans-grid { grid-template-columns: 1fr; }
         }
         @media (max-width: 650px) {
-            .nav {
-                display: none;
-            }
-            .form-card {
-                padding: 20px;
-            }
-            .form-grid {
-                grid-template-columns: 1fr;
-            }
-            .form-group.full {
-                grid-column: auto;
-            }
-            .hero {
-                padding: 45px 0 55px;
-            }
-            .button-row {
-                flex-direction: column;
-            }
-            .button-row .btn {
-                width: 100%;
-            }
-            .footer-inner {
-                flex-direction: column;
-                text-align: center;
-            }
+            .nav { display: none; }
+            .form-card { padding: 20px; }
+            .form-grid { grid-template-columns: 1fr; }
+            .form-group.full { grid-column: auto; }
+            .hero { padding: 45px 0 55px; }
+            .button-row { flex-direction: column; }
+            .button-row .btn { width: 100%; }
+            .footer-inner { flex-direction: column; text-align: center; }
         }
 
-        /* ===== COUNTY DROPDOWN (enhanced) ===== */
         .county-select {
             appearance: none;
             background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%23475569' stroke-width='2' fill='none'/%3E%3C/svg%3E");
@@ -676,9 +428,7 @@
             background-position: right 16px center;
             background-size: 14px;
         }
-        .county-select option {
-            padding: 6px;
-        }
+        .county-select option { padding: 6px; }
     </style>
 </head>
 
@@ -740,9 +490,6 @@
                         <button type="button" id="chamaModeBtn" class="mode-button">Chama / Group</button>
                     </div>
 
-                    <!-- =============================================
-                         INDIVIDUAL REGISTRATION
-                    ============================================== -->
                     <form id="registrationForm" novalidate>
 
                         <div class="form-section">
@@ -793,7 +540,6 @@
                                     <span class="help-text">Optional. If provided, enter a valid email address.</span>
                                 </div>
 
-                                <!-- ===== COUNTY DROPDOWN ===== -->
                                 <div class="form-group">
                                     <label for="county">County <span class="required">*</span></label>
                                     <select id="county" name="county" class="county-select" required>
@@ -863,7 +609,6 @@
                             </div>
                         </div>
 
-                        <!-- PLAN -->
                         <div class="form-section">
                             <div class="form-section-title">
                                 <span class="step-number">2</span>
@@ -875,7 +620,6 @@
                             <div id="planHelp" class="help-text" style="margin-top:12px;">Select a plan to continue.</div>
                         </div>
 
-                        <!-- REGISTRATION SOURCE -->
                         <div class="form-section">
                             <div class="form-section-title">
                                 <span class="step-number">3</span>
@@ -901,7 +645,6 @@
                             </div>
                         </div>
 
-                        <!-- DEPENDANTS -->
                         <div class="form-section">
                             <div class="form-section-title">
                                 <span class="step-number">4</span>
@@ -912,7 +655,6 @@
                             <button type="button" id="addDependantBtn" class="add-button">+ Add Dependant</button>
                         </div>
 
-                        <!-- SUMMARY -->
                         <div class="form-section">
                             <div class="form-section-title">
                                 <span class="step-number">5</span>
@@ -932,9 +674,6 @@
                         </div>
                     </form>
 
-                    <!-- =============================================
-                         CHAMA REGISTRATION
-                    ============================================== -->
                     <section id="chamaSection" class="chama-only">
                         <div class="section-heading">
                             <h2>Chama / Group Registration</h2>
@@ -993,7 +732,7 @@
                             <div class="form-section">
                                 <div class="summary">
                                     <div class="summary-row"><span>Members</span><strong id="chamaMemberCount">0</strong></div>
-                                    <div class="summary-row"><span>Registration rate</span><strong>KES 100 per member</strong></div>
+                                    <div class="summary-row"><span>Registration rate</span><strong id="chamaRateDisplay">KES 100 per member</strong></div>
                                     <div class="summary-row total"><span>Amount to pay</span><strong id="chamaTotal">KES 0</strong></div>
                                 </div>
                             </div>
@@ -1007,7 +746,6 @@
 
                 </section>
 
-                <!-- SIDEBAR -->
                 <aside class="card side-card">
                     <h3>Registration Information</h3>
                     <div class="side-item">
@@ -1047,9 +785,6 @@
         </div>
     </footer>
 
-    <!-- ============================================================
-    JAVASCRIPT - SELF-CONTAINED
-    ============================================================ -->
     <script>
         // ============================================================
         // MASIKA BENEVOLENT — REGISTRATION PAGE
@@ -1063,18 +798,13 @@
         console.log('📡 API:', API_BASE_URL);
         console.log('📡 Supabase:', SUPABASE_URL);
 
-        // ------------------------------------------------------------
-        // SUPABASE CLIENT
-        // ------------------------------------------------------------
-
         const supabaseClient = window.supabase
             ? window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY)
             : null;
 
         // ------------------------------------------------------------
-        // PLAN CONFIGURATION
+        // HARD-CODED FALLBACK (only used if both the API and Supabase fail)
         // ------------------------------------------------------------
-
         const PLAN_CONFIG = {
             COMFORT: {
                 slug: 'comfort',
@@ -1103,22 +833,18 @@
         };
 
         const WAZAZI_PARENT_FEE = 100;
-        const CHAMA_REGISTRATION_RATE = 100;
+        let CHAMA_REGISTRATION_RATE = 100;
         const MIN_CHAMA_MEMBERS = 30;
         const MAX_DEPENDANTS = 10;
 
         // ------------------------------------------------------------
         // STATE
         // ------------------------------------------------------------
-
         let selectedPlan = null;
         let parsedChamaMembers = [];
         let isSubmitting = false;
         let allSalesAgents = [];
-
-        // ------------------------------------------------------------
-        // DOM HELPER
-        // ------------------------------------------------------------
+        let allPlans = [];   // ← cached plans loaded from Supabase
 
         const $ = id => document.getElementById(id);
 
@@ -1141,6 +867,7 @@
             csvPreview: $('csvPreview'),
             csvCount: $('csvCount'),
             chamaMemberCount: $('chamaMemberCount'),
+            chamaRateDisplay: $('chamaRateDisplay'),
             chamaTotal: $('chamaTotal'),
             summaryPlan: $('summaryPlan'),
             summaryPrincipal: $('summaryPrincipal'),
@@ -1152,55 +879,91 @@
         };
 
         // ============================================================
-        // INITIALIZATION
+        // INIT
         // ============================================================
-
         document.addEventListener('DOMContentLoaded', () => {
             console.log('📄 DOM loaded');
 
             const yearEl = $('year');
-            if (yearEl) {
-                yearEl.textContent = new Date().getFullYear();
-            }
+            if (yearEl) yearEl.textContent = new Date().getFullYear();
 
             setupEventListeners();
-            loadPlans();
+            loadPlans();           // ← now loads from Supabase plans table
             loadSalesAgents();
             updateSummary();
-
-            console.log('✅ Registration page initialized');
         });
 
         // ============================================================
         // LOAD PLANS
+        // Priority:
+        //   1. Supabase `plans` table  ← admin-pricing writes here
+        //   2. Backend /api/public/plans
+        //   3. Hard-coded PLAN_CONFIG
         // ============================================================
-
         async function loadPlans() {
             const container = elements.plansContainer;
             if (!container) return;
 
             let plans = [];
 
-            try {
-                const response = await fetch(`${API_BASE_URL}/public/plans`, {
-                    method: 'GET',
-                    headers: { 'Accept': 'application/json' }
-                });
+            // 1. Supabase plans table
+            if (supabaseClient) {
+                try {
+                    const { data, error } = await supabaseClient
+                        .from('plans')
+                        .select('slug, name, description, registration_fee, monthly_fee, waiting_period_months, is_active')
+                        .order('registration_fee', { ascending: true });
 
-                if (response.ok) {
-                    const data = await response.json();
-                    if (Array.isArray(data) && data.length > 0) {
-                        plans = data;
+                    if (error) throw error;
+
+                    plans = (data || []).filter(p => p.is_active !== false);
+
+                    console.log(`✅ Loaded ${plans.length} plans from Supabase plans table`);
+
+                    // Also read the chama registration rate if present
+                    const chamaPlan = (data || []).find(p => p.slug === 'chama');
+                    if (chamaPlan && chamaPlan.registration_fee) {
+                        CHAMA_REGISTRATION_RATE = Number(chamaPlan.registration_fee);
+                        if (elements.chamaRateDisplay) {
+                            elements.chamaRateDisplay.textContent =
+                                `KES ${CHAMA_REGISTRATION_RATE.toLocaleString()} per member`;
+                        }
+                        // Recompute chama total if already loaded
+                        renderChamaPreview();
                     }
+
+                } catch (error) {
+                    console.warn('⚠️ Could not load plans from Supabase:', error);
                 }
-            } catch (error) {
-                console.warn('Unable to load plans from API. Using local configuration.', error);
             }
 
+            // 2. Backend API
+            if (!plans.length) {
+                try {
+                    const response = await fetch(`${API_BASE_URL}/public/plans`, {
+                        method: 'GET',
+                        headers: { 'Accept': 'application/json' }
+                    });
+
+                    if (response.ok) {
+                        const data = await response.json();
+                        if (Array.isArray(data) && data.length > 0) {
+                            plans = data;
+                            console.log(`✅ Loaded ${plans.length} plans from backend API`);
+                        }
+                    }
+                } catch (error) {
+                    console.warn('⚠️ Backend plans load failed:', error);
+                }
+            }
+
+            // 3. Hard-coded fallback
             if (!plans.length) {
                 plans = Object.values(PLAN_CONFIG);
+                console.warn('⚠️ Using hard-coded plan fallback');
             }
 
+            allPlans = plans;
             renderPlans(plans);
         }
 
@@ -1275,17 +1038,11 @@
         }
 
         // ============================================================
-        // LOAD SALES AGENTS - FROM sales_agents
+        // LOAD SALES AGENTS
         // ============================================================
-        // DISPLAYS: sales_code - Full Name (phone number removed)
-        // ============================================================
-
         async function loadSalesAgents() {
             const select = elements.salesCode;
-            if (!select) {
-                console.warn('⚠️ Sales agent select element not found.');
-                return;
-            }
+            if (!select) return;
 
             select.innerHTML = '<option value="">Loading agents...</option>';
 
@@ -1294,21 +1051,15 @@
                     throw new Error('Supabase client is not available.');
                 }
 
-                console.log('🔄 Loading active sales agents from public.sales_agents...');
-
                 const { data, error } = await supabaseClient
                     .from('sales_agents')
                     .select('sales_code, full_name, status')
                     .ilike('status', 'active')
                     .order('full_name', { ascending: true });
 
-                if (error) {
-                    throw error;
-                }
+                if (error) throw error;
 
                 allSalesAgents = data || [];
-
-                console.log(`✅ Loaded ${allSalesAgents.length} active sales agents.`);
 
                 if (!allSalesAgents.length) {
                     select.innerHTML = '<option value="">No sales agents available</option>';
@@ -1318,23 +1069,14 @@
                 select.innerHTML = '<option value="">Select sales agent</option>';
 
                 allSalesAgents.forEach(agent => {
-                    if (!agent.sales_code) {
-                        return;
-                    }
-
+                    if (!agent.sales_code) return;
                     const option = document.createElement('option');
-                    
-                    // CRITICAL FIX: Display sales_code and full_name only (no phone)
                     option.value = String(agent.sales_code).trim();
-                    
-                    // Display: sales_code - Full Name
-                    let label = `${agent.sales_code} - ${agent.full_name || 'Agent'}`;
-                    
-                    option.textContent = label;
+                    option.textContent = `${agent.sales_code} - ${agent.full_name || 'Agent'}`;
                     select.appendChild(option);
                 });
 
-                console.log('📋 Sales agents loaded with sales_code as primary display (phone removed)');
+                console.log(`✅ Loaded ${allSalesAgents.length} active sales agents`);
 
             } catch (error) {
                 console.error('❌ Failed to load sales agents:', error);
@@ -1346,7 +1088,6 @@
         // ============================================================
         // EVENT LISTENERS
         // ============================================================
-
         function setupEventListeners() {
             elements.individualModeBtn.addEventListener('click', () => {
                 elements.individualModeBtn.classList.add('active');
@@ -1383,7 +1124,6 @@
         // ============================================================
         // DEPENDANTS
         // ============================================================
-
         function addDependant() {
             const container = elements.dependantsContainer;
             const count = container.querySelectorAll('.dependant-card').length + 1;
@@ -1451,9 +1191,7 @@
                 const number = index + 1;
                 element.dataset.index = number;
                 const title = element.querySelector('.dependant-header strong');
-                if (title) {
-                    title.textContent = `Dependant #${number}`;
-                }
+                if (title) title.textContent = `Dependant #${number}`;
             });
 
             updateSummary();
@@ -1462,7 +1200,6 @@
         // ============================================================
         // SELECTED PLAN
         // ============================================================
-
         function getSelectedPlan() {
             const input = document.querySelector('input[name="plan_type"]:checked');
 
@@ -1486,14 +1223,11 @@
         // ============================================================
         // DEPENDANT COUNT
         // ============================================================
-
         function countParentDependants() {
             let count = 0;
             document.querySelectorAll('.dependant-card').forEach(card => {
                 const relationship = card.querySelector('select[name^="dep_relationship_"]')?.value || '';
-                if (relationship === 'PARENT') {
-                    count++;
-                }
+                if (relationship === 'PARENT') count++;
             });
             return count;
         }
@@ -1501,7 +1235,6 @@
         // ============================================================
         // SUMMARY
         // ============================================================
-
         function updateSummary() {
             const { slug: planSlug, plan } = getSelectedPlan();
 
@@ -1533,7 +1266,6 @@
         // ============================================================
         // PHONE NORMALIZATION
         // ============================================================
-
         function normalizePhone(value) {
             let phone = String(value || '').trim().replace(/\s+/g, '').replace(/-/g, '');
             if (!phone) return '';
@@ -1552,7 +1284,6 @@
         // ============================================================
         // FORM DATA
         // ============================================================
-
         function getFormData() {
             const { slug: planSlug } = getSelectedPlan();
 
@@ -1573,7 +1304,6 @@
                 });
             });
 
-            // IMPORTANT: This retrieves sales_code from the select dropdown
             const salesCode = elements.salesCode ? (elements.salesCode.value || null) : null;
 
             return {
@@ -1591,7 +1321,7 @@
                 town: $('town').value.trim() || null,
                 address: $('address').value.trim() || null,
                 plan: planSlug,
-                sales_code: salesCode, // This is the sales_code from sales_agents
+                sales_code: salesCode,
                 benefit_option: $('benefitOption').value,
                 dependants: dependants
             };
@@ -1600,7 +1330,6 @@
         // ============================================================
         // VALIDATE INDIVIDUAL REGISTRATION
         // ============================================================
-
         function validateFormData(data) {
             const required = ['first_name', 'last_name', 'id_number', 'date_of_birth', 'gender', 'phone', 'county', 'benefit_option'];
 
@@ -1677,7 +1406,6 @@
         // ============================================================
         // INDIVIDUAL REGISTRATION
         // ============================================================
-
         async function handleRegistration(event) {
             event.preventDefault();
 
@@ -1715,10 +1443,9 @@
                 const result = await response.json();
 
                 if (!response.ok || !result.success) {
-                    const detail = Array.isArray(result.detail) ?
-                        result.detail.map(d => d.msg).join(' | ') :
-                        (result.detail || result.message);
-
+                    const detail = Array.isArray(result.detail)
+                        ? result.detail.map(d => d.msg).join(' | ')
+                        : (result.detail || result.message);
                     throw new Error(detail || 'Registration failed.');
                 }
 
@@ -1750,6 +1477,7 @@
                 sessionStorage.setItem('newMemberPhone', formData.phone);
                 sessionStorage.setItem('registrationAmount', String(registrationAmount));
                 sessionStorage.setItem('isChamaRegistration', 'false');
+                sessionStorage.setItem('newPlanSlug', formData.plan); // ← payment.html uses this
 
                 if (formData.sales_code) {
                     sessionStorage.setItem('newSalesCode', formData.sales_code);
@@ -1779,7 +1507,6 @@
         // ============================================================
         // CHAMA REGISTRATION
         // ============================================================
-
         async function handleChamaRegistration(event) {
             event.preventDefault();
 
@@ -1819,10 +1546,10 @@
             }
 
             for (const [label, official] of [
-                    ['Chairperson', chairperson],
-                    ['Treasurer', treasurer],
-                    ['Secretary', secretary]
-                ]) {
+                ['Chairperson', chairperson],
+                ['Treasurer', treasurer],
+                ['Secretary', secretary]
+            ]) {
                 if (!official.name) {
                     showAlert(`${label} name is required.`, 'error');
                     return;
@@ -1878,10 +1605,9 @@
                 const result = await response.json();
 
                 if (!response.ok || !result.success) {
-                    const detail = Array.isArray(result.detail) ?
-                        result.detail.map(d => d.msg).join(' | ') :
-                        (result.detail || result.message);
-
+                    const detail = Array.isArray(result.detail)
+                        ? result.detail.map(d => d.msg).join(' | ')
+                        : (result.detail || result.message);
                     throw new Error(detail || 'Chama registration failed.');
                 }
 
@@ -1922,7 +1648,6 @@
         // ============================================================
         // CHAMA CSV
         // ============================================================
-
         function handleChamaCsv(event) {
             const file = event.target.files?.[0];
 
@@ -2037,11 +1762,8 @@
         // ============================================================
         // RESET
         // ============================================================
-
         function resetIndividualForm() {
-            if (!confirm('Reset this registration form?')) {
-                return;
-            }
+            if (!confirm('Reset this registration form?')) return;
 
             elements.registrationForm.reset();
             elements.dependantsContainer.innerHTML = '';
@@ -2063,9 +1785,7 @@
         }
 
         function resetChamaForm() {
-            if (!confirm('Reset this chama registration?')) {
-                return;
-            }
+            if (!confirm('Reset this chama registration?')) return;
 
             elements.chamaForm.reset();
             parsedChamaMembers = [];
@@ -2076,7 +1796,6 @@
         // ============================================================
         // ALERTS
         // ============================================================
-
         function showAlert(message, type = 'info') {
             const alertBox = elements.alertBox;
             alertBox.className = `alert show ${type}`;
@@ -2094,29 +1813,19 @@
         // ============================================================
         // LOADING
         // ============================================================
-
         function setLoading(loading, message = 'Processing...') {
             elements.loadingText.textContent = message;
             elements.loadingBox.classList.toggle('show', loading);
 
-            if (elements.submitBtn) {
-                elements.submitBtn.disabled = loading;
-            }
-
-            if (elements.chamaSubmitBtn) {
-                elements.chamaSubmitBtn.disabled = loading;
-            }
+            if (elements.submitBtn) elements.submitBtn.disabled = loading;
+            if (elements.chamaSubmitBtn) elements.chamaSubmitBtn.disabled = loading;
         }
 
         // ============================================================
         // HTML ESCAPING
         // ============================================================
-
         function escapeHtml(value) {
-            if (value === null || value === undefined) {
-                return '';
-            }
-
+            if (value === null || value === undefined) return '';
             return String(value)
                 .replace(/&/g, '&amp;')
                 .replace(/</g, '&lt;')
@@ -2126,9 +1835,8 @@
         }
 
         // ============================================================
-        // EXPOSE FUNCTIONS
+        // EXPOSE
         // ============================================================
-
         window.removeDependant = removeDependant;
         window.addDependant = addDependant;
         window.updateSummary = updateSummary;
@@ -2140,8 +1848,8 @@
         window.escapeHtml = escapeHtml;
 
         console.log('✅ Masika registration JavaScript ready');
-        console.log('👤 Sales agents: public.sales_agents.sales_code (displayed in dropdown)');
-        console.log('👤 Registration payload field: sales_code');
+        console.log('📌 Plans are loaded from Supabase plans table (admin-pricing)');
+        console.log('📌 Sales agents: public.sales_agents.sales_code');
         console.log('🆔 Payment identifier: member_id');
     </script>
 
