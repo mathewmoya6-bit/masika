@@ -42,10 +42,14 @@ except ImportError:
     create_client = None
 
 try:
-    import requests
+    import httpx
 except ImportError:
-    print("requests not installed. M-Pesa features will be disabled.")
-    requests = None
+    print("httpx not installed. Run: pip install httpx. M-Pesa features will be disabled.")
+    httpx = None
+
+import asyncio
+import ipaddress
+import json as _json
 
 try:
     import jwt
@@ -81,13 +85,52 @@ SECRET_KEY = os.getenv("SECRET_KEY", "your-secret-key-change-in-production")
 ALGORITHM = os.getenv("ALGORITHM", "HS256")
 ACCESS_TOKEN_EXPIRE_MINUTES = int(os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES", "1440"))
 
+APP_ENVIRONMENT = os.getenv("ENVIRONMENT", "development").lower()
+_PLACEHOLDER_SECRETS = {"your-secret-key-change-in-production", "your-secret-key-here", ""}
+if APP_ENVIRONMENT == "production" and SECRET_KEY in _PLACEHOLDER_SECRETS:
+    raise RuntimeError(
+        "ENVIRONMENT=production but SECRET_KEY is still a placeholder value. "
+        "This key signs every login JWT — generate a real one "
+        "(python -c \"import secrets; print(secrets.token_urlsafe(48))\") "
+        "and set it on Render before deploying."
+    )
+
 # M-Pesa Configuration
+# NOTE: no fallback default for the shortcode in production — the sandbox
+# value 174379 must never silently apply to a production deploy.
 MPESA_CONSUMER_KEY = os.getenv("MPESA_CONSUMER_KEY", "")
 MPESA_CONSUMER_SECRET = os.getenv("MPESA_CONSUMER_SECRET", "")
 MPESA_PASSKEY = os.getenv("MPESA_PASSKEY", "")
 MPESA_SHORTCODE = os.getenv("MPESA_SHORTCODE", "174379")
-MPESA_ENVIRONMENT = os.getenv("MPESA_ENVIRONMENT", "sandbox")
-BASE_URL = os.getenv("BASE_URL", "https://masika-c921.onrender.com")
+MPESA_ENVIRONMENT = os.getenv("MPESA_ENVIRONMENT", "sandbox").lower()
+BASE_URL = os.getenv("BASE_URL", "https://masika-c921.onrender.com").rstrip("/")
+
+# If MPESA_CALLBACK_URL is set explicitly, it wins over BASE_URL + a hardcoded
+# path — that way whatever's actually configured on Render is the source of
+# truth instead of a guessed default. The route this points to is registered
+# below (both /api/public/payment/callback and this path serve the same
+# handler, so whichever one Safaricom is actually configured to hit works).
+MPESA_CALLBACK_URL_OVERRIDE = os.getenv("MPESA_CALLBACK_URL", "").strip().rstrip("/")
+MPESA_CALLBACK_URL = MPESA_CALLBACK_URL_OVERRIDE or f"{BASE_URL}/api/public/payment/callback"
+
+# How long to wait on Safaricom's own API before giving up on a single attempt,
+# and how many times to retry a transient (network/5xx/timeout) failure.
+MPESA_TIMEOUT_SECONDS = float(os.getenv("MPESA_TIMEOUT_SECONDS", "20"))
+MPESA_MAX_RETRIES = int(os.getenv("MPESA_MAX_RETRIES", "2"))
+
+# Shared secret required on the internal reconciliation endpoint
+# (guards against anyone hitting it to force-poll M-Pesa on your credentials).
+RECONCILE_SECRET = os.getenv("RECONCILE_SECRET", "")
+
+# Optional allowlist for the /payment/callback webhook, as a comma-separated
+# list of IPs or CIDR ranges. Safaricom publishes its Daraja callback source
+# ranges in the Daraja portal docs — copy the current list into this env var
+# rather than hardcoding it here, since Safaricom can change it. Leave unset
+# to skip IP filtering (rely on unguessable checkout_request_id + idempotency
+# instead, which is safe on its own but IP filtering is defense in depth).
+MPESA_CALLBACK_IP_WHITELIST = [
+    ip.strip() for ip in os.getenv("MPESA_CALLBACK_IP_WHITELIST", "").split(",") if ip.strip()
+]
 
 # M-Pesa URLs
 if MPESA_ENVIRONMENT == "production":
@@ -98,6 +141,24 @@ else:
 MPESA_AUTH_URL = f"{MPESA_BASE_URL}/oauth/v1/generate?grant_type=client_credentials"
 MPESA_STK_PUSH_URL = f"{MPESA_BASE_URL}/mpesa/stkpush/v1/processrequest"
 MPESA_STK_QUERY_URL = f"{MPESA_BASE_URL}/mpesa/stkpushquery/v1/query"
+
+# Fail fast rather than silently taking live payments against sandbox
+# defaults or an unreachable callback URL.
+if MPESA_ENVIRONMENT == "production":
+    _mpesa_errors = []
+    if not MPESA_CONSUMER_KEY or not MPESA_CONSUMER_SECRET:
+        _mpesa_errors.append("MPESA_CONSUMER_KEY / MPESA_CONSUMER_SECRET not set")
+    if not MPESA_PASSKEY:
+        _mpesa_errors.append("MPESA_PASSKEY not set")
+    if MPESA_SHORTCODE == "174379":
+        _mpesa_errors.append("MPESA_SHORTCODE is still the sandbox default (174379)")
+    if not MPESA_CALLBACK_URL.startswith("https://"):
+        _mpesa_errors.append("MPESA_CALLBACK_URL (or BASE_URL) must resolve to a public HTTPS URL for Safaricom's callback")
+    if _mpesa_errors:
+        raise RuntimeError(
+            "MPESA_ENVIRONMENT=production but M-Pesa config is incomplete: "
+            + "; ".join(_mpesa_errors)
+        )
 
 # ============================================================
 # SUPABASE CLIENT
@@ -508,17 +569,74 @@ def get_member_safe(member: dict) -> dict:
 # M-PESA HELPERS
 # ============================================================
 
-def get_mpesa_access_token() -> Optional[str]:
-    if not requests or not MPESA_CONSUMER_KEY or not MPESA_CONSUMER_SECRET:
+# Shared, connection-pooled async client for all Daraja calls (created in
+# lifespan). A fresh client per request would open/close a TLS connection
+# every time under load — this reuses connections instead.
+mpesa_http_client: Optional["httpx.AsyncClient"] = None
+
+# Simple in-process cache for the OAuth token. Daraja tokens are valid for
+# ~3600s; requesting a new one on every STK push adds latency and can hit
+# rate limits under load. Guarded by a lock so concurrent requests don't
+# all fetch a fresh token at once.
+_mpesa_token_cache: Dict[str, Any] = {"token": None, "expires_at": None}
+_mpesa_token_lock = asyncio.Lock()
+
+
+async def _mpesa_request_with_retry(method: str, url: str, **kwargs) -> Optional["httpx.Response"]:
+    """POST/GET to Daraja with a couple of retries on transient failures
+    (timeouts, connection errors, 5xx). Does NOT retry on 4xx — those are
+    genuine request errors (bad auth, bad payload) and retrying won't help.
+    """
+    if not mpesa_http_client:
         return None
-    try:
+    last_exc = None
+    for attempt in range(MPESA_MAX_RETRIES + 1):
+        try:
+            response = await mpesa_http_client.request(method, url, **kwargs)
+            if response.status_code >= 500 and attempt < MPESA_MAX_RETRIES:
+                logger.warning(f"M-Pesa {url} returned {response.status_code}, retrying (attempt {attempt + 1})")
+                await asyncio.sleep(0.5 * (2 ** attempt))
+                continue
+            return response
+        except (httpx.TimeoutException, httpx.ConnectError, httpx.ReadError) as e:
+            last_exc = e
+            if attempt < MPESA_MAX_RETRIES:
+                logger.warning(f"M-Pesa {url} failed ({e}), retrying (attempt {attempt + 1})")
+                await asyncio.sleep(0.5 * (2 ** attempt))
+                continue
+    if last_exc:
+        logger.error(f"M-Pesa {url} failed after retries: {last_exc}")
+    return None
+
+
+async def get_mpesa_access_token() -> Optional[str]:
+    """Return a cached OAuth token, refreshing it shortly before expiry."""
+    if not httpx or not MPESA_CONSUMER_KEY or not MPESA_CONSUMER_SECRET:
+        return None
+
+    async with _mpesa_token_lock:
+        cached = _mpesa_token_cache.get("token")
+        expires_at = _mpesa_token_cache.get("expires_at")
+        if cached and expires_at and datetime.now() < expires_at:
+            return cached
+
         auth = base64.b64encode(f"{MPESA_CONSUMER_KEY}:{MPESA_CONSUMER_SECRET}".encode()).decode()
-        response = requests.get(MPESA_AUTH_URL, headers={"Authorization": f"Basic {auth}"}, timeout=30)
-        if response.status_code == 200:
-            return response.json().get("access_token")
-        return None
-    except:
-        return None
+        response = await _mpesa_request_with_retry(
+            "GET", MPESA_AUTH_URL, headers={"Authorization": f"Basic {auth}"}
+        )
+        if response is None or response.status_code != 200:
+            logger.error(f"Failed to obtain M-Pesa access token: {response.status_code if response else 'no response'}")
+            return None
+
+        data = response.json()
+        token = data.get("access_token")
+        # Daraja returns expires_in (seconds, typically 3599). Refresh a
+        # minute early to avoid using a token that expires mid-request.
+        expires_in = int(data.get("expires_in", 3599))
+        _mpesa_token_cache["token"] = token
+        _mpesa_token_cache["expires_at"] = datetime.now() + timedelta(seconds=max(expires_in - 60, 30))
+        return token
+
 
 def generate_mpesa_password(shortcode: str, passkey: str, timestamp: str) -> str:
     return base64.b64encode(f"{shortcode}{passkey}{timestamp}".encode()).decode()
@@ -530,11 +648,35 @@ def format_phone_number(phone: str) -> str:
     phone = re.sub(r'\D', '', phone)
     if phone.startswith('0'):
         phone = '254' + phone[1:]
-    elif phone.startswith('7'):
+    elif phone.startswith('7') or phone.startswith('1'):
         phone = '254' + phone
-    elif phone.startswith('+254'):
-        phone = phone[1:]
+    elif phone.startswith('254'):
+        pass
     return phone
+
+
+def is_ip_allowed(client_ip: Optional[str]) -> bool:
+    """Check the callback source IP against MPESA_CALLBACK_IP_WHITELIST.
+    If no whitelist is configured, allow everything (idempotency + the
+    unguessable checkout_request_id are still enforced downstream)."""
+    if not MPESA_CALLBACK_IP_WHITELIST:
+        return True
+    if not client_ip:
+        return False
+    try:
+        addr = ipaddress.ip_address(client_ip)
+    except ValueError:
+        return False
+    for entry in MPESA_CALLBACK_IP_WHITELIST:
+        try:
+            if "/" in entry:
+                if addr in ipaddress.ip_network(entry, strict=False):
+                    return True
+            elif addr == ipaddress.ip_address(entry):
+                return True
+        except ValueError:
+            continue
+    return False
 
 # ============================================================
 # CREATE FASTAPI APP
@@ -542,14 +684,29 @@ def format_phone_number(phone: str) -> str:
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    logger.info("Starting Masika Benevolent API...")
+    global mpesa_http_client
+    logger.info(f"Starting Masika Benevolent API... (M-Pesa environment: {MPESA_ENVIRONMENT})")
     if supabase:
         try:
             supabase.table("members").select("count", count="exact").limit(1).execute()
             logger.info("Database connection successful")
         except Exception as e:
             logger.error(f"Database connection failed: {e}")
+
+    if httpx:
+        mpesa_http_client = httpx.AsyncClient(timeout=MPESA_TIMEOUT_SECONDS)
+        logger.info("M-Pesa HTTP client initialized")
+        if MPESA_ENVIRONMENT == "production" and not MPESA_CALLBACK_IP_WHITELIST:
+            logger.warning(
+                "MPESA_CALLBACK_IP_WHITELIST is not set in production — the callback "
+                "endpoint will accept requests from any source IP. Idempotency checks "
+                "still protect the payment record, but consider setting this."
+            )
+
     yield
+
+    if mpesa_http_client:
+        await mpesa_http_client.aclose()
     logger.info("Shutting down Masika Benevolent API...")
 
 app = FastAPI(
@@ -566,9 +723,16 @@ app = FastAPI(
 # CORS
 # ============================================================
 
+# Reads ALLOWED_ORIGINS from env (comma-separated) — set on Render to
+# https://www.masikabbs.com,https://masikabbs.com. Falls back to "*" only
+# when unset (e.g. local dev), since "*" combined with allow_credentials=True
+# means any site can make authenticated requests using a visitor's token.
+_allowed_origins_env = os.getenv("ALLOWED_ORIGINS", "").strip()
+ALLOWED_ORIGINS = [o.strip() for o in _allowed_origins_env.split(",") if o.strip()] or ["*"]
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=ALLOWED_ORIGINS,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -589,7 +753,8 @@ async def health_check():
         "service": "masika-benevolent-api",
         "version": "2.0.0",
         "database": "connected" if supabase else "disconnected",
-        "mpesa": "configured" if MPESA_CONSUMER_KEY else "not configured"
+        "mpesa": "configured" if MPESA_CONSUMER_KEY else "not configured",
+        "mpesa_environment": MPESA_ENVIRONMENT
     }
 
 # ============================================================
@@ -1021,12 +1186,18 @@ async def initiate_stk_push(request: STKPushRequest):
 
 async def initiate_mpesa_stk_push(phone: str, amount: float, transaction_id: str, description: str = "Masika Benevolent Payment") -> dict:
     """Initiate M-Pesa STK push."""
-    if not requests:
-        return {"success": False, "message": "Requests library not available"}
+    if not httpx or not mpesa_http_client:
+        return {"success": False, "message": "HTTP client not available"}
 
-    token = get_mpesa_access_token()
+    token = await get_mpesa_access_token()
     if not token:
         return {"success": False, "message": "Failed to get M-Pesa access token"}
+
+    # Daraja rejects fractional amounts — round to the nearest whole shilling
+    # rather than truncating, so a KES 199.60 charge doesn't silently become 199.
+    whole_amount = round(amount)
+    if whole_amount <= 0:
+        return {"success": False, "message": "Amount must round to at least KES 1"}
 
     timestamp = generate_timestamp()
     password = generate_mpesa_password(MPESA_SHORTCODE, MPESA_PASSKEY, timestamp)
@@ -1036,22 +1207,24 @@ async def initiate_mpesa_stk_push(phone: str, amount: float, transaction_id: str
         "Password": password,
         "Timestamp": timestamp,
         "TransactionType": "CustomerPayBillOnline",
-        "Amount": int(amount),
+        "Amount": whole_amount,
         "PartyA": phone,
         "PartyB": MPESA_SHORTCODE,
         "PhoneNumber": phone,
-        "CallBackURL": f"{BASE_URL}/api/public/payment/callback",
+        "CallBackURL": MPESA_CALLBACK_URL,
         "AccountReference": transaction_id[:12],
         "TransactionDesc": description[:20]
     }
 
     try:
-        response = requests.post(
-            MPESA_STK_PUSH_URL,
+        response = await _mpesa_request_with_retry(
+            "POST", MPESA_STK_PUSH_URL,
             json=payload,
-            headers={"Authorization": f"Bearer {token}"},
-            timeout=30
+            headers={"Authorization": f"Bearer {token}"}
         )
+
+        if response is None:
+            return {"success": False, "message": "M-Pesa request failed after retries"}
 
         if response.status_code == 200:
             data = response.json()
@@ -1065,6 +1238,13 @@ async def initiate_mpesa_stk_push(phone: str, amount: float, transaction_id: str
                 logger.error(f"M-Pesa error: {data}")
                 return {"success": False, "message": data.get("ResponseDescription", "STK push failed")}
 
+        # 401 usually means the cached token was stale — clear it so the
+        # next attempt fetches a fresh one instead of reusing a dead token.
+        if response.status_code == 401:
+            _mpesa_token_cache["token"] = None
+            _mpesa_token_cache["expires_at"] = None
+
+        logger.error(f"M-Pesa STK push HTTP {response.status_code}: {response.text[:500]}")
         return {"success": False, "message": f"HTTP {response.status_code}"}
 
     except Exception as e:
@@ -1134,11 +1314,12 @@ async def get_payment_status(checkout_request_id: str):
         raise HTTPException(status_code=400, detail=f"Status check failed: {str(e)}")
 
 async def query_mpesa_transaction_status(checkout_request_id: str) -> dict:
-    """Query M-Pesa transaction status."""
-    if not requests:
+    """Query M-Pesa transaction status (used both for on-demand polling from
+    the status endpoint and for the reconciliation sweep below)."""
+    if not httpx or not mpesa_http_client:
         return {"success": False}
 
-    token = get_mpesa_access_token()
+    token = await get_mpesa_access_token()
     if not token:
         return {"success": False}
 
@@ -1153,25 +1334,36 @@ async def query_mpesa_transaction_status(checkout_request_id: str) -> dict:
     }
 
     try:
-        response = requests.post(
-            MPESA_STK_QUERY_URL,
+        response = await _mpesa_request_with_retry(
+            "POST", MPESA_STK_QUERY_URL,
             json=payload,
-            headers={"Authorization": f"Bearer {token}"},
-            timeout=30
+            headers={"Authorization": f"Bearer {token}"}
         )
+
+        if response is None:
+            return {"success": False}
 
         if response.status_code == 200:
             data = response.json()
-            if data.get("ResultCode") == "0":
+            # ResultCode comes back as a string on some Daraja responses and
+            # an int on others — compare as string to handle both.
+            result_code = str(data.get("ResultCode", ""))
+            if result_code == "0":
                 return {
                     "success": True,
-                    "receipt": data.get("ReceiptNumber")
+                    "receipt": data.get("ReceiptNumber") or data.get("MpesaReceiptNumber")
                 }
-            elif data.get("ResultCode") == "1037":
+            elif result_code == "1037":
+                # 1037 = "DS timeout user cannot be reached" — still pending,
+                # not a hard failure; the user may retry the prompt.
                 return {"success": False, "pending": True}
+            elif result_code == "1032":
+                # 1032 = user cancelled the STK prompt on their phone.
+                return {"success": False, "failed": True, "reason": "Cancelled by user"}
             else:
-                return {"success": False, "failed": True}
+                return {"success": False, "failed": True, "reason": data.get("ResultDesc")}
 
+        logger.error(f"M-Pesa status query HTTP {response.status_code}: {response.text[:500]}")
         return {"success": False}
 
     except Exception as e:
@@ -1185,13 +1377,34 @@ async def query_mpesa_transaction_status(checkout_request_id: str) -> dict:
 @public_router.post("/payment/callback")
 async def payment_callback(request: Request):
     """
-    M-Pesa payment callback webhook.
-    Called by Safaricom when the STK transaction completes.
+    M-Pesa payment callback webhook. Called by Safaricom when the STK
+    transaction completes (success, user cancellation, or timeout).
+
+    Registered at two paths (see the app.post alias right after this router
+    is included below) — /api/public/payment/callback, which is what the
+    outgoing STK payload's CallBackURL defaults to, and /api/webhooks/mpesa,
+    which is what MPESA_CALLBACK_URL was set to on Render. Whichever one
+    Safaricom actually calls, both land here.
+
+    Always returns {"ResultCode": 0} to Safaricom once the payload is
+    parsed — even if our own processing hits an error — because returning
+    a non-zero code makes Daraja retry the callback, and retries won't fix
+    a bug on our side, they'll just resend the same webhook repeatedly.
     """
+    client_ip = request.client.host if request.client else None
+    if not is_ip_allowed(client_ip):
+        logger.warning(f"Rejected M-Pesa callback from disallowed IP: {client_ip}")
+        raise HTTPException(status_code=403, detail="Forbidden")
+
     try:
         data = await request.json()
-        logger.info(f"Payment callback received: {data}")
+    except Exception as e:
+        logger.error(f"Payment callback: could not parse JSON body: {e}")
+        return {"ResultCode": 0, "ResultDesc": "Success"}
 
+    logger.info(f"Payment callback received from {client_ip}: {data}")
+
+    try:
         body = data.get("Body", {})
         stk_callback = body.get("stkCallback", {})
 
@@ -1200,49 +1413,136 @@ async def payment_callback(request: Request):
         checkout_request_id = stk_callback.get("CheckoutRequestID")
         callback_metadata = stk_callback.get("CallbackMetadata", {})
 
+        if not checkout_request_id:
+            logger.warning("Payment callback missing CheckoutRequestID — ignoring")
+            return {"ResultCode": 0, "ResultDesc": "Success"}
+
+        payment_result = supabase.table("payments").select("*").eq("checkout_request_id", checkout_request_id).execute()
+        if not payment_result.data:
+            logger.warning(f"Payment not found for checkout_request_id: {checkout_request_id}")
+            return {"ResultCode": 0, "ResultDesc": "Success"}
+
+        payment = payment_result.data[0]
+
+        # Idempotency: Safaricom can and does resend the same callback
+        # (network retries on their end). If we've already resolved this
+        # payment, don't reactivate the member or overwrite the receipt.
+        if payment.get("status") in ("completed", "failed"):
+            logger.info(f"Duplicate callback for already-{payment.get('status')} payment {checkout_request_id} — ignoring")
+            return {"ResultCode": 0, "ResultDesc": "Success"}
+
         if result_code == 0:
             mpesa_receipt = None
-            amount = None
-
             items = callback_metadata.get("Item", [])
             for item in items:
                 if item.get("Name") == "MpesaReceiptNumber":
                     mpesa_receipt = item.get("Value")
-                elif item.get("Name") == "Amount":
-                    amount = item.get("Value")
 
-            payment_result = supabase.table("payments").select("*").eq("checkout_request_id", checkout_request_id).execute()
-            if payment_result.data:
-                payment = payment_result.data[0]
-
-                update_data = {
-                    "status": "completed",
-                    "mpesa_receipt": mpesa_receipt,
-                    "updated_at": datetime.now().isoformat()
-                }
+            update_data = {
+                "status": "completed",
+                "mpesa_receipt": mpesa_receipt,
+                "updated_at": datetime.now().isoformat()
+            }
+            try:
                 supabase.table("payments").update(update_data).eq("id", payment["id"]).execute()
+            except Exception:
+                # Older schemas may not have every column below yet — retry
+                # with just the fields we know exist rather than losing the
+                # receipt entirely because of one unrecognized column.
+                supabase.table("payments").update({
+                    "status": "completed",
+                    "mpesa_receipt": mpesa_receipt
+                }).eq("id", payment["id"]).execute()
 
-                await activate_registration(payment)
-
-                logger.info(f"Payment completed: {checkout_request_id}, receipt: {mpesa_receipt}")
-            else:
-                logger.warning(f"Payment not found for checkout_request_id: {checkout_request_id}")
+            await activate_registration(payment)
+            logger.info(f"Payment completed: {checkout_request_id}, receipt: {mpesa_receipt}")
         else:
-            logger.error(f"Payment failed: {checkout_request_id} - {result_desc}")
-
-            payment_result = supabase.table("payments").select("*").eq("checkout_request_id", checkout_request_id).execute()
-            if payment_result.data:
+            logger.info(f"Payment not completed: {checkout_request_id} - {result_desc}")
+            try:
                 supabase.table("payments").update({
                     "status": "failed",
                     "failure_reason": result_desc,
                     "updated_at": datetime.now().isoformat()
-                }).eq("id", payment_result.data[0]["id"]).execute()
+                }).eq("id", payment["id"]).execute()
+            except Exception:
+                supabase.table("payments").update({"status": "failed"}).eq("id", payment["id"]).execute()
 
         return {"ResultCode": 0, "ResultDesc": "Success"}
 
     except Exception as e:
-        logger.error(f"Payment callback error: {e}")
-        return {"ResultCode": 1, "ResultDesc": "Failed"}
+        logger.error(f"Payment callback processing error: {e}")
+        # Still ack with ResultCode 0 — see docstring above.
+        return {"ResultCode": 0, "ResultDesc": "Success"}
+
+# ------------------------------------------------------------
+# 8b. RECONCILIATION SWEEP (for STK pushes whose callback never arrives)
+# ------------------------------------------------------------
+# Safaricom's callback is a best-effort webhook — it can be delayed, dropped,
+# or fail to reach us (deploy restart, transient network issue). Without a
+# sweep, a member who paid but whose callback was lost stays stuck on
+# "pending" forever. Call this on a schedule (e.g. a Render cron job hitting
+# it every few minutes) with the shared secret in the X-Reconcile-Key header.
+
+@public_router.post("/payment/reconcile")
+async def reconcile_pending_payments(request: Request, older_than_minutes: int = 2, limit: int = 25):
+    """
+    Actively poll M-Pesa for any payment still 'pending' with a
+    checkout_request_id older than `older_than_minutes`, and resolve it the
+    same way the callback would. Protected by RECONCILE_SECRET since it
+    triggers real calls against your M-Pesa credentials.
+    """
+    if not RECONCILE_SECRET:
+        raise HTTPException(status_code=503, detail="Reconciliation is not configured (RECONCILE_SECRET unset)")
+    if request.headers.get("X-Reconcile-Key") != RECONCILE_SECRET:
+        raise HTTPException(status_code=403, detail="Forbidden")
+    if not supabase:
+        raise HTTPException(status_code=500, detail="Database not available")
+
+    cutoff = (datetime.now() - timedelta(minutes=older_than_minutes)).isoformat()
+
+    pending = (
+        supabase.table("payments")
+        .select("*")
+        .eq("status", "pending")
+        .not_.is_("checkout_request_id", "null")
+        .lte("created_at", cutoff)
+        .limit(limit)
+        .execute()
+    )
+
+    resolved, still_pending, errors = [], [], []
+
+    for payment in (pending.data or []):
+        checkout_request_id = payment.get("checkout_request_id")
+        try:
+            result = await query_mpesa_transaction_status(checkout_request_id)
+            if result.get("success"):
+                supabase.table("payments").update({
+                    "status": "completed",
+                    "mpesa_receipt": result.get("receipt"),
+                    "updated_at": datetime.now().isoformat()
+                }).eq("id", payment["id"]).execute()
+                await activate_registration(payment)
+                resolved.append({"checkout_request_id": checkout_request_id, "outcome": "completed"})
+            elif result.get("failed"):
+                supabase.table("payments").update({
+                    "status": "failed",
+                    "updated_at": datetime.now().isoformat()
+                }).eq("id", payment["id"]).execute()
+                resolved.append({"checkout_request_id": checkout_request_id, "outcome": "failed"})
+            else:
+                still_pending.append(checkout_request_id)
+        except Exception as e:
+            logger.error(f"Reconciliation error for {checkout_request_id}: {e}")
+            errors.append(checkout_request_id)
+
+    return {
+        "success": True,
+        "checked": len(pending.data or []),
+        "resolved": resolved,
+        "still_pending": still_pending,
+        "errors": errors
+    }
 
 # ------------------------------------------------------------
 # 9. ACTIVATE REGISTRATION
@@ -1428,6 +1728,13 @@ async def get_id_card(member_id: str):
 # /api/public/* route defined above never gets mounted on the app,
 # so FastAPI returns 404 for all of them.
 app.include_router(public_router)
+
+# Alias so the callback also works at whatever path MPESA_CALLBACK_URL is set
+# to on Render (currently /api/webhooks/mpesa) — same handler, same
+# idempotency/IP-allowlist logic, just reachable at both URLs so a mismatch
+# between "what the STK payload says" and "what's configured in the env var"
+# can't silently 404 a real payment callback.
+app.post("/api/webhooks/mpesa", tags=["Public"])(payment_callback)
 
 # ============================================================
 # AUTH ROUTES
