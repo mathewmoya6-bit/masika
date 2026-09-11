@@ -1,0 +1,720 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Member Details | Masika Benevolent</title>
+    <meta name="description" content="Member details, dependants and payment statement.">
+
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        :root {
+            --primary: #0b5d3b;
+            --primary-dark: #06452c;
+            --primary-light: #e8f5ee;
+            --gold: #d4a843;
+            --gold-light: #f5e6b8;
+            --danger: #dc3545;
+            --danger-light: #fce4e8;
+            --success: #198754;
+            --success-light: #d4edda;
+            --warning: #ffc107;
+            --warning-light: #fff3cd;
+            --info: #0dcaf0;
+            --info-light: #d1f0f9;
+            --text: #1f2933;
+            --text-light: #6b7280;
+            --text-lighter: #9ca3af;
+            --white: #ffffff;
+            --gray-50: #f9fafb;
+            --gray-100: #f3f4f6;
+            --gray-200: #e5e7eb;
+            --gray-300: #d1d5db;
+            --gray-400: #9ca3af;
+            --shadow: 0 2px 12px rgba(0,0,0,0.08);
+            --shadow-hover: 0 4px 24px rgba(0,0,0,0.12);
+            --radius: 12px;
+            --radius-lg: 16px;
+            --transition: all 0.3s ease;
+        }
+
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif;
+            background: #f0f4f2;
+            color: var(--text);
+            min-height: 100vh;
+        }
+
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        ::-webkit-scrollbar-track { background: var(--gray-100); border-radius: 10px; }
+        ::-webkit-scrollbar-thumb { background: var(--gray-300); border-radius: 10px; }
+        ::-webkit-scrollbar-thumb:hover { background: var(--gray-400); }
+
+        /* TOPBAR */
+        .topbar {
+            background: var(--primary);
+            color: white;
+            padding: 16px 32px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 12px;
+            position: sticky;
+            top: 0;
+            z-index: 100;
+            box-shadow: 0 2px 12px rgba(0,0,0,0.1);
+        }
+        .topbar .brand { display: flex; align-items: center; gap: 12px; text-decoration: none; color: white; }
+        .topbar .brand .brand-logo {
+            width: 44px; height: 44px; background: var(--gold); border-radius: 12px;
+            display: flex; align-items: center; justify-content: center;
+            font-weight: 900; font-size: 20px; color: var(--white);
+        }
+        .topbar .brand .brand-text strong { display: block; font-size: 18px; font-weight: 800; }
+        .topbar .brand .brand-text span { font-size: 12px; opacity: 0.7; font-weight: 400; }
+        .topbar .top-actions { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+
+        /* BUTTONS */
+        .btn {
+            display: inline-flex; align-items: center; gap: 8px; padding: 8px 16px;
+            border: none; border-radius: 8px; font-weight: 600; font-size: 13px;
+            cursor: pointer; transition: var(--transition); font-family: inherit; text-decoration: none;
+        }
+        .btn-primary { background: var(--primary); color: white; }
+        .btn-primary:hover { background: var(--primary-dark); transform: translateY(-2px); box-shadow: 0 4px 16px rgba(11, 93, 59, 0.3); }
+        .btn-success { background: var(--success); color: white; }
+        .btn-success:hover { background: #157347; transform: translateY(-2px); box-shadow: 0 4px 16px rgba(25, 135, 84, 0.3); }
+        .btn-danger { background: var(--danger); color: white; }
+        .btn-danger:hover { background: #c82333; transform: translateY(-2px); box-shadow: 0 4px 16px rgba(220, 53, 69, 0.3); }
+        .btn-secondary { background: var(--gray-200); color: var(--text); }
+        .btn-secondary:hover { background: var(--gray-300); transform: translateY(-2px); }
+        .btn-gold { background: var(--gold); color: white; }
+        .btn-gold:hover { background: #c49a3a; transform: translateY(-2px); box-shadow: 0 4px 16px rgba(212, 168, 67, 0.3); }
+        .btn-light { background: rgba(255,255,255,0.15); color: white; }
+        .btn-light:hover { background: rgba(255,255,255,0.25); }
+        .btn-outline-light { background: transparent; border: 2px solid rgba(255,255,255,0.2); color: white; }
+        .btn-outline-light:hover { background: rgba(255,255,255,0.1); border-color: rgba(255,255,255,0.4); }
+        .btn-sm { padding: 4px 12px; font-size: 12px; border-radius: 6px; }
+
+        .container { max-width: 1200px; margin: 0 auto; padding: 24px 32px; }
+
+        /* PAGE HEADER */
+        .page-header {
+            display: flex; justify-content: space-between; align-items: flex-start;
+            flex-wrap: wrap; gap: 16px; margin-bottom: 24px;
+        }
+        .page-header h1 { font-size: 26px; font-weight: 800; letter-spacing: -0.5px; }
+        .page-header h1 small { font-size: 14px; font-weight: 400; color: var(--text-light); display: block; margin-top: 4px; }
+        .page-header .actions { display: flex; gap: 10px; flex-wrap: wrap; }
+
+        /* CARDS */
+        .card {
+            background: white; border-radius: var(--radius); padding: 24px;
+            box-shadow: var(--shadow); margin-bottom: 24px; transition: var(--transition);
+        }
+        .card:hover { box-shadow: var(--shadow-hover); }
+        .card-header {
+            display: flex; justify-content: space-between; align-items: center;
+            margin-bottom: 16px; padding-bottom: 12px; border-bottom: 1px solid var(--gray-200);
+            flex-wrap: wrap; gap: 10px;
+        }
+        .card-header h2 { font-size: 17px; font-weight: 700; display: flex; align-items: center; gap: 10px; }
+
+        /* ALERT */
+        .alert { display: none; padding: 12px 16px; border-radius: 8px; font-size: 14px; margin-bottom: 20px; }
+        .alert.show { display: block; }
+        .alert.error { background: var(--danger-light); color: var(--danger); }
+        .alert.info { background: var(--info-light); color: #055160; }
+        .alert.success { background: var(--success-light); color: var(--success); }
+        .alert.warning { background: var(--warning-light); color: #856404; }
+
+        /* IDENTITY BLOCK */
+        .identity-block { display: flex; align-items: center; gap: 18px; margin-bottom: 4px; }
+        .identity-avatar {
+            width: 64px; height: 64px; border-radius: 50%; background: var(--primary-light);
+            color: var(--primary); display: flex; align-items: center; justify-content: center;
+            font-weight: 800; font-size: 22px; flex-shrink: 0;
+        }
+        .identity-name { font-size: 20px; font-weight: 800; }
+        .identity-sub { font-size: 13px; color: var(--text-light); margin-top: 2px; display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
+
+        /* KEY-VALUE GRID */
+        .kv-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+            gap: 16px 24px;
+        }
+        .kv-item { min-width: 0; }
+        .kv-label {
+            font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px;
+            color: var(--text-light); font-weight: 600; margin-bottom: 3px;
+        }
+        .kv-value { font-size: 14.5px; font-weight: 600; color: var(--text); word-break: break-word; }
+        .kv-value.muted { color: var(--text-lighter); font-weight: 500; font-style: italic; }
+
+        /* STATS */
+        .stats-grid {
+            display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+            gap: 16px; margin-bottom: 24px;
+        }
+        .stat-card {
+            background: white; border-radius: var(--radius); padding: 18px 22px;
+            box-shadow: var(--shadow); border-left: 4px solid var(--primary);
+        }
+        .stat-card.success { border-left-color: var(--success); }
+        .stat-card.gold { border-left-color: var(--gold); }
+        .stat-card.blue { border-left-color: var(--info); }
+        .stat-card .stat-value { font-size: 26px; font-weight: 800; letter-spacing: -0.5px; }
+        .stat-card .stat-label { font-size: 12.5px; color: var(--text-light); font-weight: 500; }
+
+        /* STATUS BADGES */
+        .status-badge {
+            display: inline-block; padding: 3px 12px; border-radius: 20px;
+            font-size: 12px; font-weight: 600; white-space: nowrap;
+        }
+        .status-badge.active, .status-badge.completed, .status-badge.paid, .status-badge.successful { background: var(--success-light); color: var(--success); }
+        .status-badge.inactive, .status-badge.failed, .status-badge.cancelled, .status-badge.canceled { background: var(--danger-light); color: var(--danger); }
+        .status-badge.pending { background: var(--warning-light); color: #856404; }
+        .status-badge.comfort { background: #e8f5e9; color: #2e7d32; }
+        .status-badge.dignity { background: #e3f2fd; color: #0d47a1; }
+        .status-badge.wazazi { background: #f3e5f5; color: #4a148c; }
+        .status-badge.default { background: var(--gray-100); color: var(--text-light); }
+
+        /* TABLE */
+        .table-wrapper { overflow-x: auto; border-radius: 8px; }
+        table { width: 100%; border-collapse: collapse; font-size: 13.5px; }
+        table thead { background: var(--gray-50); }
+        table thead th {
+            padding: 10px 14px; text-align: left; font-weight: 600; font-size: 11.5px;
+            text-transform: uppercase; letter-spacing: 0.5px; color: var(--text-light); white-space: nowrap;
+        }
+        table tbody td { padding: 10px 14px; border-bottom: 1px solid var(--gray-100); vertical-align: middle; }
+        table tbody tr:hover { background: var(--gray-50); }
+        table tbody tr:last-child td { border-bottom: none; }
+        table tfoot td { padding: 10px 14px; font-weight: 700; border-top: 2px solid var(--gray-200); }
+
+        /* EMPTY / LOADING */
+        .empty-state { text-align: center; padding: 40px 20px; color: var(--text-light); }
+        .empty-state i { font-size: 36px; color: var(--gray-300); display: block; margin-bottom: 10px; }
+        .empty-state p { font-size: 13.5px; }
+        .loading-spinner { text-align: center; padding: 40px; }
+        .loading-spinner .spinner {
+            display: inline-block; width: 36px; height: 36px; border: 4px solid var(--gray-200);
+            border-top-color: var(--primary); border-radius: 50%; animation: spin 0.8s linear infinite;
+        }
+        @keyframes spin { to { transform: rotate(360deg); } }
+        .loading-spinner p { color: var(--text-light); margin-top: 10px; font-size: 13.5px; }
+
+        @media print {
+            .topbar, .page-header .actions, #dependantsActions, #statementActions { display: none !important; }
+            .card { box-shadow: none; border: 1px solid var(--gray-200); }
+        }
+
+        @media (max-width: 768px) {
+            .topbar { padding: 12px 16px; }
+            .container { padding: 16px; }
+            .page-header { flex-direction: column; align-items: stretch; }
+            .page-header .actions .btn { flex: 1; justify-content: center; }
+            .kv-grid { grid-template-columns: 1fr 1fr; }
+            .identity-block { flex-wrap: wrap; }
+        }
+        @media (max-width: 480px) {
+            .kv-grid { grid-template-columns: 1fr; }
+            .stats-grid { grid-template-columns: 1fr 1fr; }
+        }
+    </style>
+</head>
+<body>
+
+    <header class="topbar">
+        <a href="admin-dashboard.html" class="brand">
+            <div class="brand-logo">MB</div>
+            <div class="brand-text">
+                <strong>Masika Benevolent</strong>
+                <span>Admin Panel</span>
+            </div>
+        </a>
+        <div class="top-actions">
+            <a href="admin-dashboard.html" class="btn btn-outline-light"><i class="fas fa-chart-pie"></i> Dashboard</a>
+            <a href="admin-members.html" class="btn btn-light"><i class="fas fa-users"></i> Members</a>
+            <a href="admin-collectpayments.html" class="btn btn-outline-light"><i class="fas fa-credit-card"></i> Payments</a>
+            <a href="admin-reports.html" class="btn btn-outline-light"><i class="fas fa-file-alt"></i> Reports</a>
+            <button id="logoutBtn" class="btn btn-danger"><i class="fas fa-sign-out-alt"></i> Logout</button>
+        </div>
+    </header>
+
+    <main class="container">
+
+        <div class="page-header">
+            <div>
+                <h1 id="pageTitle">Member Details<small id="pageSubtitle">Loading…</small></h1>
+            </div>
+            <div class="actions">
+                <a href="admin-members.html" class="btn btn-secondary"><i class="fas fa-arrow-left"></i> Back to Members</a>
+                <button onclick="window.print()" class="btn btn-secondary"><i class="fas fa-print"></i> Print</button>
+                <a id="recordPaymentBtn" href="#" class="btn btn-gold" style="display:none;"><i class="fas fa-mobile-alt"></i> Record Payment</a>
+            </div>
+        </div>
+
+        <div id="alertBox" class="alert"></div>
+
+        <div id="loadingSpinner" class="loading-spinner">
+            <div class="spinner"></div>
+            <p>Loading member details...</p>
+        </div>
+
+        <div id="pageContent" style="display:none;">
+
+            <!-- MEMBER PROFILE -->
+            <div class="card">
+                <div class="card-header">
+                    <h2><i class="fas fa-id-card" style="color:var(--primary);"></i> Member Profile</h2>
+                    <span id="statusBadgeHolder"></span>
+                </div>
+
+                <div class="identity-block" style="margin-bottom:20px;">
+                    <div class="identity-avatar" id="identityInitials">–</div>
+                    <div>
+                        <div class="identity-name" id="identityName">—</div>
+                        <div class="identity-sub">
+                            <span id="identityMemberNumber">—</span>
+                            <span id="identityPlanBadge"></span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="kv-grid" id="memberKvGrid"><!-- populated by JS --></div>
+            </div>
+
+            <!-- DEPENDANTS -->
+            <div class="card">
+                <div class="card-header">
+                    <h2><i class="fas fa-user-friends" style="color:var(--primary);"></i> Dependants</h2>
+                    <span id="dependantsCount" style="font-size:13px;color:var(--text-light);">0 dependants</span>
+                </div>
+                <div class="table-wrapper">
+                    <table id="dependantsTable" style="display:none;">
+                        <thead id="dependantsThead"></thead>
+                        <tbody id="dependantsTbody"></tbody>
+                    </table>
+                </div>
+                <div id="dependantsEmpty" class="empty-state">
+                    <i class="fas fa-user-friends"></i>
+                    <p>No dependants recorded for this member.</p>
+                </div>
+            </div>
+
+            <!-- PAYMENT STATEMENT -->
+            <div class="card">
+                <div class="card-header">
+                    <h2><i class="fas fa-receipt" style="color:var(--primary);"></i> Payment Statement</h2>
+                    <div id="statementActions" style="display:flex;gap:8px;">
+                        <button onclick="exportStatement()" class="btn btn-secondary btn-sm"><i class="fas fa-download"></i> Export CSV</button>
+                    </div>
+                </div>
+
+                <div class="stats-grid" id="paymentStatsGrid" style="display:none;">
+                    <div class="stat-card success">
+                        <div class="stat-value" id="statTotalPaid">KES 0</div>
+                        <div class="stat-label">Total Paid (Completed)</div>
+                    </div>
+                    <div class="stat-card gold">
+                        <div class="stat-value" id="statPaymentCount">0</div>
+                        <div class="stat-label">Total Transactions</div>
+                    </div>
+                    <div class="stat-card blue">
+                        <div class="stat-value" id="statLastPayment">—</div>
+                        <div class="stat-label">Last Payment</div>
+                    </div>
+                </div>
+
+                <div class="table-wrapper">
+                    <table id="paymentsTable" style="display:none;">
+                        <thead id="paymentsThead"></thead>
+                        <tbody id="paymentsTbody"></tbody>
+                    </table>
+                </div>
+                <div id="paymentsEmpty" class="empty-state">
+                    <i class="fas fa-receipt"></i>
+                    <p>No payments recorded for this member yet.</p>
+                </div>
+            </div>
+
+        </div>
+
+    </main>
+
+    <script>
+        // ============================================================
+        // SUPABASE CONFIG
+        // (Real anon key — the members list page had a placeholder here;
+        // using the same project's key confirmed in payment.html.)
+        // ============================================================
+        const SUPABASE_URL = 'https://wpxzlcdrirlcyvfiquld.supabase.co';
+        const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6IndweHpsY2RyaXJsY3l2ZmlxdWxkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODc5Mjc4MDcsImV4cCI6MjEwMzUwMzgwN30.OUP9pmPbrML_egpHflZtDfLv1_UDM37_BYjtb842xjg';
+
+        const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+        const $ = id => document.getElementById(id);
+
+        // Columns we never want to show as raw "Additional Details" —
+        // either shown elsewhere (name, membership_number...) or purely internal.
+        const MEMBER_HIDDEN_KEYS = new Set([
+            'id', 'first_name', 'last_name', 'membership_number', 'plan_type',
+            'is_active', 'auth_id', 'user_id', 'password', 'password_hash'
+        ]);
+        const DEPENDANT_HIDDEN_KEYS = new Set(['id', 'member_id']);
+        const PAYMENT_HIDDEN_KEYS = new Set(['id', 'member_id', 'chama_group_id']);
+
+        // Preferred column order (used when present); anything else found
+        // on the row is appended automatically so nothing is silently hidden.
+        const MEMBER_FIELD_ORDER = [
+            'phone', 'email', 'id_number', 'national_id', 'date_of_birth', 'dob',
+            'gender', 'address', 'county', 'next_of_kin', 'next_of_kin_phone',
+            'created_at', 'updated_at'
+        ];
+        const DEPENDANT_FIELD_ORDER = ['first_name', 'last_name', 'relationship', 'date_of_birth', 'dob', 'id_number', 'created_at'];
+        const PAYMENT_FIELD_ORDER = ['created_at', 'amount', 'status', 'mpesa_receipt', 'phone', 'payment_type', 'checkout_request_id'];
+
+        let memberId = null;
+        let memberRow = null;
+        let paymentsRows = [];
+
+        document.addEventListener('DOMContentLoaded', async () => {
+            memberId = new URLSearchParams(window.location.search).get('id');
+            if (!memberId) {
+                showAlert('No member ID provided.', 'error');
+                $('loadingSpinner').style.display = 'none';
+                return;
+            }
+
+            await checkAuth();
+            await loadAll();
+        });
+
+        // ============================================================
+        // AUTH CHECK
+        // ============================================================
+        async function checkAuth() {
+            try {
+                const { data: { session }, error } = await supabase.auth.getSession();
+                if (error || !session) { window.location.href = 'admin-login.html'; return; }
+
+                const { data: admin, error: adminError } = await supabase
+                    .from('admins')
+                    .select('*')
+                    .eq('id', session.user.id)
+                    .single();
+
+                if (adminError || !admin) { window.location.href = 'admin-login.html'; return; }
+            } catch (error) {
+                console.error('Auth check error:', error);
+                window.location.href = 'admin-login.html';
+            }
+        }
+
+        // ============================================================
+        // LOAD EVERYTHING
+        // ============================================================
+        async function loadAll() {
+            try {
+                const { data, error } = await supabase
+                    .from('members')
+                    .select('*')
+                    .eq('id', memberId)
+                    .maybeSingle();
+
+                if (error || !data) {
+                    showAlert('Member not found.', 'error');
+                    $('loadingSpinner').style.display = 'none';
+                    return;
+                }
+
+                memberRow = data;
+                renderMemberProfile(memberRow);
+
+                await Promise.all([
+                    loadDependants(),
+                    loadPayments()
+                ]);
+
+                $('loadingSpinner').style.display = 'none';
+                $('pageContent').style.display = 'block';
+
+            } catch (error) {
+                console.error('Load member error:', error);
+                showAlert('Failed to load member details.', 'error');
+                $('loadingSpinner').style.display = 'none';
+            }
+        }
+
+        // ============================================================
+        // MEMBER PROFILE
+        // ============================================================
+        function renderMemberProfile(m) {
+            const name = `${m.first_name || ''} ${m.last_name || ''}`.trim() || 'Unknown Member';
+            const initials = name.split(' ').filter(Boolean).slice(0, 2).map(p => p[0].toUpperCase()).join('') || '–';
+            const planType = m.plan_type || '';
+            const isActive = !!m.is_active;
+
+            document.title = `${name} | Masika Benevolent`;
+            $('pageSubtitle').textContent = name;
+            $('identityInitials').textContent = initials;
+            $('identityName').textContent = name;
+            $('identityMemberNumber').innerHTML = `<i class="fas fa-hashtag"></i> ${escapeHTML(m.membership_number || 'Pending')}`;
+
+            if (planType) {
+                $('identityPlanBadge').innerHTML =
+                    `<span class="status-badge ${escapeHTML(planType)}">${escapeHTML(capitalize(planType))}</span>`;
+            }
+
+            $('statusBadgeHolder').innerHTML =
+                `<span class="status-badge ${isActive ? 'active' : 'inactive'}">${isActive ? 'Active' : 'Inactive'}</span>`;
+
+            // Quick-action: send this member a new payment link
+            $('recordPaymentBtn').href = `payment.html?member_id=${encodeURIComponent(memberId)}`;
+            $('recordPaymentBtn').style.display = 'inline-flex';
+
+            // Key/value grid — known fields in a sensible order, then
+            // whatever else exists on the row that isn't already shown.
+            const grid = $('memberKvGrid');
+            grid.innerHTML = '';
+
+            const seen = new Set(MEMBER_HIDDEN_KEYS);
+            const orderedKeys = [...MEMBER_FIELD_ORDER.filter(k => k in m), ...Object.keys(m).filter(k => !MEMBER_FIELD_ORDER.includes(k))];
+
+            orderedKeys.forEach(key => {
+                if (seen.has(key)) return;
+                seen.add(key);
+                const value = m[key];
+                if (value === null || value === undefined || value === '') return;
+                grid.appendChild(kvItem(humanizeKey(key), formatValue(key, value)));
+            });
+        }
+
+        // ============================================================
+        // DEPENDANTS
+        // Tries `dependants` first, falls back to `dependents` in case
+        // the table was created with the alternate spelling.
+        // ============================================================
+        async function loadDependants() {
+            let rows = null;
+
+            for (const tableName of ['dependants', 'dependents']) {
+                try {
+                    const { data, error } = await supabase
+                        .from(tableName)
+                        .select('*')
+                        .eq('member_id', memberId)
+                        .order('created_at', { ascending: true });
+
+                    if (!error) { rows = data || []; break; }
+                } catch (e) { /* try next table name */ }
+            }
+
+            if (rows === null) {
+                // Neither table name worked — treat as "no dependants" rather
+                // than surfacing a scary error for a likely-optional feature.
+                $('dependantsCount').textContent = '0 dependants';
+                $('dependantsEmpty').style.display = 'block';
+                return;
+            }
+
+            $('dependantsCount').textContent = `${rows.length} dependant${rows.length !== 1 ? 's' : ''}`;
+
+            if (!rows.length) {
+                $('dependantsEmpty').style.display = 'block';
+                $('dependantsTable').style.display = 'none';
+                return;
+            }
+
+            $('dependantsEmpty').style.display = 'none';
+            renderDynamicTable(rows, DEPENDANT_FIELD_ORDER, DEPENDANT_HIDDEN_KEYS, $('dependantsThead'), $('dependantsTbody'), $('dependantsTable'));
+        }
+
+        // ============================================================
+        // PAYMENT STATEMENT
+        // ============================================================
+        async function loadPayments() {
+            try {
+                const { data, error } = await supabase
+                    .from('payments')
+                    .select('*')
+                    .eq('member_id', memberId)
+                    .order('created_at', { ascending: false });
+
+                if (error) throw error;
+
+                paymentsRows = data || [];
+
+                if (!paymentsRows.length) {
+                    $('paymentsEmpty').style.display = 'block';
+                    $('paymentsTable').style.display = 'none';
+                    $('paymentStatsGrid').style.display = 'none';
+                    return;
+                }
+
+                $('paymentsEmpty').style.display = 'none';
+                $('paymentStatsGrid').style.display = 'grid';
+
+                // Stats — computed defensively; only sums rows that actually have an amount.
+                const completed = paymentsRows.filter(p => String(p.status || '').toUpperCase() === 'COMPLETED');
+                const totalPaid = completed.reduce((sum, p) => sum + (Number(p.amount) || 0), 0);
+                $('statTotalPaid').textContent = `KES ${totalPaid.toLocaleString()}`;
+                $('statPaymentCount').textContent = paymentsRows.length;
+                $('statLastPayment').textContent = paymentsRows[0]?.created_at
+                    ? new Date(paymentsRows[0].created_at).toLocaleDateString('en-KE')
+                    : '—';
+
+                renderDynamicTable(paymentsRows, PAYMENT_FIELD_ORDER, PAYMENT_HIDDEN_KEYS, $('paymentsThead'), $('paymentsTbody'), $('paymentsTable'));
+
+            } catch (error) {
+                console.error('Load payments error:', error);
+                $('paymentsEmpty').style.display = 'block';
+                $('paymentsEmpty').querySelector('p').textContent = 'Could not load payment statement.';
+            }
+        }
+
+        function exportStatement() {
+            if (!paymentsRows.length) {
+                showAlert('No payment statement to export.', 'warning');
+                return;
+            }
+
+            const keys = PAYMENT_FIELD_ORDER.filter(k => paymentsRows.some(r => k in r));
+            const extraKeys = Object.keys(paymentsRows[0] || {}).filter(k => !keys.includes(k) && !PAYMENT_HIDDEN_KEYS.has(k));
+            const allKeys = [...keys, ...extraKeys];
+
+            let csv = allKeys.map(k => `"${humanizeKey(k)}"`).join(',') + '\n';
+            paymentsRows.forEach(row => {
+                csv += allKeys.map(k => `"${String(row[k] ?? '').replace(/"/g, '""')}"`).join(',') + '\n';
+            });
+
+            const blob = new Blob([csv], { type: 'text/csv' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `statement_${(memberRow?.membership_number || memberId)}.csv`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+        }
+
+        // ============================================================
+        // GENERIC DYNAMIC TABLE RENDERER
+        // Builds columns from whichever keys are actually present on
+        // the rows — preferred order first, then anything left over —
+        // so a table never silently drops a field the schema has.
+        // ============================================================
+        function renderDynamicTable(rows, preferredOrder, hiddenKeys, theadEl, tbodyEl, tableEl) {
+            const presentKeys = new Set();
+            rows.forEach(r => Object.keys(r).forEach(k => { if (!hiddenKeys.has(k)) presentKeys.add(k); }));
+
+            const orderedKeys = [
+                ...preferredOrder.filter(k => presentKeys.has(k)),
+                ...[...presentKeys].filter(k => !preferredOrder.includes(k))
+            ];
+
+            theadEl.innerHTML = `<tr>${orderedKeys.map(k => `<th>${escapeHTML(humanizeKey(k))}</th>`).join('')}</tr>`;
+
+            tbodyEl.innerHTML = rows.map(row => {
+                return `<tr>${orderedKeys.map(k => `<td>${formatCell(k, row[k])}</td>`).join('')}</tr>`;
+            }).join('');
+
+            tableEl.style.display = 'table';
+        }
+
+        function formatCell(key, value) {
+            if (value === null || value === undefined || value === '') return '<span style="color:var(--text-lighter);">—</span>';
+
+            if (key === 'status') {
+                const norm = String(value).toLowerCase();
+                return `<span class="status-badge ${['completed','active','paid','successful'].includes(norm) ? 'completed' : ['failed','cancelled','canceled'].includes(norm) ? 'failed' : 'pending'}">${escapeHTML(capitalize(String(value)))}</span>`;
+            }
+            if (key === 'amount') {
+                const n = Number(value);
+                return isNaN(n) ? escapeHTML(String(value)) : `KES ${n.toLocaleString()}`;
+            }
+            if (isDateLike(key, value)) {
+                const d = new Date(value);
+                return isNaN(d.getTime()) ? escapeHTML(String(value)) : d.toLocaleString('en-KE', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+            }
+            return escapeHTML(String(value));
+        }
+
+        // ============================================================
+        // FIELD HELPERS
+        // ============================================================
+        function kvItem(label, valueHtml) {
+            const div = document.createElement('div');
+            div.className = 'kv-item';
+            div.innerHTML = `<div class="kv-label">${escapeHTML(label)}</div><div class="kv-value">${valueHtml}</div>`;
+            return div;
+        }
+
+        function formatValue(key, value) {
+            if (typeof value === 'boolean') return value ? 'Yes' : 'No';
+            if (isDateLike(key, value)) {
+                const d = new Date(value);
+                if (!isNaN(d.getTime())) {
+                    return d.toLocaleString('en-KE', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+                }
+            }
+            return escapeHTML(String(value));
+        }
+
+        function isDateLike(key, value) {
+            if (typeof value !== 'string') return false;
+            if (/(_at|_date|dob)$/i.test(key)) return true;
+            return /^\d{4}-\d{2}-\d{2}/.test(value);
+        }
+
+        function humanizeKey(key) {
+            return key.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+        }
+
+        function capitalize(str) {
+            return str ? str.charAt(0).toUpperCase() + str.slice(1) : str;
+        }
+
+        function escapeHTML(value) {
+            if (value === null || value === undefined) return '-';
+            return String(value)
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;')
+                .replace(/'/g, '&#039;');
+        }
+
+        function showAlert(message, type = 'error') {
+            const box = $('alertBox');
+            box.textContent = message;
+            box.className = `alert show ${type}`;
+            clearTimeout(box._timeout);
+            box._timeout = setTimeout(() => { box.className = 'alert'; }, 5000);
+        }
+
+        document.getElementById('logoutBtn').addEventListener('click', async function () {
+            try {
+                await supabase.auth.signOut();
+                sessionStorage.clear();
+                window.location.href = 'admin-login.html';
+            } catch (error) {
+                console.error('Logout error:', error);
+                showAlert('Failed to logout.', 'error');
+            }
+        });
+
+        window.exportStatement = exportStatement;
+    </script>
+
+</body>
+</html>
