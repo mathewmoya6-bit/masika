@@ -742,11 +742,11 @@
             if (!supabaseClient) return null;
 
             try {
-                const column = paymentState.type === 'member' ? 'member_id' : 'group_id';
+                const column = paymentState.type === 'member' ? 'member_id' : 'chama_group_id';
 
                 const { data, error } = await supabaseClient
                     .from('payments')
-                    .select('amount, expected_amount, payment_status')
+                    .select('amount, status')
                     .eq(column, paymentState.id)
                     .order('created_at', { ascending: false })
                     .limit(1)
@@ -754,7 +754,7 @@
 
                 if (error || !data) return null;
 
-                const amt = Number(data.expected_amount ?? data.amount ?? 0);
+                const amt = Number(data.amount ?? 0);
                 return amt > 0 ? amt : null;
             } catch (e) {
                 console.warn('Pending payment lookup failed:', e);
@@ -835,7 +835,7 @@
                 try {
                     const { data, error } = await supabaseClient
                         .from('members')
-                        .select('first_name, last_name, phone, membership_number, plan')
+                        .select('first_name, last_name, phone, member_number, plan')
                         .eq('id', paymentState.id)
                         .maybeSingle();
 
@@ -843,7 +843,7 @@
                         const fullName = `${data.first_name || ''} ${data.last_name || ''}`.trim();
                         if (fullName) paymentState.name = fullName;
                         paymentState.phone = data.phone || paymentState.phone;
-                        paymentState.memberNumber = data.membership_number || paymentState.memberNumber;
+                        paymentState.memberNumber = data.member_number || paymentState.memberNumber;
                         if (data.plan) paymentState.planSlug = String(data.plan).trim().toLowerCase();
                     }
                 } catch (e) {
@@ -1103,45 +1103,91 @@
 
         // ============================================================
         // CHECK PAYMENT STATUS
+        //
+        // Supabase is the ONLY source checked here. The backend
+        // `/api/public/payment/status` route returns 404 — it does not
+        // exist on the Render service — so calling it every 3 seconds
+        // was pure wasted traffic with a guaranteed failure. Once the
+        // mpesa-stk-callback Edge Function is deployed and wired to
+        // Daraja, the `payments` row this reads is exactly what that
+        // function updates, so this becomes the real-time source of
+        // truth with no backend round-trip needed at all.
         // ============================================================
+        let loggedRawStatusOnce = false;
+
+        // The backend's status route is GET /public/payment/status/{checkout_request_id}
+        // — the checkout_request_id is a URL PATH segment, not a query string.
+        // Calling it with ?member_id=... (the old code) hits a route that
+        // doesn't exist and always 404s. When it's called correctly, it's
+        // genuinely useful: on a still-pending payment it actively re-queries
+        // Daraja and resolves it right there — so polling this doubles as a
+        // lightweight, on-demand version of the /payment/reconcile sweep.
+        // Only call it every 3rd tick (~9s) to avoid hammering Daraja's API
+        // on every 3-second poll.
+        let statusPollTick = 0;
+
         async function checkPaymentStatus(reference) {
-            try {
-                const url = paymentState.type === 'member'
-                    ? `${API_BASE_URL}/public/payment/status?member_id=${encodeURIComponent(paymentState.id)}`
-                    : `${API_BASE_URL}/public/payment/status?group_id=${encodeURIComponent(paymentState.id)}`;
+            statusPollTick++;
 
-                const response = await fetch(url, {
-                    headers: { 'Accept': 'application/json' }
-                });
-
-                if (response.ok) {
-                    const data = await response.json();
-                    return data.payment_status || data.status || 'PENDING';
-                }
-            } catch (error) {
-                console.warn('Backend status check failed:', error);
-            }
-
-            if (supabaseClient) {
+            if (reference && statusPollTick % 3 === 0) {
                 try {
-                    const column = paymentState.type === 'member' ? 'member_id' : 'group_id';
-                    const { data, error } = await supabaseClient
-                        .from('payments')
-                        .select('payment_status, status')
-                        .eq(column, paymentState.id)
-                        .order('created_at', { ascending: false })
-                        .limit(1)
-                        .maybeSingle();
-
-                    if (!error && data) {
-                        return data.payment_status || data.status || 'PENDING';
+                    const response = await fetch(
+                        `${API_BASE_URL}/public/payment/status/${encodeURIComponent(reference)}`,
+                        { headers: { 'Accept': 'application/json' } }
+                    );
+                    if (response.ok) {
+                        const data = await response.json();
+                        const normalized = String(data.status || '').toUpperCase();
+                        if (normalized === 'COMPLETED') return 'COMPLETED';
+                        if (normalized === 'FAILED') return 'FAILED';
+                        // else falls through to the Supabase read below
+                    } else if (response.status !== 404) {
+                        console.warn('Backend status check returned', response.status);
                     }
                 } catch (e) {
-                    console.warn('Supabase status check failed:', e);
+                    console.warn('Backend status check failed:', e);
                 }
             }
 
-            return 'PENDING';
+            if (!supabaseClient) return 'PENDING';
+
+            try {
+                const column = paymentState.type === 'member' ? 'member_id' : 'chama_group_id';
+                const { data, error } = await supabaseClient
+                    .from('payments')
+                    .select('status, mpesa_receipt, checkout_request_id')
+                    .eq(column, paymentState.id)
+                    .order('created_at', { ascending: false })
+                    .limit(1)
+                    .maybeSingle();
+
+                if (error) {
+                    console.warn('Supabase status check failed:', error);
+                    return 'PENDING';
+                }
+
+                if (!data) {
+                    console.warn('⚠️ No payments row found yet for', column, paymentState.id);
+                    return 'PENDING';
+                }
+
+                // Log the raw row once per pending session so it's easy to
+                // see in devtools exactly what value is sitting in the
+                // database while this is stuck "pending".
+                if (!loggedRawStatusOnce) {
+                    console.log('🔎 Raw payments row:', data);
+                    loggedRawStatusOnce = true;
+                }
+
+                const normalized = String(data.status || 'PENDING').trim().toUpperCase();
+                if (normalized === 'COMPLETED') return 'COMPLETED';
+                if (normalized === 'FAILED') return 'FAILED';
+                return 'PENDING';
+
+            } catch (e) {
+                console.warn('Supabase status check failed:', e);
+                return 'PENDING';
+            }
         }
 
         // ============================================================
