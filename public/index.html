@@ -833,6 +833,10 @@
             border-color: #8a72ab;
         }
 
+        .plan-card.plan-teal {
+            border-color: #2f8f7e;
+        }
+
         .plan-badge {
             position: absolute;
             top: -14px;
@@ -856,6 +860,11 @@
         .plan-badge.badge-purple {
             background: var(--purple-gradient);
             box-shadow: 0 8px 24px rgba(107, 79, 143, 0.3);
+        }
+
+        .plan-badge.badge-teal {
+            background: linear-gradient(135deg, #124f44 0%, #2f8f7e 60%, #4fb3a0 100%);
+            box-shadow: 0 8px 24px rgba(47, 143, 126, 0.3);
         }
 
         .plan-number {
@@ -883,6 +892,10 @@
             background: var(--purple-gradient);
         }
 
+        .plan-card.plan-teal .plan-number {
+            background: linear-gradient(135deg, #124f44 0%, #2f8f7e 60%, #4fb3a0 100%);
+        }
+
         .plan-header {
             text-align: center;
             padding-bottom: 20px;
@@ -902,6 +915,10 @@
 
         .plan-card.plan-purple .plan-icon {
             color: #6b4f8f;
+        }
+
+        .plan-card.plan-teal .plan-icon {
+            color: #2f8f7e;
         }
 
         .plan-header h3 {
@@ -934,6 +951,10 @@
 
         .plan-purple .plan-price .amount {
             color: #4a3564;
+        }
+
+        .plan-teal .plan-price .amount {
+            color: #124f44;
         }
 
         .plan-price .period {
@@ -992,6 +1013,10 @@
             color: #6b4f8f;
         }
 
+        .plan-teal .plan-features li i {
+            color: #2f8f7e;
+        }
+
         .plan-features li .feature-gold {
             color: var(--gold-500);
         }
@@ -1027,6 +1052,19 @@
             width: 14px;
         }
 
+        .plan-eligibility.elig-teal {
+            background: #eaf6f3;
+            border-color: #bfe3db;
+        }
+
+        .plan-eligibility.elig-teal .elig-title {
+            color: #124f44;
+        }
+
+        .plan-eligibility.elig-teal p i {
+            color: #2f8f7e;
+        }
+
         .plan-footer {
             text-align: center;
             padding-top: 20px;
@@ -1038,6 +1076,17 @@
             margin-top: 12px;
             color: var(--text-gray);
             font-size: 13px;
+        }
+
+        .btn-teal {
+            background: linear-gradient(135deg, #124f44 0%, #2f8f7e 60%, #4fb3a0 100%);
+            color: var(--white);
+            box-shadow: 0 8px 32px rgba(47, 143, 126, 0.35);
+        }
+
+        .btn-teal:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 8px 40px rgba(47, 143, 126, 0.45);
         }
 
         /* =========================================================
@@ -2267,8 +2316,9 @@
                     </h2>
 
                     <p class="section-subtitle">
-                        Simple, caring and reliable cover — three plans designed
-                        to meet every family's unique needs and budget.
+                        Simple, caring and reliable cover — four plans designed
+                        to meet every family, group and community's unique
+                        needs and budget.
                     </p>
 
                 </div>
@@ -2422,13 +2472,13 @@
                             </h3>
 
                             <div class="plan-subtitle">
-                                Ages 70-80 Years
+                                Ages 69-80 Years
                             </div>
 
                             <div class="plan-price">
 
                                 <span class="amount">
-                                    KES 1,000
+                                    KES 100
                                 </span>
 
                                 <span class="period">
@@ -2436,14 +2486,14 @@
                                 </span>
 
                                 <span class="sub">
-                                    Just KES 40 per day
+                                    Just KES 5 per day
                                 </span>
 
                             </div>
 
                             <div class="plan-registration">
                                 <i class="fas fa-file-invoice"></i>
-                                Registration: KES 500 (one-off)
+                                Registration: KES 2,000 (one-off)
                             </div>
 
                         </div>
@@ -2679,6 +2729,150 @@
 
                     </div>
 
+                    <!-- CHAMA PLAN -->
+                    <div class="plan-card plan-teal">
+
+                        <div class="plan-number">4</div>
+
+                        <div class="plan-badge badge-teal">
+                            Groups
+                        </div>
+
+                        <div class="plan-header">
+
+                            <div class="plan-icon">
+                                <i class="fas fa-people-group"></i>
+                            </div>
+
+                            <h3>
+                                MASIKA CHAMA PLAN
+                            </h3>
+
+                            <div class="plan-subtitle">
+                                Chamas, Groups & Organizations
+                            </div>
+
+                            <div class="plan-price">
+
+                                <span class="amount">
+                                    KES 150
+                                </span>
+
+                                <span class="period">
+                                    /month
+                                </span>
+
+                                <span class="sub">
+                                    Per registered member
+                                </span>
+
+                            </div>
+
+                            <div class="plan-registration">
+                                <i class="fas fa-file-invoice"></i>
+                                Registration: KES 1,200 per member (one-off)
+                            </div>
+
+                        </div>
+
+                        <div class="plan-body">
+
+                            <ul class="plan-features">
+
+                                <li>
+                                    <i class="fas fa-check-circle"></i>
+                                    Covers every registered member of the group
+                                </li>
+
+                                <li>
+                                    <i class="fas fa-check-circle"></i>
+                                    Hearse transportation within Kenya
+                                </li>
+
+                                <li>
+                                    <i class="fas fa-check-circle"></i>
+                                    Mortuary storage
+                                    (up to 14 days, max KES 15,000)
+                                </li>
+
+                                <li>
+                                    <i class="fas fa-check-circle"></i>
+                                    Tents & chairs
+                                    (up to 200 people)
+                                </li>
+
+                                <li>
+                                    <i class="fas fa-check-circle"></i>
+                                    Gazebo & lowering gear
+                                </li>
+
+                                <li>
+                                    <i class="fas fa-check-circle"></i>
+                                    Flowers (Heart, Round, Cross)
+                                </li>
+
+                                <li>
+                                    <i class="fas fa-check-circle"></i>
+                                    PA system (max KES 5,000)
+                                </li>
+
+                                <li>
+                                    <i class="fas fa-check-circle"></i>
+                                    Memorial portrait
+                                </li>
+
+                                <li>
+                                    <i class="fas fa-check-circle"></i>
+                                    Coffin/casket
+                                    (child max KES 10,000 /
+                                    adult KES 25,000)
+                                </li>
+
+                            </ul>
+
+                            <div class="plan-eligibility elig-teal">
+
+                                <div class="elig-title">
+                                    Eligibility & Guidelines
+                                </div>
+
+                                <p>
+                                    <i class="fas fa-users"></i>
+                                    Minimum 30 members per group
+                                </p>
+
+                                <p>
+                                    <i class="fas fa-hourglass-half"></i>
+                                    Age limits: entry 18-80 years
+                                </p>
+
+                                <p>
+                                    <i class="fas fa-bolt"></i>
+                                    No waiting period — cover starts on payment
+                                </p>
+
+                            </div>
+
+                        </div>
+
+                        <div class="plan-footer">
+
+                            <a
+                                href="register.html?plan=chama"
+                                class="btn btn-teal btn-block"
+                            >
+                                <i class="fas fa-user-plus"></i>
+                                Register Your Group
+                            </a>
+
+                            <small>
+                                For Chamas, SACCOs, welfare groups and organizations
+                            </small>
+
+                        </div>
+
+                    </div>
+
                 </div>
 
             </div>
@@ -2884,7 +3078,6 @@
 
                             <div
                                 class="waiting-info"
-                                style="margin-bottom:0;"
                             >
 
                                 <div class="label">
@@ -2898,6 +3091,26 @@
                                 <div class="sub">
                                     Coverage begins after 6 months
                                     from registration.
+                                </div>
+
+                            </div>
+
+                            <div
+                                class="waiting-info"
+                                style="margin-bottom:0;"
+                            >
+
+                                <div class="label">
+                                    Chama Plan
+                                </div>
+
+                                <div class="value">
+                                    No Waiting
+                                </div>
+
+                                <div class="sub">
+                                    Cover begins as soon as registration
+                                    is paid.
                                 </div>
 
                             </div>
@@ -3316,7 +3529,7 @@
                     <div class="terms-card">
                         <h3><i class="fas fa-user-check"></i> Membership & Fees</h3>
                         <ul>
-                            <li><i class="fas fa-check-circle"></i> <strong>Registration Fee:</strong> one-off payment (Comfort KES 200, Dignity KES 500, Wazazi KES 100/parent).</li>
+                            <li><i class="fas fa-check-circle"></i> <strong>Registration Fee:</strong> one-off payment (Comfort KES 200, Dignity KES 2,000, Wazazi KES 100/parent, Chama KES 1,200/member).</li>
                             <li><i class="fas fa-check-circle"></i> <strong>Monthly Subscription:</strong> due on or before the <strong>5th of every month</strong>.</li>
                             <li><i class="fas fa-check-circle"></i> <strong>Late payment:</strong> may result in suspension or loss of benefits.</li>
                             <li><i class="fas fa-check-circle"></i> <strong>No retrospective eligibility:</strong> paying after an event does not create coverage.</li>
@@ -3334,6 +3547,7 @@
                             <li><i class="fas fa-check-circle"></i> <strong>Comfort Plan:</strong> waiting period <strong>4 months</strong>.</li>
                             <li><i class="fas fa-check-circle"></i> <strong>Dignity Plan:</strong> waiting period <strong>6 months</strong>.</li>
                             <li><i class="fas fa-check-circle"></i> <strong>Wazazi Plan:</strong> waiting period <strong>6 months</strong>.</li>
+                            <li><i class="fas fa-check-circle"></i> <strong>Chama Plan:</strong> no waiting period — cover begins on payment (minimum 30 members).</li>
                             <li><i class="fas fa-check-circle"></i> Benefits include hearse, mortuary storage, tents & chairs, gazebo, flowers, PA system, memorial portrait, coffin/casket.</li>
                             <li><i class="fas fa-check-circle"></i> <strong>Cash Benefit option:</strong> up to KES 110,000 per adult (Comfort Plan) or KES 50,000 per child.</li>
                             <li><i class="fas fa-check-circle"></i> All benefits subject to limits, eligibility, and exclusions.</li>
