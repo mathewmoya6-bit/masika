@@ -3,160 +3,411 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Masika Benevolent Data Privacy Policy — how we collect, use, and protect your personal information, and how to exercise your data rights under Kenya's Data Protection Act, 2019.">
+    <meta name="robots" content="index, follow">
+    <meta name="theme-color" content="#1c4a30">
+    <link rel="canonical" href="https://www.masikabbs.com/privacy.html">
     <title>Data Privacy Policy | Masika Benevolent</title>
-    <meta name="description" content="Masika Benevolent Data Privacy Policy - How we collect, use, and protect your personal information.">
+
+    <meta property="og:type" content="website">
+    <meta property="og:site_name" content="Masika Benevolent">
+    <meta property="og:title" content="Data Privacy Policy | Masika Benevolent">
+    <meta property="og:description" content="How Masika Benevolent collects, uses, and protects your personal information.">
+    <meta property="og:url" content="https://www.masikabbs.com/privacy.html">
+
+    <link rel="icon" type="image/svg+xml" href="assets/branding/favicon.svg">
+    <link rel="apple-touch-icon" href="assets/branding/favicon.svg">
+
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link rel="preconnect" href="https://cdnjs.cloudflare.com" crossorigin>
+
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600;9..144,700;9..144,800&family=Inter:wght@300;400;500;600;700;800;900&family=IBM+Plex+Mono:wght@500;600;700&display=swap" rel="stylesheet">
+
+    <!-- =========================================================
+         SUPABASE + FRONTEND JS (kept consistent with index.html)
+         ========================================================= -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2" defer></script>
+    <script src="js/config.js" defer></script>
+    <script src="js/supabase.js" defer></script>
+    <script src="js/auth.js" defer></script>
+    <script src="js/masika-utils.js" defer></script>
 
     <style>
-        :root {
-            --primary: #0b5d3b;
-            --primary-dark: #06452c;
-            --primary-light: #e8f5ee;
-            --secondary: #d9a441;
-            --gold: #d4a843;
-            --danger: #dc3545;
-            --success: #198754;
-            --light: #f5f7f8;
-            --border: #dfe4e7;
-            --text: #1f2933;
-            --text-light: #6b7280;
-            --muted: #6b7280;
-            --white: #ffffff;
-            --shadow: 0 2px 12px rgba(0,0,0,0.08);
-        }
+        /* =========================================================
+           MASIKA BENEVOLENT — shared design tokens
+           (kept in sync with index.html so every page matches)
+           ========================================================= */
 
         * {
-            box-sizing: border-box;
             margin: 0;
             padding: 0;
+            box-sizing: border-box;
+        }
+
+        :root {
+            --primary-900: #0d1f16;
+            --primary-800: #123424;
+            --primary-700: #1c4a30;
+            --primary-600: #235c3c;
+            --primary-500: #337a52;
+            --primary-400: #4f9a6c;
+            --primary-300: #7ab890;
+            --primary-200: #a3d3b6;
+            --primary-100: #c7e6d3;
+            --primary-50: #eaf5ee;
+
+            --gold-600: #96661b;
+            --gold-500: #c08a2e;
+            --gold-400: #d9a94f;
+            --gold-300: #e8c583;
+            --gold-200: #f2ddac;
+
+            --primary-gradient: linear-gradient(135deg, #0d1f16 0%, #1c4a30 40%, #337a52 70%, #4f9a6c 100%);
+            --gold-gradient: linear-gradient(135deg, #96661b 0%, #c08a2e 50%, #d9a94f 100%);
+
+            --white: #ffffff;
+            --text-dark: #0f172a;
+            --text-gray: #475569;
+            --text-light: #94a3b8;
+            --bg-light: #f3efe4;
+            --border: #e6ddc9;
+            --danger: #9c3d29;
+
+            --shadow: 0 4px 24px rgba(0, 0, 0, 0.08);
+            --shadow-hover: 0 12px 48px rgba(0, 0, 0, 0.15);
+
+            --radius: 16px;
+            --radius-lg: 24px;
+
+            --transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        html {
+            scroll-behavior: smooth;
+        }
+
+        :focus-visible {
+            outline: 2px solid var(--gold-400);
+            outline-offset: 3px;
+            border-radius: 4px;
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+            html { scroll-behavior: auto; }
+            * { transition-duration: 0.01ms !important; animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; }
         }
 
         body {
-            margin: 0;
-            font-family: 'Segoe UI', Arial, Helvetica, sans-serif;
-            background: var(--light);
-            color: var(--text);
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            color: var(--text-dark);
             line-height: 1.7;
+            background: var(--bg-light);
+            overflow-x: hidden;
         }
 
-        /* HEADER */
-        .topbar {
-            background: var(--primary);
-            color: white;
-            min-height: 68px;
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            padding: 0 28px;
-            box-shadow: 0 2px 8px rgba(0,0,0,.12);
-            flex-wrap: wrap;
-            gap: 10px;
-            position: sticky;
-            top: 0;
-            z-index: 100;
+        h1, h2, h3, h4 {
+            font-family: 'Fraunces', 'Inter', serif;
+            font-optical-sizing: auto;
         }
 
-        .brand {
-            display: flex;
-            align-items: center;
-            gap: 12px;
-            text-decoration: none;
-            color: white;
-        }
+        img { max-width: 100%; }
 
-        .brand-logo {
-            width: 42px;
-            height: 42px;
-            border-radius: 50%;
-            background: white;
-            color: var(--primary);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-weight: 800;
-            font-size: 17px;
-        }
-
-        .brand-text strong {
-            display: block;
-            font-size: 18px;
-        }
-
-        .brand-text span {
-            display: block;
-            font-size: 12px;
-            opacity: .85;
-        }
-
-        .top-actions {
-            display: flex;
-            align-items: center;
-            gap: 10px;
-            flex-wrap: wrap;
-        }
-
-        .btn {
-            border: 0;
-            border-radius: 7px;
-            padding: 10px 18px;
-            font-weight: 600;
-            cursor: pointer;
-            text-decoration: none;
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-            gap: 7px;
-            font-size: 14px;
-            transition: all 0.2s;
-        }
-
-        .btn:hover {
-            transform: translateY(-1px);
-            box-shadow: 0 2px 8px rgba(0,0,0,0.15);
-        }
-
-        .btn-light {
-            background: white;
-            color: var(--primary);
-        }
-
-        .btn-light:hover {
-            background: #f0f0f0;
-        }
-
-        .btn-outline-light {
-            background: transparent;
-            color: white;
-            border: 2px solid rgba(255,255,255,0.3);
-        }
-
-        .btn-outline-light:hover {
-            background: rgba(255,255,255,0.1);
-            border-color: white;
-        }
-
-        .btn-gold {
-            background: var(--gold);
-            color: white;
-        }
-
-        .btn-gold:hover {
-            background: #c4951a;
-        }
-
-        /* CONTENT */
         .container {
             max-width: 1000px;
             margin: 0 auto;
-            padding: 40px 24px 60px;
+            padding: 0 24px;
         }
 
-        /* HERO */
+        .skip-link {
+            position: absolute;
+            top: -48px;
+            left: 12px;
+            background: var(--primary-700);
+            color: var(--white);
+            padding: 10px 18px;
+            border-radius: 8px;
+            font-weight: 600;
+            font-size: 14px;
+            text-decoration: none;
+            z-index: 2000;
+            transition: top 0.2s ease;
+        }
+
+        .skip-link:focus {
+            top: 12px;
+        }
+
+        /* =========================================================
+           BUTTONS (shared with index.html)
+           ========================================================= */
+
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 10px;
+            padding: 12px 26px;
+            border: none;
+            border-radius: 12px;
+            font-size: 15px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: var(--transition);
+            text-decoration: none;
+            justify-content: center;
+            font-family: inherit;
+        }
+
+        .btn-primary {
+            background: var(--primary-gradient);
+            color: var(--white);
+            box-shadow: 0 4px 20px rgba(28, 74, 48, 0.35);
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 8px 40px rgba(28, 74, 48, 0.45);
+        }
+
+        .btn-gold {
+            background: var(--gold-gradient);
+            color: var(--white);
+            box-shadow: 0 8px 32px rgba(192, 138, 46, 0.3);
+        }
+
+        .btn-gold:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 8px 40px rgba(192, 138, 46, 0.4);
+        }
+
+        .btn-outline {
+            background: transparent;
+            color: var(--white);
+            border: 2px solid rgba(255, 255, 255, 0.3);
+        }
+
+        .btn-outline:hover {
+            background: rgba(255, 255, 255, 0.1);
+            border-color: var(--white);
+            transform: translateY(-3px);
+        }
+
+        .btn-outline-dark {
+            background: transparent;
+            color: var(--text-dark);
+            border: 2px solid var(--border);
+        }
+
+        .btn-outline-dark:hover {
+            border-color: var(--primary-500);
+            color: var(--primary-500);
+            transform: translateY(-3px);
+        }
+
+        .btn-nav {
+            padding: 10px 24px;
+            font-size: 14px;
+            border-radius: 10px;
+            background: var(--primary-gradient);
+            color: var(--white) !important;
+        }
+
+        .btn-nav:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 30px rgba(28, 74, 48, 0.4);
+        }
+
+        .btn-nav-outline {
+            padding: 10px 24px;
+            font-size: 14px;
+            border-radius: 10px;
+            background: transparent;
+            color: var(--text-gray) !important;
+            border: 2px solid var(--border);
+            cursor: pointer;
+            font-family: inherit;
+        }
+
+        .btn-nav-outline:hover {
+            border-color: var(--primary-500);
+            color: var(--primary-500) !important;
+            transform: translateY(-2px);
+        }
+
+        .btn-small {
+            padding: 8px 18px;
+            font-size: 13px;
+            border-radius: 8px;
+        }
+
+        /* =========================================================
+           TAGLINE + NAVBAR (identical component to index.html)
+           ========================================================= */
+
+        .tagline-strip {
+            background: var(--primary-800);
+            color: var(--gold-300);
+            text-align: center;
+            font-size: 13px;
+            font-weight: 600;
+            letter-spacing: 0.5px;
+            padding: 7px 0;
+            border-bottom: 1px solid rgba(169, 84, 46, 0.4);
+            font-family: 'IBM Plex Mono', 'Inter', monospace;
+        }
+
+        .navbar {
+            background: rgba(255, 255, 255, 0.97);
+            backdrop-filter: blur(12px);
+            box-shadow: 0 2px 24px rgba(0, 0, 0, 0.06);
+            padding: 10px 0;
+            position: sticky;
+            top: 0;
+            z-index: 1000;
+            border-bottom: 1px solid rgba(0, 0, 0, 0.04);
+        }
+
+        .navbar .container {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            max-width: 1200px;
+        }
+
+        .nav-brand {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            text-decoration: none;
+        }
+
+        .nav-brand img.brand-logo {
+            height: 44px;
+            width: auto;
+            display: block;
+        }
+
+        .nav-links {
+            display: flex;
+            align-items: center;
+            gap: 24px;
+        }
+
+        .nav-links a {
+            color: var(--text-gray);
+            text-decoration: none;
+            font-weight: 500;
+            font-size: 15px;
+            transition: var(--transition);
+            position: relative;
+        }
+
+        .nav-links a:not(.btn)::after {
+            content: '';
+            position: absolute;
+            bottom: -4px;
+            left: 0;
+            width: 0;
+            height: 2.5px;
+            background: var(--primary-gradient);
+            transition: var(--transition);
+            border-radius: 2px;
+        }
+
+        .nav-links a:not(.btn):hover {
+            color: var(--primary-700);
+        }
+
+        .nav-links a:not(.btn):hover::after,
+        .nav-links a.active:not(.btn)::after {
+            width: 100%;
+        }
+
+        .nav-links a.active:not(.btn) {
+            color: var(--primary-700);
+        }
+
+        .nav-links .nav-user {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .nav-links .nav-user .user-avatar {
+            width: 36px;
+            height: 36px;
+            border-radius: 50%;
+            background: var(--primary-gradient);
+            color: var(--white);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 700;
+            font-size: 14px;
+        }
+
+        .nav-links .nav-user .user-name {
+            font-weight: 600;
+            color: var(--text-dark);
+            font-size: 14px;
+        }
+
+        .mobile-menu-btn {
+            display: none;
+            background: none;
+            border: none;
+            font-size: 24px;
+            color: var(--text-dark);
+            cursor: pointer;
+            padding: 8px 12px;
+            border-radius: 8px;
+            transition: var(--transition);
+        }
+
+        .mobile-menu-btn:hover {
+            background: var(--bg-light);
+        }
+
+        @media (max-width: 768px) {
+            .nav-links {
+                display: none;
+                flex-direction: column;
+                align-items: flex-start;
+                position: absolute;
+                top: 100%;
+                left: 0;
+                right: 0;
+                background: var(--white);
+                padding: 20px 24px;
+                box-shadow: var(--shadow);
+                gap: 16px;
+                border-top: 1px solid var(--border);
+            }
+
+            .nav-links.active {
+                display: flex;
+            }
+
+            .nav-links .nav-user {
+                width: 100%;
+                padding-bottom: 12px;
+                border-bottom: 1px solid var(--border);
+            }
+
+            .mobile-menu-btn {
+                display: block;
+            }
+        }
+
+        /* =========================================================
+           HERO
+           ========================================================= */
+
         .privacy-hero {
-            background: linear-gradient(135deg, var(--primary) 0%, var(--primary-dark) 100%);
-            color: white;
-            padding: 60px 40px;
-            border-radius: 16px;
-            margin-bottom: 40px;
+            background: var(--primary-gradient);
+            color: var(--white);
+            padding: 64px 40px;
             text-align: center;
             position: relative;
             overflow: hidden;
@@ -165,24 +416,26 @@
         .privacy-hero::before {
             content: '';
             position: absolute;
-            top: -50%;
-            right: -20%;
-            width: 60%;
-            height: 200%;
-            background: radial-gradient(ellipse, rgba(255,255,255,0.05) 0%, transparent 70%);
+            top: -40%;
+            right: -15%;
+            width: 55%;
+            height: 180%;
+            background: radial-gradient(ellipse, rgba(255, 255, 255, 0.04) 0%, transparent 70%);
             border-radius: 50%;
+            transform: rotate(15deg);
         }
 
         .privacy-hero .icon {
-            font-size: 56px;
+            font-size: 44px;
             margin-bottom: 16px;
             position: relative;
             z-index: 1;
+            color: var(--gold-300);
         }
 
         .privacy-hero h1 {
-            font-size: 36px;
-            font-weight: 800;
+            font-size: 38px;
+            font-weight: 600;
             margin-bottom: 12px;
             position: relative;
             z-index: 1;
@@ -198,52 +451,66 @@
         }
 
         .privacy-hero .last-updated {
-            margin-top: 16px;
-            font-size: 14px;
-            opacity: 0.7;
+            margin-top: 18px;
+            font-size: 13px;
+            opacity: 0.75;
             position: relative;
             z-index: 1;
+            font-family: 'IBM Plex Mono', 'Inter', monospace;
+            letter-spacing: 0.02em;
         }
 
-        /* CARD */
+        /* =========================================================
+           CONTENT
+           ========================================================= */
+
+        .container-narrow {
+            max-width: 900px;
+            margin: 0 auto;
+            padding: 40px 24px 60px;
+        }
+
         .card {
-            background: white;
+            background: var(--white);
             border: 1px solid var(--border);
-            border-radius: 12px;
+            border-radius: var(--radius);
             padding: 32px 36px;
             margin-bottom: 24px;
             box-shadow: var(--shadow);
         }
 
         .card h2 {
-            color: var(--primary);
+            color: var(--primary-700);
             font-size: 22px;
+            font-weight: 600;
             margin-bottom: 12px;
             display: flex;
             align-items: center;
             gap: 12px;
         }
 
-        .card h2 .emoji {
-            font-size: 28px;
+        .card h2 i {
+            color: var(--gold-500);
+            font-size: 22px;
         }
 
         .card h3 {
             font-size: 17px;
-            margin-top: 20px;
+            font-weight: 700;
+            margin-top: 22px;
             margin-bottom: 10px;
-            color: var(--text);
+            color: var(--text-dark);
         }
 
         .card p {
-            color: var(--text-light);
+            color: var(--text-gray);
             margin-bottom: 12px;
         }
 
         .card ul {
-            padding-left: 24px;
+            padding-left: 22px;
             margin: 12px 0 16px;
-            color: var(--text-light);
+            color: var(--text-gray);
         }
 
         .card ul li {
@@ -251,12 +518,16 @@
         }
 
         .card ul li strong {
-            color: var(--text);
+            color: var(--text-dark);
+        }
+
+        .card a {
+            color: var(--primary-600);
         }
 
         .highlight-box {
-            background: var(--primary-light);
-            border-left: 4px solid var(--primary);
+            background: var(--primary-50);
+            border-left: 4px solid var(--primary-500);
             padding: 16px 20px;
             border-radius: 8px;
             margin: 16px 0;
@@ -264,14 +535,15 @@
 
         .highlight-box p {
             margin: 0;
-            color: var(--text);
+            color: var(--text-dark);
         }
 
         .highlight-box strong {
-            color: var(--primary);
+            color: var(--primary-700);
         }
 
         /* TABLE */
+
         .data-table {
             width: 100%;
             border-collapse: collapse;
@@ -280,8 +552,8 @@
         }
 
         .data-table th {
-            background: var(--primary);
-            color: white;
+            background: var(--primary-700);
+            color: var(--white);
             padding: 12px 16px;
             text-align: left;
             font-weight: 600;
@@ -290,22 +562,23 @@
         .data-table td {
             padding: 12px 16px;
             border-bottom: 1px solid var(--border);
+            color: var(--text-gray);
         }
 
         .data-table tr:hover td {
-            background: #f8faf9;
+            background: var(--bg-light);
         }
 
-        /* TABS */
+        /* TABS (accessible tablist / tabpanel pattern) */
+
         .tab-bar {
             display: flex;
             gap: 4px;
-            background: var(--light);
+            background: var(--bg-light);
             padding: 4px;
-            border-radius: 10px;
+            border-radius: 12px;
             margin-bottom: 24px;
             overflow-x: auto;
-            flex-wrap: nowrap;
         }
 
         .tab-btn {
@@ -313,43 +586,44 @@
             border: 0;
             border-radius: 8px;
             background: transparent;
-            color: var(--text-light);
+            color: var(--text-gray);
             font-weight: 600;
             font-size: 14px;
             cursor: pointer;
-            transition: all 0.2s;
+            transition: var(--transition);
             white-space: nowrap;
             font-family: inherit;
         }
 
         .tab-btn:hover {
-            background: rgba(11, 93, 59, 0.08);
-            color: var(--primary);
+            background: rgba(28, 74, 48, 0.08);
+            color: var(--primary-700);
         }
 
-        .tab-btn.active {
-            background: white;
-            color: var(--primary);
-            box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+        .tab-btn[aria-selected="true"] {
+            background: var(--white);
+            color: var(--primary-700);
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
         }
 
         .tab-content {
             display: none;
         }
 
-        .tab-content.active {
+        .tab-content[data-active="true"] {
             display: block;
-            animation: fadeIn 0.3s ease;
+            animation: fadeIn 0.25s ease;
         }
 
         @keyframes fadeIn {
-            from { opacity: 0; transform: translateY(8px); }
+            from { opacity: 0; transform: translateY(6px); }
             to { opacity: 1; transform: translateY(0); }
         }
 
         /* CONSENT FORM */
+
         .consent-form {
-            background: #f8faf9;
+            background: var(--bg-light);
             border-radius: 10px;
             padding: 24px;
             margin-top: 16px;
@@ -369,7 +643,7 @@
             height: 18px;
             min-width: 18px;
             margin-top: 3px;
-            accent-color: var(--primary);
+            accent-color: var(--primary-600);
             cursor: pointer;
         }
 
@@ -377,56 +651,206 @@
             margin-top: 12px;
         }
 
-        .btn-primary {
-            background: var(--primary);
-            color: white;
-        }
-
-        .btn-primary:hover {
-            background: var(--primary-dark);
-        }
-
-        /* FOOTER NOTE */
-        .footer-note {
-            text-align: center;
-            padding: 20px 0;
-            color: var(--text-light);
+        .consent-status {
+            margin-top: 12px;
             font-size: 14px;
-            border-top: 1px solid var(--border);
-            margin-top: 20px;
+            font-weight: 600;
+            color: var(--primary-700);
+            min-height: 20px;
         }
 
-        .footer-note a {
-            color: var(--primary);
+        .rights-grid,
+        .security-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 16px;
+            margin: 16px 0;
+        }
+
+        .rights-grid .rights-item {
+            background: var(--primary-50);
+            padding: 16px;
+            border-radius: 10px;
+        }
+
+        .rights-grid .rights-item strong {
+            color: var(--primary-700);
+        }
+
+        .rights-grid .rights-item p {
+            font-size: 14px;
+            margin-top: 4px;
+            margin-bottom: 0;
+        }
+
+        .security-grid .security-item {
+            background: var(--primary-50);
+            padding: 16px;
+            border-radius: 10px;
+            text-align: center;
+        }
+
+        .security-grid .security-item i {
+            font-size: 28px;
+            color: var(--primary-600);
+            margin-bottom: 8px;
+            display: block;
+        }
+
+        .security-grid .security-item p {
+            font-size: 13px;
+            margin-top: 4px;
+            margin-bottom: 0;
+        }
+
+        .report-box {
+            background: var(--bg-light);
+            padding: 20px;
+            border-radius: 10px;
+            margin-top: 12px;
+        }
+
+        .report-box p {
+            margin-bottom: 8px;
+        }
+
+        .report-box p:last-child {
+            margin-bottom: 0;
+        }
+
+        /* =========================================================
+           FOOTER (identical component to index.html)
+           ========================================================= */
+
+        .footer {
+            background: var(--primary-900);
+            color: rgba(255, 255, 255, 0.8);
+            padding: 0 0 32px;
+            position: relative;
+        }
+
+        .footer::before {
+            content: '';
+            display: block;
+            height: 4px;
+            background: var(--gold-gradient);
+        }
+
+        .footer-grid {
+            display: grid;
+            grid-template-columns: 1.6fr 1fr 1.1fr;
+            gap: 40px;
+            padding: 48px 0 40px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+            margin-bottom: 28px;
+            max-width: 1200px;
+            margin-left: auto;
+            margin-right: auto;
+        }
+
+        .footer .container {
+            max-width: 1200px;
+        }
+
+        .footer-brand {
+            display: flex;
+            flex-direction: column;
+            align-items: flex-start;
+        }
+
+        .footer-brand img.brand-logo-icon {
+            height: 46px;
+            width: auto;
+            margin-bottom: 10px;
+        }
+
+        .footer-brand .brand-text {
+            font-size: 20px;
+            font-weight: 800;
+            color: var(--white);
+            letter-spacing: 0.5px;
+        }
+
+        .footer-brand p {
+            margin-top: 12px;
+            font-size: 15px;
+            opacity: 0.7;
+            max-width: 320px;
+        }
+
+        .footer-links h4,
+        .footer-contact h4 {
+            color: var(--white);
+            font-size: 16px;
+            font-weight: 600;
+            margin-bottom: 16px;
+        }
+
+        .footer-links a {
+            display: block;
+            color: rgba(255, 255, 255, 0.6);
+            text-decoration: none;
+            padding: 4px 0;
+            font-size: 15px;
+            transition: var(--transition);
+        }
+
+        .footer-links a:hover,
+        .footer-links a:focus-visible {
+            color: var(--white);
+            transform: translateX(4px);
+        }
+
+        .footer-contact p {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin: 8px 0;
+            font-size: 15px;
+            opacity: 0.7;
+        }
+
+        .footer-contact p i {
+            width: 20px;
+            color: var(--gold-400);
+        }
+
+        .footer-contact a {
+            color: rgba(255, 255, 255, 0.85);
             text-decoration: none;
         }
 
-        .footer-note a:hover {
+        .footer-contact a:hover {
+            color: var(--white);
             text-decoration: underline;
         }
 
-        /* RESPONSIVE */
+        .footer-bottom {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 12px;
+            font-size: 13px;
+            opacity: 0.55;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 0 24px;
+        }
+
+        /* =========================================================
+           RESPONSIVE
+           ========================================================= */
+
+        @media (max-width: 1024px) {
+            .footer-grid {
+                grid-template-columns: 1fr 1fr;
+            }
+        }
+
         @media (max-width: 768px) {
-            .topbar {
-                padding: 12px 16px;
-                flex-direction: column;
-                align-items: stretch;
-            }
-
-            .brand {
-                justify-content: center;
-            }
-
-            .top-actions {
-                justify-content: center;
-            }
-
-            .brand-text span {
-                display: none;
-            }
-
-            .container {
-                padding: 20px 16px 40px;
+            .container-narrow {
+                padding: 24px 16px 40px;
             }
 
             .privacy-hero {
@@ -442,7 +866,7 @@
             }
 
             .card {
-                padding: 20px;
+                padding: 22px;
             }
 
             .card h2 {
@@ -458,13 +882,27 @@
                 padding: 8px 12px;
             }
 
-            .tab-bar {
-                gap: 2px;
+            .rights-grid,
+            .security-grid {
+                grid-template-columns: 1fr;
             }
 
-            .tab-btn {
-                padding: 8px 14px;
-                font-size: 13px;
+            .footer-grid {
+                grid-template-columns: 1fr;
+                text-align: center;
+            }
+
+            .footer-brand {
+                align-items: center;
+            }
+
+            .footer-brand p {
+                margin-left: auto;
+                margin-right: auto;
+            }
+
+            .footer-contact p {
+                justify-content: center;
             }
         }
 
@@ -475,7 +913,7 @@
             }
 
             .privacy-hero .icon {
-                font-size: 40px;
+                font-size: 36px;
             }
 
             .privacy-hero h1 {
@@ -487,60 +925,85 @@
 
 <body>
 
-    <!-- HEADER -->
-    <header class="topbar">
-        <a href="index.html" class="brand">
-            <div class="brand-logo">MB</div>
-            <div class="brand-text">
-                <strong>Masika Benevolent</strong>
-                <span>Protecting Your Data</span>
-            </div>
-        </a>
+    <a href="#main-content" class="skip-link">Skip to main content</a>
 
-        <div class="top-actions">
-            <a href="index.html" class="btn btn-outline-light">← Home</a>
-            <a href="register.html" class="btn btn-light">Register</a>
-            <a href="agent-apply.html" class="btn btn-outline-light">Become an Agent</a>
-        </div>
-    </header>
+    <div class="tagline-strip">
+        A NOTE YOU CAN TRUST &nbsp;•&nbsp; YOUR DATA, YOUR RIGHTS
+    </div>
 
-    <main>
-
+    <nav class="navbar" aria-label="Primary">
         <div class="container">
 
-            <!-- HERO -->
-            <div class="privacy-hero">
-                <div class="icon">🔒</div>
-                <h1>Data Privacy Policy</h1>
-                <p>Your privacy is important to us. Learn how Masika Benevolent collects, uses, and protects your personal information.</p>
-                <div class="last-updated">📅 Last Updated: August 29, 2026</div>
+            <a href="index.html" class="nav-brand" aria-label="Masika Benevolent Home">
+                <img
+                    src="assets/branding/system-logo.svg"
+                    alt="Masika Benevolent"
+                    class="brand-logo"
+                    width="150"
+                    height="44"
+                >
+            </a>
+
+            <div class="nav-links" id="navLinks">
+                <a href="index.html">Home</a>
+                <a href="index.html#plans">Membership Plans</a>
+                <a href="index.html#terms">Terms</a>
+                <a href="privacy.html" class="active" aria-current="page">Privacy</a>
+                <a href="agent-apply.html">Become an Agent</a>
+
+                <div id="authLinks">
+                    <!-- Populated by JavaScript -->
+                </div>
             </div>
 
-            <!-- TABS -->
-            <div class="tab-bar">
-                <button class="tab-btn active" data-tab="overview">Overview</button>
-                <button class="tab-btn" data-tab="collection">Data Collection</button>
-                <button class="tab-btn" data-tab="usage">How We Use Data</button>
-                <button class="tab-btn" data-tab="rights">Your Rights</button>
-                <button class="tab-btn" data-tab="security">Security</button>
+            <button
+                class="mobile-menu-btn"
+                id="mobileMenuBtn"
+                aria-label="Open navigation menu"
+                aria-expanded="false"
+                aria-controls="navLinks"
+            >
+                <i class="fas fa-bars" aria-hidden="true"></i>
+            </button>
+
+        </div>
+    </nav>
+
+    <main id="main-content">
+
+        <div class="privacy-hero">
+            <div class="container">
+                <i class="fas fa-lock icon" aria-hidden="true"></i>
+                <h1>Data Privacy Policy</h1>
+                <p>Your privacy matters to us. Here's how Masika Benevolent collects, uses, and protects your personal information.</p>
+                <div class="last-updated">Last updated: August 29, 2026</div>
+            </div>
+        </div>
+
+        <div class="container-narrow">
+
+            <div class="tab-bar" role="tablist" aria-label="Privacy policy sections">
+                <button class="tab-btn" id="tab-btn-overview" role="tab" aria-selected="true" aria-controls="tab-overview" type="button">Overview</button>
+                <button class="tab-btn" id="tab-btn-collection" role="tab" aria-selected="false" aria-controls="tab-collection" type="button" tabindex="-1">Data Collection</button>
+                <button class="tab-btn" id="tab-btn-usage" role="tab" aria-selected="false" aria-controls="tab-usage" type="button" tabindex="-1">How We Use Data</button>
+                <button class="tab-btn" id="tab-btn-rights" role="tab" aria-selected="false" aria-controls="tab-rights" type="button" tabindex="-1">Your Rights</button>
+                <button class="tab-btn" id="tab-btn-security" role="tab" aria-selected="false" aria-controls="tab-security" type="button" tabindex="-1">Security</button>
             </div>
 
             <!-- TAB 1: OVERVIEW -->
-            <div class="tab-content active" id="tab-overview">
+            <div class="tab-content" id="tab-overview" role="tabpanel" aria-labelledby="tab-btn-overview" data-active="true">
                 <div class="card">
-                    <h2><span class="emoji">📋</span> Overview</h2>
+                    <h2><i class="fas fa-clipboard-list" aria-hidden="true"></i> Overview</h2>
                     <p>
-                        Masika Benevolent ("we", "our", "us") is committed to protecting the privacy and security of your personal information. 
+                        Masika Benevolent ("we", "our", "us") is committed to protecting the privacy and security of your personal information.
                         This Data Privacy Policy explains how we collect, use, store, and protect your data when you interact with our services.
                     </p>
 
                     <div class="highlight-box">
                         <p>
-                            <strong>🔐 We are committed to:</strong><br>
-                            • Protecting your personal information<br>
-                            • Being transparent about data practices<br>
-                            • Complying with Kenya's Data Protection Act, 2019<br>
-                            • Giving you control over your data
+                            <strong>We are committed to:</strong><br>
+                            Protecting your personal information, being transparent about our data practices,
+                            complying with Kenya's Data Protection Act, 2019, and giving you control over your own data.
                         </p>
                     </div>
 
@@ -550,74 +1013,67 @@
                     </p>
 
                     <p>
-                        <strong>📌 Contact Us:</strong><br>
-                        If you have any questions about this privacy policy, please contact our Data Protection Officer at:
-                        <br>
-                        📧 <a href="mailto:dpo@masikabbs.com" style="color:var(--primary);">dpo@masikabbs.com</a>
-                        <br>
-                        📞 +254 (0) 703 738 707
+                        <strong>Contact us:</strong> if you have any questions about this privacy policy, please reach our
+                        Data Protection Officer at <a href="mailto:dpo@masikabbs.com">dpo@masikabbs.com</a> or
+                        <a href="tel:+254703738707">+254 (0) 703 738 707</a>.
                     </p>
                 </div>
 
                 <div class="card">
-                    <h2><span class="emoji">📜</span> Legal Framework</h2>
-                    <p>
-                        Masika Benevolent operates in compliance with:
-                    </p>
+                    <h2><i class="fas fa-scale-balanced" aria-hidden="true"></i> Legal Framework</h2>
+                    <p>Masika Benevolent operates in compliance with:</p>
                     <ul>
-                        <li><strong>Kenya Data Protection Act, 2019</strong> - The primary data protection law in Kenya</li>
-                        <li><strong>GDPR (EU General Data Protection Regulation)</strong> - For our international members</li>
-                        <li><strong>Kenya Constitution, Article 31</strong> - Right to privacy</li>
-                        <li><strong>Kenya Consumer Protection Act, 2012</strong> - Consumer rights protection</li>
+                        <li><strong>Kenya Data Protection Act, 2019</strong> — the primary data protection law in Kenya</li>
+                        <li><strong>GDPR (EU General Data Protection Regulation)</strong> — for our international members</li>
+                        <li><strong>Kenya Constitution, Article 31</strong> — the right to privacy</li>
+                        <li><strong>Kenya Consumer Protection Act, 2012</strong> — consumer rights protection</li>
                     </ul>
                 </div>
             </div>
 
             <!-- TAB 2: DATA COLLECTION -->
-            <div class="tab-content" id="tab-collection">
+            <div class="tab-content" id="tab-collection" role="tabpanel" aria-labelledby="tab-btn-collection" data-active="false" hidden>
                 <div class="card">
-                    <h2><span class="emoji">📊</span> What Data We Collect</h2>
-                    <p>
-                        We collect the following types of personal information to provide and improve our services:
-                    </p>
+                    <h2><i class="fas fa-database" aria-hidden="true"></i> What Data We Collect</h2>
+                    <p>We collect the following types of personal information to provide and improve our services:</p>
 
                     <table class="data-table">
                         <thead>
                             <tr>
-                                <th>Category</th>
-                                <th>Data Collected</th>
-                                <th>Purpose</th>
+                                <th scope="col">Category</th>
+                                <th scope="col">Data collected</th>
+                                <th scope="col">Purpose</th>
                             </tr>
                         </thead>
                         <tbody>
                             <tr>
-                                <td><strong>Personal Identity</strong></td>
-                                <td>Full name, ID/Passport number, Date of birth, Gender</td>
+                                <td><strong>Personal identity</strong></td>
+                                <td>Full name, ID/passport number, date of birth, gender</td>
                                 <td>Member identification and verification</td>
                             </tr>
                             <tr>
-                                <td><strong>Contact Information</strong></td>
-                                <td>Phone number, Email address, Physical address</td>
+                                <td><strong>Contact information</strong></td>
+                                <td>Phone number, email address, physical address</td>
                                 <td>Communication and service delivery</td>
                             </tr>
                             <tr>
-                                <td><strong>Membership Data</strong></td>
-                                <td>Member number, Plan type, Registration date, Payment history</td>
+                                <td><strong>Membership data</strong></td>
+                                <td>Member number, plan type, registration date, payment history</td>
                                 <td>Membership management and billing</td>
                             </tr>
                             <tr>
-                                <td><strong>Family Information</strong></td>
+                                <td><strong>Family information</strong></td>
                                 <td>Dependant names, relationships, dates of birth</td>
                                 <td>Family coverage and benefits</td>
                             </tr>
                             <tr>
-                                <td><strong>Payment Information</strong></td>
-                                <td>M-Pesa receipts, Payment amounts, Payment dates</td>
+                                <td><strong>Payment information</strong></td>
+                                <td>M-Pesa receipts, payment amounts, payment dates</td>
                                 <td>Payment processing and records</td>
                             </tr>
                             <tr>
-                                <td><strong>Technical Data</strong></td>
-                                <td>IP address, Device information, Browser type, Cookies</td>
+                                <td><strong>Technical data</strong></td>
+                                <td>IP address, device information, browser type, cookies</td>
                                 <td>Website analytics and security</td>
                             </tr>
                         </tbody>
@@ -625,40 +1081,36 @@
 
                     <div class="highlight-box">
                         <p>
-                            <strong>⚠️ Sensitive Data:</strong> We do not collect sensitive data such as medical records,
+                            <strong>Sensitive data:</strong> we do not collect sensitive data such as medical records,
                             biometric data, or racial/ethnic origin unless explicitly required and with your consent.
                         </p>
                     </div>
                 </div>
 
                 <div class="card">
-                    <h2><span class="emoji">📥</span> How We Collect Data</h2>
-                    <p>
-                        We collect data through:
-                    </p>
+                    <h2><i class="fas fa-inbox" aria-hidden="true"></i> How We Collect Data</h2>
+                    <p>We collect data through:</p>
                     <ul>
-                        <li><strong>Direct Registration:</strong> Information you provide during member registration</li>
-                        <li><strong>Member Interactions:</strong> Communications with our staff and customer service</li>
-                        <li><strong>Website Use:</strong> Automatic collection through cookies and analytics</li>
-                        <li><strong>M-Pesa Payments:</strong> Transaction records from payment processing</li>
-                        <li><strong>Third-Party Services:</strong> Verification services where required</li>
+                        <li><strong>Direct registration:</strong> information you provide during member registration</li>
+                        <li><strong>Member interactions:</strong> communications with our staff and customer service</li>
+                        <li><strong>Website use:</strong> automatic collection through cookies and analytics</li>
+                        <li><strong>M-Pesa payments:</strong> transaction records from payment processing</li>
+                        <li><strong>Third-party services:</strong> verification services where required</li>
                     </ul>
-                    <p style="margin-top: 12px;">
-                        <strong>👶 Children's Data:</strong> We do not knowingly collect data from children under 13.
+                    <p>
+                        <strong>Children's data:</strong> we do not knowingly collect data from children under 13.
                         If we discover such data, we will delete it promptly.
                     </p>
                 </div>
             </div>
 
             <!-- TAB 3: USAGE -->
-            <div class="tab-content" id="tab-usage">
+            <div class="tab-content" id="tab-usage" role="tabpanel" aria-labelledby="tab-btn-usage" data-active="false" hidden>
                 <div class="card">
-                    <h2><span class="emoji">⚙️</span> How We Use Your Data</h2>
-                    <p>
-                        Your data is used to provide, improve, and personalize our services:
-                    </p>
+                    <h2><i class="fas fa-gears" aria-hidden="true"></i> How We Use Your Data</h2>
+                    <p>Your data is used to provide, improve, and personalize our services:</p>
 
-                    <h3>✅ Service Delivery</h3>
+                    <h3>Service delivery</h3>
                     <ul>
                         <li>Process member registrations and renewals</li>
                         <li>Manage family coverage and dependants</li>
@@ -666,21 +1118,21 @@
                         <li>Communicate important updates and notifications</li>
                     </ul>
 
-                    <h3>💰 Payment Processing</h3>
+                    <h3>Payment processing</h3>
                     <ul>
                         <li>Process M-Pesa payments and confirmations</li>
                         <li>Maintain accurate payment records</li>
                         <li>Send payment receipts and reminders</li>
                     </ul>
 
-                    <h3>📈 Improvement & Analytics</h3>
+                    <h3>Improvement and analytics</h3>
                     <ul>
                         <li>Analyze usage patterns to improve our services</li>
                         <li>Personalize member experience</li>
                         <li>Develop new products and services</li>
                     </ul>
 
-                    <h3>⚖️ Legal Compliance</h3>
+                    <h3>Legal compliance</h3>
                     <ul>
                         <li>Comply with legal and regulatory requirements</li>
                         <li>Prevent fraud and unauthorized activities</li>
@@ -689,25 +1141,21 @@
 
                     <div class="highlight-box">
                         <p>
-                            <strong>📢 We do NOT:</strong><br>
-                            • Sell your personal data to third parties<br>
-                            • Share your data for marketing without consent<br>
-                            • Use your data in ways not described in this policy
+                            <strong>We do not:</strong> sell your personal data to third parties, share your data for
+                            marketing without consent, or use your data in ways not described in this policy.
                         </p>
                     </div>
                 </div>
 
                 <div class="card">
-                    <h2><span class="emoji">🤝</span> Data Sharing</h2>
-                    <p>
-                        We may share your data with:
-                    </p>
+                    <h2><i class="fas fa-handshake" aria-hidden="true"></i> Data Sharing</h2>
+                    <p>We may share your data with:</p>
                     <ul>
-                        <li><strong>Service Providers:</strong> Payment processors, cloud storage, email services</li>
-                        <li><strong>Legal Authorities:</strong> When required by law or to prevent harm</li>
-                        <li><strong>With Your Consent:</strong> When you explicitly authorize sharing</li>
+                        <li><strong>Service providers:</strong> payment processors, cloud storage, email services</li>
+                        <li><strong>Legal authorities:</strong> when required by law or to prevent harm</li>
+                        <li><strong>With your consent:</strong> when you explicitly authorize sharing</li>
                     </ul>
-                    <p style="margin-top: 12px;">
+                    <p>
                         All third-party service providers are contractually obligated to protect your data
                         and use it only for the purposes specified.
                     </p>
@@ -715,283 +1163,416 @@
             </div>
 
             <!-- TAB 4: RIGHTS -->
-            <div class="tab-content" id="tab-rights">
+            <div class="tab-content" id="tab-rights" role="tabpanel" aria-labelledby="tab-btn-rights" data-active="false" hidden>
                 <div class="card">
-                    <h2><span class="emoji">🛡️</span> Your Data Rights</h2>
-                    <p>
-                        Under the Kenya Data Protection Act, 2019 and GDPR, you have the following rights:
-                    </p>
+                    <h2><i class="fas fa-shield-halved" aria-hidden="true"></i> Your Data Rights</h2>
+                    <p>Under the Kenya Data Protection Act, 2019 and GDPR, you have the following rights:</p>
 
-                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin: 16px 0;">
-                        <div style="background: var(--primary-light); padding: 16px; border-radius: 8px;">
-                            <strong>🔍 Right to Access</strong>
-                            <p style="font-size: 14px; margin-top: 4px;">Request a copy of your personal data</p>
+                    <div class="rights-grid">
+                        <div class="rights-item">
+                            <strong>Right to access</strong>
+                            <p>Request a copy of your personal data</p>
                         </div>
-                        <div style="background: var(--primary-light); padding: 16px; border-radius: 8px;">
-                            <strong>✏️ Right to Rectification</strong>
-                            <p style="font-size: 14px; margin-top: 4px;">Correct inaccurate or incomplete data</p>
+                        <div class="rights-item">
+                            <strong>Right to rectification</strong>
+                            <p>Correct inaccurate or incomplete data</p>
                         </div>
-                        <div style="background: var(--primary-light); padding: 16px; border-radius: 8px;">
-                            <strong>🗑️ Right to Deletion</strong>
-                            <p style="font-size: 14px; margin-top: 4px;">Request deletion of your data ("right to be forgotten")</p>
+                        <div class="rights-item">
+                            <strong>Right to deletion</strong>
+                            <p>Request deletion of your data ("right to be forgotten")</p>
                         </div>
-                        <div style="background: var(--primary-light); padding: 16px; border-radius: 8px;">
-                            <strong>⛔ Right to Restrict</strong>
-                            <p style="font-size: 14px; margin-top: 4px;">Limit how we process your data</p>
+                        <div class="rights-item">
+                            <strong>Right to restrict</strong>
+                            <p>Limit how we process your data</p>
                         </div>
-                        <div style="background: var(--primary-light); padding: 16px; border-radius: 8px;">
-                            <strong>📤 Right to Portability</strong>
-                            <p style="font-size: 14px; margin-top: 4px;">Transfer your data to another provider</p>
+                        <div class="rights-item">
+                            <strong>Right to portability</strong>
+                            <p>Transfer your data to another provider</p>
                         </div>
-                        <div style="background: var(--primary-light); padding: 16px; border-radius: 8px;">
-                            <strong>🔄 Right to Object</strong>
-                            <p style="font-size: 14px; margin-top: 4px;">Object to certain data processing</p>
+                        <div class="rights-item">
+                            <strong>Right to object</strong>
+                            <p>Object to certain data processing</p>
                         </div>
                     </div>
 
                     <div class="highlight-box">
                         <p>
-                            <strong>📧 To exercise your rights, contact:</strong><br>
-                            Data Protection Officer<br>
-                            📧 dpo@masikabbs.com<br>
-                            📞 +254 (0) 703 738 707
+                            <strong>To exercise your rights, contact:</strong><br>
+                            Data Protection Officer &middot;
+                            <a href="mailto:dpo@masikabbs.com">dpo@masikabbs.com</a> &middot;
+                            <a href="tel:+254703738707">+254 (0) 703 738 707</a>
                         </p>
                     </div>
                 </div>
 
                 <div class="card">
-                    <h2><span class="emoji">📝</span> Consent Management</h2>
-                    <p>
-                        You can manage your consent preferences at any time:
-                    </p>
+                    <h2><i class="fas fa-square-check" aria-hidden="true"></i> Consent Management</h2>
+                    <p>You can manage your consent preferences at any time:</p>
 
-                    <div class="consent-form">
-                        <label>
-                            <input type="checkbox" id="consentMarketing">
+                    <form class="consent-form" id="consentForm">
+                        <label for="consentMarketing">
+                            <input type="checkbox" id="consentMarketing" name="consentMarketing">
                             I consent to receive marketing communications about Masika Benevolent products and services
                         </label>
-                        <label>
-                            <input type="checkbox" id="consentAnalytics">
+                        <label for="consentAnalytics">
+                            <input type="checkbox" id="consentAnalytics" name="consentAnalytics">
                             I consent to the use of analytics cookies to improve my experience
                         </label>
-                        <label>
-                            <input type="checkbox" id="consentThirdParty">
+                        <label for="consentThirdParty">
+                            <input type="checkbox" id="consentThirdParty" name="consentThirdParty">
                             I consent to sharing my data with trusted third-party service providers
                         </label>
-                        <button onclick="updateConsent()" class="btn btn-primary">Update Consent Preferences</button>
-                    </div>
+                        <button type="submit" class="btn btn-primary">Update Consent Preferences</button>
+                        <p class="consent-status" id="consentStatus" role="status" aria-live="polite"></p>
+                    </form>
                 </div>
 
                 <div class="card">
-                    <h2><span class="emoji">⏱️</span> Data Retention</h2>
-                    <p>
-                        We retain your data for as long as necessary to provide services and fulfill legal obligations:
-                    </p>
+                    <h2><i class="fas fa-hourglass-half" aria-hidden="true"></i> Data Retention</h2>
+                    <p>We retain your data for as long as necessary to provide services and fulfill legal obligations:</p>
                     <ul>
-                        <li><strong>Active Members:</strong> Data retained for the duration of membership + 5 years</li>
-                        <li><strong>Former Members:</strong> Data retained for 7 years for legal/tax purposes</li>
-                        <li><strong>Inactive Members:</strong> Data archived after 12 months of inactivity</li>
-                        <li><strong>Payment Records:</strong> Retained for 10 years (legal requirement)</li>
+                        <li><strong>Active members:</strong> data retained for the duration of membership plus 5 years</li>
+                        <li><strong>Former members:</strong> data retained for 7 years for legal and tax purposes</li>
+                        <li><strong>Inactive members:</strong> data archived after 12 months of inactivity</li>
+                        <li><strong>Payment records:</strong> retained for 10 years (legal requirement)</li>
                     </ul>
-                    <p style="margin-top: 12px;">
-                        You may request early deletion of your data, subject to legal retention requirements.
-                    </p>
+                    <p>You may request early deletion of your data, subject to legal retention requirements.</p>
                 </div>
             </div>
 
             <!-- TAB 5: SECURITY -->
-            <div class="tab-content" id="tab-security">
+            <div class="tab-content" id="tab-security" role="tabpanel" aria-labelledby="tab-btn-security" data-active="false" hidden>
                 <div class="card">
-                    <h2><span class="emoji">🛡️</span> Data Security</h2>
-                    <p>
-                        We implement robust security measures to protect your personal information:
-                    </p>
+                    <h2><i class="fas fa-shield-halved" aria-hidden="true"></i> Data Security</h2>
+                    <p>We implement robust security measures to protect your personal information:</p>
 
-                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin: 16px 0;">
-                        <div style="background: #f0f7f4; padding: 16px; border-radius: 8px; text-align: center;">
-                            <div style="font-size: 32px;">🔐</div>
+                    <div class="security-grid">
+                        <div class="security-item">
+                            <i class="fas fa-lock" aria-hidden="true"></i>
                             <strong>Encryption</strong>
-                            <p style="font-size: 13px; margin-top: 4px;">All data encrypted in transit (SSL/TLS) and at rest</p>
+                            <p>All data encrypted in transit (SSL/TLS) and at rest</p>
                         </div>
-                        <div style="background: #f0f7f4; padding: 16px; border-radius: 8px; text-align: center;">
-                            <div style="font-size: 32px;">🛡️</div>
-                            <strong>Access Control</strong>
-                            <p style="font-size: 13px; margin-top: 4px;">Strict role-based access and authentication</p>
+                        <div class="security-item">
+                            <i class="fas fa-user-shield" aria-hidden="true"></i>
+                            <strong>Access control</strong>
+                            <p>Strict role-based access and authentication</p>
                         </div>
-                        <div style="background: #f0f7f4; padding: 16px; border-radius: 8px; text-align: center;">
-                            <div style="font-size: 32px;">📊</div>
+                        <div class="security-item">
+                            <i class="fas fa-chart-line" aria-hidden="true"></i>
                             <strong>Monitoring</strong>
-                            <p style="font-size: 13px; margin-top: 4px;">Continuous security monitoring and threat detection</p>
+                            <p>Continuous security monitoring and threat detection</p>
                         </div>
-                        <div style="background: #f0f7f4; padding: 16px; border-radius: 8px; text-align: center;">
-                            <div style="font-size: 32px;">🔄</div>
+                        <div class="security-item">
+                            <i class="fas fa-rotate" aria-hidden="true"></i>
                             <strong>Backup</strong>
-                            <p style="font-size: 13px; margin-top: 4px;">Regular secure backups and disaster recovery</p>
+                            <p>Regular secure backups and disaster recovery</p>
                         </div>
                     </div>
 
                     <div class="highlight-box">
                         <p>
-                            <strong>🚨 Data Breach Protocol:</strong><br>
-                            In the event of a data breach, we will:<br>
-                            1. Investigate and contain the breach immediately<br>
-                            2. Notify affected individuals within 72 hours<br>
-                            3. Report to the Office of the Data Protection Commissioner<br>
-                            4. Take corrective action to prevent future incidents
+                            <strong>Data breach protocol:</strong> in the event of a data breach, we will investigate and
+                            contain it immediately, notify affected individuals within 72 hours, report to the Office of
+                            the Data Protection Commissioner, and take corrective action to prevent future incidents.
                         </p>
                     </div>
                 </div>
 
                 <div class="card">
-                    <h2><span class="emoji">🍪</span> Cookie Policy</h2>
-                    <p>
-                        We use cookies to enhance your browsing experience:
-                    </p>
+                    <h2><i class="fas fa-cookie-bite" aria-hidden="true"></i> Cookie Policy</h2>
+                    <p>We use cookies to enhance your browsing experience:</p>
                     <ul>
-                        <li><strong>Essential Cookies:</strong> Required for basic website functionality</li>
-                        <li><strong>Analytics Cookies:</strong> Help us understand how users interact with our site</li>
-                        <li><strong>Preference Cookies:</strong> Remember your preferences and settings</li>
+                        <li><strong>Essential cookies:</strong> required for basic website functionality</li>
+                        <li><strong>Analytics cookies:</strong> help us understand how users interact with our site</li>
+                        <li><strong>Preference cookies:</strong> remember your preferences and settings</li>
                     </ul>
-                    <p style="margin-top: 12px;">
-                        You can manage cookie preferences in your browser settings.
-                        Disabling essential cookies may affect website functionality.
-                    </p>
+                    <p>You can manage cookie preferences in your browser settings. Disabling essential cookies may affect website functionality.</p>
                 </div>
 
                 <div class="card">
-                    <h2><span class="emoji">📞</span> Report a Concern</h2>
-                    <p>
-                        If you believe your data has been compromised or misused, please report it immediately:
-                    </p>
-                    <div style="background: #f8faf9; padding: 20px; border-radius: 10px; margin-top: 12px;">
-                        <p style="margin-bottom: 8px;">
-                            <strong>📧 Email:</strong> <a href="mailto:security@masikabbs.com" style="color:var(--primary);">security@masikabbs.com</a>
-                        </p>
-                        <p style="margin-bottom: 8px;">
-                            <strong>📞 Phone:</strong> +254 (0) 703 738 707
-                        </p>
-                        <p style="margin-bottom: 0;">
-                            <strong>🏛️ Regulator:</strong> Office of the Data Protection Commissioner<br>
-                            <span style="font-size: 14px; color: var(--text-light);">Website: <a href="https://www.odpc.go.ke" target="_blank" style="color:var(--primary);">www.odpc.go.ke</a></span>
+                    <h2><i class="fas fa-phone-volume" aria-hidden="true"></i> Report a Concern</h2>
+                    <p>If you believe your data has been compromised or misused, please report it immediately:</p>
+                    <div class="report-box">
+                        <p><strong>Email:</strong> <a href="mailto:security@masikabbs.com">security@masikabbs.com</a></p>
+                        <p><strong>Phone:</strong> <a href="tel:+254703738707">+254 (0) 703 738 707</a></p>
+                        <p>
+                            <strong>Regulator:</strong> Office of the Data Protection Commissioner &mdash;
+                            <a href="https://www.odpc.go.ke" target="_blank" rel="noopener noreferrer">www.odpc.go.ke</a>
                         </p>
                     </div>
                 </div>
-            </div>
-
-            <!-- FOOTER NOTE -->
-            <div class="footer-note">
-                <p>
-                    <strong>Masika Benevolent</strong> &bull; 
-                    <a href="terms.html">Terms of Service</a> &bull;
-                    <a href="privacy.html">Privacy Policy</a> &bull;
-                    <a href="contact.html">Contact Us</a>
-                </p>
-                <p style="font-size: 13px; margin-top: 4px;">
-                    &copy; 2026 Masika Benevolent. All rights reserved.
-                </p>
             </div>
 
         </div>
 
     </main>
 
+    <!-- =========================================================
+         FOOTER (identical component to index.html)
+         ========================================================= -->
+
+    <footer class="footer">
+        <div class="container">
+            <div class="footer-grid">
+
+                <div class="footer-brand">
+                    <img
+                        src="assets/branding/favicon.svg"
+                        alt="Masika Benevolent"
+                        class="brand-logo-icon"
+                        width="46"
+                        height="46"
+                    >
+                    <span class="brand-text">MASIKA BENEVOLENT</span>
+                    <p>
+                        Funeral, burial & benevolent services —
+                        a note you can trust. Empowering families with
+                        dignified, affordable last-expense coverage.
+                    </p>
+                </div>
+
+                <div class="footer-links">
+                    <h4>Quick Links</h4>
+                    <a href="index.html">Home</a>
+                    <a href="index.html#plans">Membership Plans</a>
+                    <a href="index.html#terms">Terms</a>
+                    <a href="register.html">Become a Member</a>
+                    <a href="agent-apply.html">Become an Agent</a>
+                    <a href="privacy.html">Privacy Policy</a>
+                </div>
+
+                <div class="footer-contact">
+                    <h4>Contact Us</h4>
+                    <p><i class="fas fa-phone" aria-hidden="true"></i> <a href="tel:+254703738707">+254 (0) 703 738 707</a></p>
+                    <p><i class="fas fa-phone" aria-hidden="true"></i> <a href="tel:+254740340901">+254 (0) 740 340 901</a></p>
+                    <p><i class="fas fa-envelope" aria-hidden="true"></i> <a href="mailto:dpo@masikabbs.com">dpo@masikabbs.com</a></p>
+                    <p><i class="fas fa-globe" aria-hidden="true"></i> <a href="https://www.masikabbs.com" rel="noopener">www.masikabbs.com</a></p>
+                </div>
+
+            </div>
+
+            <div class="footer-bottom">
+                <p>&copy; 2026 Masika Benevolent. All rights reserved.</p>
+            </div>
+        </div>
+    </footer>
+
     <script>
-        /* ============================================================
-           TAB SWITCHING
-           ============================================================ */
+        // =========================================================
+        // NAV: AUTH STATE (kept aligned with index.html)
+        // =========================================================
 
-        document.querySelectorAll('.tab-btn').forEach(btn => {
-            btn.addEventListener('click', function() {
-                // Remove active from all tabs
-                document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
-                document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+        let currentUser = null;
+        let currentMember = null;
 
-                // Activate clicked tab
-                this.classList.add('active');
-                const tabId = this.dataset.tab;
-                document.getElementById('tab-' + tabId).classList.add('active');
-
-                // Scroll to top of content
-                document.querySelector('.container').scrollIntoView({ behavior: 'smooth', block: 'start' });
-            });
-        });
-
-        /* ============================================================
-           CONSENT MANAGEMENT
-           ============================================================ */
-
-        function updateConsent() {
-            const marketing = document.getElementById('consentMarketing').checked;
-            const analytics = document.getElementById('consentAnalytics').checked;
-            const thirdParty = document.getElementById('consentThirdParty').checked;
-
-            // Store consent in localStorage
-            const consentData = {
-                marketing: marketing,
-                analytics: analytics,
-                thirdParty: thirdParty,
-                timestamp: new Date().toISOString()
-            };
-
-            localStorage.setItem('privacyConsent', JSON.stringify(consentData));
-
-            // Show confirmation
-            const btn = document.querySelector('.consent-form .btn');
-            const originalText = btn.textContent;
-            btn.textContent = '✅ Preferences Saved!';
-            btn.style.background = '#198754';
-            btn.style.color = 'white';
-
-            setTimeout(() => {
-                btn.textContent = originalText;
-                btn.style.background = '';
-                btn.style.color = '';
-            }, 3000);
-
-            console.log('Consent updated:', consentData);
-        }
-
-        /* ============================================================
-           LOAD SAVED CONSENT
-           ============================================================ */
-
-        function loadConsent() {
-            const saved = localStorage.getItem('privacyConsent');
-            if (saved) {
-                try {
-                    const data = JSON.parse(saved);
-                    document.getElementById('consentMarketing').checked = data.marketing || false;
-                    document.getElementById('consentAnalytics').checked = data.analytics || false;
-                    document.getElementById('consentThirdParty').checked = data.thirdParty || false;
-                } catch (e) {
-                    console.log('No saved consent found');
+        async function checkAuthState() {
+            try {
+                if (typeof supabaseClient !== 'undefined') {
+                    const result = await supabaseClient.getCurrentUser();
+                    if (result.success && result.data) {
+                        currentUser = result.data;
+                        const memberResult = await supabaseClient.getMember(currentUser.id);
+                        if (memberResult.success) {
+                            currentMember = memberResult.data;
+                        }
+                        updateNavForLoggedIn();
+                        return;
+                    }
                 }
+
+                const storedUser = localStorage.getItem(CONFIG?.STORAGE?.USER);
+                if (storedUser) {
+                    currentUser = JSON.parse(storedUser);
+                    updateNavForLoggedIn();
+                    return;
+                }
+
+                updateNavForLoggedOut();
+            } catch (error) {
+                console.error('Auth check error:', error);
+                updateNavForLoggedOut();
             }
         }
 
-        /* ============================================================
-           INIT
-           ============================================================ */
+        function updateNavForLoggedIn() {
+            const authLinks = document.getElementById('authLinks');
+            if (!authLinks) return;
+
+            const firstName = currentMember?.first_name || currentUser?.user_metadata?.first_name || 'Member';
+            const initial = firstName.charAt(0).toUpperCase();
+
+            authLinks.innerHTML = `
+                <div class="nav-user">
+                    <div class="user-avatar" aria-hidden="true">${initial}</div>
+                    <span class="user-name">${firstName}</span>
+                    <a href="dashboard.html" class="btn btn-nav btn-small">
+                        <i class="fas fa-tachometer-alt" aria-hidden="true"></i> Dashboard
+                    </a>
+                    <button type="button" id="logoutBtn" class="btn btn-nav-outline btn-small">
+                        <i class="fas fa-sign-out-alt" aria-hidden="true"></i> Logout
+                    </button>
+                </div>
+            `;
+
+            const logoutBtn = document.getElementById('logoutBtn');
+            if (logoutBtn) {
+                logoutBtn.addEventListener('click', handleLogout);
+            }
+        }
+
+        function updateNavForLoggedOut() {
+            const authLinks = document.getElementById('authLinks');
+            if (!authLinks) return;
+
+            authLinks.innerHTML = `
+                <a href="register.html" class="btn btn-nav">
+                    <i class="fas fa-user-plus" aria-hidden="true"></i> Become a Member
+                </a>
+                <a href="login.html" class="btn btn-nav-outline" style="text-decoration:none; display:inline-flex; align-items:center; gap:10px;">
+                    <i class="fas fa-sign-in-alt" aria-hidden="true"></i> Login
+                </a>
+            `;
+        }
+
+        async function handleLogout() {
+            try {
+                if (typeof authManager !== 'undefined') {
+                    await authManager.logout();
+                } else if (typeof supabaseClient !== 'undefined') {
+                    await supabaseClient.signOut();
+                } else {
+                    localStorage.removeItem(CONFIG?.STORAGE?.USER);
+                    localStorage.removeItem('masika_user');
+                    localStorage.removeItem('masika_session');
+                }
+                window.location.href = 'index.html';
+            } catch (error) {
+                console.error('Logout error:', error);
+                window.location.href = 'index.html';
+            }
+        }
+
+        // =========================================================
+        // MOBILE MENU
+        // =========================================================
+
+        function toggleMobileMenu() {
+            const navLinks = document.getElementById('navLinks');
+            const menuButton = document.getElementById('mobileMenuBtn');
+            if (!navLinks || !menuButton) return;
+
+            const isActive = navLinks.classList.toggle('active');
+            menuButton.setAttribute('aria-expanded', isActive ? 'true' : 'false');
+            menuButton.setAttribute('aria-label', isActive ? 'Close navigation menu' : 'Open navigation menu');
+
+            const icon = menuButton.querySelector('i');
+            if (icon) {
+                icon.classList.toggle('fa-bars', !isActive);
+                icon.classList.toggle('fa-xmark', isActive);
+            }
+        }
+
+        // =========================================================
+        // ACCESSIBLE TABS (roving tabindex, arrow-key navigation)
+        // =========================================================
+
+        function initTabs() {
+            const tabs = Array.from(document.querySelectorAll('.tab-btn'));
+            const panels = Array.from(document.querySelectorAll('.tab-content'));
+
+            function activate(tab) {
+                tabs.forEach(t => {
+                    const selected = t === tab;
+                    t.setAttribute('aria-selected', selected ? 'true' : 'false');
+                    t.tabIndex = selected ? 0 : -1;
+                });
+
+                panels.forEach(panel => {
+                    const shouldShow = panel.id === tab.getAttribute('aria-controls');
+                    panel.dataset.active = shouldShow ? 'true' : 'false';
+                    panel.hidden = !shouldShow;
+                });
+
+                tab.focus();
+                document.querySelector('.container-narrow').scrollIntoView({ behavior: 'smooth', block: 'start' });
+            }
+
+            tabs.forEach((tab, index) => {
+                tab.addEventListener('click', () => activate(tab));
+
+                tab.addEventListener('keydown', (event) => {
+                    let newIndex = null;
+                    if (event.key === 'ArrowRight') newIndex = (index + 1) % tabs.length;
+                    if (event.key === 'ArrowLeft') newIndex = (index - 1 + tabs.length) % tabs.length;
+                    if (event.key === 'Home') newIndex = 0;
+                    if (event.key === 'End') newIndex = tabs.length - 1;
+
+                    if (newIndex !== null) {
+                        event.preventDefault();
+                        activate(tabs[newIndex]);
+                    }
+                });
+            });
+        }
+
+        // =========================================================
+        // CONSENT MANAGEMENT
+        // =========================================================
+
+        function loadConsent() {
+            const saved = localStorage.getItem('privacyConsent');
+            if (!saved) return;
+
+            try {
+                const data = JSON.parse(saved);
+                const marketing = document.getElementById('consentMarketing');
+                const analytics = document.getElementById('consentAnalytics');
+                const thirdParty = document.getElementById('consentThirdParty');
+                if (marketing) marketing.checked = Boolean(data.marketing);
+                if (analytics) analytics.checked = Boolean(data.analytics);
+                if (thirdParty) thirdParty.checked = Boolean(data.thirdParty);
+            } catch (error) {
+                // No valid saved consent; defaults remain unchecked.
+            }
+        }
+
+        function initConsentForm() {
+            const form = document.getElementById('consentForm');
+            const status = document.getElementById('consentStatus');
+            if (!form) return;
+
+            form.addEventListener('submit', function(event) {
+                event.preventDefault();
+
+                const consentData = {
+                    marketing: document.getElementById('consentMarketing').checked,
+                    analytics: document.getElementById('consentAnalytics').checked,
+                    thirdParty: document.getElementById('consentThirdParty').checked,
+                    timestamp: new Date().toISOString()
+                };
+
+                localStorage.setItem('privacyConsent', JSON.stringify(consentData));
+
+                if (status) {
+                    status.textContent = 'Preferences saved.';
+                    setTimeout(() => { status.textContent = ''; }, 3000);
+                }
+            });
+        }
+
+        // =========================================================
+        // INIT
+        // =========================================================
 
         document.addEventListener('DOMContentLoaded', function() {
+            checkAuthState();
+            initTabs();
             loadConsent();
-            console.log('🔒 Masika Benevolent - Data Privacy Policy');
-            console.log('📋 Policy loaded successfully');
-            console.log('🛡️ Your privacy is protected');
-        });
+            initConsentForm();
 
-        /* ============================================================
-           KEYBOARD SHORTCUTS
-           ============================================================ */
-
-        document.addEventListener('keydown', function(e) {
-            // Number keys 1-5 to switch tabs
-            const num = parseInt(e.key);
-            if (num >= 1 && num <= 5) {
-                const tabs = document.querySelectorAll('.tab-btn');
-                if (tabs[num - 1]) {
-                    tabs[num - 1].click();
-                }
+            const mobileMenuBtn = document.getElementById('mobileMenuBtn');
+            if (mobileMenuBtn) {
+                mobileMenuBtn.addEventListener('click', toggleMobileMenu);
             }
         });
     </script>
