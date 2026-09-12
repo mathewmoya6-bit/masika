@@ -666,6 +666,7 @@
             gap: 10px;
             justify-content: flex-end;
             margin-top: 20px;
+            flex-wrap: wrap;
         }
 
         /* ============================================================
@@ -747,6 +748,109 @@
         .branch-field-row .form-group {
             flex: 1;
             margin-bottom: 0;
+        }
+
+        /* ============================================================
+           SECTION TABS (Active Agents / Applications)
+           ============================================================ */
+
+        .section-tabs {
+            display: flex;
+            gap: 4px;
+            background: var(--gray-100);
+            padding: 4px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+            width: fit-content;
+            max-width: 100%;
+            overflow-x: auto;
+        }
+
+        .section-tab {
+            padding: 9px 18px;
+            border: 0;
+            border-radius: 8px;
+            background: transparent;
+            color: var(--text-light);
+            font-weight: 600;
+            font-size: 13px;
+            cursor: pointer;
+            font-family: inherit;
+            transition: var(--transition);
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            white-space: nowrap;
+        }
+
+        .section-tab:hover {
+            color: var(--primary);
+        }
+
+        .section-tab[aria-selected="true"] {
+            background: white;
+            color: var(--primary);
+            box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+        }
+
+        .section-tab .badge {
+            background: var(--gold);
+            color: white;
+            padding: 1px 8px;
+            border-radius: 10px;
+            font-size: 11px;
+            font-weight: 700;
+        }
+
+        .tab-panel { display: none; }
+        .tab-panel[data-active="true"] { display: block; }
+
+        .status-badge.approved { background: var(--success-light); color: var(--success); }
+        .status-badge.rejected { background: var(--danger-light); color: var(--danger); }
+
+        .truncate-cell {
+            max-width: 220px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+            display: block;
+        }
+
+        .application-detail {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 12px;
+            margin-bottom: 16px;
+        }
+
+        .application-detail.full-width {
+            grid-template-columns: 1fr;
+        }
+
+        .application-detail .detail-item {
+            background: var(--gray-50);
+            padding: 10px 12px;
+            border-radius: 8px;
+        }
+
+        .application-detail .detail-item .detail-label {
+            font-size: 11px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            color: var(--text-light);
+            font-weight: 700;
+            margin-bottom: 4px;
+        }
+
+        .application-detail .detail-item .detail-value {
+            font-size: 14px;
+            font-weight: 500;
+            word-break: break-word;
+        }
+
+        .review-note {
+            font-size: 12px;
+            color: var(--text-light);
         }
 
         /* ============================================================
@@ -898,6 +1002,10 @@
             .branch-field-row {
                 flex-direction: column;
             }
+
+            .application-detail {
+                grid-template-columns: 1fr;
+            }
         }
 
         @media (max-width: 480px) {
@@ -980,7 +1088,7 @@
                     </button>
                     <h1>
                         Sales Agents
-                        <small>Manage Masika Benevolent sales agents and their unique sales codes</small>
+                        <small>Manage active sales agents and review incoming agent applications</small>
                     </h1>
                 </div>
                 <div class="actions">
@@ -994,20 +1102,44 @@
                 </div>
             </div>
 
-            <!-- Agents Table -->
+            <!-- Agents / Applications Card -->
             <div class="card">
                 <div class="card-header">
-                    <h3><i class="fas fa-user-tie" style="color:var(--gold);"></i> All Sales Agents</h3>
+                    <h3><i class="fas fa-user-tie" style="color:var(--gold);"></i> Sales Agents &amp; Applications</h3>
                     <div class="search-box">
                         <i class="fas fa-search"></i>
-                        <input type="search" id="agentSearch" placeholder="Search agents..." oninput="filterAgents()">
+                        <input type="search" id="agentSearch" placeholder="Search..." oninput="handleAgentSearchInput()">
                     </div>
                 </div>
 
-                <div id="agentsList">
-                    <div class="loading-spinner">
-                        <div class="spinner"></div>
-                        <p>Loading sales agents...</p>
+                <div class="section-tabs" role="tablist" aria-label="Agent sections">
+                    <button class="section-tab" id="tab-btn-active" role="tab" aria-selected="true" aria-controls="panel-active" type="button">
+                        <i class="fas fa-user-check" aria-hidden="true"></i> Active Agents
+                        <span class="badge" id="activeAgentsBadge">0</span>
+                    </button>
+                    <button class="section-tab" id="tab-btn-applications" role="tab" aria-selected="false" aria-controls="panel-applications" type="button" tabindex="-1">
+                        <i class="fas fa-inbox" aria-hidden="true"></i> Applications
+                        <span class="badge" id="pendingAppsBadge">0</span>
+                    </button>
+                </div>
+
+                <!-- PANEL: ACTIVE AGENTS -->
+                <div class="tab-panel" id="panel-active" role="tabpanel" aria-labelledby="tab-btn-active" data-active="true">
+                    <div id="agentsList">
+                        <div class="loading-spinner">
+                            <div class="spinner"></div>
+                            <p>Loading sales agents...</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- PANEL: APPLICATIONS -->
+                <div class="tab-panel" id="panel-applications" role="tabpanel" aria-labelledby="tab-btn-applications" data-active="false" hidden>
+                    <div id="applicationsList">
+                        <div class="loading-spinner">
+                            <div class="spinner"></div>
+                            <p>Loading agent applications...</p>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -1095,6 +1227,61 @@
     </div>
 
     <!-- ============================================================
+    MODAL: Review Agent Application
+    ============================================================ -->
+
+    <div class="modal-overlay" id="applicationModal">
+        <div class="modal" style="max-width:620px;">
+            <h3><i class="fas fa-user-clock" style="color:var(--primary);"></i> Review Agent Application</h3>
+
+            <div class="application-detail" id="applicationDetailGrid">
+                <!-- populated by JS -->
+            </div>
+
+            <div class="application-detail full-width">
+                <div class="detail-item">
+                    <div class="detail-label">Why they want to become an agent</div>
+                    <div class="detail-value" id="appDetailReason">—</div>
+                </div>
+            </div>
+
+            <div class="application-detail full-width">
+                <div class="detail-item">
+                    <div class="detail-label">Relevant experience</div>
+                    <div class="detail-value" id="appDetailExperience">—</div>
+                </div>
+            </div>
+
+            <div id="applicationReviewedNote" class="review-note" style="display:none; margin-bottom:12px;"></div>
+
+            <div class="branch-field-row" id="approveBranchGroup">
+                <div class="form-group">
+                    <label for="approveBranch">Assign Branch <span class="required">*</span></label>
+                    <select id="approveBranch" required>
+                        <option value="">— Loading branches... —</option>
+                    </select>
+                </div>
+            </div>
+            <small id="approveBranchHelp" style="display:block; margin-top:6px; color:var(--text-light); font-size:12px;">
+                <i class="fas fa-info-circle"></i> Approving will create an active Sales Agent record with an auto-generated sales code.
+            </small>
+
+            <div class="form-error" id="applicationError"></div>
+            <div class="form-success" id="applicationSuccess"></div>
+
+            <div class="modal-actions">
+                <button type="button" class="btn btn-outline" onclick="closeApplicationModal()">Close</button>
+                <button type="button" class="btn btn-danger" id="rejectAppBtn" onclick="handleRejectApplication()">
+                    <i class="fas fa-times"></i> Reject
+                </button>
+                <button type="button" class="btn btn-success" id="approveAppBtn" onclick="handleApproveApplication()">
+                    <i class="fas fa-check"></i> Approve &amp; Create Agent
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ============================================================
     TOAST CONTAINER
     ============================================================ -->
     <div class="toast-container" id="toastContainer"></div>
@@ -1122,7 +1309,10 @@
 
         let allAgents = [];
         let allBranches = [];
+        let allApplications = [];
         let currentStaff = null;
+        let activeAgentTab = 'active';
+        let currentApplicationId = null;
 
         // ============================================================
         // INITIALIZATION
@@ -1140,7 +1330,9 @@
                     updateAdminUI(currentStaff);
                     await loadBranches();
                     await loadAgents();
+                    await loadApplications();
                     setupSidebarToggle();
+                    setupSectionTabs();
                     updateClock();
                     return;
                 } catch (e) {
@@ -1154,7 +1346,9 @@
             if (authResult) {
                 await loadBranches();
                 await loadAgents();
+                await loadApplications();
                 setupSidebarToggle();
+                setupSectionTabs();
                 updateClock();
             }
         });
@@ -1258,7 +1452,7 @@
 
             } catch (error) {
                 console.error('❌ Auth check error:', error);
-                showToast('error', 'Authentication error');
+                showToast('Authentication error', 'error');
                 return false;
             }
         }
@@ -1282,12 +1476,14 @@
 
         async function loadBranches() {
             const branchSelect = document.getElementById('agentBranch');
+            const approveBranchSelect = document.getElementById('approveBranch');
             const refreshIcon = document.getElementById('refreshBranchesIcon');
 
-            if (!branchSelect) return;
-
-            branchSelect.disabled = true;
-            branchSelect.innerHTML = `<option value="">— Loading branches... —</option>`;
+            [branchSelect, approveBranchSelect].forEach(function(select) {
+                if (!select) return;
+                select.disabled = true;
+                select.innerHTML = `<option value="">— Loading branches... —</option>`;
+            });
             if (refreshIcon) refreshIcon.classList.add('fa-spin');
 
             try {
@@ -1304,33 +1500,46 @@
                     return branch.is_active !== false;
                 });
 
-                branchSelect.innerHTML = `<option value="">— Select branch —</option>`;
+                populateBranchSelect(branchSelect, activeBranches);
+                populateBranchSelect(approveBranchSelect, activeBranches);
 
                 if (activeBranches.length === 0) {
-                    branchSelect.innerHTML = `<option value="">— No active branches available —</option>`;
-                    branchSelect.disabled = true;
                     showToast('No active branches available. Please add a branch first.', 'warning');
-                    return;
                 }
-
-                activeBranches.forEach(function(branch) {
-                    const option = document.createElement('option');
-                    option.value = branch.id;
-                    const code = branch.branch_code ? ` (${branch.branch_code})` : '';
-                    option.textContent = branch.branch_name + code;
-                    branchSelect.appendChild(option);
-                });
-
-                branchSelect.disabled = false;
 
             } catch (error) {
                 console.error('Load branches error:', error);
-                branchSelect.innerHTML = `<option value="">— Unable to load branches —</option>`;
-                branchSelect.disabled = true;
+                [branchSelect, approveBranchSelect].forEach(function(select) {
+                    if (!select) return;
+                    select.innerHTML = `<option value="">— Unable to load branches —</option>`;
+                    select.disabled = true;
+                });
                 showToast('Failed to load branches: ' + getFriendlyError(error), 'error');
             } finally {
                 if (refreshIcon) refreshIcon.classList.remove('fa-spin');
             }
+        }
+
+        function populateBranchSelect(select, activeBranches) {
+            if (!select) return;
+
+            if (!activeBranches || activeBranches.length === 0) {
+                select.innerHTML = `<option value="">— No active branches available —</option>`;
+                select.disabled = true;
+                return;
+            }
+
+            select.innerHTML = `<option value="">— Select branch —</option>`;
+
+            activeBranches.forEach(function(branch) {
+                const option = document.createElement('option');
+                option.value = branch.id;
+                const code = branch.branch_code ? ` (${branch.branch_code})` : '';
+                option.textContent = branch.branch_name + code;
+                select.appendChild(option);
+            });
+
+            select.disabled = false;
         }
 
         // ============================================================
@@ -1402,7 +1611,7 @@
                     <div class="empty-state">
                         <i class="fas fa-user-tie"></i>
                         <h4>No sales agents found</h4>
-                        <p>Add your first Masika Benevolent sales agent.</p>
+                        <p>Add your first Masika Benevolent sales agent, or approve a pending application.</p>
                         <br>
                         <button onclick="openCreateAgentModal()" class="btn btn-primary">
                             <i class="fas fa-user-plus"></i> Add New Agent
@@ -1492,8 +1701,142 @@
         }
 
         // ============================================================
-        // FILTER AGENTS
+        // LOAD APPLICATIONS  (submitted via agent-apply.html)
         // ============================================================
+
+        async function loadApplications() {
+            const container = document.getElementById('applicationsList');
+
+            container.innerHTML = `
+                <div class="loading-spinner">
+                    <div class="spinner"></div>
+                    <p>Loading agent applications...</p>
+                </div>
+            `;
+
+            try {
+                const { data, error } = await supabaseClient
+                    .from('agent_applications')
+                    .select('*')
+                    .order('created_at', { ascending: false });
+
+                if (error) throw error;
+
+                allApplications = data || [];
+
+                updateApplicationsBadge();
+                renderApplications(allApplications);
+
+            } catch (error) {
+                console.error('Load applications error:', error);
+                container.innerHTML = `
+                    <div class="empty-state">
+                        <i class="fas fa-exclamation-triangle"></i>
+                        <h4>Unable to load agent applications</h4>
+                        <p>${escapeHtml(getFriendlyError(error))}</p>
+                        <br>
+                        <button onclick="loadApplications()" class="btn btn-primary">
+                            <i class="fas fa-sync"></i> Try Again
+                        </button>
+                    </div>
+                `;
+            }
+        }
+
+        // ============================================================
+        // RENDER APPLICATIONS
+        // ============================================================
+
+        function renderApplications(applications) {
+            const container = document.getElementById('applicationsList');
+
+            if (!applications || applications.length === 0) {
+                container.innerHTML = `
+                    <div class="empty-state">
+                        <i class="fas fa-inbox"></i>
+                        <h4>No agent applications yet</h4>
+                        <p>Applications submitted through the public "Become an Agent" form will appear here.</p>
+                    </div>
+                `;
+                return;
+            }
+
+            let html = `
+                <div class="table-wrapper">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Applicant</th>
+                                <th>Phone</th>
+                                <th>National ID</th>
+                                <th>County / Town</th>
+                                <th>Referral</th>
+                                <th>Status</th>
+                                <th>Applied</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+            `;
+
+            applications.forEach(function(application) {
+                const status = (application.status || 'PENDING');
+                const statusClass = String(status).toLowerCase();
+                const isPending = statusClass === 'pending';
+                const location = [application.town, application.county].filter(Boolean).join(', ') || (application.county || '—');
+
+                html += `
+                    <tr>
+                        <td>
+                            <div class="agent-name">${escapeHtml(application.full_name || '—')}</div>
+                            <div class="agent-email">${escapeHtml(application.email || '—')}</div>
+                        </td>
+
+                        <td>${escapeHtml(application.phone || '—')}</td>
+
+                        <td>${escapeHtml(application.national_id || '—')}</td>
+
+                        <td><span class="truncate-cell" title="${escapeHtml(location)}">${escapeHtml(location)}</span></td>
+
+                        <td>${escapeHtml(application.application_source || '—')}</td>
+
+                        <td>
+                            <span class="status-badge ${escapeHtml(statusClass)}">
+                                ${escapeHtml(capitalize(status))}
+                            </span>
+                        </td>
+
+                        <td>${formatDate(application.created_at)}</td>
+
+                        <td>
+                            <button onclick="openApplicationModal('${escapeJs(application.id)}')" class="btn ${isPending ? 'btn-primary' : 'btn-outline'} btn-sm" title="${isPending ? 'Review application' : 'View application'}">
+                                <i class="fas ${isPending ? 'fa-eye' : 'fa-file-alt'}"></i> ${isPending ? 'Review' : 'View'}
+                            </button>
+                        </td>
+                    </tr>
+                `;
+            });
+
+            html += `
+                        </tbody>
+                    </table>
+                </div>
+            `;
+
+            container.innerHTML = html;
+        }
+
+        // ============================================================
+        // FILTER AGENTS / APPLICATIONS (shared search box)
+        // ============================================================
+
+        function handleAgentSearchInput() {
+            if (activeAgentTab === 'applications') {
+                filterApplications();
+            } else {
+                filterAgents();
+            }
+        }
 
         function filterAgents() {
             const search = document.getElementById('agentSearch').value.trim().toLowerCase();
@@ -1522,13 +1865,105 @@
             renderAgents(filtered);
         }
 
+        function filterApplications() {
+            const search = document.getElementById('agentSearch').value.trim().toLowerCase();
+
+            if (!search) {
+                renderApplications(allApplications);
+                return;
+            }
+
+            const filtered = allApplications.filter(function(application) {
+                const searchable = [
+                    application.full_name,
+                    application.email,
+                    application.phone,
+                    application.national_id,
+                    application.county,
+                    application.town,
+                    application.application_source,
+                    application.status
+                ]
+                .filter(Boolean)
+                .join(' ')
+                .toLowerCase();
+
+                return searchable.includes(search);
+            });
+
+            renderApplications(filtered);
+        }
+
         // ============================================================
-        // AGENT COUNT
+        // COUNTS / BADGES
         // ============================================================
 
         function updateAgentCount() {
-            const badge = document.getElementById('agentCountBadge');
-            if (badge) badge.textContent = allAgents.length;
+            const sidebarBadge = document.getElementById('agentCountBadge');
+            const tabBadge = document.getElementById('activeAgentsBadge');
+            if (sidebarBadge) sidebarBadge.textContent = allAgents.length;
+            if (tabBadge) tabBadge.textContent = allAgents.length;
+        }
+
+        function updateApplicationsBadge() {
+            const pending = allApplications.filter(function(application) {
+                return String(application.status || 'PENDING').toUpperCase() === 'PENDING';
+            }).length;
+
+            const badge = document.getElementById('pendingAppsBadge');
+            if (badge) badge.textContent = pending;
+        }
+
+        // ============================================================
+        // SECTION TABS (Active Agents / Applications)
+        // ============================================================
+
+        function setupSectionTabs() {
+            const tabActive = document.getElementById('tab-btn-active');
+            const tabApplications = document.getElementById('tab-btn-applications');
+
+            if (tabActive) tabActive.addEventListener('click', function() { switchAgentTab('active'); });
+            if (tabApplications) tabApplications.addEventListener('click', function() { switchAgentTab('applications'); });
+        }
+
+        function switchAgentTab(tab) {
+            activeAgentTab = tab;
+
+            const tabActive = document.getElementById('tab-btn-active');
+            const tabApplications = document.getElementById('tab-btn-applications');
+            const panelActive = document.getElementById('panel-active');
+            const panelApplications = document.getElementById('panel-applications');
+            const searchInput = document.getElementById('agentSearch');
+
+            const showActive = tab === 'active';
+
+            if (tabActive) {
+                tabActive.setAttribute('aria-selected', showActive ? 'true' : 'false');
+                tabActive.tabIndex = showActive ? 0 : -1;
+            }
+            if (tabApplications) {
+                tabApplications.setAttribute('aria-selected', showActive ? 'false' : 'true');
+                tabApplications.tabIndex = showActive ? -1 : 0;
+            }
+            if (panelActive) {
+                panelActive.dataset.active = showActive ? 'true' : 'false';
+                panelActive.hidden = !showActive;
+            }
+            if (panelApplications) {
+                panelApplications.dataset.active = showActive ? 'false' : 'true';
+                panelApplications.hidden = showActive;
+            }
+
+            if (searchInput) {
+                searchInput.value = '';
+                searchInput.placeholder = showActive ? 'Search agents...' : 'Search applications...';
+            }
+
+            if (showActive) {
+                renderAgents(allAgents);
+            } else {
+                renderApplications(allApplications);
+            }
         }
 
         // ============================================================
@@ -1669,6 +2104,208 @@
         }
 
         // ============================================================
+        // APPLICATION REVIEW MODAL
+        // ============================================================
+
+        function openApplicationModal(applicationId) {
+            const application = allApplications.find(function(item) {
+                return String(item.id) === String(applicationId);
+            });
+
+            if (!application) {
+                showToast('Application not found. Try refreshing.', 'error');
+                return;
+            }
+
+            currentApplicationId = applicationId;
+            hideApplicationMessages();
+
+            const status = String(application.status || 'PENDING').toUpperCase();
+            const isPending = status === 'PENDING';
+
+            const detailGrid = document.getElementById('applicationDetailGrid');
+            detailGrid.innerHTML = [
+                ['Full Name', application.full_name],
+                ['Email', application.email],
+                ['Phone', application.phone],
+                ['National ID', application.national_id],
+                ['County', application.county],
+                ['Town / Location', application.town],
+                ['Referral Code', application.application_source],
+                ['Applied On', formatDate(application.created_at)]
+            ].map(function(pair) {
+                return `
+                    <div class="detail-item">
+                        <div class="detail-label">${escapeHtml(pair[0])}</div>
+                        <div class="detail-value">${escapeHtml(pair[1] || '—')}</div>
+                    </div>
+                `;
+            }).join('');
+
+            document.getElementById('appDetailReason').textContent = application.notes || '—';
+            document.getElementById('appDetailExperience').textContent = application.experience || '—';
+
+            const approveBranchGroup = document.getElementById('approveBranchGroup');
+            const approveBranchHelp = document.getElementById('approveBranchHelp');
+            const approveBtn = document.getElementById('approveAppBtn');
+            const rejectBtn = document.getElementById('rejectAppBtn');
+            const reviewedNote = document.getElementById('applicationReviewedNote');
+
+            if (isPending) {
+                approveBranchGroup.style.display = '';
+                approveBranchHelp.style.display = '';
+                approveBtn.style.display = '';
+                rejectBtn.style.display = '';
+                reviewedNote.style.display = 'none';
+                populateBranchSelect(document.getElementById('approveBranch'), allBranches.filter(function(b) { return b.is_active !== false; }));
+            } else {
+                approveBranchGroup.style.display = 'none';
+                approveBranchHelp.style.display = 'none';
+                approveBtn.style.display = 'none';
+                rejectBtn.style.display = 'none';
+                reviewedNote.style.display = 'block';
+                reviewedNote.innerHTML = `<i class="fas fa-circle-info"></i> This application was already marked <strong>${escapeHtml(capitalize(status))}</strong>${application.reviewed_at ? ' on ' + formatDate(application.reviewed_at) : ''}.`;
+            }
+
+            document.getElementById('applicationModal').classList.add('open');
+        }
+
+        function closeApplicationModal() {
+            document.getElementById('applicationModal').classList.remove('open');
+            currentApplicationId = null;
+            hideApplicationMessages();
+        }
+
+        // ============================================================
+        // APPROVE APPLICATION -> CREATE SALES AGENT
+        // ============================================================
+
+        async function handleApproveApplication() {
+            if (!currentApplicationId) return;
+
+            const application = allApplications.find(function(item) {
+                return String(item.id) === String(currentApplicationId);
+            });
+
+            if (!application) {
+                showApplicationError('Application not found. Try refreshing.');
+                return;
+            }
+
+            const branchId = document.getElementById('approveBranch').value;
+
+            if (!branchId) {
+                showApplicationError('Please assign a branch before approving.');
+                return;
+            }
+
+            const approveBtn = document.getElementById('approveAppBtn');
+            const rejectBtn = document.getElementById('rejectAppBtn');
+            hideApplicationMessages();
+
+            approveBtn.disabled = true;
+            rejectBtn.disabled = true;
+            approveBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Approving...';
+
+            try {
+                // 1. Create the active Sales Agent record (sales_code is auto-generated by the DB)
+                const agentData = {
+                    full_name: application.full_name,
+                    email: application.email,
+                    phone: application.phone || null,
+                    national_id: application.national_id || null,
+                    branch_id: branchId,
+                    status: 'ACTIVE'
+                };
+
+                const { data: newAgent, error: agentError } = await supabaseClient
+                    .from('sales_agents')
+                    .insert(agentData)
+                    .select()
+                    .single();
+
+                if (agentError) throw agentError;
+
+                // 2. Mark the application as APPROVED
+                const { error: updateError } = await supabaseClient
+                    .from('agent_applications')
+                    .update({
+                        status: 'APPROVED',
+                        reviewed_by: currentStaff?.id || null,
+                        reviewed_at: new Date().toISOString(),
+                        updated_at: new Date().toISOString()
+                    })
+                    .eq('id', currentApplicationId);
+
+                if (updateError) throw updateError;
+
+                const generatedCode = newAgent?.sales_code || 'Generated automatically';
+                showApplicationSuccess(`Approved. Sales Agent created with code: ${generatedCode}`);
+                showToast(`Application approved. Sales Code: ${generatedCode}`, 'success');
+
+                await Promise.all([loadAgents(), loadApplications()]);
+
+                setTimeout(closeApplicationModal, 1800);
+
+            } catch (error) {
+                console.error('Approve application error:', error);
+                showApplicationError(getFriendlyError(error));
+                showToast(getFriendlyError(error), 'error');
+            } finally {
+                approveBtn.disabled = false;
+                rejectBtn.disabled = false;
+                approveBtn.innerHTML = '<i class="fas fa-check"></i> Approve &amp; Create Agent';
+            }
+        }
+
+        // ============================================================
+        // REJECT APPLICATION
+        // ============================================================
+
+        async function handleRejectApplication() {
+            if (!currentApplicationId) return;
+
+            if (!confirm('Are you sure you want to reject this application? This cannot be undone.')) {
+                return;
+            }
+
+            const approveBtn = document.getElementById('approveAppBtn');
+            const rejectBtn = document.getElementById('rejectAppBtn');
+            hideApplicationMessages();
+
+            approveBtn.disabled = true;
+            rejectBtn.disabled = true;
+            rejectBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Rejecting...';
+
+            try {
+                const { error } = await supabaseClient
+                    .from('agent_applications')
+                    .update({
+                        status: 'REJECTED',
+                        reviewed_by: currentStaff?.id || null,
+                        reviewed_at: new Date().toISOString(),
+                        updated_at: new Date().toISOString()
+                    })
+                    .eq('id', currentApplicationId);
+
+                if (error) throw error;
+
+                showToast('Application rejected.', 'success');
+                await loadApplications();
+                closeApplicationModal();
+
+            } catch (error) {
+                console.error('Reject application error:', error);
+                showApplicationError(getFriendlyError(error));
+                showToast(getFriendlyError(error), 'error');
+            } finally {
+                approveBtn.disabled = false;
+                rejectBtn.disabled = false;
+                rejectBtn.innerHTML = '<i class="fas fa-times"></i> Reject';
+            }
+        }
+
+        // ============================================================
         // REFRESH DATA
         // ============================================================
 
@@ -1681,6 +2318,7 @@
 
             try {
                 await loadAgents();
+                await loadApplications();
                 await loadBranches();
                 showToast('Data refreshed successfully.', 'success');
             } catch (error) {
@@ -1710,6 +2348,27 @@
 
         function showFormSuccess(message) {
             const el = document.getElementById('createAgentSuccess');
+            el.textContent = message;
+            el.style.display = 'block';
+        }
+
+        function hideApplicationMessages() {
+            const err = document.getElementById('applicationError');
+            const ok = document.getElementById('applicationSuccess');
+            err.style.display = 'none';
+            ok.style.display = 'none';
+            err.textContent = '';
+            ok.textContent = '';
+        }
+
+        function showApplicationError(message) {
+            const el = document.getElementById('applicationError');
+            el.textContent = message;
+            el.style.display = 'block';
+        }
+
+        function showApplicationSuccess(message) {
+            const el = document.getElementById('applicationSuccess');
             el.textContent = message;
             el.style.display = 'block';
         }
@@ -1769,7 +2428,7 @@
         // TOAST NOTIFICATIONS
         // ============================================================
 
-        function showToast(type, message) {
+        function showToast(message, type = 'info') {
             const container = document.getElementById('toastContainer');
 
             const icons = {
@@ -1882,6 +2541,12 @@
             }
         });
 
+        document.getElementById('applicationModal').addEventListener('click', function(event) {
+            if (event.target === this) {
+                closeApplicationModal();
+            }
+        });
+
         // ============================================================
         // ESC KEY
         // ============================================================
@@ -1889,6 +2554,7 @@
         document.addEventListener('keydown', function(event) {
             if (event.key === 'Escape') {
                 closeCreateAgentModal();
+                closeApplicationModal();
             }
         });
 
@@ -1905,6 +2571,14 @@
         window.refreshData = refreshData;
         window.handleLogout = handleLogout;
         window.showToast = showToast;
+        window.loadApplications = loadApplications;
+        window.filterApplications = filterApplications;
+        window.handleAgentSearchInput = handleAgentSearchInput;
+        window.switchAgentTab = switchAgentTab;
+        window.openApplicationModal = openApplicationModal;
+        window.closeApplicationModal = closeApplicationModal;
+        window.handleApproveApplication = handleApproveApplication;
+        window.handleRejectApplication = handleRejectApplication;
     </script>
 
 </body>
