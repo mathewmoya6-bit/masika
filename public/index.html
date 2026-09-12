@@ -3,22 +3,57 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="description" content="Masika Benevolent - Affordable last-expense coverage for you and your loved ones across Kenya.">
+    <meta name="description" content="Masika Benevolent - Affordable last-expense coverage for you and your loved ones across Kenya. Funeral, burial and benevolent membership plans from KES 10 per day.">
+    <meta name="robots" content="index, follow">
     <meta name="theme-color" content="#1c4a30">
-    <title>Masika Benevolent - Affordable Last-Expense Coverage</title>
+    <link rel="canonical" href="https://www.masikabbs.com/index.html">
+    <title>Masika Benevolent - Affordable Last-Expense Coverage in Kenya</title>
+
+    <!-- Open Graph / social sharing -->
+    <meta property="og:type" content="website">
+    <meta property="og:site_name" content="Masika Benevolent">
+    <meta property="og:title" content="Masika Benevolent - Affordable Last-Expense Coverage">
+    <meta property="og:description" content="Compassionate funeral, burial and benevolent membership plans for every family in Kenya, from KES 10 per day.">
+    <meta property="og:url" content="https://www.masikabbs.com/index.html">
+    <meta property="og:image" content="https://www.masikabbs.com/assets/branding/system-logo.svg">
+    <meta name="twitter:card" content="summary">
+    <meta name="twitter:title" content="Masika Benevolent - Affordable Last-Expense Coverage">
+    <meta name="twitter:description" content="Compassionate funeral, burial and benevolent membership plans for every family in Kenya, from KES 10 per day.">
 
     <link rel="icon" type="image/svg+xml" href="assets/branding/favicon.svg">
+    <link rel="apple-touch-icon" href="assets/branding/favicon.svg">
+
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link rel="preconnect" href="https://cdnjs.cloudflare.com" crossorigin>
+
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600;9..144,700;9..144,800&family=Inter:wght@300;400;500;600;700;800;900&family=IBM+Plex+Mono:wght@500;600;700&display=swap" rel="stylesheet">
+
+    <!-- Structured data for search engines -->
+    <script type="application/ld+json">
+    {
+        "@context": "https://schema.org",
+        "@type": "InsuranceAgency",
+        "name": "Masika Benevolent",
+        "url": "https://www.masikabbs.com/",
+        "logo": "https://www.masikabbs.com/assets/branding/system-logo.svg",
+        "description": "Affordable last-expense (funeral and burial) membership cover for families, groups and organizations across Kenya.",
+        "areaServed": "KE",
+        "telephone": ["+254703738707", "+254740340901"],
+        "email": "customers@masikabbs.com",
+        "sameAs": []
+    }
+    </script>
 
     <!-- =========================================================
          SUPABASE + FRONTEND JS
          ========================================================= -->
-    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-    <script src="js/config.js"></script>
-    <script src="js/supabase.js"></script>
-    <script src="js/auth.js"></script>
-    <script src="js/masika-utils.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2" defer></script>
+    <script src="js/config.js" defer></script>
+    <script src="js/supabase.js" defer></script>
+    <script src="js/auth.js" defer></script>
+    <script src="js/masika-utils.js" defer></script>
 
     <style>
         /* =========================================================
@@ -159,6 +194,29 @@
         }
 
         /* =========================================================
+           ACCESSIBILITY: SKIP LINK
+           ========================================================= */
+
+        .skip-link {
+            position: absolute;
+            top: -48px;
+            left: 12px;
+            background: var(--primary-700);
+            color: var(--white);
+            padding: 10px 18px;
+            border-radius: 8px;
+            font-weight: 600;
+            font-size: 14px;
+            text-decoration: none;
+            z-index: 2000;
+            transition: top 0.2s ease;
+        }
+
+        .skip-link:focus {
+            top: 12px;
+        }
+
+        /* =========================================================
            BUTTONS
            ========================================================= */
 
@@ -177,6 +235,7 @@
             justify-content: center;
             position: relative;
             overflow: hidden;
+            font-family: inherit;
         }
 
         .btn-primary {
@@ -306,6 +365,8 @@
             background: transparent;
             color: var(--text-gray) !important;
             border: 2px solid #e6ddc9;
+            cursor: pointer;
+            font-family: inherit;
         }
 
         .btn-nav-outline:hover {
@@ -443,6 +504,24 @@
             position: relative;
         }
 
+        .dropdown-toggle {
+            cursor: pointer;
+            background: none;
+            border: none;
+            color: var(--text-gray);
+            font-weight: 500;
+            font-size: 15px;
+            font-family: inherit;
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            padding: 0;
+        }
+
+        .dropdown-toggle:hover {
+            color: var(--primary-700);
+        }
+
         .dropdown-menu {
             display: none;
             position: absolute;
@@ -472,7 +551,8 @@
             transition: var(--transition);
         }
 
-        .dropdown-menu a:hover {
+        .dropdown-menu a:hover,
+        .dropdown-menu a:focus-visible {
             background: var(--bg-light);
             color: var(--primary-700);
         }
@@ -483,14 +563,15 @@
             color: var(--primary-500);
         }
 
-        .dropdown-toggle {
-            cursor: pointer;
-        }
-
         .dropdown-toggle .fa-chevron-down {
             font-size: 10px;
             margin-left: 4px;
             opacity: 0.6;
+            transition: transform 0.2s ease;
+        }
+
+        .dropdown-toggle[aria-expanded="true"] .fa-chevron-down {
+            transform: rotate(180deg);
         }
 
         /* =========================================================
@@ -722,6 +803,12 @@
             opacity: 0.6;
             display: block;
             margin-top: 4px;
+        }
+
+        .hero-card .reg-note {
+            margin-top: 12px;
+            font-size: 14px;
+            opacity: 0.8;
         }
 
         .hero-card .cash-benefit-note {
@@ -1271,6 +1358,10 @@
             margin-bottom: 12px;
         }
 
+        .coverage-card .waiting-info:last-child {
+            margin-bottom: 0;
+        }
+
         .coverage-card .waiting-info .label {
             font-size: 13px;
             opacity: 0.7;
@@ -1756,54 +1847,13 @@
             background: var(--gold-gradient);
         }
 
-        /* ---- trust bar ---- */
-
-        .footer-trust-bar {
-            border-bottom: 1px solid rgba(255, 255, 255, 0.06);
-            padding: 28px 0;
-            margin-bottom: 48px;
-        }
-
-        .trust-items {
-            display: flex;
-            justify-content: space-between;
-            flex-wrap: wrap;
-            gap: 20px;
-        }
-
-        .trust-item {
-            display: flex;
-            align-items: center;
-            gap: 12px;
-            flex: 1 1 220px;
-        }
-
-        .trust-item i {
-            font-size: 22px;
-            color: var(--gold-400);
-            flex-shrink: 0;
-        }
-
-        .trust-item .trust-title {
-            display: block;
-            color: var(--white);
-            font-size: 14px;
-            font-weight: 700;
-        }
-
-        .trust-item .trust-sub {
-            display: block;
-            font-size: 12px;
-            opacity: 0.6;
-        }
-
         /* ---- main grid ---- */
 
         .footer-grid {
             display: grid;
-            grid-template-columns: 1.6fr 1fr 1fr 1.1fr;
+            grid-template-columns: 1.6fr 1fr 1.1fr;
             gap: 40px;
-            padding-bottom: 40px;
+            padding: 48px 0 40px;
             border-bottom: 1px solid rgba(255, 255, 255, 0.06);
             margin-bottom: 28px;
         }
@@ -1834,35 +1884,7 @@
             max-width: 320px;
         }
 
-        .footer-social {
-            display: flex;
-            gap: 10px;
-            margin-top: 20px;
-        }
-
-        .footer-social a {
-            width: 38px;
-            height: 38px;
-            border-radius: 10px;
-            background: rgba(255, 255, 255, 0.06);
-            border: 1px solid rgba(255, 255, 255, 0.1);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            color: rgba(255, 255, 255, 0.75);
-            text-decoration: none;
-            transition: var(--transition);
-        }
-
-        .footer-social a:hover {
-            background: var(--gold-gradient);
-            border-color: transparent;
-            color: var(--white);
-            transform: translateY(-3px);
-        }
-
         .footer-links h4,
-        .footer-legal h4,
         .footer-contact h4 {
             color: var(--white);
             font-size: 16px;
@@ -1870,8 +1892,7 @@
             margin-bottom: 16px;
         }
 
-        .footer-links a,
-        .footer-legal a {
+        .footer-links a {
             display: block;
             color: rgba(255, 255, 255, 0.6);
             text-decoration: none;
@@ -1881,24 +1902,9 @@
         }
 
         .footer-links a:hover,
-        .footer-legal a:hover {
+        .footer-links a:focus-visible {
             color: var(--white);
             transform: translateX(4px);
-        }
-
-        .footer-legal .complaints-note {
-            margin-top: 16px;
-            padding-top: 16px;
-            border-top: 1px solid rgba(255, 255, 255, 0.06);
-            font-size: 13px;
-            opacity: 0.65;
-            line-height: 1.6;
-        }
-
-        .footer-legal .complaints-note a {
-            display: inline;
-            padding: 0;
-            color: var(--gold-300);
         }
 
         .footer-contact p {
@@ -1915,21 +1921,14 @@
             color: var(--gold-400);
         }
 
-        .footer-payment-badge {
-            display: flex;
-            align-items: center;
-            gap: 10px;
-            margin-top: 16px;
-            padding: 10px 14px;
-            background: rgba(255, 255, 255, 0.05);
-            border: 1px solid rgba(255, 255, 255, 0.08);
-            border-radius: 10px;
-            font-size: 13px;
+        .footer-contact a {
+            color: rgba(255, 255, 255, 0.85);
+            text-decoration: none;
         }
 
-        .footer-payment-badge i {
-            color: var(--gold-400);
-            font-size: 16px;
+        .footer-contact a:hover {
+            color: var(--white);
+            text-decoration: underline;
         }
 
         /* ---- bottom bar ---- */
@@ -2214,6 +2213,8 @@
 
 <body>
 
+    <a href="#main-content" class="skip-link">Skip to main content</a>
+
     <!-- =========================================================
          TOP TAGLINE
          ========================================================= -->
@@ -2226,7 +2227,7 @@
          NAVBAR
          ========================================================= -->
 
-    <nav class="navbar">
+    <nav class="navbar" aria-label="Primary">
         <div class="container">
 
             <a href="index.html" class="nav-brand" aria-label="Masika Benevolent Home">
@@ -2234,12 +2235,14 @@
                     src="assets/branding/system-logo.svg"
                     alt="Masika Benevolent"
                     class="brand-logo"
+                    width="150"
+                    height="44"
                 >
             </a>
 
             <div class="nav-links" id="navLinks">
 
-                <a href="index.html" class="active">Home</a>
+                <a href="index.html" class="active" aria-current="page">Home</a>
                 <a href="#plans">Membership Plans</a>
                 <a href="#benefits">Benefits</a>
                 <a href="#coverage">Coverage</a>
@@ -2250,15 +2253,22 @@
 
                 <!-- Dropdown: More -->
                 <div class="dropdown">
-                    <span class="dropdown-toggle" onclick="toggleDropdown()" style="color:var(--text-gray);font-weight:500;font-size:15px;cursor:pointer;display:flex;align-items:center;gap:4px;">
-                        More <i class="fas fa-chevron-down"></i>
-                    </span>
-                    <div class="dropdown-menu" id="dropdownMenu">
-                        <a href="agent-apply.html"><i class="fas fa-user-tie"></i> Become an Agent</a>
-                        <a href="members.html"><i class="fas fa-users"></i> Members</a>
-                        <a href="member-details.html"><i class="fas fa-user"></i> Member Details</a>
-                        <a href="payment.html"><i class="fas fa-credit-card"></i> Payments</a>
-                        <a href="admin/admin-login.html"><i class="fas fa-lock"></i> Admin Login</a>
+                    <button
+                        type="button"
+                        class="dropdown-toggle"
+                        id="dropdownToggle"
+                        aria-haspopup="true"
+                        aria-expanded="false"
+                        aria-controls="dropdownMenu"
+                    >
+                        More <i class="fas fa-chevron-down" aria-hidden="true"></i>
+                    </button>
+                    <div class="dropdown-menu" id="dropdownMenu" role="menu" aria-labelledby="dropdownToggle">
+                        <a href="agent-apply.html" role="menuitem"><i class="fas fa-user-tie" aria-hidden="true"></i> Become an Agent</a>
+                        <a href="members.html" role="menuitem"><i class="fas fa-users" aria-hidden="true"></i> Members</a>
+                        <a href="member-details.html" role="menuitem"><i class="fas fa-user" aria-hidden="true"></i> Member Details</a>
+                        <a href="payment.html" role="menuitem"><i class="fas fa-credit-card" aria-hidden="true"></i> Payments</a>
+                        <a href="admin/admin-login.html" role="menuitem"><i class="fas fa-lock" aria-hidden="true"></i> Admin Login</a>
                     </div>
                 </div>
 
@@ -2271,17 +2281,18 @@
 
             <button
                 class="mobile-menu-btn"
-                onclick="toggleMobileMenu()"
+                id="mobileMenuBtn"
                 aria-label="Open navigation menu"
                 aria-expanded="false"
+                aria-controls="navLinks"
             >
-                <i class="fas fa-bars"></i>
+                <i class="fas fa-bars" aria-hidden="true"></i>
             </button>
 
         </div>
     </nav>
 
-    <main>
+    <main id="main-content">
 
         <!-- =====================================================
              HERO
@@ -2298,7 +2309,7 @@
                     <div class="hero-content">
 
                         <div class="hero-badge">
-                            <i class="fas fa-star"></i>
+                            <i class="fas fa-star" aria-hidden="true"></i>
                             Trusted by 10,000+ Members
                         </div>
 
@@ -2322,7 +2333,7 @@
                                 class="btn btn-primary btn-large"
                                 id="heroRegisterBtn"
                             >
-                                <i class="fas fa-user-plus"></i>
+                                <i class="fas fa-user-plus" aria-hidden="true"></i>
                                 Become a Member
                             </a>
 
@@ -2330,7 +2341,7 @@
                                 href="#plans"
                                 class="btn btn-outline btn-large"
                             >
-                                <i class="fas fa-info-circle"></i>
+                                <i class="fas fa-info-circle" aria-hidden="true"></i>
                                 View Plans
                             </a>
 
@@ -2338,7 +2349,7 @@
                                 href="agent-apply.html"
                                 class="btn btn-outline btn-large"
                             >
-                                <i class="fas fa-user-tie"></i>
+                                <i class="fas fa-user-tie" aria-hidden="true"></i>
                                 Become an Agent
                             </a>
 
@@ -2375,7 +2386,7 @@
                         <div class="hero-card">
 
                             <div class="card-icon">
-                                <i class="fas fa-people-roof"></i>
+                                <i class="fas fa-people-roof" aria-hidden="true"></i>
                             </div>
 
                             <h3>
@@ -2402,11 +2413,7 @@
 
                             </div>
 
-                            <div style="
-                                margin-top: 12px;
-                                font-size: 14px;
-                                opacity: 0.8;
-                            ">
+                            <div class="reg-note">
                                 Registration: KES 200 (One-time)
                             </div>
 
@@ -2443,7 +2450,7 @@
                 <div class="section-header">
 
                     <span class="section-badge">
-                        <i class="fas fa-crown"></i>
+                        <i class="fas fa-crown" aria-hidden="true"></i>
                         Our Plans
                     </span>
 
@@ -2476,7 +2483,7 @@
                         <div class="plan-header">
 
                             <div class="plan-icon">
-                                <i class="fas fa-house-chimney"></i>
+                                <i class="fas fa-house-chimney" aria-hidden="true"></i>
                             </div>
 
                             <h3>
@@ -2504,7 +2511,7 @@
                             </div>
 
                             <div class="plan-registration">
-                                <i class="fas fa-file-invoice"></i>
+                                <i class="fas fa-file-invoice" aria-hidden="true"></i>
                                 Registration: KES 200 (one-off)
                             </div>
 
@@ -2515,54 +2522,54 @@
                             <ul class="plan-features">
 
                                 <li>
-                                    <i class="fas fa-check-circle"></i>
+                                    <i class="fas fa-check-circle" aria-hidden="true"></i>
                                     Covers: Main member, spouse + up to
                                     4 children (under 18)
                                 </li>
 
                                 <li>
-                                    <i class="fas fa-check-circle feature-gold"></i>
+                                    <i class="fas fa-check-circle feature-gold" aria-hidden="true"></i>
                                     <strong>Hearse</strong>
                                     transportation within Kenya
                                 </li>
 
                                 <li>
-                                    <i class="fas fa-check-circle feature-gold"></i>
+                                    <i class="fas fa-check-circle feature-gold" aria-hidden="true"></i>
                                     <strong>Mortuary storage</strong>
                                     up to 14 days (max KES 15,000)
                                 </li>
 
                                 <li>
-                                    <i class="fas fa-check-circle feature-gold"></i>
+                                    <i class="fas fa-check-circle feature-gold" aria-hidden="true"></i>
                                     <strong>Tents & chairs</strong>
                                     for up to 200 people
                                 </li>
 
                                 <li>
-                                    <i class="fas fa-check-circle feature-gold"></i>
+                                    <i class="fas fa-check-circle feature-gold" aria-hidden="true"></i>
                                     <strong>Gazebo</strong>
                                     & lowering gear
                                 </li>
 
                                 <li>
-                                    <i class="fas fa-check-circle feature-gold"></i>
+                                    <i class="fas fa-check-circle feature-gold" aria-hidden="true"></i>
                                     <strong>Flowers</strong>
                                     (Heart, Round, Cross)
                                 </li>
 
                                 <li>
-                                    <i class="fas fa-check-circle feature-gold"></i>
+                                    <i class="fas fa-check-circle feature-gold" aria-hidden="true"></i>
                                     <strong>PA system</strong>
                                     (max KES 5,000)
                                 </li>
 
                                 <li>
-                                    <i class="fas fa-check-circle feature-gold"></i>
+                                    <i class="fas fa-check-circle feature-gold" aria-hidden="true"></i>
                                     <strong>Memorial portrait</strong>
                                 </li>
 
                                 <li>
-                                    <i class="fas fa-check-circle feature-gold"></i>
+                                    <i class="fas fa-check-circle feature-gold" aria-hidden="true"></i>
                                     <strong>Coffin/casket</strong>
                                     (child max KES 10,000 /
                                     adult KES 25,000)
@@ -2578,12 +2585,12 @@
                                 href="register.html?plan=comfort"
                                 class="btn btn-gold btn-block"
                             >
-                                <i class="fas fa-user-plus"></i>
+                                <i class="fas fa-user-plus" aria-hidden="true"></i>
                                 Get Started
                             </a>
 
                             <small>
-                                <i class="fas fa-clock"></i>
+                                <i class="fas fa-clock" aria-hidden="true"></i>
                                 Waiting period: coverage begins after 4 months
                             </small>
 
@@ -2603,7 +2610,7 @@
                         <div class="plan-header">
 
                             <div class="plan-icon">
-                                <i class="fas fa-star"></i>
+                                <i class="fas fa-star" aria-hidden="true"></i>
                             </div>
 
                             <h3>
@@ -2631,7 +2638,7 @@
                             </div>
 
                             <div class="plan-registration">
-                                <i class="fas fa-file-invoice"></i>
+                                <i class="fas fa-file-invoice" aria-hidden="true"></i>
                                 Registration: KES 2,000 (one-off)
                             </div>
 
@@ -2642,53 +2649,53 @@
                             <ul class="plan-features">
 
                                 <li>
-                                    <i class="fas fa-check-circle"></i>
+                                    <i class="fas fa-check-circle" aria-hidden="true"></i>
                                     Covers: spouse + children under 18
                                 </li>
 
                                 <li>
-                                    <i class="fas fa-check-circle"></i>
+                                    <i class="fas fa-check-circle" aria-hidden="true"></i>
                                     Gazebo
                                 </li>
 
                                 <li>
-                                    <i class="fas fa-check-circle"></i>
+                                    <i class="fas fa-check-circle" aria-hidden="true"></i>
                                     Hearse transportation within Kenya
                                 </li>
 
                                 <li>
-                                    <i class="fas fa-check-circle"></i>
+                                    <i class="fas fa-check-circle" aria-hidden="true"></i>
                                     Mortuary storage
                                     (up to 14 days, max KES 15,000)
                                 </li>
 
                                 <li>
-                                    <i class="fas fa-check-circle"></i>
+                                    <i class="fas fa-check-circle" aria-hidden="true"></i>
                                     Tents & chairs (up to 200 people)
                                 </li>
 
                                 <li>
-                                    <i class="fas fa-check-circle"></i>
+                                    <i class="fas fa-check-circle" aria-hidden="true"></i>
                                     Lowering gear
                                 </li>
 
                                 <li>
-                                    <i class="fas fa-check-circle"></i>
+                                    <i class="fas fa-check-circle" aria-hidden="true"></i>
                                     Flowers (Heart, Round, Cross)
                                 </li>
 
                                 <li>
-                                    <i class="fas fa-check-circle"></i>
+                                    <i class="fas fa-check-circle" aria-hidden="true"></i>
                                     PA system (max KES 5,000)
                                 </li>
 
                                 <li>
-                                    <i class="fas fa-check-circle"></i>
+                                    <i class="fas fa-check-circle" aria-hidden="true"></i>
                                     Memorial portrait
                                 </li>
 
                                 <li>
-                                    <i class="fas fa-check-circle"></i>
+                                    <i class="fas fa-check-circle" aria-hidden="true"></i>
                                     Coffin/casket
                                     (child max KES 10,000 /
                                     adult KES 25,000)
@@ -2704,12 +2711,12 @@
                                 href="register.html?plan=dignity"
                                 class="btn btn-blue btn-block"
                             >
-                                <i class="fas fa-user-plus"></i>
+                                <i class="fas fa-user-plus" aria-hidden="true"></i>
                                 Get Started
                             </a>
 
                             <small>
-                                <i class="fas fa-clock"></i>
+                                <i class="fas fa-clock" aria-hidden="true"></i>
                                 Waiting period: 4 months
                             </small>
 
@@ -2733,7 +2740,7 @@
                         <div class="plan-header">
 
                             <div class="plan-icon">
-                                <i class="fas fa-hand-holding-heart"></i>
+                                <i class="fas fa-hand-holding-heart" aria-hidden="true"></i>
                             </div>
 
                             <h3>
@@ -2761,7 +2768,7 @@
                             </div>
 
                             <div class="plan-registration">
-                                <i class="fas fa-file-invoice"></i>
+                                <i class="fas fa-file-invoice" aria-hidden="true"></i>
                                 Registration: KES 100 (one-off)
                             </div>
 
@@ -2772,55 +2779,55 @@
                             <ul class="plan-features">
 
                                 <li>
-                                    <i class="fas fa-check-circle"></i>
+                                    <i class="fas fa-check-circle" aria-hidden="true"></i>
                                     Covers parents / in-laws
                                     (max 4 parents)
                                 </li>
 
                                 <li>
-                                    <i class="fas fa-check-circle"></i>
+                                    <i class="fas fa-check-circle" aria-hidden="true"></i>
                                     Gazebo
                                 </li>
 
                                 <li>
-                                    <i class="fas fa-check-circle"></i>
+                                    <i class="fas fa-check-circle" aria-hidden="true"></i>
                                     Hearse transport within Kenya
                                 </li>
 
                                 <li>
-                                    <i class="fas fa-check-circle"></i>
+                                    <i class="fas fa-check-circle" aria-hidden="true"></i>
                                     Mortuary storage
                                     (up to 14 days, max KES 15,000)
                                 </li>
 
                                 <li>
-                                    <i class="fas fa-check-circle"></i>
+                                    <i class="fas fa-check-circle" aria-hidden="true"></i>
                                     Tents & chairs
                                     (up to 200 people)
                                 </li>
 
                                 <li>
-                                    <i class="fas fa-check-circle"></i>
+                                    <i class="fas fa-check-circle" aria-hidden="true"></i>
                                     Lowering gear
                                 </li>
 
                                 <li>
-                                    <i class="fas fa-check-circle"></i>
+                                    <i class="fas fa-check-circle" aria-hidden="true"></i>
                                     Flowers (Heart, Round, Cross)
                                 </li>
 
                                 <li>
-                                    <i class="fas fa-check-circle"></i>
+                                    <i class="fas fa-check-circle" aria-hidden="true"></i>
                                     PA system (max KES 5,000)
                                 </li>
 
                                 <li>
-                                    <i class="fas fa-check-circle"></i>
+                                    <i class="fas fa-check-circle" aria-hidden="true"></i>
                                     Memorial portrait
                                 </li>
 
                                 <li>
-                                    <i class="fas fa-check-circle"></i>
+                                    <i class="fas fa-check-circle" aria-hidden="true"></i>
                                     Coffin/casket
                                     (max child KES 10,000 /
                                     adult KES 25,000)
@@ -2835,13 +2842,13 @@
                                 </div>
 
                                 <p>
-                                    <i class="fas fa-hourglass-half"></i>
+                                    <i class="fas fa-hourglass-half" aria-hidden="true"></i>
                                     Age limits: entry 40-70 years |
                                     exit 80 years
                                 </p>
 
                                 <p>
-                                    <i class="fas fa-clock"></i>
+                                    <i class="fas fa-clock" aria-hidden="true"></i>
                                     Waiting period: 4 months
                                 </p>
 
@@ -2855,7 +2862,7 @@
                                 href="register.html?plan=wazazi"
                                 class="btn btn-purple btn-block"
                             >
-                                <i class="fas fa-user-plus"></i>
+                                <i class="fas fa-user-plus" aria-hidden="true"></i>
                                 Get Started
                             </a>
 
@@ -2880,7 +2887,7 @@
                         <div class="plan-header">
 
                             <div class="plan-icon">
-                                <i class="fas fa-people-group"></i>
+                                <i class="fas fa-people-group" aria-hidden="true"></i>
                             </div>
 
                             <h3>
@@ -2908,7 +2915,7 @@
                             </div>
 
                             <div class="plan-registration">
-                                <i class="fas fa-file-invoice"></i>
+                                <i class="fas fa-file-invoice" aria-hidden="true"></i>
                                 Registration: KES 1,200 per member (one-off)
                             </div>
 
@@ -2919,49 +2926,49 @@
                             <ul class="plan-features">
 
                                 <li>
-                                    <i class="fas fa-check-circle"></i>
+                                    <i class="fas fa-check-circle" aria-hidden="true"></i>
                                     Covers every registered member of the group
                                 </li>
 
                                 <li>
-                                    <i class="fas fa-check-circle"></i>
+                                    <i class="fas fa-check-circle" aria-hidden="true"></i>
                                     Hearse transportation within Kenya
                                 </li>
 
                                 <li>
-                                    <i class="fas fa-check-circle"></i>
+                                    <i class="fas fa-check-circle" aria-hidden="true"></i>
                                     Mortuary storage
                                     (up to 14 days, max KES 15,000)
                                 </li>
 
                                 <li>
-                                    <i class="fas fa-check-circle"></i>
+                                    <i class="fas fa-check-circle" aria-hidden="true"></i>
                                     Tents & chairs
                                     (up to 200 people)
                                 </li>
 
                                 <li>
-                                    <i class="fas fa-check-circle"></i>
+                                    <i class="fas fa-check-circle" aria-hidden="true"></i>
                                     Gazebo & lowering gear
                                 </li>
 
                                 <li>
-                                    <i class="fas fa-check-circle"></i>
+                                    <i class="fas fa-check-circle" aria-hidden="true"></i>
                                     Flowers (Heart, Round, Cross)
                                 </li>
 
                                 <li>
-                                    <i class="fas fa-check-circle"></i>
+                                    <i class="fas fa-check-circle" aria-hidden="true"></i>
                                     PA system (max KES 5,000)
                                 </li>
 
                                 <li>
-                                    <i class="fas fa-check-circle"></i>
+                                    <i class="fas fa-check-circle" aria-hidden="true"></i>
                                     Memorial portrait
                                 </li>
 
                                 <li>
-                                    <i class="fas fa-check-circle"></i>
+                                    <i class="fas fa-check-circle" aria-hidden="true"></i>
                                     Coffin/casket
                                     (child max KES 10,000 /
                                     adult KES 25,000)
@@ -2976,18 +2983,18 @@
                                 </div>
 
                                 <p>
-                                    <i class="fas fa-users"></i>
+                                    <i class="fas fa-users" aria-hidden="true"></i>
                                     Minimum 30 members per group
                                 </p>
 
                                 <p>
-                                    <i class="fas fa-hourglass-half"></i>
+                                    <i class="fas fa-hourglass-half" aria-hidden="true"></i>
                                     Age limits: entry 18-80 years
                                 </p>
 
                                 <p>
-                                    <i class="fas fa-bolt"></i>
-                                    waiting period- 4 months 
+                                    <i class="fas fa-bolt" aria-hidden="true"></i>
+                                    Waiting period: 4 months
                                 </p>
 
                             </div>
@@ -3000,7 +3007,7 @@
                                 href="register.html?plan=chama"
                                 class="btn btn-teal btn-block"
                             >
-                                <i class="fas fa-user-plus"></i>
+                                <i class="fas fa-user-plus" aria-hidden="true"></i>
                                 Register Your Group
                             </a>
 
@@ -3100,7 +3107,7 @@
                 <div class="section-header">
 
                     <span class="section-badge">
-                        <i class="fas fa-shield-alt"></i>
+                        <i class="fas fa-shield-alt" aria-hidden="true"></i>
                         Coverage
                     </span>
 
@@ -3125,54 +3132,54 @@
                         <ul class="coverage-list">
 
                             <li>
-                                <i class="fas fa-check-circle"></i>
+                                <i class="fas fa-check-circle" aria-hidden="true"></i>
                                 Main member + spouse + 4 children
                             </li>
 
                             <li>
-                                <i class="fas fa-check-circle"></i>
+                                <i class="fas fa-check-circle" aria-hidden="true"></i>
                                 Hearse transportation within Kenya
                             </li>
 
                             <li>
-                                <i class="fas fa-check-circle"></i>
+                                <i class="fas fa-check-circle" aria-hidden="true"></i>
                                 Mortuary storage
                                 (14 days, max KES 15,000)
                             </li>
 
                             <li>
-                                <i class="fas fa-check-circle"></i>
+                                <i class="fas fa-check-circle" aria-hidden="true"></i>
                                 Tents & chairs for 200 people
                             </li>
 
                             <li>
-                                <i class="fas fa-check-circle"></i>
+                                <i class="fas fa-check-circle" aria-hidden="true"></i>
                                 Gazebo & lowering gear
                             </li>
 
                             <li>
-                                <i class="fas fa-check-circle"></i>
+                                <i class="fas fa-check-circle" aria-hidden="true"></i>
                                 Flowers (Heart, Round, Cross)
                             </li>
 
                             <li>
-                                <i class="fas fa-check-circle"></i>
+                                <i class="fas fa-check-circle" aria-hidden="true"></i>
                                 PA system (max KES 5,000)
                             </li>
 
                             <li>
-                                <i class="fas fa-check-circle"></i>
+                                <i class="fas fa-check-circle" aria-hidden="true"></i>
                                 Memorial portrait
                             </li>
 
                             <li>
-                                <i class="fas fa-check-circle"></i>
+                                <i class="fas fa-check-circle" aria-hidden="true"></i>
                                 Coffin
                                 (child KES 10,000 / adult KES 25,000)
                             </li>
 
                             <li>
-                                <i class="fas fa-check-circle"></i>
+                                <i class="fas fa-check-circle" aria-hidden="true"></i>
                                 Or take the KES 110,000 cash benefit instead
                             </li>
 
@@ -3186,7 +3193,7 @@
 
                             <div class="card-header">
 
-                                <i class="fas fa-clock"></i>
+                                <i class="fas fa-clock" aria-hidden="true"></i>
 
                                 <h4>
                                     Waiting Period
@@ -3236,7 +3243,6 @@
 
                             <div
                                 class="waiting-info"
-                                style="margin-bottom:0;"
                             >
 
                                 <div class="label">
@@ -3250,7 +3256,6 @@
                                 <div class="sub">
                                     Coverage begins after 4 months
                                     from registration
-                        
                                 </div>
 
                             </div>
@@ -3276,7 +3281,7 @@
                 <div class="section-header">
 
                     <span class="section-badge">
-                        <i class="fas fa-rocket"></i>
+                        <i class="fas fa-rocket" aria-hidden="true"></i>
                         How It Works
                     </span>
 
@@ -3303,7 +3308,7 @@
                         </div>
 
                         <div class="step-icon">
-                            <i class="fas fa-pen-to-square"></i>
+                            <i class="fas fa-pen-to-square" aria-hidden="true"></i>
                         </div>
 
                         <h4>
@@ -3324,7 +3329,7 @@
                         </div>
 
                         <div class="step-icon">
-                            <i class="fas fa-people-roof"></i>
+                            <i class="fas fa-people-roof" aria-hidden="true"></i>
                         </div>
 
                         <h4>
@@ -3345,7 +3350,7 @@
                         </div>
 
                         <div class="step-icon">
-                            <i class="fas fa-mobile-screen-button"></i>
+                            <i class="fas fa-mobile-screen-button" aria-hidden="true"></i>
                         </div>
 
                         <h4>
@@ -3367,7 +3372,7 @@
                         </div>
 
                         <div class="step-icon">
-                            <i class="fas fa-check-circle"></i>
+                            <i class="fas fa-check-circle" aria-hidden="true"></i>
                         </div>
 
                         <h4>
@@ -3391,7 +3396,7 @@
              BRANCHES
              ===================================================== -->
 
-        <section class="branches-section">
+        <section class="branches-section" aria-labelledby="branches-heading">
 
             <div class="container">
 
@@ -3401,11 +3406,11 @@
                 >
 
                     <span class="section-badge">
-                        <i class="fas fa-map-marker-alt"></i>
+                        <i class="fas fa-map-marker-alt" aria-hidden="true"></i>
                         Our Branches
                     </span>
 
-                    <h2 style="font-size: 30px;">
+                    <h2 id="branches-heading" style="font-size: 30px;">
                         Find Us
                         <span class="highlight">
                             Near You
@@ -3417,42 +3422,42 @@
                 <div class="branches-list">
 
                     <span class="branch-chip">
-                        <i class="fas fa-location-dot"></i>
+                        <i class="fas fa-location-dot" aria-hidden="true"></i>
                         Nairobi HQ
                     </span>
 
                     <span class="branch-chip">
-                        <i class="fas fa-location-dot"></i>
+                        <i class="fas fa-location-dot" aria-hidden="true"></i>
                         Siaya County
                     </span>
 
                     <span class="branch-chip">
-                        <i class="fas fa-location-dot"></i>
+                        <i class="fas fa-location-dot" aria-hidden="true"></i>
                         Luanda
                     </span>
 
                     <span class="branch-chip">
-                        <i class="fas fa-location-dot"></i>
+                        <i class="fas fa-location-dot" aria-hidden="true"></i>
                         Kakamega
                     </span>
 
                     <span class="branch-chip">
-                        <i class="fas fa-location-dot"></i>
+                        <i class="fas fa-location-dot" aria-hidden="true"></i>
                         Kisumu
                     </span>
 
                     <span class="branch-chip">
-                        <i class="fas fa-location-dot"></i>
+                        <i class="fas fa-location-dot" aria-hidden="true"></i>
                         Eldoret
                     </span>
 
                     <span class="branch-chip">
-                        <i class="fas fa-location-dot"></i>
+                        <i class="fas fa-location-dot" aria-hidden="true"></i>
                         Port Victoria
                     </span>
 
                     <span class="branch-chip">
-                        <i class="fas fa-location-dot"></i>
+                        <i class="fas fa-location-dot" aria-hidden="true"></i>
                         Samia Busia
                     </span>
 
@@ -3475,7 +3480,7 @@
                     <div class="payments-content">
 
                         <span class="section-badge">
-                            <i class="fas fa-mobile-screen-button"></i>
+                            <i class="fas fa-mobile-screen-button" aria-hidden="true"></i>
                             Payments
                         </span>
 
@@ -3494,24 +3499,24 @@
                         <ul class="payment-methods">
 
                             <li>
-                                <i class="fas fa-check-circle"></i>
+                                <i class="fas fa-check-circle" aria-hidden="true"></i>
                                 M-Pesa payments only
                             </li>
 
                             <li>
-                                <i class="fas fa-check-circle"></i>
+                                <i class="fas fa-check-circle" aria-hidden="true"></i>
                                 Paybill:
                                 <strong>348127</strong>
                             </li>
 
                             <li>
-                                <i class="fas fa-check-circle"></i>
+                                <i class="fas fa-check-circle" aria-hidden="true"></i>
                                 Use your Membership Number as the
                                 account number
                             </li>
 
                             <li>
-                                <i class="fas fa-check-circle"></i>
+                                <i class="fas fa-check-circle" aria-hidden="true"></i>
                                 Secure payment confirmation
                             </li>
 
@@ -3522,7 +3527,7 @@
                             class="btn btn-gold"
                             id="paymentBtn"
                         >
-                            <i class="fas fa-arrow-right"></i>
+                            <i class="fas fa-arrow-right" aria-hidden="true"></i>
                             Make a Payment
                         </a>
 
@@ -3532,7 +3537,7 @@
 
                         <div class="payment-card">
 
-                            <i class="fas fa-mobile-screen-button"></i>
+                            <i class="fas fa-mobile-screen-button" aria-hidden="true"></i>
 
                             <h4>
                                 M-Pesa Paybill
@@ -3618,7 +3623,7 @@
 
                             <div class="secure-payment">
 
-                                <i class="fas fa-lock"></i>
+                                <i class="fas fa-lock" aria-hidden="true"></i>
 
                                 Secure M-Pesa payments
 
@@ -3645,7 +3650,7 @@
                 <div class="section-header">
 
                     <span class="section-badge">
-                        <i class="fas fa-file-contract"></i>
+                        <i class="fas fa-file-contract" aria-hidden="true"></i>
                         Terms & Conditions
                     </span>
 
@@ -3667,13 +3672,13 @@
 
                     <!-- Card 1: Membership & Fees -->
                     <div class="terms-card">
-                        <h3><i class="fas fa-user-check"></i> Membership & Fees</h3>
+                        <h3><i class="fas fa-user-check" aria-hidden="true"></i> Membership & Fees</h3>
                         <ul>
-                            <li><i class="fas fa-check-circle"></i> <strong>Registration Fee:</strong> one-off payment (Comfort KES 200, Dignity KES 2,000, Wazazi KES 100/parent, Chama KES 1,200/member).</li>
-                            <li><i class="fas fa-check-circle"></i> <strong>Monthly Subscription:</strong> due on or before the <strong>5th of every month</strong>.</li>
-                            <li><i class="fas fa-check-circle"></i> <strong>Late payment:</strong> may result in suspension or loss of benefits.</li>
-                            <li><i class="fas fa-check-circle"></i> <strong>No retrospective eligibility:</strong> paying after an event does not create coverage.</li>
-                            <li><i class="fas fa-check-circle"></i> <strong>Official payment channel:</strong> M-Pesa Paybill <strong>348127</strong>, account = Membership Number.</li>
+                            <li><i class="fas fa-check-circle" aria-hidden="true"></i> <strong>Registration Fee:</strong> one-off payment (Comfort KES 200, Dignity KES 2,000, Wazazi KES 100/parent, Chama KES 1,200/member).</li>
+                            <li><i class="fas fa-check-circle" aria-hidden="true"></i> <strong>Monthly Subscription:</strong> due on or before the <strong>5th of every month</strong>.</li>
+                            <li><i class="fas fa-check-circle" aria-hidden="true"></i> <strong>Late payment:</strong> may result in suspension or loss of benefits.</li>
+                            <li><i class="fas fa-check-circle" aria-hidden="true"></i> <strong>No retrospective eligibility:</strong> paying after an event does not create coverage.</li>
+                            <li><i class="fas fa-check-circle" aria-hidden="true"></i> <strong>Official payment channel:</strong> M-Pesa Paybill <strong>348127</strong>, account = Membership Number.</li>
                         </ul>
                         <div class="terms-highlight">
                             <p><strong>Important:</strong> Registration Fee and Monthly Subscription are separate payments. Paying the Registration Fee does not cover future Monthly Subscriptions.</p>
@@ -3682,15 +3687,15 @@
 
                     <!-- Card 2: Benefits & Waiting Periods -->
                     <div class="terms-card">
-                        <h3><i class="fas fa-gift"></i> Benefits & Waiting Periods</h3>
+                        <h3><i class="fas fa-gift" aria-hidden="true"></i> Benefits & Waiting Periods</h3>
                         <ul>
-                            <li><i class="fas fa-check-circle"></i> <strong>Comfort Plan:</strong> waiting period <strong>4 months</strong>.</li>
-                            <li><i class="fas fa-check-circle"></i> <strong>Dignity Plan:</strong> waiting period <strong>6 months</strong>.</li>
-                            <li><i class="fas fa-check-circle"></i> <strong>Wazazi Plan:</strong> waiting period <strong>6 months</strong>.</li>
-                            <li><i class="fas fa-check-circle"></i> <strong>Chama Plan:</strong> no waiting period — cover begins on payment (minimum 30 members).</li>
-                            <li><i class="fas fa-check-circle"></i> Benefits include hearse, mortuary storage, tents & chairs, gazebo, flowers, PA system, memorial portrait, coffin/casket.</li>
-                            <li><i class="fas fa-check-circle"></i> <strong>Cash Benefit option:</strong> up to KES 110,000 per adult (Comfort Plan) or KES 50,000 per child.</li>
-                            <li><i class="fas fa-check-circle"></i> All benefits subject to limits, eligibility, and exclusions.</li>
+                            <li><i class="fas fa-check-circle" aria-hidden="true"></i> <strong>Comfort Plan:</strong> waiting period <strong>4 months</strong>.</li>
+                            <li><i class="fas fa-check-circle" aria-hidden="true"></i> <strong>Dignity Plan:</strong> waiting period <strong>6 months</strong>.</li>
+                            <li><i class="fas fa-check-circle" aria-hidden="true"></i> <strong>Wazazi Plan:</strong> waiting period <strong>6 months</strong>.</li>
+                            <li><i class="fas fa-check-circle" aria-hidden="true"></i> <strong>Chama Plan:</strong> no waiting period — cover begins on payment (minimum 30 members).</li>
+                            <li><i class="fas fa-check-circle" aria-hidden="true"></i> Benefits include hearse, mortuary storage, tents & chairs, gazebo, flowers, PA system, memorial portrait, coffin/casket.</li>
+                            <li><i class="fas fa-check-circle" aria-hidden="true"></i> <strong>Cash Benefit option:</strong> up to KES 110,000 per adult (Comfort Plan) or KES 50,000 per child.</li>
+                            <li><i class="fas fa-check-circle" aria-hidden="true"></i> All benefits subject to limits, eligibility, and exclusions.</li>
                         </ul>
                         <div class="terms-highlight">
                             <p><strong>Note:</strong> Completion of a waiting period does not automatically guarantee payment. Membership must be active and all conditions satisfied.</p>
@@ -3699,13 +3704,13 @@
 
                     <!-- Card 3: Exclusions & Fraud -->
                     <div class="terms-card">
-                        <h3><i class="fas fa-ban"></i> Exclusions & Fraud</h3>
+                        <h3><i class="fas fa-ban" aria-hidden="true"></i> Exclusions & Fraud</h3>
                         <ul>
-                            <li><i class="fas fa-check-circle"></i> <strong>Exclusions:</strong> suicide, terrorism, acts against Kenyan law, pre-existing conditions (where applicable).</li>
-                            <li><i class="fas fa-check-circle"></i> <strong>Fraud:</strong> false claims, falsified documents, impersonation, or concealment of material information.</li>
-                            <li><i class="fas fa-check-circle"></i> Consequences: claim rejection, membership termination, recovery of benefits, and reporting to authorities.</li>
-                            <li><i class="fas fa-check-circle"></i> Membership is personal and non-transferable.</li>
-                            <li><i class="fas fa-check-circle"></i> Masika BBS reserves the right to suspend or terminate membership for non-payment or breach of terms.</li>
+                            <li><i class="fas fa-check-circle" aria-hidden="true"></i> <strong>Exclusions:</strong> suicide, terrorism, acts against Kenyan law, pre-existing conditions (where applicable).</li>
+                            <li><i class="fas fa-check-circle" aria-hidden="true"></i> <strong>Fraud:</strong> false claims, falsified documents, impersonation, or concealment of material information.</li>
+                            <li><i class="fas fa-check-circle" aria-hidden="true"></i> Consequences: claim rejection, membership termination, recovery of benefits, and reporting to authorities.</li>
+                            <li><i class="fas fa-check-circle" aria-hidden="true"></i> Membership is personal and non-transferable.</li>
+                            <li><i class="fas fa-check-circle" aria-hidden="true"></i> Masika BBS reserves the right to suspend or terminate membership for non-payment or breach of terms.</li>
                         </ul>
                         <div class="terms-highlight">
                             <p><strong>Important:</strong> Claims arising from fraud or misrepresentation will be rejected and may result in legal action.</p>
@@ -3714,14 +3719,14 @@
 
                     <!-- Card 4: Member Responsibilities & Governing Law -->
                     <div class="terms-card">
-                        <h3><i class="fas fa-gavel"></i> Responsibilities & Law</h3>
+                        <h3><i class="fas fa-gavel" aria-hidden="true"></i> Responsibilities & Law</h3>
                         <ul>
-                            <li><i class="fas fa-check-circle"></i> Members must provide accurate information and update changes promptly.</li>
-                            <li><i class="fas fa-check-circle"></i> Members must pay fees on time and use official payment channels.</li>
-                            <li><i class="fas fa-check-circle"></i> Members must cooperate with claim verification and provide genuine documents.</li>
-                            <li><i class="fas fa-check-circle"></i> <strong>Governing Law:</strong> These Terms are governed by the laws of the <strong>Republic of Kenya</strong>.</li>
-                            <li><i class="fas fa-check-circle"></i> Disputes shall first be resolved through the Company's complaints process.</li>
-                            <li><i class="fas fa-check-circle"></i> Masika BBS may revise fees, benefits, and terms with notice to members.</li>
+                            <li><i class="fas fa-check-circle" aria-hidden="true"></i> Members must provide accurate information and update changes promptly.</li>
+                            <li><i class="fas fa-check-circle" aria-hidden="true"></i> Members must pay fees on time and use official payment channels.</li>
+                            <li><i class="fas fa-check-circle" aria-hidden="true"></i> Members must cooperate with claim verification and provide genuine documents.</li>
+                            <li><i class="fas fa-check-circle" aria-hidden="true"></i> <strong>Governing Law:</strong> These Terms are governed by the laws of the <strong>Republic of Kenya</strong>.</li>
+                            <li><i class="fas fa-check-circle" aria-hidden="true"></i> Disputes shall first be resolved through the Company's complaints process.</li>
+                            <li><i class="fas fa-check-circle" aria-hidden="true"></i> Masika BBS may revise fees, benefits, and terms with notice to members.</li>
                         </ul>
                         <div class="terms-highlight">
                             <p><strong>Full Terms:</strong> The complete Masika BBS Terms & Conditions document is available on request or via the official website.</p>
@@ -3738,7 +3743,7 @@
              IMPORTANT NOTES
              ===================================================== -->
 
-        <section class="notes-section">
+        <section class="notes-section" aria-label="Important notes">
 
             <div class="container">
 
@@ -3747,7 +3752,7 @@
                     <div class="note-card">
 
                         <h4>
-                            <i class="fas fa-circle-info"></i>
+                            <i class="fas fa-circle-info" aria-hidden="true"></i>
                             Please Note
                         </h4>
 
@@ -3764,7 +3769,7 @@
                     <div class="note-card note-danger">
 
                         <h4>
-                            <i class="fas fa-triangle-exclamation"></i>
+                            <i class="fas fa-triangle-exclamation" aria-hidden="true"></i>
                             Exclusions
                         </h4>
 
@@ -3811,7 +3816,7 @@
                             class="btn btn-gold btn-large"
                             id="ctaRegisterBtn"
                         >
-                            <i class="fas fa-user-plus"></i>
+                            <i class="fas fa-user-plus" aria-hidden="true"></i>
                             Become a Member Now
                         </a>
 
@@ -3819,7 +3824,7 @@
                             href="#plans"
                             class="btn btn-outline btn-large"
                         >
-                            <i class="fas fa-info-circle"></i>
+                            <i class="fas fa-info-circle" aria-hidden="true"></i>
                             View Plans
                         </a>
 
@@ -3827,7 +3832,7 @@
                             href="agent-apply.html"
                             class="btn btn-outline btn-large"
                         >
-                            <i class="fas fa-user-tie"></i>
+                            <i class="fas fa-user-tie" aria-hidden="true"></i>
                             Become an Agent
                         </a>
 
@@ -3857,6 +3862,8 @@
                         src="assets/branding/favicon.svg"
                         alt="Masika Benevolent"
                         class="brand-logo-icon"
+                        width="46"
+                        height="46"
                     >
 
                     <span class="brand-text">
@@ -3897,23 +3904,23 @@
                     </h4>
 
                     <p>
-                        <i class="fas fa-phone"></i>
-                        +254 (0) 703 738 707
+                        <i class="fas fa-phone" aria-hidden="true"></i>
+                        <a href="tel:+254703738707">+254 (0) 703 738 707</a>
                     </p>
 
                     <p>
-                        <i class="fas fa-phone"></i>
-                        +254 (0) 740 340 901
+                        <i class="fas fa-phone" aria-hidden="true"></i>
+                        <a href="tel:+254740340901">+254 (0) 740 340 901</a>
                     </p>
 
                     <p>
-                        <i class="fas fa-envelope"></i>
-                        customers@masikabbs.com
+                        <i class="fas fa-envelope" aria-hidden="true"></i>
+                        <a href="mailto:customers@masikabbs.com">customers@masikabbs.com</a>
                     </p>
 
                     <p>
-                        <i class="fas fa-globe"></i>
-                        www.masikabbs.com
+                        <i class="fas fa-globe" aria-hidden="true"></i>
+                        <a href="https://www.masikabbs.com" rel="noopener">www.masikabbs.com</a>
                     </p>
 
                     <p
@@ -3923,7 +3930,7 @@
                             opacity: 0.5;
                         "
                     >
-                        <i class="fas fa-clock"></i>
+                        <i class="fas fa-clock" aria-hidden="true"></i>
                         Mon-Fri: 8:00 AM - 5:00 PM
                     </p>
 
@@ -3956,13 +3963,16 @@
         document.addEventListener('DOMContentLoaded', function() {
             // Check auth state and update nav
             checkAuthState();
-            
+
             // Check for plan parameter in URL
             const urlParams = new URLSearchParams(window.location.search);
             const plan = urlParams.get('plan');
             if (plan) {
                 setTimeout(() => {
-                    document.getElementById('plans').scrollIntoView({ behavior: 'smooth' });
+                    const plansSection = document.getElementById('plans');
+                    if (plansSection) {
+                        plansSection.scrollIntoView({ behavior: 'smooth' });
+                    }
                 }, 500);
             }
         });
@@ -3990,7 +4000,7 @@
                         return;
                     }
                 }
-                
+
                 // Fallback: check localStorage
                 const storedUser = localStorage.getItem(CONFIG?.STORAGE?.USER);
                 if (storedUser) {
@@ -3998,9 +4008,9 @@
                     updateNavForLoggedIn();
                     return;
                 }
-                
+
                 updateNavForLoggedOut();
-                
+
             } catch (error) {
                 console.error('Auth check error:', error);
                 updateNavForLoggedOut();
@@ -4014,36 +4024,41 @@
         function updateNavForLoggedIn() {
             const authLinks = document.getElementById('authLinks');
             if (!authLinks) return;
-            
+
             const firstName = currentMember?.first_name || currentUser?.user_metadata?.first_name || 'Member';
             const initial = firstName.charAt(0).toUpperCase();
 
             authLinks.innerHTML = `
                 <div class="nav-user">
-                    <div class="user-avatar">${initial}</div>
+                    <div class="user-avatar" aria-hidden="true">${initial}</div>
                     <span class="user-name">${firstName}</span>
                     <a href="dashboard.html" class="btn btn-nav btn-small">
-                        <i class="fas fa-tachometer-alt"></i> Dashboard
+                        <i class="fas fa-tachometer-alt" aria-hidden="true"></i> Dashboard
                     </a>
-                    <button onclick="handleLogout()" class="btn btn-nav-outline btn-small" style="background:transparent; border:2px solid #e6ddc9; color:var(--text-gray); cursor:pointer; font-family:inherit; padding:8px 18px; border-radius:8px; font-size:13px; font-weight:600; transition:all 0.3s;">
-                        <i class="fas fa-sign-out-alt"></i> Logout
+                    <button type="button" id="logoutBtn" class="btn btn-nav-outline btn-small">
+                        <i class="fas fa-sign-out-alt" aria-hidden="true"></i> Logout
                     </button>
                 </div>
             `;
+
+            const logoutBtn = document.getElementById('logoutBtn');
+            if (logoutBtn) {
+                logoutBtn.addEventListener('click', handleLogout);
+            }
 
             // Update hero buttons
             const heroBtn = document.getElementById('heroRegisterBtn');
             if (heroBtn) {
                 heroBtn.href = 'register.html';
-                heroBtn.innerHTML = '<i class="fas fa-user-plus"></i> Register New Member';
+                heroBtn.innerHTML = '<i class="fas fa-user-plus" aria-hidden="true"></i> Register New Member';
             }
-            
+
             const ctaBtn = document.getElementById('ctaRegisterBtn');
             if (ctaBtn) {
                 ctaBtn.href = 'register.html';
-                ctaBtn.innerHTML = '<i class="fas fa-user-plus"></i> Register New Member';
+                ctaBtn.innerHTML = '<i class="fas fa-user-plus" aria-hidden="true"></i> Register New Member';
             }
-            
+
             // Update payment button
             const paymentBtn = document.getElementById('paymentBtn');
             if (paymentBtn) {
@@ -4057,11 +4072,11 @@
 
             authLinks.innerHTML = `
                 <a href="register.html" class="btn btn-nav">
-                    <i class="fas fa-user-plus"></i>
+                    <i class="fas fa-user-plus" aria-hidden="true"></i>
                     Become a Member
                 </a>
-                <a href="login.html" class="btn btn-nav-outline" style="padding:10px 24px; border-radius:10px; background:transparent; border:2px solid #e6ddc9; color:var(--text-gray); text-decoration:none; font-weight:600; font-size:14px; transition:all 0.3s;">
-                    <i class="fas fa-sign-in-alt"></i> Login
+                <a href="login.html" class="btn btn-nav-outline" style="text-decoration:none; display:inline-flex; align-items:center; gap:10px;">
+                    <i class="fas fa-sign-in-alt" aria-hidden="true"></i> Login
                 </a>
             `;
 
@@ -4069,15 +4084,15 @@
             const heroBtn = document.getElementById('heroRegisterBtn');
             if (heroBtn) {
                 heroBtn.href = 'register.html';
-                heroBtn.innerHTML = '<i class="fas fa-user-plus"></i> Become a Member';
+                heroBtn.innerHTML = '<i class="fas fa-user-plus" aria-hidden="true"></i> Become a Member';
             }
-            
+
             const ctaBtn = document.getElementById('ctaRegisterBtn');
             if (ctaBtn) {
                 ctaBtn.href = 'register.html';
-                ctaBtn.innerHTML = '<i class="fas fa-user-plus"></i> Become a Member Now';
+                ctaBtn.innerHTML = '<i class="fas fa-user-plus" aria-hidden="true"></i> Become a Member Now';
             }
-            
+
             // Reset payment button
             const paymentBtn = document.getElementById('paymentBtn');
             if (paymentBtn) {
@@ -4113,18 +4128,40 @@
 
         function toggleDropdown() {
             const menu = document.getElementById('dropdownMenu');
-            if (menu) {
-                menu.classList.toggle('show');
-            }
+            const toggle = document.getElementById('dropdownToggle');
+            if (!menu || !toggle) return;
+
+            const isOpen = menu.classList.toggle('show');
+            toggle.setAttribute('aria-expanded', isOpen ? 'true' : 'false');
+        }
+
+        const dropdownToggleEl = document.getElementById('dropdownToggle');
+        if (dropdownToggleEl) {
+            dropdownToggleEl.addEventListener('click', function(event) {
+                event.stopPropagation();
+                toggleDropdown();
+            });
         }
 
         // Close dropdown when clicking outside
         document.addEventListener('click', function(event) {
             const dropdown = document.querySelector('.dropdown');
             const menu = document.getElementById('dropdownMenu');
-            
+            const toggle = document.getElementById('dropdownToggle');
+
             if (dropdown && menu && !dropdown.contains(event.target)) {
                 menu.classList.remove('show');
+                if (toggle) toggle.setAttribute('aria-expanded', 'false');
+            }
+        });
+
+        // Close dropdown on Escape
+        document.addEventListener('keydown', function(event) {
+            if (event.key === 'Escape') {
+                const menu = document.getElementById('dropdownMenu');
+                const toggle = document.getElementById('dropdownToggle');
+                if (menu) menu.classList.remove('show');
+                if (toggle) toggle.setAttribute('aria-expanded', 'false');
             }
         });
 
@@ -4134,11 +4171,12 @@
 
         function toggleMobileMenu() {
             const navLinks = document.querySelector('.nav-links');
-            const menuButton = document.querySelector('.mobile-menu-btn');
+            const menuButton = document.getElementById('mobileMenuBtn');
             if (!navLinks || !menuButton) return;
-            
+
             const isActive = navLinks.classList.toggle('active');
             menuButton.setAttribute('aria-expanded', isActive ? 'true' : 'false');
+            menuButton.setAttribute('aria-label', isActive ? 'Close navigation menu' : 'Open navigation menu');
 
             const icon = menuButton.querySelector('i');
             if (icon) {
@@ -4152,15 +4190,21 @@
             }
         }
 
+        const mobileMenuBtnEl = document.getElementById('mobileMenuBtn');
+        if (mobileMenuBtnEl) {
+            mobileMenuBtnEl.addEventListener('click', toggleMobileMenu);
+        }
+
         // Close mobile menu when link is clicked
         document.querySelectorAll('.nav-links a').forEach(link => {
             link.addEventListener('click', () => {
                 const navLinks = document.querySelector('.nav-links');
-                const menuButton = document.querySelector('.mobile-menu-btn');
+                const menuButton = document.getElementById('mobileMenuBtn');
                 if (!navLinks || !menuButton) return;
 
                 navLinks.classList.remove('active');
                 menuButton.setAttribute('aria-expanded', 'false');
+                menuButton.setAttribute('aria-label', 'Open navigation menu');
 
                 const icon = menuButton.querySelector('i');
                 if (icon) {
@@ -4176,7 +4220,7 @@
 
         window.addEventListener('scroll', function() {
             const sections = document.querySelectorAll('section[id]');
-            const navLinks = document.querySelectorAll('.nav-links a:not(.btn):not(.btn-nav):not(.btn-nav-outline):not(.dropdown-toggle)');
+            const navLinks = document.querySelectorAll('.nav-links a:not(.btn):not(.btn-nav):not(.btn-nav-outline)');
 
             let current = '';
 
@@ -4189,8 +4233,10 @@
 
             navLinks.forEach(link => {
                 link.classList.remove('active');
+                link.removeAttribute('aria-current');
                 if (link.getAttribute('href') === `#${current}`) {
                     link.classList.add('active');
+                    link.setAttribute('aria-current', 'true');
                 }
             });
         });
@@ -4267,7 +4313,6 @@
         // EXPOSE FUNCTIONS
         // =========================================================
 
-        window.toggleDropdown = toggleDropdown;
         window.toggleMobileMenu = toggleMobileMenu;
         window.handleLogout = handleLogout;
         window.checkAuthState = checkAuthState;
