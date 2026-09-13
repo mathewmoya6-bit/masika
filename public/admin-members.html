@@ -608,6 +608,7 @@
         .status-badge.comfort { background: #e8f5e9; color: #2e7d32; }
         .status-badge.dignity { background: #e3f2fd; color: #0d47a1; }
         .status-badge.wazazi { background: #f3e5f5; color: #4a148c; }
+        .status-badge.chama { background: #fff4e5; color: #9a5b00; }
 
         /* ============================================================
            PAGINATION
@@ -940,6 +941,34 @@
             color: var(--text-light);
         }
         .id-card-info .id-card-meta b { color: var(--text); font-weight: 700; }
+
+        .id-card-payment {
+            background: var(--gold-light);
+            border-top: 1px solid var(--gray-200);
+            padding: 10px 18px;
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+        }
+
+        .id-card-payment .id-card-payment-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: baseline;
+            font-size: 11.5px;
+            color: #6b5013;
+            gap: 12px;
+        }
+
+        .id-card-payment .id-card-payment-row span { flex-shrink: 0; }
+        .id-card-payment .id-card-payment-row b {
+            color: #4a3a0d;
+            font-weight: 800;
+            text-align: right;
+            word-break: break-word;
+        }
+
+        .id-card-footer .id-card-valid b.expired { color: var(--danger); }
 
         .id-card-footer {
             background: var(--gray-50);
@@ -1280,13 +1309,27 @@
                             </div>
                         </div>
                     </div>
+                    <div class="id-card-payment">
+                        <div class="id-card-payment-row">
+                            <span>Contribution</span>
+                            <b id="idCardAmount">—</b>
+                        </div>
+                        <div class="id-card-payment-row">
+                            <span>M-Pesa Paybill</span>
+                            <b id="idCardPaybill">—</b>
+                        </div>
+                        <div class="id-card-payment-row">
+                            <span>Account No.</span>
+                            <b id="idCardAccount">—</b>
+                        </div>
+                    </div>
                     <div class="id-card-footer">
                         <div class="id-card-qr">
                             <img id="idCardQr" src="" alt="QR code">
                         </div>
                         <div class="id-card-valid">
-                            Member since<br>
-                            <b id="idCardJoined">—</b>
+                            Member since <b id="idCardJoined">—</b><br>
+                            Valid until <b id="idCardValidUntil">—</b>
                         </div>
                     </div>
                 </div>
@@ -1365,6 +1408,64 @@
         // Update this if your API lives on a different host (e.g. a
         // separate api.masikabbs.com subdomain, or localhost while developing).
         const MASIKA_API_BASE = 'https://api.masikabbs.com';
+
+        // ============================================================
+        // PLAN PRICING / PAYMENT CONFIG (used on the Membership ID card)
+        // ============================================================
+        const ORG_PAYBILL = '348127';
+
+        // Fallback monthly contribution (+ one-off registration fee) per
+        // plan. openIdCardModal() first tries to read live pricing from a
+        // "plans"/"pricing" table in Supabase (in case you already manage
+        // this in admin-pricing.html); if no such table/row exists yet, it
+        // falls back to these figures.
+        const PLAN_FALLBACK_CONFIG = {
+            comfort: { label: 'Comfort', amount: 300, registrationFee: 200 },
+            dignity: { label: 'Dignity', amount: 100, registrationFee: 2000 },
+            wazazi:  { label: 'Wazazi',  amount: 350, registrationFee: 100 },
+            chama:   { label: 'Chama',   amount: 150, registrationFee: 1200 }
+        };
+
+        // Looks up the monthly contribution for a plan. Tries a couple of
+        // common pricing-table shapes defensively (same pattern used for
+        // dependants/dependents elsewhere in this codebase), then falls
+        // back to PLAN_FALLBACK_CONFIG above.
+        async function getPlanAmount(planType) {
+            const key = String(planType || '').toLowerCase();
+            if (!key) return null;
+
+            for (const tableName of ['plans', 'pricing', 'plan_pricing']) {
+                try {
+                    const { data, error } = await supabaseClient
+                        .from(tableName)
+                        .select('*')
+                        .eq('plan_type', key)
+                        .maybeSingle();
+
+                    if (!error && data) {
+                        const amount = data.monthly_amount ?? data.amount ?? data.premium ?? data.price;
+                        if (amount !== null && amount !== undefined) return Number(amount);
+                    }
+                } catch (e) { /* table doesn't exist — try the next name */ }
+            }
+
+            return PLAN_FALLBACK_CONFIG[key]?.amount ?? null;
+        }
+
+        // Membership validity is 12 months, renewed on payment. Prefers an
+        // explicit expiry column if your "members" table has one; otherwise
+        // computes 12 months on from the join date.
+        function computeValidUntil(member) {
+            const explicit = member.expiry_date || member.valid_until || member.membership_expiry;
+            if (explicit) {
+                const d = new Date(explicit);
+                if (!isNaN(d.getTime())) return d;
+            }
+            const base = member.created_at ? new Date(member.created_at) : new Date();
+            const validUntil = new Date(base);
+            validUntil.setFullYear(validUntil.getFullYear() + 1);
+            return validUntil;
+        }
 
         // ============================================================
         // STATE
@@ -1791,6 +1892,27 @@
                 document.getElementById('idCardPhone').textContent = member.phone || '—';
                 document.getElementById('idCardJoined').textContent = joined;
 
+                // 12-month validity, renewed whenever the membership is paid up.
+                const validUntilDate = computeValidUntil(member);
+                const isExpired = validUntilDate < new Date();
+                const validUntilEl = document.getElementById('idCardValidUntil');
+                validUntilEl.textContent = validUntilDate.toLocaleDateString('en-KE', { day: '2-digit', month: 'short', year: 'numeric' }) + (isExpired ? ' (expired)' : '');
+                validUntilEl.classList.toggle('expired', isExpired);
+
+                // Ongoing M-Pesa payment details — Paybill is fixed org-wide,
+                // account is the member's own membership number so payments
+                // reconcile automatically; amount depends on the plan chosen.
+                document.getElementById('idCardPaybill').textContent = ORG_PAYBILL;
+                document.getElementById('idCardAccount').textContent = memberNumber;
+                document.getElementById('idCardAmount').textContent = 'Loading…';
+                getPlanAmount(member.plan_type).then(amount => {
+                    document.getElementById('idCardAmount').textContent = amount
+                        ? `KES ${Number(amount).toLocaleString()} / month`
+                        : 'Contact office';
+                }).catch(() => {
+                    document.getElementById('idCardAmount').textContent = 'Contact office';
+                });
+
                 // QR encodes a verification payload — swap the URL below for a real
                 // verification page on your domain once one exists.
                 const qrPayload = `MASIKA-BBS|${memberNumber}|${member.id}`;
@@ -1850,10 +1972,21 @@
                 document.getElementById('stkSub').textContent = `${member.membership_number || 'Pending'} · ${member.plan_type ? member.plan_type.charAt(0).toUpperCase() + member.plan_type.slice(1) : '—'}`;
                 document.getElementById('stkPhone').value = member.phone || '';
                 document.getElementById('stkAmount').value = '';
+                document.getElementById('stkAmount').placeholder = 'e.g. 500';
 
                 hideStkStatus();
                 document.getElementById('stkPushModal').classList.add('open');
                 document.getElementById('stkAmount').focus();
+
+                // Pre-fill with the plan's monthly contribution — admin can
+                // still override it (e.g. to collect arrears or a top-up).
+                getPlanAmount(member.plan_type).then(amount => {
+                    const amountInput = document.getElementById('stkAmount');
+                    if (amount && !amountInput.value) {
+                        amountInput.value = amount;
+                        amountInput.placeholder = `Default: KES ${amount} (${member.plan_type || 'plan'} plan)`;
+                    }
+                }).catch(() => { /* fall back to manual entry */ });
 
             } catch (error) {
                 console.error('Open STK push modal error:', error);
