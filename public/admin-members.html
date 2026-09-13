@@ -1,1037 +1,3 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Members | Masika Benevolent</title>
-    <link rel="icon" type="image/png" href="../assets/favicon-32x32.png">
-
-    <!-- =========================================================
-         SUPABASE & EXTERNAL JS
-         ========================================================= -->
-    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
-
-    <style>
-        /* ============================================================
-           COMPLETE STYLES
-           ============================================================ */
-
-        * { margin: 0; padding: 0; box-sizing: border-box; }
-
-        :root {
-            --primary: #0b5d3b;
-            --primary-dark: #06452c;
-            --primary-light: #e8f5ee;
-            --gold: #d4a843;
-            --gold-light: #f5e6b8;
-            --danger: #dc3545;
-            --danger-light: #fce4e8;
-            --success: #198754;
-            --success-light: #d4edda;
-            --warning: #ffc107;
-            --warning-light: #fff3cd;
-            --info: #0dcaf0;
-            --info-light: #d1f0f9;
-            --text: #1f2933;
-            --text-light: #6b7280;
-            --text-lighter: #9ca3af;
-            --white: #ffffff;
-            --gray-50: #f9fafb;
-            --gray-100: #f3f4f6;
-            --gray-200: #e5e7eb;
-            --gray-300: #d1d5db;
-            --gray-400: #9ca3af;
-            --shadow: 0 2px 12px rgba(0,0,0,0.08);
-            --shadow-hover: 0 4px 24px rgba(0,0,0,0.12);
-            --radius: 12px;
-            --radius-lg: 16px;
-            --transition: all 0.3s ease;
-        }
-
-        body {
-            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif;
-            background: #f0f4f2;
-            color: var(--text);
-            min-height: 100vh;
-        }
-
-        ::-webkit-scrollbar { width: 6px; height: 6px; }
-        ::-webkit-scrollbar-track { background: var(--gray-100); border-radius: 10px; }
-        ::-webkit-scrollbar-thumb { background: var(--gray-300); border-radius: 10px; }
-        ::-webkit-scrollbar-thumb:hover { background: var(--gray-400); }
-
-        .admin-layout { display: flex; min-height: 100vh; }
-
-        /* ============================================================
-           SIDEBAR
-           ============================================================ */
-
-        .sidebar {
-            width: 280px;
-            background: var(--primary);
-            color: white;
-            padding: 24px 0;
-            position: fixed;
-            height: 100vh;
-            overflow-y: auto;
-            transition: var(--transition);
-            z-index: 100;
-            display: flex;
-            flex-direction: column;
-        }
-
-        .sidebar::-webkit-scrollbar { width: 4px; }
-        .sidebar::-webkit-scrollbar-track { background: rgba(255,255,255,0.05); }
-        .sidebar::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.2); border-radius: 10px; }
-
-        .sidebar-brand {
-            padding: 0 24px 24px;
-            border-bottom: 1px solid rgba(255,255,255,0.08);
-            margin-bottom: 20px;
-            flex-shrink: 0;
-        }
-
-        .sidebar-brand .logo {
-            display: flex;
-            align-items: center;
-            gap: 12px;
-            text-decoration: none;
-            color: white;
-        }
-
-        .sidebar-brand .logo-icon {
-            width: 44px;
-            height: 44px;
-            background: var(--gold);
-            border-radius: 12px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-weight: 900;
-            color: var(--white);
-            font-size: 20px;
-        }
-
-        .sidebar-brand .logo-text {
-            font-weight: 800;
-            font-size: 20px;
-            letter-spacing: -0.5px;
-        }
-
-        .sidebar-brand .logo-sub {
-            font-size: 11px;
-            opacity: 0.6;
-            display: block;
-            font-weight: 400;
-            letter-spacing: 0.5px;
-            text-transform: uppercase;
-        }
-
-        .sidebar-nav {
-            list-style: none;
-            padding: 0 12px;
-            flex: 1;
-        }
-
-        .sidebar-nav li { margin-bottom: 2px; }
-
-        .sidebar-nav .nav-label {
-            font-size: 10px;
-            text-transform: uppercase;
-            letter-spacing: 0.8px;
-            color: rgba(255,255,255,0.3);
-            padding: 12px 16px 6px;
-            font-weight: 700;
-        }
-
-        .sidebar-nav a {
-            display: flex;
-            align-items: center;
-            gap: 12px;
-            padding: 11px 16px;
-            border-radius: 10px;
-            color: rgba(255,255,255,0.65);
-            text-decoration: none;
-            transition: var(--transition);
-            font-size: 14px;
-            font-weight: 500;
-            position: relative;
-        }
-
-        .sidebar-nav a:hover {
-            background: rgba(255,255,255,0.08);
-            color: white;
-        }
-
-        .sidebar-nav a.active {
-            background: rgba(255,255,255,0.12);
-            color: white;
-        }
-
-        .sidebar-nav a.active::before {
-            content: '';
-            position: absolute;
-            left: 0;
-            top: 20%;
-            height: 60%;
-            width: 3px;
-            background: var(--gold);
-            border-radius: 0 3px 3px 0;
-        }
-
-        .sidebar-nav a i {
-            width: 20px;
-            text-align: center;
-            font-size: 16px;
-        }
-
-        .sidebar-nav .badge {
-            margin-left: auto;
-            background: var(--gold);
-            color: white;
-            padding: 1px 10px;
-            border-radius: 12px;
-            font-size: 11px;
-            font-weight: 700;
-            min-width: 20px;
-            text-align: center;
-        }
-
-        .sidebar-footer {
-            padding: 16px 24px;
-            border-top: 1px solid rgba(255,255,255,0.08);
-            margin-top: auto;
-            flex-shrink: 0;
-        }
-
-        .sidebar-footer .user-info {
-            display: flex;
-            align-items: center;
-            gap: 12px;
-        }
-
-        .sidebar-footer .user-avatar {
-            width: 40px;
-            height: 40px;
-            border-radius: 50%;
-            background: var(--gold);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-weight: 700;
-            font-size: 16px;
-            color: white;
-            flex-shrink: 0;
-        }
-
-        .sidebar-footer .user-name {
-            font-weight: 600;
-            font-size: 14px;
-        }
-
-        .sidebar-footer .user-role {
-            font-size: 12px;
-            opacity: 0.5;
-        }
-
-        .sidebar-footer .logout-btn {
-            display: block;
-            width: 100%;
-            margin-top: 12px;
-            padding: 10px;
-            border: 1px solid rgba(255,255,255,0.15);
-            border-radius: 10px;
-            background: transparent;
-            color: rgba(255,255,255,0.6);
-            cursor: pointer;
-            transition: var(--transition);
-            font-family: inherit;
-            font-size: 14px;
-            font-weight: 500;
-        }
-
-        .sidebar-footer .logout-btn:hover {
-            background: rgba(255,255,255,0.08);
-            color: white;
-            border-color: rgba(255,255,255,0.3);
-        }
-
-        /* ============================================================
-           SIDEBAR BACKDROP
-           ============================================================ */
-
-        .sidebar-backdrop {
-            display: none;
-            position: fixed;
-            inset: 0;
-            background: rgba(0,0,0,0.5);
-            backdrop-filter: blur(4px);
-            z-index: 99;
-        }
-
-        .sidebar-backdrop.show { display: block; }
-
-        /* ============================================================
-           MAIN CONTENT
-           ============================================================ */
-
-        .main-content {
-            margin-left: 280px;
-            padding: 24px 32px 40px;
-            flex: 1;
-            width: calc(100% - 280px);
-            min-height: 100vh;
-        }
-
-        /* ============================================================
-           TOPBAR
-           ============================================================ */
-
-        .topbar {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 28px;
-            flex-wrap: wrap;
-            gap: 12px;
-        }
-
-        .topbar-left {
-            display: flex;
-            align-items: center;
-            gap: 16px;
-        }
-
-        .topbar h1 {
-            font-size: 28px;
-            font-weight: 800;
-            letter-spacing: -0.5px;
-        }
-
-        .topbar h1 small {
-            font-size: 14px;
-            font-weight: 400;
-            color: var(--text-light);
-            display: block;
-            margin-top: 2px;
-        }
-
-        .topbar .actions {
-            display: flex;
-            gap: 12px;
-            align-items: center;
-            flex-wrap: wrap;
-        }
-
-        .topbar .actions .date-time {
-            font-size: 14px;
-            color: var(--text-light);
-            font-weight: 500;
-        }
-
-        .sidebar-toggle {
-            display: none;
-            background: var(--primary);
-            color: white;
-            border: none;
-            padding: 8px 14px;
-            border-radius: 10px;
-            font-size: 20px;
-            cursor: pointer;
-            transition: var(--transition);
-        }
-
-        .sidebar-toggle:hover { background: var(--primary-dark); }
-
-        /* ============================================================
-           BUTTONS
-           ============================================================ */
-
-        .btn {
-            display: inline-flex;
-            align-items: center;
-            gap: 8px;
-            padding: 8px 18px;
-            border: none;
-            border-radius: 8px;
-            font-weight: 600;
-            font-size: 13px;
-            cursor: pointer;
-            transition: var(--transition);
-            font-family: inherit;
-            text-decoration: none;
-        }
-
-        .btn-primary {
-            background: var(--primary);
-            color: white;
-        }
-        .btn-primary:hover {
-            background: var(--primary-dark);
-            transform: translateY(-2px);
-            box-shadow: 0 4px 16px rgba(11, 93, 59, 0.3);
-        }
-
-        .btn-success {
-            background: var(--success);
-            color: white;
-        }
-        .btn-success:hover {
-            background: #157347;
-            transform: translateY(-2px);
-            box-shadow: 0 4px 16px rgba(25, 135, 84, 0.3);
-        }
-
-        .btn-danger {
-            background: var(--danger);
-            color: white;
-        }
-        .btn-danger:hover {
-            background: #c82333;
-            transform: translateY(-2px);
-            box-shadow: 0 4px 16px rgba(220, 53, 69, 0.3);
-        }
-
-        .btn-secondary {
-            background: var(--gray-200);
-            color: var(--text);
-        }
-        .btn-secondary:hover {
-            background: var(--gray-300);
-            transform: translateY(-2px);
-        }
-
-        .btn-gold {
-            background: var(--gold);
-            color: white;
-        }
-        .btn-gold:hover {
-            background: #c49a3a;
-            transform: translateY(-2px);
-            box-shadow: 0 4px 16px rgba(212, 168, 67, 0.3);
-        }
-
-        .btn-outline {
-            background: transparent;
-            border: 2px solid var(--gray-200);
-            color: var(--text-light);
-        }
-        .btn-outline:hover {
-            border-color: var(--primary);
-            color: var(--primary);
-            transform: translateY(-2px);
-        }
-
-        .btn-sm {
-            padding: 4px 12px;
-            font-size: 12px;
-            border-radius: 6px;
-        }
-
-        .btn:disabled {
-            opacity: 0.6;
-            cursor: not-allowed;
-            transform: none !important;
-        }
-
-        /* ============================================================
-           CARDS
-           ============================================================ */
-
-        .card {
-            background: white;
-            border-radius: var(--radius);
-            padding: 24px;
-            box-shadow: var(--shadow);
-            margin-bottom: 24px;
-            transition: var(--transition);
-        }
-
-        .card:hover {
-            box-shadow: var(--shadow-hover);
-        }
-
-        .card-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 16px;
-            padding-bottom: 12px;
-            border-bottom: 1px solid var(--gray-200);
-            flex-wrap: wrap;
-            gap: 10px;
-        }
-
-        .card-header h3 {
-            font-size: 18px;
-            font-weight: 700;
-            display: flex;
-            align-items: center;
-            gap: 10px;
-        }
-
-        /* ============================================================
-           FILTERS
-           ============================================================ */
-
-        .filters {
-            display: flex;
-            gap: 10px;
-            flex-wrap: wrap;
-            margin-bottom: 16px;
-        }
-
-        .filters input,
-        .filters select {
-            padding: 9px 12px;
-            border: 2px solid var(--gray-200);
-            border-radius: 8px;
-            font-family: inherit;
-            font-size: 14px;
-            transition: var(--transition);
-            background: white;
-        }
-
-        .filters input:focus,
-        .filters select:focus {
-            outline: none;
-            border-color: var(--primary);
-            box-shadow: 0 0 0 4px rgba(11, 93, 59, 0.1);
-        }
-
-        .filters input[type="text"] {
-            flex: 1;
-            min-width: 200px;
-        }
-
-        /* ============================================================
-           TABLE
-           ============================================================ */
-
-        .table-wrapper {
-            overflow-x: auto;
-            border-radius: 8px;
-        }
-
-        table {
-            width: 100%;
-            border-collapse: collapse;
-            font-size: 14px;
-        }
-
-        table thead {
-            background: var(--gray-50);
-        }
-
-        table thead th {
-            padding: 10px 14px;
-            text-align: left;
-            font-weight: 600;
-            font-size: 12px;
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
-            color: var(--text-light);
-            white-space: nowrap;
-        }
-
-        table tbody td {
-            padding: 10px 14px;
-            border-bottom: 1px solid var(--gray-100);
-            vertical-align: middle;
-        }
-
-        table tbody tr {
-            transition: var(--transition);
-            cursor: pointer;
-        }
-
-        table tbody tr:hover {
-            background: var(--gray-50);
-        }
-
-        table tbody tr:last-child td {
-            border-bottom: none;
-        }
-
-        /* ============================================================
-           STATUS BADGES
-           ============================================================ */
-
-        .status-badge {
-            display: inline-block;
-            padding: 3px 12px;
-            border-radius: 20px;
-            font-size: 12px;
-            font-weight: 600;
-            white-space: nowrap;
-        }
-
-        .status-badge.ACTIVE { background: var(--success-light); color: var(--success); }
-        .status-badge.DORMANT { background: var(--warning-light); color: #856404; }
-        .status-badge.SUSPENDED { background: var(--danger-light); color: var(--danger); }
-        .status-badge.CANCELLED { background: var(--gray-200); color: var(--text-light); }
-        .status-badge.PENDING { background: var(--warning-light); color: #856404; }
-
-        .status-badge.comfort { background: #e8f5e9; color: #2e7d32; }
-        .status-badge.dignity { background: #e3f2fd; color: #0d47a1; }
-        .status-badge.wazazi { background: #f3e5f5; color: #4a148c; }
-
-        /* ============================================================
-           PAGINATION
-           ============================================================ */
-
-        .pagination {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-top: 16px;
-            font-size: 14px;
-            color: var(--text-light);
-            flex-wrap: wrap;
-            gap: 10px;
-        }
-
-        .pagination .btn-sm {
-            margin-left: 4px;
-        }
-
-        /* ============================================================
-           LOADING
-           ============================================================ */
-
-        .loading-spinner {
-            text-align: center;
-            padding: 40px;
-        }
-
-        .loading-spinner .spinner {
-            display: inline-block;
-            width: 40px;
-            height: 40px;
-            border: 4px solid var(--gray-200);
-            border-top-color: var(--primary);
-            border-radius: 50%;
-            animation: spin 0.8s linear infinite;
-        }
-
-        @keyframes spin {
-            to { transform: rotate(360deg); }
-        }
-
-        .loading-spinner p {
-            color: var(--text-light);
-            margin-top: 12px;
-        }
-
-        /* ============================================================
-           MODAL
-           ============================================================ */
-
-        .modal-overlay {
-            display: none;
-            position: fixed;
-            inset: 0;
-            background: rgba(0,0,0,0.5);
-            backdrop-filter: blur(4px);
-            z-index: 200;
-            align-items: center;
-            justify-content: center;
-            padding: 20px;
-        }
-
-        .modal-overlay.open { display: flex; }
-
-        .modal {
-            background: white;
-            border-radius: var(--radius-lg);
-            padding: 28px;
-            width: 100%;
-            max-width: 680px;
-            max-height: 90vh;
-            overflow-y: auto;
-            box-shadow: 0 24px 80px rgba(0,0,0,0.2);
-            animation: modalSlide 0.3s ease;
-        }
-
-        @keyframes modalSlide {
-            from { transform: translateY(-30px); opacity: 0; }
-            to { transform: translateY(0); opacity: 1; }
-        }
-
-        .modal h3 {
-            margin-bottom: 16px;
-            font-size: 20px;
-            display: flex;
-            align-items: center;
-            gap: 10px;
-            justify-content: space-between;
-        }
-
-        .modal fieldset {
-            border: 1px solid var(--gray-200);
-            border-radius: 8px;
-            padding: 14px 16px;
-            margin-bottom: 16px;
-        }
-
-        .modal legend {
-            font-size: 12px;
-            font-weight: 700;
-            color: var(--primary);
-            padding: 0 6px;
-            text-transform: uppercase;
-            letter-spacing: 0.03em;
-        }
-
-        .detail-grid {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 10px 20px;
-            font-size: 14px;
-        }
-
-        .detail-grid .label {
-            color: var(--text-light);
-            font-size: 12px;
-            text-transform: uppercase;
-            letter-spacing: 0.03em;
-        }
-
-        .detail-grid .value {
-            font-weight: 600;
-        }
-
-        .status-row {
-            display: flex;
-            align-items: center;
-            gap: 10px;
-            margin-bottom: 16px;
-            flex-wrap: wrap;
-        }
-
-        .status-row label {
-            font-size: 13px;
-            font-weight: 600;
-            color: var(--text-light);
-        }
-
-        .status-row select {
-            padding: 8px 12px;
-            border: 2px solid var(--gray-200);
-            border-radius: 8px;
-            font-family: inherit;
-            font-size: 14px;
-            transition: var(--transition);
-            background: white;
-        }
-
-        .status-row select:focus {
-            outline: none;
-            border-color: var(--primary);
-            box-shadow: 0 0 0 4px rgba(11, 93, 59, 0.1);
-        }
-
-        .modal-actions {
-            display: flex;
-            gap: 10px;
-            justify-content: flex-end;
-            margin-top: 16px;
-        }
-
-        .form-error {
-            color: var(--danger);
-            font-size: 13px;
-            margin-top: 10px;
-            display: none;
-        }
-
-        .form-success {
-            color: var(--success);
-            font-size: 13px;
-            margin-top: 10px;
-            display: none;
-        }
-
-        /* ============================================================
-           RESPONSIVE
-           ============================================================ */
-
-        @media (max-width: 768px) {
-            .sidebar {
-                transform: translateX(-100%);
-                width: 280px;
-            }
-
-            .sidebar.open {
-                transform: translateX(0);
-            }
-
-            .main-content {
-                margin-left: 0;
-                width: 100%;
-                padding: 16px;
-            }
-
-            .sidebar-toggle {
-                display: block;
-            }
-
-            .topbar .actions .date-time {
-                display: none;
-            }
-
-            .topbar h1 {
-                font-size: 22px;
-            }
-
-            .filters {
-                flex-direction: column;
-            }
-
-            .filters input[type="text"] {
-                width: 100%;
-            }
-
-            .detail-grid {
-                grid-template-columns: 1fr;
-            }
-
-            .modal {
-                padding: 20px;
-            }
-
-            .pagination {
-                flex-direction: column;
-                align-items: stretch;
-                text-align: center;
-            }
-        }
-
-        @media (max-width: 480px) {
-            .topbar {
-                flex-direction: column;
-                align-items: stretch;
-            }
-
-            .topbar .actions {
-                justify-content: flex-start;
-            }
-
-            .card {
-                padding: 16px;
-            }
-
-            .status-row {
-                flex-direction: column;
-                align-items: stretch;
-            }
-
-            .modal-actions {
-                flex-direction: column;
-            }
-        }
-    </style>
-</head>
-<body>
-
-    <div class="admin-layout">
-
-        <!-- ============================================================
-        SIDEBAR BACKDROP
-        ============================================================ -->
-        <div class="sidebar-backdrop" id="sidebarBackdrop"></div>
-
-        <!-- ============================================================
-        SIDEBAR
-        ============================================================ -->
-
-        <aside class="sidebar" id="sidebar">
-            <div class="sidebar-brand">
-                <a href="admin-dashboard.html" class="logo">
-                    <div class="logo-icon">MB</div>
-                    <div>
-                        <span class="logo-text">Masika</span>
-                        <span class="logo-sub">Admin Panel</span>
-                    </div>
-                </a>
-            </div>
-
-            <ul class="sidebar-nav">
-                <li class="nav-label">Main</li>
-                <li><a href="admin-dashboard.html"><i class="fas fa-chart-pie"></i> Dashboard</a></li>
-                <li><a href="admin-members.html" class="active"><i class="fas fa-users"></i> Members <span class="badge" id="memberCountBadge">0</span></a></li>
-                <li><a href="admin-agents.html"><i class="fas fa-user-tie"></i> Agents <span class="badge" id="agentCountBadge">0</span></a></li>
-
-                <li class="nav-label">Finance</li>
-                <li><a href="admin-collectpayments.html"><i class="fas fa-credit-card"></i> Payments</a></li>
-                <li><a href="admin-revenue.html"><i class="fas fa-chart-line"></i> Revenue</a></li>
-
-                <li class="nav-label">Settings</li>
-                <li><a href="admin-pricing.html"><i class="fas fa-tags"></i> Pricing</a></li>
-                <li><a href="admin-reports.html"><i class="fas fa-file-alt"></i> Reports</a></li>
-                <li><a href="admin-settings.html"><i class="fas fa-cog"></i> Settings</a></li>
-            </ul>
-
-            <div class="sidebar-footer">
-                <div class="user-info">
-                    <div class="user-avatar" id="adminAvatar">A</div>
-                    <div>
-                        <div class="user-name" id="adminName">Admin</div>
-                        <div class="user-role" id="adminRole">Administrator</div>
-                    </div>
-                </div>
-                <button class="logout-btn" onclick="handleLogout()">
-                    <i class="fas fa-sign-out-alt"></i> Logout
-                </button>
-            </div>
-        </aside>
-
-        <!-- ============================================================
-        MAIN CONTENT
-        ============================================================ -->
-
-        <main class="main-content">
-
-            <!-- Topbar -->
-            <div class="topbar">
-                <div class="topbar-left">
-                    <button class="sidebar-toggle" id="sidebarToggle" aria-label="Toggle menu">
-                        <i class="fas fa-bars"></i>
-                    </button>
-                    <h1>
-                        Members
-                        <small>Search and manage member records</small>
-                    </h1>
-                </div>
-                <div class="actions">
-                    <span class="date-time" id="currentDateTime"></span>
-                    <button onclick="refreshData()" class="btn btn-primary btn-sm" id="refreshBtn">
-                        <i class="fas fa-sync" id="refreshIcon"></i> Refresh
-                    </button>
-                </div>
-            </div>
-
-            <!-- Members Card -->
-            <div class="card">
-                <div class="card-header">
-                    <h3><i class="fas fa-users" style="color:var(--gold);"></i> All Members</h3>
-                </div>
-
-                <div class="filters">
-                    <input type="text" id="memberSearch" placeholder="Search by name, membership #, phone, or ID number...">
-                    <select id="statusFilter">
-                        <option value="">All statuses</option>
-                        <option value="ACTIVE">Active</option>
-                        <option value="DORMANT">Dormant</option>
-                        <option value="SUSPENDED">Suspended</option>
-                        <option value="CANCELLED">Cancelled</option>
-                        <option value="PENDING">Pending</option>
-                    </select>
-                    <button class="btn btn-primary" onclick="applyFilters()">
-                        <i class="fas fa-search"></i> Search
-                    </button>
-                    <button class="btn btn-secondary" onclick="resetFilters()">
-                        <i class="fas fa-undo"></i> Reset
-                    </button>
-                    <button class="btn btn-success" onclick="exportMembers()">
-                        <i class="fas fa-download"></i> Export
-                    </button>
-                </div>
-
-                <div id="membersList">
-                    <div class="loading-spinner">
-                        <div class="spinner"></div>
-                        <p>Loading members...</p>
-                    </div>
-                </div>
-
-                <div class="pagination" id="membersPagination" style="display:none;">
-                    <span id="paginationInfo"></span>
-                    <div>
-                        <button class="btn btn-secondary btn-sm" id="prevPageBtn" onclick="changePage(-1)">
-                            <i class="fas fa-chevron-left"></i> Prev
-                        </button>
-                        <button class="btn btn-secondary btn-sm" id="nextPageBtn" onclick="changePage(1)">
-                            Next <i class="fas fa-chevron-right"></i>
-                        </button>
-                    </div>
-                </div>
-            </div>
-
-        </main>
-    </div>
-
-    <!-- ============================================================
-    MEMBER DETAIL MODAL
-    ============================================================ -->
-
-    <div class="modal-overlay" id="memberModal">
-        <div class="modal">
-            <h3>
-                <span><i class="fas fa-id-card" style="color:var(--primary);"></i> <span id="memberModalName">Member</span></span>
-                <button class="btn btn-secondary btn-sm" onclick="closeMemberModal()">
-                    <i class="fas fa-times"></i>
-                </button>
-            </h3>
-
-            <div class="status-row">
-                <label style="font-size:13px;font-weight:600;color:var(--text-light);">Status:</label>
-                <select id="memberStatusSelect">
-                    <option value="ACTIVE">Active</option>
-                    <option value="DORMANT">Dormant</option>
-                    <option value="SUSPENDED">Suspended</option>
-                    <option value="CANCELLED">Cancelled</option>
-                    <option value="PENDING">Pending</option>
-                </select>
-                <button class="btn btn-primary btn-sm" onclick="saveMemberStatus()">
-                    <i class="fas fa-check"></i> Update
-                </button>
-            </div>
-
-            <fieldset>
-                <legend>Personal Info</legend>
-                <div class="detail-grid" id="memberPersonalInfo"></div>
-            </fieldset>
-
-            <fieldset>
-                <legend>Contact &amp; Location</legend>
-                <div class="detail-grid" id="memberContactInfo"></div>
-            </fieldset>
-
-            <fieldset>
-                <legend>Membership</legend>
-                <div class="detail-grid" id="memberMembershipInfo"></div>
-            </fieldset>
-
-            <fieldset>
-                <legend>Next of Kin</legend>
-                <div class="detail-grid" id="memberKinInfo"></div>
-            </fieldset>
-
-            <div class="form-error" id="memberModalError"></div>
-            <div class="form-success" id="memberModalSuccess"></div>
-        </div>
-    </div>
-
-    <!-- ============================================================
-    JAVASCRIPT - COMPLETE FIXED VERSION
-    ============================================================ -->
-
-    <script>
-        // ============================================================
-        // SUPABASE CONFIG - CORRECT ANON KEY
-        // ============================================================
-
-        const SUPABASE_URL = 'https://wpxzlcdrirlcyvfiquld.supabase.co';
-        const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6IndweHpsY2RyaXJsY3l2ZmlxdWxkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODc5Mjc4MDcsImV4cCI6MjEwMzUwMzgwN30.OUP9pmPbrML_egpHflZtDfLv1_UDM37_BYjtb842xjg';
-
-        console.log('🚀 Members script loaded');
-        console.log('📡 Supabase URL:', SUPABASE_URL);
-
-        // Use unique variable name
-        const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
         // ============================================================
         // STATE
@@ -1042,6 +8,8 @@
         let totalRecords = 0;
         let selectedMemberId = null;
         let currentStaff = null;
+        let authReady = false;
+        let currentMembersCache = [];
 
         // ============================================================
         // DOM REFS
@@ -1061,29 +29,16 @@
         // INITIALIZATION
         // ============================================================
 
-        document.addEventListener('DOMContentLoaded', function() {
+        document.addEventListener('DOMContentLoaded', async function() {
             console.log('📄 DOM loaded');
-            
-            // Check localStorage first
-            const storedStaff = localStorage.getItem('admin_user');
-            if (storedStaff) {
-                try {
-                    currentStaff = JSON.parse(storedStaff);
-                    console.log('✅ Staff loaded from localStorage:', currentStaff.full_name);
-                    updateAdminUI(currentStaff);
-                    loadMembers();
-                    setupSidebarToggle();
-                    updateClock();
-                    return;
-                } catch (e) {
-                    console.warn('⚠️ Invalid stored staff data');
-                }
-            }
 
-            checkAuth();
-            loadMembers();
             setupSidebarToggle();
             updateClock();
+
+            const authenticated = await checkAuth();
+            if (authenticated) {
+                await loadMembers(1);
+            }
 
             // Enter key search
             memberSearch.addEventListener('keypress', function(e) {
@@ -1099,100 +54,40 @@
         // ============================================================
 
         async function checkAuth() {
-            console.log('🔐 Checking authentication...');
-
             try {
-                const { data: { session }, error } = await supabaseClient.auth.getSession();
-
-                if (error) {
-                    console.error('❌ Session error:', error);
+                const { data: { session }, error: sessionError } = await supabaseClient.auth.getSession();
+                if (sessionError) throw sessionError;
+                if (!session?.user) {
                     window.location.href = 'admin-login.html';
-                    return;
+                    return false;
                 }
 
-                if (!session) {
-                    console.log('⚠️ No session found');
-                    window.location.href = 'admin-login.html';
-                    return;
-                }
-
-                console.log('✅ User authenticated:', session.user.email);
-
-                // Look up staff record with role
                 const { data: staff, error: staffError } = await supabaseClient
                     .from('staff')
-                    .select(`
-                        id,
-                        auth_user_id,
-                        full_name,
-                        email,
-                        phone,
-                        role_id,
-                        branch_id,
-                        status,
-                        sales_code,
-                        roles:role_id (
-                            id,
-                            role_code,
-                            role_name,
-                            is_active
-                        )
-                    `)
+                    .select('id,auth_user_id,full_name,email,phone,role_id,branch_id,status,sales_code,roles:role_id(id,role_code,role_name,is_active)')
                     .eq('auth_user_id', session.user.id)
                     .maybeSingle();
 
-                if (staffError) {
-                    console.error('❌ Staff lookup error:', staffError);
-                    // Check admins table as fallback
-                    const { data: admin, error: adminError } = await supabaseClient
-                        .from('admins')
-                        .select('*')
-                        .eq('id', session.user.id)
-                        .single();
+                if (staffError) throw staffError;
 
-                    if (admin) {
-                        console.log('✅ Found in admins table (legacy)');
-                        currentStaff = admin;
-                        localStorage.setItem('admin_user', JSON.stringify(admin));
-                        updateAdminUI(admin);
-                        return;
-                    }
+                const roleCode = String(staff?.roles?.role_code || '').toUpperCase();
+                const roleActive = staff?.roles?.is_active === true;
+                const staffActive = String(staff?.status || '').toUpperCase() === 'ACTIVE';
 
-                    window.location.href = 'admin-login.html';
-                    return;
-                }
-
-                if (!staff) {
-                    console.log('⚠️ No staff record found');
-                    window.location.href = 'admin-login.html';
-                    return;
-                }
-
-                // Check if Super Admin
-                const roleCode = staff.roles?.role_code;
-                const roleActive = staff.roles?.is_active === true;
-                const staffActive = staff.status === 'ACTIVE';
-
-                const isAdmin = roleCode === 'SUPER_ADMIN' || roleCode === 'ADMIN';
-
-                if (!isAdmin || !roleActive || !staffActive) {
-                    console.warn('⚠️ Not authorized:', { roleCode, roleActive, staffActive });
+                if (!staff || !staffActive || !roleActive || !['SUPER_ADMIN', 'ADMIN'].includes(roleCode)) {
                     await supabaseClient.auth.signOut();
                     window.location.href = 'admin-login.html';
-                    return;
+                    return false;
                 }
 
-                console.log('✅ Admin verified:', staff.full_name);
                 currentStaff = staff;
-
-                localStorage.setItem('admin_user', JSON.stringify(staff));
-                localStorage.setItem('admin_session', JSON.stringify(session));
-
                 updateAdminUI(staff);
-
+                authReady = true;
+                return true;
             } catch (error) {
-                console.error('❌ Auth check error:', error);
+                console.error('Admin authentication failed:', error);
                 window.location.href = 'admin-login.html';
+                return false;
             }
         }
 
@@ -1214,6 +109,7 @@
         // ============================================================
 
         async function loadMembers(page = 1) {
+            if (!authReady) return;
             currentPage = page;
 
             const search = memberSearch.value.trim();
@@ -1256,6 +152,7 @@
                 if (error) throw error;
 
                 totalRecords = count || 0;
+                currentMembersCache = data || [];
                 renderMembers(data || []);
                 renderPagination();
 
@@ -1309,6 +206,7 @@
                                 <th>Plan</th>
                                 <th>Status</th>
                                 <th>Joined</th>
+                                <th>Actions</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -1321,13 +219,26 @@
                 const joined = member.created_at ? new Date(member.created_at).toLocaleDateString('en-KE') : '-';
 
                 html += `
-                    <tr onclick="openMemberModal('${member.id}')">
+                    <tr>
                         <td><strong>${member.membership_number || '-'}</strong></td>
                         <td>${escapeHTML(name)}</td>
                         <td>${escapeHTML(member.phone || '-')}</td>
                         <td><span class="status-badge ${member.plan_type || ''}">${planName}</span></td>
                         <td><span class="status-badge ${statusClass}">${statusClass}</span></td>
                         <td>${joined}</td>
+                        <td>
+                            <div class="row-actions">
+                                <button class="btn-icon view" title="View member" onclick="openMemberModal('${member.id}')">
+                                    <i class="fas fa-eye"></i>
+                                </button>
+                                <button class="btn-icon idcard" title="Member ID card" onclick="openIdCardModal('${member.id}')">
+                                    <i class="fas fa-id-card"></i>
+                                </button>
+                                <button class="btn-icon stk" title="Send STK push" onclick="openStkPushModal('${member.id}')">
+                                    <i class="fas fa-paper-plane"></i>
+                                </button>
+                            </div>
+                        </td>
                     </tr>
                 `;
             });
@@ -1457,6 +368,203 @@
             document.getElementById('memberModal').classList.remove('open');
             selectedMemberId = null;
             clearModalMessages();
+        }
+
+        // ============================================================
+        // MEMBER ID CARD MODAL
+        // ============================================================
+
+        function findMemberInCache(memberId) {
+            return currentMembersCache.find(m => String(m.id) === String(memberId)) || null;
+        }
+
+        async function getMemberRecord(memberId) {
+            // Use the cached row from the current table page if we have it,
+            // otherwise fetch fresh (e.g. if cache was cleared/paged away).
+            const cached = findMemberInCache(memberId);
+            if (cached) return cached;
+
+            const { data, error } = await supabaseClient
+                .from('members')
+                .select('*')
+                .eq('id', memberId)
+                .single();
+
+            if (error) throw error;
+            return data;
+        }
+
+        async function openIdCardModal(memberId) {
+            try {
+                const member = await getMemberRecord(memberId);
+                if (!member) {
+                    showToast('Member not found.', 'error');
+                    return;
+                }
+
+                const name = `${member.first_name || ''} ${member.last_name || ''}`.trim() || 'Unknown Member';
+                const initials = name.split(' ').filter(Boolean).slice(0, 2).map(p => p[0].toUpperCase()).join('') || '–';
+                const planName = member.plan_type ? member.plan_type.charAt(0).toUpperCase() + member.plan_type.slice(1) : '—';
+                const joined = member.created_at ? new Date(member.created_at).toLocaleDateString('en-KE') : '—';
+                const memberNumber = member.membership_number || 'PENDING';
+
+                document.getElementById('idCardInitials').textContent = initials;
+                document.getElementById('idCardName').textContent = name;
+                document.getElementById('idCardNumber').textContent = `# ${memberNumber}`;
+                document.getElementById('idCardPlan').textContent = planName;
+                document.getElementById('idCardStatus').textContent = member.status || 'PENDING';
+                document.getElementById('idCardPhone').textContent = member.phone || '—';
+                document.getElementById('idCardJoined').textContent = joined;
+
+                // QR encodes a verification payload — swap the URL below for a real
+                // verification page on your domain once one exists.
+                const qrPayload = `MASIKA-BBS|${memberNumber}|${member.id}`;
+                document.getElementById('idCardQr').src =
+                    `https://api.qrserver.com/v1/create-qr-code/?size=140x140&margin=0&data=${encodeURIComponent(qrPayload)}`;
+
+                document.getElementById('idCardModal').classList.add('open');
+
+            } catch (error) {
+                console.error('Open ID card error:', error);
+                showToast('Failed to load member ID card.', 'error');
+            }
+        }
+
+        function closeIdCardModal() {
+            document.getElementById('idCardModal').classList.remove('open');
+        }
+
+        function printIdCard() {
+            window.print();
+        }
+
+        // ============================================================
+        // STK PUSH MODAL (M-Pesa Daraja via Masika FastAPI backend)
+        // ============================================================
+
+        function normalizeKenyanPhone(value) {
+            let phone = String(value || '').replace(/\s+/g, '').replace(/^\+/, '');
+            if (phone.startsWith('07') || phone.startsWith('01')) return '254' + phone.slice(1);
+            if (phone.startsWith('7') || phone.startsWith('1')) return '254' + phone;
+            return phone;
+        }
+
+        let stkSelectedMember = null;
+
+        async function openStkPushModal(memberId) {
+            try {
+                const member = await getMemberRecord(memberId);
+                if (!member) {
+                    showToast('Member not found.', 'error');
+                    return;
+                }
+
+                stkSelectedMember = member;
+
+                const name = `${member.first_name || ''} ${member.last_name || ''}`.trim() || 'Unknown Member';
+                const initials = name.split(' ').filter(Boolean).slice(0, 2).map(p => p[0].toUpperCase()).join('') || '–';
+
+                document.getElementById('stkAvatar').textContent = initials;
+                document.getElementById('stkName').textContent = name;
+                document.getElementById('stkSub').textContent = `${member.membership_number || 'Pending'} · ${member.plan_type ? member.plan_type.charAt(0).toUpperCase() + member.plan_type.slice(1) : '—'}`;
+                document.getElementById('stkPhone').value = member.phone || '';
+                document.getElementById('stkAmount').value = '';
+
+                hideStkStatus();
+                document.getElementById('stkPushModal').classList.add('open');
+
+            } catch (error) {
+                console.error('Open STK push modal error:', error);
+                showToast('Failed to open STK push.', 'error');
+            }
+        }
+
+        function closeStkPushModal() {
+            document.getElementById('stkPushModal').classList.remove('open');
+            stkSelectedMember = null;
+        }
+
+        function setStkStatus(type, message) {
+            const box = document.getElementById('stkStatus');
+            const spinner = document.getElementById('stkStatusSpinner');
+            const text = document.getElementById('stkStatusText');
+
+            box.className = `stk-status show ${type}`;
+            spinner.style.display = type === 'loading' ? 'inline-block' : 'none';
+            text.textContent = message;
+        }
+
+        function hideStkStatus() {
+            document.getElementById('stkStatus').className = 'stk-status';
+        }
+
+        // Normalises Kenyan numbers (07xx / 01xx / +254xx / 254xx) into the
+        // 2547XXXXXXXX / 2541XXXXXXXX format Daraja expects.
+        function normalizeMsisdn(raw) {
+            let digits = String(raw || '').replace(/\D/g, '');
+            if (digits.startsWith('0')) digits = '254' + digits.slice(1);
+            if (digits.startsWith('7') || digits.startsWith('1')) digits = '254' + digits;
+            if (digits.startsWith('+')) digits = digits.slice(1);
+            return digits;
+        }
+
+        async function sendStkPush() {
+            if (!stkSelectedMember) {
+                showToast('No member selected.', 'error');
+                return;
+            }
+
+            const phoneRaw = document.getElementById('stkPhone').value.trim();
+            const amountRaw = document.getElementById('stkAmount').value.trim();
+            const phone = normalizeMsisdn(phoneRaw);
+            const amount = Number(amountRaw);
+
+            if (!/^254(7|1)\d{8}$/.test(phone)) {
+                setStkStatus('error', 'Enter a valid Safaricom number, e.g. 0712345678.');
+                return;
+            }
+            if (!amount || amount < 1) {
+                setStkStatus('error', 'Enter a valid amount in KES.');
+                return;
+            }
+
+            const sendBtn = document.getElementById('stkSendBtn');
+            sendBtn.disabled = true;
+            setStkStatus('loading', 'Sending payment request to phone…');
+
+            try {
+                const response = await fetch(`${MASIKA_API_BASE}/api/public/payment/stk-push`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        phone,
+                        amount,
+                        member_id: stkSelectedMember.id,
+                        membership_number: stkSelectedMember.membership_number || null,
+                        payment_type: 'subscription'
+                    })
+                });
+
+                const data = await response.json().catch(() => ({}));
+                if (!response.ok) {
+                    throw new Error(data.detail || data.message || data.error || 'STK push request failed.');
+                }
+
+                if (data?.checkout_request_id || data?.CheckoutRequestID) {
+                    setStkStatus('success', `Request sent. Ask the member to enter their M-Pesa PIN on ${phone}.`);
+                    showToast('STK push sent successfully.', 'success');
+                } else if (data?.error || data?.errorMessage) {
+                    setStkStatus('error', data.error || data.errorMessage);
+                } else {
+                    setStkStatus('success', 'Request sent. Ask the member to check their phone.');
+                }
+
+            } catch (error) {
+                console.error('STK push error:', error);
+                setStkStatus('error', error.message || 'Failed to send STK push.');
+            } finally {
+                sendBtn.disabled = false;
+            }
         }
 
         // ============================================================
@@ -1703,11 +811,27 @@
         window.exportMembers = exportMembers;
         window.handleLogout = handleLogout;
         window.showToast = showToast;
+        window.openIdCardModal = openIdCardModal;
+        window.closeIdCardModal = closeIdCardModal;
+        window.printIdCard = printIdCard;
+        window.openStkPushModal = openStkPushModal;
+        window.closeStkPushModal = closeStkPushModal;
+        window.sendStkPush = sendStkPush;
 
         // Modal close on backdrop click
         document.getElementById('memberModal').addEventListener('click', function(e) {
             if (e.target === this) {
                 closeMemberModal();
+            }
+        });
+        document.getElementById('idCardModal').addEventListener('click', function(e) {
+            if (e.target === this) {
+                closeIdCardModal();
+            }
+        });
+        document.getElementById('stkPushModal').addEventListener('click', function(e) {
+            if (e.target === this) {
+                closeStkPushModal();
             }
         });
     </script>
