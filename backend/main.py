@@ -567,6 +567,46 @@ def get_member_safe(member: dict) -> dict:
 
 
 # ------------------------------------------------------------
+# DEPENDANT INSERT HELPER
+# ------------------------------------------------------------
+# The `dependants` table schema does NOT match DependantBase/DependantCreate
+# field-for-field. Actual columns (confirmed via information_schema):
+#   id, principal_member_id, dependant_number, full_name, national_id,
+#   birth_certificate_number, date_of_birth, gender, relationship, phone,
+#   status, created_at, updated_at, email
+#
+# In particular: there is no first_name/last_name (combined into full_name)
+# and no is_active (it's a `status` varchar instead). This single helper is
+# now the only place that builds a dependants insert row, so a future schema
+# change only needs fixing here instead of in three separate call sites.
+def build_dependant_row(
+    principal_member_id: str,
+    first_name: str,
+    last_name: str,
+    relationship: str,
+    date_of_birth: Optional[str],
+    phone: Optional[str] = None,
+    email: Optional[str] = None,
+    gender: Optional[str] = None,
+    status_value: str = "ACTIVE",
+) -> dict:
+    full_name = f"{(first_name or '').strip()} {(last_name or '').strip()}".strip()
+    row = {
+        "principal_member_id": principal_member_id,
+        "full_name": full_name,
+        "relationship": (relationship or "").upper(),
+        "date_of_birth": date_of_birth,
+        "phone": phone,
+        "email": email,
+        "status": status_value,
+        "created_at": datetime.now().isoformat(),
+    }
+    if gender:
+        row["gender"] = gender.upper()
+    return row
+
+
+# ------------------------------------------------------------
 # LIVE PRICING HELPER
 # ------------------------------------------------------------
 # Single source of truth for plan pricing: the Supabase `plans` table —
@@ -1011,18 +1051,20 @@ async def public_register(payload: PublicRegistrationRequest):
         }
         supabase.table("payments").insert(payment_record).execute()
 
+        # FIX: `dependants` has no first_name/last_name/is_active columns —
+        # it stores full_name and status instead. See build_dependant_row().
         for dep in payload.dependants:
-            supabase.table("dependants").insert({
-                "principal_member_id": member_id,
-                "first_name": dep.get("first_name"),
-                "last_name": dep.get("last_name"),
-                "relationship": dep.get("relationship", "").upper(),
-                "date_of_birth": dep.get("date_of_birth"),
-                "phone": dep.get("phone"),
-                "email": dep.get("email"),
-                "is_active": True,
-                "created_at": datetime.now().isoformat()
-            }).execute()
+            supabase.table("dependants").insert(
+                build_dependant_row(
+                    principal_member_id=member_id,
+                    first_name=dep.get("first_name", ""),
+                    last_name=dep.get("last_name", ""),
+                    relationship=dep.get("relationship", ""),
+                    date_of_birth=dep.get("date_of_birth"),
+                    phone=dep.get("phone"),
+                    email=dep.get("email"),
+                )
+            ).execute()
 
         return PublicRegisterResponse(
             success=True,
@@ -1907,14 +1949,20 @@ async def register(member_data: MemberCreate):
     if not result.data:
         raise HTTPException(status_code=400, detail="Failed to create member")
     new_member = result.data[0]
+    # FIX: `dependants` has no first_name/last_name/is_active columns —
+    # it stores full_name and status instead. See build_dependant_row().
     for dep in member_data.dependants:
-        supabase.table("dependants").insert({
-            "principal_member_id": new_member["id"],
-            "first_name": dep.first_name, "last_name": dep.last_name,
-            "relationship": dep.relationship.value, "date_of_birth": dep.date_of_birth,
-            "phone": dep.phone, "email": dep.email, "is_active": True,
-            "created_at": datetime.now().isoformat()
-        }).execute()
+        supabase.table("dependants").insert(
+            build_dependant_row(
+                principal_member_id=new_member["id"],
+                first_name=dep.first_name,
+                last_name=dep.last_name,
+                relationship=dep.relationship.value,
+                date_of_birth=dep.date_of_birth,
+                phone=dep.phone,
+                email=dep.email,
+            )
+        ).execute()
     return {
         "success": True,
         "member": {
@@ -2025,7 +2073,7 @@ async def get_member_stats(member_id: str):
     member = member.data[0]
     member_number = member.get("member_number")
     dependants = supabase.table("dependants").select("count", count="exact").eq("principal_member_id", member_id).execute()
-    active_dependants = supabase.table("dependants").select("count", count="exact").eq("principal_member_id", member_id).eq("is_active", True).execute()
+    active_dependants = supabase.table("dependants").select("count", count="exact").eq("principal_member_id", member_id).eq("status", "ACTIVE").execute()
     payments = supabase.table("payments").select("*").eq("member_id", member_id).eq("status", "completed").execute()
     total_payments = sum(float(p.get("amount", 0)) for p in (payments.data or []))
     waiting_months = member.get("waiting_period_months", 4)
@@ -2066,27 +2114,62 @@ async def create_dependant(dependant: DependantCreate):
     member = supabase.table("members").select("id").eq("id", dependant.member_id).execute()
     if not member.data:
         raise HTTPException(status_code=404, detail="Member not found")
-    result = supabase.table("dependants").insert({
-        "principal_member_id": dependant.member_id,
-        "first_name": dependant.first_name, "last_name": dependant.last_name,
-        "relationship": dependant.relationship.value, "date_of_birth": dependant.date_of_birth,
-        "phone": dependant.phone, "email": dependant.email, "is_active": True,
-        "created_at": datetime.now().isoformat()
-    }).execute()
+    # FIX: `dependants` has no first_name/last_name/is_active columns —
+    # it stores full_name and status instead. See build_dependant_row().
+    result = supabase.table("dependants").insert(
+        build_dependant_row(
+            principal_member_id=dependant.member_id,
+            first_name=dependant.first_name,
+            last_name=dependant.last_name,
+            relationship=dependant.relationship.value,
+            date_of_birth=dependant.date_of_birth,
+            phone=dependant.phone,
+            email=dependant.email,
+        )
+    ).execute()
     return {"success": True, "data": result.data[0] if result.data else None, "message": "Dependant added successfully"}
 
 @dependants_router.put("/{dependant_id}")
 async def update_dependant(dependant_id: str, dependant_update: DependantUpdate):
     if not supabase:
         raise HTTPException(status_code=500, detail="Database not available")
-    existing = supabase.table("dependants").select("id").eq("id", dependant_id).execute()
-    if not existing.data:
+    existing_result = supabase.table("dependants").select("*").eq("id", dependant_id).execute()
+    if not existing_result.data:
         raise HTTPException(status_code=404, detail="Dependant not found")
-    update_data = dependant_update.dict(exclude_unset=True)
-    if update_data:
-        update_data["updated_at"] = datetime.now().isoformat()
-        if "relationship" in update_data and update_data["relationship"]:
-            update_data["relationship"] = update_data["relationship"].value
+    existing = existing_result.data[0]
+
+    update_fields = dependant_update.dict(exclude_unset=True)
+    update_data: Dict[str, Any] = {}
+
+    # FIX: map the incoming first_name/last_name/is_active fields onto the
+    # real columns (full_name, status). If only one of first/last name is
+    # given, fall back to splitting the existing full_name so we don't
+    # clobber the other half.
+    if "first_name" in update_fields or "last_name" in update_fields:
+        current_first, _, current_last = (existing.get("full_name") or "").partition(" ")
+        first_name = update_fields.get("first_name", current_first)
+        last_name = update_fields.get("last_name", current_last)
+        update_data["full_name"] = f"{first_name} {last_name}".strip()
+
+    if "relationship" in update_fields and update_fields["relationship"]:
+        update_data["relationship"] = update_fields["relationship"].value
+
+    if "date_of_birth" in update_fields:
+        update_data["date_of_birth"] = update_fields["date_of_birth"]
+
+    if "phone" in update_fields:
+        update_data["phone"] = update_fields["phone"]
+
+    if "email" in update_fields:
+        update_data["email"] = update_fields["email"]
+
+    if "is_active" in update_fields:
+        update_data["status"] = "ACTIVE" if update_fields["is_active"] else "INACTIVE"
+
+    if not update_data:
+        return {"success": True, "data": existing, "message": "Nothing to update"}
+
+    update_data["updated_at"] = datetime.now().isoformat()
     result = supabase.table("dependants").update(update_data).eq("id", dependant_id).execute()
     return {"success": True, "data": result.data[0] if result.data else None, "message": "Dependant updated successfully"}
 
@@ -2094,7 +2177,10 @@ async def update_dependant(dependant_id: str, dependant_update: DependantUpdate)
 async def delete_dependant(dependant_id: str):
     if not supabase:
         raise HTTPException(status_code=500, detail="Database not available")
-    result = supabase.table("dependants").update({"deleted_at": datetime.now().isoformat(), "is_active": False}).eq("id", dependant_id).execute()
+    # FIX: `dependants` has no is_active column — use status instead.
+    # (deleted_at isn't part of the confirmed schema either; drop it unless
+    # you've added that column separately.)
+    result = supabase.table("dependants").update({"status": "INACTIVE", "updated_at": datetime.now().isoformat()}).eq("id", dependant_id).execute()
     if not result.data:
         raise HTTPException(status_code=404, detail="Dependant not found")
     return {"success": True, "message": "Dependant removed successfully"}
