@@ -1509,11 +1509,24 @@ async def query_mpesa_transaction_status(checkout_request_id: str) -> dict:
                 # 1037 = "DS timeout user cannot be reached" — still pending,
                 # not a hard failure; the user may retry the prompt.
                 return {"success": False, "pending": True}
-            elif result_code == "1032":
-                # 1032 = user cancelled the STK prompt on their phone.
-                return {"success": False, "failed": True, "reason": "Cancelled by user"}
-            else:
+            elif result_code in KNOWN_MPESA_FAILURE_CODES:
+                # Only these are genuinely terminal — cancelled by the user,
+                # wrong PIN, insufficient balance, etc.
                 return {"success": False, "failed": True, "reason": data.get("ResultDesc")}
+            else:
+                # FIX: any OTHER/unrecognized code used to fall through to
+                # "failed" here. That's what was silently eating real
+                # payments: Safaricom returns a variety of transient/unknown
+                # codes (e.g. querying while still awaiting PIN entry), and
+                # marking those "failed" set payments.status = "failed" —
+                # which the callback handler's idempotency guard then treats
+                # as terminal, so when the REAL success callback arrived
+                # afterward it got ignored as a "duplicate". Money left the
+                # customer's phone, Safaricom confirmed success, and the app
+                # still showed "Payment failed". Unknown codes now stay
+                # pending instead of being guessed as failures.
+                logger.warning(f"Unrecognized M-Pesa ResultCode {result_code}: {data.get('ResultDesc')} — treating as still pending")
+                return {"success": False, "pending": True}
 
         logger.error(f"M-Pesa status query HTTP {response.status_code}: {response.text[:500]}")
         return {"success": False}
