@@ -617,6 +617,27 @@
                         <div class="form-section">
                             <div class="form-section-title">
                                 <span class="step-number">2</span>
+                                <h3>Next of Kin</h3>
+                            </div>
+                            <div class="form-grid">
+                                <div class="form-group">
+                                    <label for="nextOfKinName">Full Name <span class="required">*</span></label>
+                                    <input type="text" id="nextOfKinName" name="next_of_kin_name" required />
+                                </div>
+                                <div class="form-group">
+                                    <label for="nextOfKinId">ID Number <span class="required">*</span></label>
+                                    <input type="text" id="nextOfKinId" name="next_of_kin_id_number" required />
+                                </div>
+                                <div class="form-group">
+                                    <label for="nextOfKinPhone">Phone Number <span class="required">*</span></label>
+                                    <input type="tel" id="nextOfKinPhone" name="next_of_kin_phone" placeholder="07XXXXXXXX or 2547XXXXXXXX" required />
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="form-section">
+                            <div class="form-section-title">
+                                <span class="step-number">3</span>
                                 <h3>Select Membership Plan</h3>
                             </div>
                             <div id="plansContainer" class="plans-grid">
@@ -627,7 +648,7 @@
 
                         <div class="form-section">
                             <div class="form-section-title">
-                                <span class="step-number">3</span>
+                                <span class="step-number">4</span>
                                 <h3>Registration Source</h3>
                             </div>
                             <div class="form-grid">
@@ -652,7 +673,7 @@
 
                         <div class="form-section">
                             <div class="form-section-title">
-                                <span class="step-number">4</span>
+                                <span class="step-number">5</span>
                                 <h3>Dependants</h3>
                             </div>
                             <p class="help-text">You may add eligible spouse, children or parents according to the selected plan.</p>
@@ -662,7 +683,7 @@
 
                         <div class="form-section">
                             <div class="form-section-title">
-                                <span class="step-number">5</span>
+                                <span class="step-number">6</span>
                                 <h3>Registration Summary</h3>
                             </div>
                             <div class="summary">
@@ -1326,6 +1347,9 @@
                 location: $('location').value.trim() || null,
                 town: $('town').value.trim() || null,
                 address: $('address').value.trim() || null,
+                next_of_kin_name: $('nextOfKinName').value.trim(),
+                next_of_kin_id_number: $('nextOfKinId').value.trim(),
+                next_of_kin_phone: normalizePhone($('nextOfKinPhone').value),
                 plan: planSlug,
                 sales_code: salesCode,
                 benefit_option: $('benefitOption').value,
@@ -1337,7 +1361,7 @@
         // VALIDATE INDIVIDUAL REGISTRATION
         // ============================================================
         function validateFormData(data) {
-            const required = ['first_name', 'last_name', 'id_number', 'date_of_birth', 'gender', 'phone', 'county', 'benefit_option'];
+            const required = ['first_name', 'last_name', 'id_number', 'date_of_birth', 'gender', 'phone', 'county', 'benefit_option', 'next_of_kin_name', 'next_of_kin_id_number', 'next_of_kin_phone'];
 
             if (!data.plan) {
                 return { valid: false, error: 'Please select a membership plan.' };
@@ -1353,8 +1377,16 @@
                 return { valid: false, error: 'Please enter a valid Kenyan phone number.' };
             }
 
+            if (!/^254[17]\d{8}$/.test(data.next_of_kin_phone)) {
+                return { valid: false, error: 'Please enter a valid next of kin phone number.' };
+            }
+
             if (data.id_number.length < 5) {
                 return { valid: false, error: 'Please enter a valid ID number.' };
+            }
+
+            if (data.next_of_kin_id_number.length < 5) {
+                return { valid: false, error: 'Please enter a valid next of kin ID number.' };
             }
 
             const birthDate = new Date(data.date_of_birth);
