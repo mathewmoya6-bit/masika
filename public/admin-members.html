@@ -1405,9 +1405,11 @@
 
         // Base URL of the Masika FastAPI backend that exposes the public
         // STK push endpoint used by the "Send STK Push" action below.
-        // Update this if your API lives on a different host (e.g. a
-        // separate api.masikabbs.com subdomain, or localhost while developing).
-        const MASIKA_API_BASE = 'https://api.masikabbs.com';
+        // This must match the actual deployed Render service (see BASE_URL
+        // in backend/main.py) — api.masikabbs.com was never set up as a
+        // real host, which is why every STK push failed with a DNS error
+        // (net::ERR_NAME_NOT_RESOLVED on both the preflight and the fetch).
+        const MASIKA_API_BASE = 'https://masika-c921.onrender.com';
 
         // ============================================================
         // PLAN PRICING / PAYMENT CONFIG (used on the Membership ID card)
