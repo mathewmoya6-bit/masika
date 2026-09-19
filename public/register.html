@@ -373,6 +373,7 @@
         }
         .csv-preview th { background: #f4f7f5; }
         .csv-count { margin-top: 10px; font-size: 13px; font-weight: 700; }
+        .csv-count.mismatch { color: var(--danger); }
 
         .side-card h3 { margin-top: 0; color: var(--primary); }
         .side-item {
@@ -720,6 +721,11 @@
                                         <label for="chamaPhone">Group Contact Phone <span class="required">*</span></label>
                                         <input type="tel" id="chamaPhone" placeholder="07XXXXXXXX" required />
                                     </div>
+                                    <div class="form-group">
+                                        <label for="chamaMemberTotal">Number of Members <span class="required">*</span></label>
+                                        <input type="number" id="chamaMemberTotal" min="30" step="1" inputmode="numeric" placeholder="Minimum 30" required />
+                                        <span class="help-text">Total members in your chama/group. Must match the number of rows in your CSV.</span>
+                                    </div>
                                 </div>
                             </div>
 
@@ -871,6 +877,7 @@
             chamaSubmitBtn: $('chamaSubmitBtn'),
             chamaResetBtn: $('chamaResetBtn'),
             chamaCsv: $('chamaCsv'),
+            chamaMemberTotal: $('chamaMemberTotal'),
             csvPreview: $('csvPreview'),
             csvCount: $('csvCount'),
             chamaMemberCount: $('chamaMemberCount'),
@@ -1128,6 +1135,7 @@
             elements.registrationForm.addEventListener('submit', handleRegistration);
             elements.chamaForm.addEventListener('submit', handleChamaRegistration);
             elements.chamaCsv.addEventListener('change', handleChamaCsv);
+            elements.chamaMemberTotal.addEventListener('input', renderChamaPreview);
 
             document.querySelectorAll('#registrationForm input, #registrationForm select, #registrationForm textarea')
                 .forEach(element => {
@@ -1572,6 +1580,7 @@
 
             const chamaName = $('chamaName').value.trim();
             const chamaPhone = normalizePhone($('chamaPhone').value);
+            const declaredMembers = parseInt(elements.chamaMemberTotal.value, 10);
 
             const chairperson = {
                 name: $('chairpersonName').value.trim(),
@@ -1601,6 +1610,11 @@
                 return;
             }
 
+            if (!Number.isInteger(declaredMembers) || declaredMembers < MIN_CHAMA_MEMBERS) {
+                showAlert(`Number of members must be at least ${MIN_CHAMA_MEMBERS}.`, 'error');
+                return;
+            }
+
             for (const [label, official] of [
                 ['Chairperson', chairperson],
                 ['Treasurer', treasurer],
@@ -1627,6 +1641,11 @@
                 return;
             }
 
+            if (declaredMembers !== parsedChamaMembers.length) {
+                showAlert(`You entered ${declaredMembers} members but the CSV has ${parsedChamaMembers.length}. Please make them match.`, 'error');
+                return;
+            }
+
             const normalizedMembers = parsedChamaMembers.map(member => ({
                 first_name: String(member.first_name || '').trim(),
                 last_name: String(member.last_name || '').trim(),
@@ -1643,6 +1662,7 @@
                 const payload = {
                     group_name: chamaName,
                     phone: chamaPhone,
+                    number_of_members: declaredMembers,
                     chairperson,
                     treasurer,
                     secretary,
@@ -1784,10 +1804,18 @@
                 preview.classList.remove('show');
                 preview.innerHTML = '';
                 count.textContent = '';
+                count.classList.remove('mismatch');
                 return;
             }
 
-            count.textContent = `${members.length} member(s) loaded.`;
+            // Compare the number the user typed with the rows found in the CSV.
+            const declared = parseInt(elements.chamaMemberTotal.value, 10);
+            const mismatch = Number.isInteger(declared) && declared !== members.length;
+
+            count.textContent = mismatch
+                ? `${members.length} member(s) loaded, but you entered ${declared}. Please make them match.`
+                : `${members.length} member(s) loaded.`;
+            count.classList.toggle('mismatch', mismatch);
 
             const headers = ['first_name', 'last_name', 'phone', 'id_number', 'gender'];
             let html = '<table><thead><tr>';
