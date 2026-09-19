@@ -1181,6 +1181,13 @@
 
                 <div class="filters">
                     <input type="text" id="memberSearch" placeholder="Search by name, membership #, phone, or ID number...">
+                    <select id="planFilter">
+                        <option value="">All plans</option>
+                        <option value="comfort">Comfort</option>
+                        <option value="dignity">Dignity</option>
+                        <option value="wazazi">Wazazi</option>
+                        <option value="chama">Chama</option>
+                    </select>
                     <select id="statusFilter">
                         <option value="">All statuses</option>
                         <option value="ACTIVE">Active</option>
@@ -1246,6 +1253,20 @@
                     <option value="PENDING">Pending</option>
                 </select>
                 <button class="btn btn-primary btn-sm" onclick="saveMemberStatus()">
+                    <i class="fas fa-check"></i> Update
+                </button>
+            </div>
+
+            <div class="status-row">
+                <label style="font-size:13px;font-weight:600;color:var(--text-light);">Plan:</label>
+                <select id="memberPlanSelect">
+                    <option value="">— No plan —</option>
+                    <option value="comfort">Comfort</option>
+                    <option value="dignity">Dignity</option>
+                    <option value="wazazi">Wazazi</option>
+                    <option value="chama">Chama</option>
+                </select>
+                <button class="btn btn-primary btn-sm" onclick="saveMemberPlan()">
                     <i class="fas fa-check"></i> Update
                 </button>
             </div>
@@ -1492,6 +1513,7 @@
         const nextPageBtn = document.getElementById('nextPageBtn');
         const memberSearch = document.getElementById('memberSearch');
         const statusFilter = document.getElementById('statusFilter');
+        const planFilter = document.getElementById('planFilter');
         const refreshBtn = document.getElementById('refreshBtn');
         const refreshIcon = document.getElementById('refreshIcon');
 
@@ -1592,6 +1614,7 @@
 
             const search = memberSearch.value.trim();
             const status = statusFilter.value;
+            const plan = planFilter.value;
 
             membersList.innerHTML = `
                 <div class="loading-spinner">
@@ -1618,6 +1641,10 @@
 
                 if (status) {
                     query = query.eq('status', status);
+                }
+
+                if (plan) {
+                    query = query.eq('plan_type', plan);
                 }
 
                 const from = (page - 1) * pageSize;
@@ -1769,6 +1796,7 @@
         function resetFilters() {
             memberSearch.value = '';
             statusFilter.value = '';
+            planFilter.value = '';
             loadMembers(1);
         }
 
@@ -1792,6 +1820,7 @@
                     `${member.first_name || ''} ${member.last_name || ''}`.trim() || 'Member';
 
                 document.getElementById('memberStatusSelect').value = member.status || 'PENDING';
+                document.getElementById('memberPlanSelect').value = member.plan_type || '';
 
                 // Personal Info
                 document.getElementById('memberPersonalInfo').innerHTML = `
@@ -2131,6 +2160,40 @@
         }
 
         // ============================================================
+        // SAVE MEMBER PLAN
+        // ============================================================
+
+        async function saveMemberPlan() {
+            if (!selectedMemberId) {
+                showModalError('No member selected.');
+                return;
+            }
+
+            const newPlan = document.getElementById('memberPlanSelect').value;
+
+            try {
+                const { error } = await supabaseClient
+                    .from('members')
+                    .update({
+                        plan_type: newPlan || null,
+                        updated_at: new Date().toISOString()
+                    })
+                    .eq('id', selectedMemberId);
+
+                if (error) throw error;
+
+                showModalSuccess(newPlan
+                    ? `Member plan updated to ${newPlan.charAt(0).toUpperCase() + newPlan.slice(1)}.`
+                    : 'Member plan cleared.');
+                loadMembers(currentPage);
+
+            } catch (error) {
+                console.error('Save plan error:', error);
+                showModalError('Failed to update member plan.');
+            }
+        }
+
+        // ============================================================
         // EXPORT MEMBERS
         // ============================================================
 
@@ -2339,6 +2402,7 @@
         window.openMemberModal = openMemberModal;
         window.closeMemberModal = closeMemberModal;
         window.saveMemberStatus = saveMemberStatus;
+        window.saveMemberPlan = saveMemberPlan;
         window.exportMembers = exportMembers;
         window.handleLogout = handleLogout;
         window.showToast = showToast;
