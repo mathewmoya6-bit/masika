@@ -373,7 +373,7 @@
         }
         .csv-preview th { background: #f4f7f5; }
         .csv-count { margin-top: 10px; font-size: 13px; font-weight: 700; }
-        .csv-count.mismatch { color: var(--warning); }
+        .csv-count.mismatch { color: var(--danger); }
 
         .side-card h3 { margin-top: 0; color: var(--primary); }
         .side-item {
@@ -891,6 +891,11 @@
             loadingBox: $('loadingBox'),
             loadingText: $('loadingText')
         };
+
+        if (elements.chamaMemberTotal) {
+            elements.chamaMemberTotal.addEventListener('input', updateChamaMemberCount);
+            elements.chamaMemberTotal.addEventListener('change', updateChamaMemberCount);
+        }
 
         // ============================================================
         // INIT
@@ -1636,6 +1641,15 @@
                 }
             }
 
+            if (parsedChamaMembers.length > 0 &&
+                declaredMembers !== parsedChamaMembers.length) {
+                showAlert(
+                    `The number of members entered (${declaredMembers}) does not match the CSV (${parsedChamaMembers.length}). Please correct the number or CSV.`,
+                    'error'
+                );
+                return;
+            }
+
             const normalizedMembers = parsedChamaMembers.map(member => ({
                 first_name: String(member.first_name || '').trim(),
                 last_name: String(member.last_name || '').trim(),
@@ -1775,20 +1789,48 @@
         // The member count used for the summary and the amount to pay is
         // the number typed into the "Number of Members" field.
         function getChamaMemberCount() {
-            const value = parseInt(elements.chamaMemberTotal.value, 10);
-            return Number.isInteger(value) && value > 0 ? value : 0;
+            const input = elements.chamaMemberTotal;
+
+            if (!input) return 0;
+
+            const value = String(input.value || '').trim();
+            if (!value) return 0;
+
+            const count = parseInt(value, 10);
+
+            return Number.isInteger(count) && count >= 0 ? count : 0;
+        }
+
+        function updateChamaMemberCount() {
+            const memberCount = getChamaMemberCount();
+
+            elements.chamaMemberCount.textContent = memberCount.toLocaleString();
+
+            if (chamaRegistrationFee === null) {
+                elements.chamaTotal.textContent = 'Rate not configured';
+                return;
+            }
+
+            const total = memberCount * Number(chamaRegistrationFee);
+
+            elements.chamaTotal.textContent =
+                `KES ${total.toLocaleString()}`;
         }
 
         function renderChamaPreview() {
             const members = parsedChamaMembers;
             const memberCount = getChamaMemberCount();
-            elements.chamaMemberCount.textContent = memberCount;
+
+            elements.chamaMemberCount.textContent =
+                memberCount.toLocaleString();
 
             if (chamaRegistrationFee === null) {
                 elements.chamaTotal.textContent = 'Rate not configured';
             } else {
-                const total = memberCount * chamaRegistrationFee;
-                elements.chamaTotal.textContent = `KES ${total.toLocaleString()}`;
+                const total = memberCount * Number(chamaRegistrationFee);
+
+                elements.chamaTotal.textContent =
+                    `KES ${total.toLocaleString()}`;
             }
 
             const preview = elements.csvPreview;
@@ -1802,12 +1844,12 @@
                 return;
             }
 
-            // The CSV is a member list only. Payment is based on the number entered.
+            // With no CSV, the entered number is used. With a CSV, the two must match.
             const mismatch = memberCount > 0 && memberCount !== members.length;
 
             count.textContent = mismatch
-                ? `${members.length} member(s) listed in the CSV. Payment is based on the ${memberCount} you entered.`
-                : `${members.length} member(s) listed in the CSV.`;
+                ? `${members.length} member(s) in the CSV, but you entered ${memberCount}. They must match before you can continue.`
+                : `${members.length} member(s) in the CSV.`;
             count.classList.toggle('mismatch', mismatch);
 
             const headers = ['first_name', 'last_name', 'phone', 'id_number', 'gender'];
