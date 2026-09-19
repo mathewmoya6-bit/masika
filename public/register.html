@@ -373,7 +373,7 @@
         }
         .csv-preview th { background: #f4f7f5; }
         .csv-count { margin-top: 10px; font-size: 13px; font-weight: 700; }
-        .csv-count.mismatch { color: var(--danger); }
+        .csv-count.mismatch { color: var(--warning); }
 
         .side-card h3 { margin-top: 0; color: var(--primary); }
         .side-item {
@@ -704,7 +704,7 @@
                     <section id="chamaSection" class="chama-only">
                         <div class="section-heading">
                             <h2>Chama / Group Registration</h2>
-                            <p>Upload a CSV containing the members of your chama/group. A minimum of 30 members is required.</p>
+                            <p>Enter the number of members in your chama/group. A minimum of 30 members is required. You can also upload a CSV with the member list.</p>
                         </div>
                         <form id="chamaForm" novalidate>
                             <div class="form-section">
@@ -724,7 +724,7 @@
                                     <div class="form-group">
                                         <label for="chamaMemberTotal">Number of Members <span class="required">*</span></label>
                                         <input type="number" id="chamaMemberTotal" min="30" step="1" inputmode="numeric" placeholder="Minimum 30" required />
-                                        <span class="help-text">Total members in your chama/group. Must match the number of rows in your CSV.</span>
+                                        <span class="help-text">Total members in your chama/group. The registration amount is based on this number.</span>
                                     </div>
                                 </div>
                             </div>
@@ -750,7 +750,7 @@
                             <div class="form-section">
                                 <div class="form-section-title">
                                     <span class="step-number">3</span>
-                                    <h3>Upload Members CSV</h3>
+                                    <h3>Upload Members CSV (optional)</h3>
                                 </div>
                                 <div class="csv-box">
                                     <strong>Upload your chama member list</strong>
@@ -1636,16 +1636,6 @@
                 }
             }
 
-            if (parsedChamaMembers.length < MIN_CHAMA_MEMBERS) {
-                showAlert(`Minimum ${MIN_CHAMA_MEMBERS} members required. Currently ${parsedChamaMembers.length}.`, 'error');
-                return;
-            }
-
-            if (declaredMembers !== parsedChamaMembers.length) {
-                showAlert(`You entered ${declaredMembers} members but the CSV has ${parsedChamaMembers.length}. Please make them match.`, 'error');
-                return;
-            }
-
             const normalizedMembers = parsedChamaMembers.map(member => ({
                 first_name: String(member.first_name || '').trim(),
                 last_name: String(member.last_name || '').trim(),
@@ -1696,17 +1686,17 @@
                 const totalAmount = Number(
                     result.registration_amount ??
                     result.amount ??
-                    (normalizedMembers.length * chamaRegistrationFee)
+                    (declaredMembers * chamaRegistrationFee)
                 );
 
                 sessionStorage.setItem('newChamaGroupId', String(groupId));
                 sessionStorage.setItem('newChamaGroupName', chamaName);
-                sessionStorage.setItem('newChamaMemberCount', String(normalizedMembers.length));
+                sessionStorage.setItem('newChamaMemberCount', String(declaredMembers));
                 sessionStorage.setItem('newChamaPhone', chamaPhone);
                 sessionStorage.setItem('registrationAmount', String(totalAmount));
                 sessionStorage.setItem('isChamaRegistration', 'true');
 
-                showAlert(`Chama registration successful! ${normalizedMembers.length} members loaded. Redirecting to payment...`, 'success');
+                showAlert(`Chama registration successful! ${declaredMembers} members registered. Redirecting to payment...`, 'success');
 
                 setTimeout(() => {
                     window.location.href = `payment.html?group_id=${encodeURIComponent(groupId)}`;
@@ -1776,24 +1766,28 @@
 
                 renderChamaPreview();
 
-                if (parsedChamaMembers.length < MIN_CHAMA_MEMBERS) {
-                    showAlert(`Only ${parsedChamaMembers.length} valid members found. Minimum ${MIN_CHAMA_MEMBERS} required.`, 'warning');
-                } else {
-                    showAlert(`Successfully loaded ${parsedChamaMembers.length} members.`, 'success');
-                }
+                showAlert(`Loaded ${parsedChamaMembers.length} member(s) from the CSV.`, 'success');
             };
 
             reader.readAsText(file);
         }
 
+        // The member count used for the summary and the amount to pay is
+        // the number typed into the "Number of Members" field.
+        function getChamaMemberCount() {
+            const value = parseInt(elements.chamaMemberTotal.value, 10);
+            return Number.isInteger(value) && value > 0 ? value : 0;
+        }
+
         function renderChamaPreview() {
             const members = parsedChamaMembers;
-            elements.chamaMemberCount.textContent = members.length;
+            const memberCount = getChamaMemberCount();
+            elements.chamaMemberCount.textContent = memberCount;
 
             if (chamaRegistrationFee === null) {
                 elements.chamaTotal.textContent = 'Rate not configured';
             } else {
-                const total = members.length * chamaRegistrationFee;
+                const total = memberCount * chamaRegistrationFee;
                 elements.chamaTotal.textContent = `KES ${total.toLocaleString()}`;
             }
 
@@ -1808,13 +1802,12 @@
                 return;
             }
 
-            // Compare the number the user typed with the rows found in the CSV.
-            const declared = parseInt(elements.chamaMemberTotal.value, 10);
-            const mismatch = Number.isInteger(declared) && declared !== members.length;
+            // The CSV is a member list only. Payment is based on the number entered.
+            const mismatch = memberCount > 0 && memberCount !== members.length;
 
             count.textContent = mismatch
-                ? `${members.length} member(s) loaded, but you entered ${declared}. Please make them match.`
-                : `${members.length} member(s) loaded.`;
+                ? `${members.length} member(s) listed in the CSV. Payment is based on the ${memberCount} you entered.`
+                : `${members.length} member(s) listed in the CSV.`;
             count.classList.toggle('mismatch', mismatch);
 
             const headers = ['first_name', 'last_name', 'phone', 'id_number', 'gender'];
