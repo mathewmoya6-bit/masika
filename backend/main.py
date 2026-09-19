@@ -423,13 +423,20 @@ class PublicRegisterResponse(BaseModel):
     member_number: str
     registration_amount: float
 
+# Minimum number of members a chama/group must register.
+MIN_CHAMA_MEMBERS = 30
+
 class ChamaRegistrationRequest(BaseModel):
     group_name: str
     phone: str
+    # Number of members typed on the registration form. Used as the member
+    # count when no CSV member list is uploaded.
+    number_of_members: Optional[int] = None
     chairperson: Dict[str, str]
     treasurer: Dict[str, str]
     secretary: Dict[str, str]
-    members: List[Dict[str, Any]]
+    # Optional: only sent when the CSV member list was uploaded.
+    members: List[Dict[str, Any]] = []
 
 class STKPushRequest(BaseModel):
     phone: str
@@ -1087,14 +1094,35 @@ async def public_register(payload: PublicRegistrationRequest):
 async def public_register_chama(payload: ChamaRegistrationRequest):
     """
     Public registration endpoint for Chama/Group registrations.
+
+    Member count rules:
+      - No CSV uploaded  -> the count is number_of_members.
+      - CSV uploaded     -> the CSV row count is used, and if number_of_members
+                            was also sent it must match.
+    The amount is always computed here: member_count x live chama rate.
     """
     if not supabase:
         raise HTTPException(status_code=500, detail="Database not available")
 
-    if len(payload.members) < 30:
+    csv_count = len(payload.members)
+    declared = payload.number_of_members
+
+    if csv_count > 0:
+        if declared is not None and declared != csv_count:
+            raise HTTPException(
+                status_code=400,
+                detail=f"The number of members entered ({declared}) does not match the CSV ({csv_count})."
+            )
+        member_count = csv_count
+    else:
+        if declared is None:
+            raise HTTPException(status_code=400, detail="Number of members is required.")
+        member_count = declared
+
+    if member_count < MIN_CHAMA_MEMBERS:
         raise HTTPException(
             status_code=400,
-            detail=f"Minimum 30 members required. Currently {len(payload.members)}."
+            detail=f"Minimum {MIN_CHAMA_MEMBERS} members required. Currently {member_count}."
         )
 
     if not payload.group_name:
@@ -1133,9 +1161,9 @@ async def public_register_chama(payload: ChamaRegistrationRequest):
             "secretary_name": payload.secretary.get("name"),
             "secretary_phone": payload.secretary.get("phone"),
             "secretary_id": payload.secretary.get("id_number"),
-            "member_count": len(payload.members),
+            "member_count": member_count,
             "status": "PENDING",
-            "registration_amount": len(payload.members) * chama_rate,
+            "registration_amount": member_count * chama_rate,
             "created_at": datetime.now().isoformat(),
             "updated_at": datetime.now().isoformat()
         }
@@ -1162,6 +1190,7 @@ async def public_register_chama(payload: ChamaRegistrationRequest):
         }
         supabase.table("payments").insert(payment_record).execute()
 
+        # Member rows are only created when a CSV member list was uploaded.
         for member in payload.members:
             supabase.table("chama_members").insert({
                 "chama_group_id": group_id,
@@ -1179,7 +1208,7 @@ async def public_register_chama(payload: ChamaRegistrationRequest):
             "success": True,
             "group_id": group_id,
             "group_name": payload.group_name,
-            "member_count": len(payload.members),
+            "member_count": member_count,
             "registration_amount": registration_amount,
             "message": "Chama registration created successfully. Please complete payment."
         }
