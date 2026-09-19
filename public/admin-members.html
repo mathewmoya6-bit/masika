@@ -2189,7 +2189,7 @@
 
             } catch (error) {
                 console.error('Save plan error:', error);
-                showModalError('Failed to update member plan.');
+                showModalError(`Failed to update member plan: ${error.message || error.details || error.hint || 'unknown error'}`);
             }
         }
 
