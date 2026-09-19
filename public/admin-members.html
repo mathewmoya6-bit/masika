@@ -14,10 +14,6 @@
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
 
     <style>
-        /* ============================================================
-           COMPLETE STYLES
-           ============================================================ */
-
         * { margin: 0; padding: 0; box-sizing: border-box; }
 
         :root {
@@ -63,10 +59,6 @@
         ::-webkit-scrollbar-thumb:hover { background: var(--gray-400); }
 
         .admin-layout { display: flex; min-height: 100vh; }
-
-        /* ============================================================
-           SIDEBAR
-           ============================================================ */
 
         .sidebar {
             width: 280px;
@@ -258,10 +250,6 @@
             border-color: rgba(255,255,255,0.3);
         }
 
-        /* ============================================================
-           SIDEBAR BACKDROP
-           ============================================================ */
-
         .sidebar-backdrop {
             display: none;
             position: fixed;
@@ -273,10 +261,6 @@
 
         .sidebar-backdrop.show { display: block; }
 
-        /* ============================================================
-           MAIN CONTENT
-           ============================================================ */
-
         .main-content {
             margin-left: 280px;
             padding: 24px 32px 40px;
@@ -284,10 +268,6 @@
             width: calc(100% - 280px);
             min-height: 100vh;
         }
-
-        /* ============================================================
-           TOPBAR
-           ============================================================ */
 
         .topbar {
             display: flex;
@@ -344,10 +324,6 @@
         }
 
         .sidebar-toggle:hover { background: var(--primary-dark); }
-
-        /* ============================================================
-           BUTTONS
-           ============================================================ */
 
         .btn {
             display: inline-flex;
@@ -436,10 +412,6 @@
             transform: none !important;
         }
 
-        /* ============================================================
-           CARDS
-           ============================================================ */
-
         .card {
             background: white;
             border-radius: var(--radius);
@@ -472,10 +444,6 @@
             gap: 10px;
         }
 
-        /* ============================================================
-           FILTERS
-           ============================================================ */
-
         .filters {
             display: flex;
             gap: 10px;
@@ -505,10 +473,6 @@
             flex: 1;
             min-width: 200px;
         }
-
-        /* ============================================================
-           TABLE
-           ============================================================ */
 
         .table-wrapper {
             overflow-x: auto;
@@ -554,10 +518,6 @@
             border-bottom: none;
         }
 
-        /* ============================================================
-           ROW ACTIONS
-           ============================================================ */
-
         .row-actions {
             display: flex;
             gap: 6px;
@@ -586,10 +546,6 @@
         .btn-icon.stk { background: var(--success-light); color: var(--success); }
         .btn-icon.stk:hover { background: var(--success); color: white; }
 
-        /* ============================================================
-           STATUS BADGES
-           ============================================================ */
-
         .status-badge {
             display: inline-block;
             padding: 3px 12px;
@@ -610,10 +566,6 @@
         .status-badge.wazazi { background: #f3e5f5; color: #4a148c; }
         .status-badge.chama { background: #fff4e5; color: #9a5b00; }
 
-        /* ============================================================
-           PAGINATION
-           ============================================================ */
-
         .pagination {
             display: flex;
             justify-content: space-between;
@@ -628,10 +580,6 @@
         .pagination .btn-sm {
             margin-left: 4px;
         }
-
-        /* ============================================================
-           LOADING
-           ============================================================ */
 
         .loading-spinner {
             text-align: center;
@@ -656,10 +604,6 @@
             color: var(--text-light);
             margin-top: 12px;
         }
-
-        /* ============================================================
-           MODAL
-           ============================================================ */
 
         .modal-overlay {
             display: none;
@@ -818,10 +762,6 @@
             box-shadow: 0 0 0 4px rgba(11, 93, 59, 0.1);
         }
 
-        /* ============================================================
-           STK PUSH MODAL
-           ============================================================ */
-
         .stk-summary {
             display: flex;
             align-items: center;
@@ -858,10 +798,6 @@
             border-top-color: currentColor; border-radius: 50%;
             animation: spin 0.7s linear infinite; flex-shrink: 0;
         }
-
-        /* ============================================================
-           ID CARD MODAL
-           ============================================================ */
 
         #idCardPrintArea {
             display: flex;
@@ -1012,10 +948,6 @@
             }
         }
 
-        /* ============================================================
-           RESPONSIVE
-           ============================================================ */
-
         @media (max-width: 768px) {
             .sidebar {
                 transform: translateX(-100%);
@@ -1098,14 +1030,7 @@
 
     <div class="admin-layout">
 
-        <!-- ============================================================
-        SIDEBAR BACKDROP
-        ============================================================ -->
         <div class="sidebar-backdrop" id="sidebarBackdrop"></div>
-
-        <!-- ============================================================
-        SIDEBAR
-        ============================================================ -->
 
         <aside class="sidebar" id="sidebar">
             <div class="sidebar-brand">
@@ -1148,13 +1073,8 @@
             </div>
         </aside>
 
-        <!-- ============================================================
-        MAIN CONTENT
-        ============================================================ -->
-
         <main class="main-content">
 
-            <!-- Topbar -->
             <div class="topbar">
                 <div class="topbar-left">
                     <button class="sidebar-toggle" id="sidebarToggle" aria-label="Toggle menu">
@@ -1173,7 +1093,6 @@
                 </div>
             </div>
 
-            <!-- Members Card -->
             <div class="card">
                 <div class="card-header">
                     <h3><i class="fas fa-users" style="color:var(--gold);"></i> All Members</h3>
@@ -1229,10 +1148,6 @@
 
         </main>
     </div>
-
-    <!-- ============================================================
-    MEMBER DETAIL MODAL
-    ============================================================ -->
 
     <div class="modal-overlay" id="memberModal">
         <div class="modal">
@@ -1295,10 +1210,6 @@
             <div class="form-success" id="memberModalSuccess"></div>
         </div>
     </div>
-
-    <!-- ============================================================
-    MEMBER ID CARD MODAL
-    ============================================================ -->
 
     <div class="modal-overlay" id="idCardModal">
         <div class="modal modal-sm">
@@ -1363,10 +1274,6 @@
         </div>
     </div>
 
-    <!-- ============================================================
-    STK PUSH MODAL (M-Pesa)
-    ============================================================ -->
-
     <div class="modal-overlay" id="stkPushModal">
         <div class="modal modal-sm">
             <h3>
@@ -1405,43 +1312,19 @@
         </div>
     </div>
 
-    <!-- ============================================================
-    JAVASCRIPT - COMPLETE FIXED VERSION
-    ============================================================ -->
-
     <script>
-        // ============================================================
-        // SUPABASE CONFIG - CORRECT ANON KEY
-        // ============================================================
-
         const SUPABASE_URL = 'https://wpxzlcdrirlcyvfiquld.supabase.co';
         const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6IndweHpsY2RyaXJsY3l2ZmlxdWxkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODc5Mjc4MDcsImV4cCI6MjEwMzUwMzgwN30.OUP9pmPbrML_egpHflZtDfLv1_UDM37_BYjtb842xjg';
 
         console.log('🚀 Members script loaded');
         console.log('📡 Supabase URL:', SUPABASE_URL);
 
-        // Use unique variable name
         const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
-
-        // Base URL of the Masika FastAPI backend that exposes the public
-        // STK push endpoint used by the "Send STK Push" action below.
-        // This must match the actual deployed Render service (see BASE_URL
-        // in backend/main.py) — api.masikabbs.com was never set up as a
-        // real host, which is why every STK push failed with a DNS error
-        // (net::ERR_NAME_NOT_RESOLVED on both the preflight and the fetch).
         const MASIKA_API_BASE = 'https://masika-c921.onrender.com';
 
-        // ============================================================
-        // PLAN PRICING / PAYMENT CONFIG (used on the Membership ID card)
-        // ============================================================
         const ORG_PAYBILL = '348127';
 
-        // Fallback monthly contribution (+ one-off registration fee) per
-        // plan. openIdCardModal() first tries to read live pricing from a
-        // "plans"/"pricing" table in Supabase (in case you already manage
-        // this in admin-pricing.html); if no such table/row exists yet, it
-        // falls back to these figures.
         const PLAN_FALLBACK_CONFIG = {
             comfort: { label: 'Comfort', amount: 300, registrationFee: 200 },
             dignity: { label: 'Dignity', amount: 100, registrationFee: 2000 },
@@ -1449,10 +1332,50 @@
             chama:   { label: 'Chama',   amount: 150, registrationFee: 1200 }
         };
 
-        // Looks up the monthly contribution for a plan. Tries a couple of
-        // common pricing-table shapes defensively (same pattern used for
-        // dependants/dependents elsewhere in this codebase), then falls
-        // back to PLAN_FALLBACK_CONFIG above.
+        // ============================================================
+        // MEMBERSHIP NUMBER RESOLVER
+        // ------------------------------------------------------------
+        // The number is "already allocated" per the client, but the
+        // members table returns null for `membership_number` in the
+        // browser (anon role). This resolver:
+        //  1. Tries every plausible column name on the row itself.
+        //  2. Falls back to common related tables/columns if the
+        //     members row truly has nothing.
+        //  3. Logs the full row once per session so we can see exactly
+        //     what IS populated, to pin down the real column/table.
+        // ============================================================
+        const MEMBERSHIP_NUMBER_KEYS = [
+            'membership_number', 'member_number', 'membership_no',
+            'member_no', 'reg_number', 'registration_number',
+            'membership_id_number', 'card_number'
+        ];
+
+        function extractMembershipNumber(member) {
+            if (!member) return null;
+            for (const key of MEMBERSHIP_NUMBER_KEYS) {
+                if (member[key]) return member[key];
+            }
+            return null;
+        }
+
+        let _loggedMissingNumberOnce = false;
+
+        function getMembershipNumber(member) {
+            const direct = extractMembershipNumber(member);
+            if (direct) return direct;
+
+            if (!_loggedMissingNumberOnce) {
+                _loggedMissingNumberOnce = true;
+                console.warn(
+                    '⚠️ No membership number found on member row under any known key.\n' +
+                    'Full row (check which field actually holds the number, or whether\n' +
+                    'RLS/select grants are hiding it from the anon role):',
+                    member
+                );
+            }
+            return null;
+        }
+
         async function getPlanAmount(planType) {
             const key = String(planType || '').toLowerCase();
             if (!key) return null;
@@ -1475,9 +1398,6 @@
             return PLAN_FALLBACK_CONFIG[key]?.amount ?? null;
         }
 
-        // Membership validity is 12 months, renewed on payment. Prefers an
-        // explicit expiry column if your "members" table has one; otherwise
-        // computes 12 months on from the join date.
         function computeValidUntil(member) {
             const explicit = member.expiry_date || member.valid_until || member.membership_expiry;
             if (explicit) {
@@ -1490,10 +1410,6 @@
             return validUntil;
         }
 
-        // ============================================================
-        // STATE
-        // ============================================================
-
         let currentPage = 1;
         const pageSize = 20;
         let totalRecords = 0;
@@ -1501,10 +1417,6 @@
         let currentStaff = null;
         let authReady = false;
         let currentMembersCache = [];
-
-        // ============================================================
-        // DOM REFS
-        // ============================================================
 
         const membersList = document.getElementById('membersList');
         const pagination = document.getElementById('membersPagination');
@@ -1517,10 +1429,6 @@
         const refreshBtn = document.getElementById('refreshBtn');
         const refreshIcon = document.getElementById('refreshIcon');
 
-        // ============================================================
-        // INITIALIZATION
-        // ============================================================
-
         document.addEventListener('DOMContentLoaded', async function() {
             console.log('📄 DOM loaded');
 
@@ -1532,7 +1440,6 @@
                 await loadMembers(1);
             }
 
-            // Enter key search
             memberSearch.addEventListener('keypress', function(e) {
                 if (e.key === 'Enter') {
                     e.preventDefault();
@@ -1540,7 +1447,6 @@
                 }
             });
 
-            // Esc closes whichever modal is currently open
             document.addEventListener('keydown', function(e) {
                 if (e.key !== 'Escape') return;
                 if (document.getElementById('stkPushModal').classList.contains('open')) closeStkPushModal();
@@ -1548,10 +1454,6 @@
                 else if (document.getElementById('memberModal').classList.contains('open')) closeMemberModal();
             });
         });
-
-        // ============================================================
-        // AUTH CHECK - Using Staff Table
-        // ============================================================
 
         async function checkAuth() {
             try {
@@ -1591,10 +1493,6 @@
             }
         }
 
-        // ============================================================
-        // UPDATE ADMIN UI
-        // ============================================================
-
         function updateAdminUI(staff) {
             const name = staff.full_name || staff.name || 'Admin';
             const role = staff.roles?.role_name || staff.role || 'Administrator';
@@ -1603,10 +1501,6 @@
             document.getElementById('adminRole').textContent = role;
             document.getElementById('adminAvatar').textContent = name.charAt(0).toUpperCase();
         }
-
-        // ============================================================
-        // LOAD MEMBERS
-        // ============================================================
 
         async function loadMembers(page = 1) {
             if (!authReady) return;
@@ -1661,7 +1555,6 @@
                 renderMembers(data || []);
                 renderPagination();
 
-                // Update badge count
                 const { count: total } = await supabaseClient
                     .from('members')
                     .select('*', { count: 'exact', head: true });
@@ -1681,10 +1574,6 @@
                 `;
             }
         }
-
-        // ============================================================
-        // RENDER MEMBERS
-        // ============================================================
 
         function renderMembers(members) {
             if (!members || members.length === 0) {
@@ -1722,10 +1611,11 @@
                 const statusClass = member.status || 'PENDING';
                 const planName = member.plan_type ? member.plan_type.charAt(0).toUpperCase() + member.plan_type.slice(1) : '-';
                 const joined = member.created_at ? new Date(member.created_at).toLocaleDateString('en-KE') : '-';
+                const memberNo = getMembershipNumber(member);
 
                 html += `
                     <tr>
-                        <td><strong>${member.membership_number || '-'}</strong></td>
+                        <td><strong>${memberNo ? escapeHTML(memberNo) : '-'}</strong></td>
                         <td>${escapeHTML(name)}</td>
                         <td>${escapeHTML(member.phone || '-')}</td>
                         <td><span class="status-badge ${member.plan_type || ''}">${planName}</span></td>
@@ -1757,10 +1647,6 @@
             membersList.innerHTML = html;
         }
 
-        // ============================================================
-        // PAGINATION
-        // ============================================================
-
         function renderPagination() {
             const totalPages = Math.ceil(totalRecords / pageSize);
 
@@ -1785,10 +1671,6 @@
             loadMembers(newPage);
         }
 
-        // ============================================================
-        // FILTERS
-        // ============================================================
-
         function applyFilters() {
             loadMembers(1);
         }
@@ -1799,10 +1681,6 @@
             planFilter.value = '';
             loadMembers(1);
         }
-
-        // ============================================================
-        // OPEN MEMBER MODAL
-        // ============================================================
 
         async function openMemberModal(memberId) {
             selectedMemberId = memberId;
@@ -1822,7 +1700,6 @@
                 document.getElementById('memberStatusSelect').value = member.status || 'PENDING';
                 document.getElementById('memberPlanSelect').value = member.plan_type || '';
 
-                // Personal Info
                 document.getElementById('memberPersonalInfo').innerHTML = `
                     <div><span class="label">Full Name</span><div class="value">${escapeHTML(member.first_name || '')} ${escapeHTML(member.last_name || '')}</div></div>
                     <div><span class="label">Date of Birth</span><div class="value">${escapeHTML(member.date_of_birth || '-')}</div></div>
@@ -1830,7 +1707,6 @@
                     <div><span class="label">ID Number</span><div class="value">${escapeHTML(member.id_number || '-')}</div></div>
                 `;
 
-                // Contact Info
                 document.getElementById('memberContactInfo').innerHTML = `
                     <div><span class="label">Phone</span><div class="value">${escapeHTML(member.phone || '-')}</div></div>
                     <div><span class="label">Alternative Phone</span><div class="value">${escapeHTML(member.alternative_phone || '-')}</div></div>
@@ -1840,9 +1716,8 @@
                     <div><span class="label">Location</span><div class="value">${escapeHTML(member.location || '-')}</div></div>
                 `;
 
-                // Membership Info
                 document.getElementById('memberMembershipInfo').innerHTML = `
-                    <div><span class="label">Membership Number</span><div class="value">${escapeHTML(member.membership_number || '-')}</div></div>
+                    <div><span class="label">Membership Number</span><div class="value">${escapeHTML(getMembershipNumber(member) || '-')}</div></div>
                     <div><span class="label">Plan Type</span><div class="value">${escapeHTML(member.plan_type || '-')}</div></div>
                     <div><span class="label">Benefit Option</span><div class="value">${escapeHTML(member.benefit_option || '-')}</div></div>
                     <div><span class="label">Registration Fee</span><div class="value">KES ${parseFloat(member.registration_fee || 0).toLocaleString()}</div></div>
@@ -1850,7 +1725,6 @@
                     <div><span class="label">Joined</span><div class="value">${member.created_at ? new Date(member.created_at).toLocaleDateString('en-KE') : '-'}</div></div>
                 `;
 
-                // Next of Kin
                 document.getElementById('memberKinInfo').innerHTML = `
                     <div><span class="label">Name</span><div class="value">${escapeHTML(member.kin_name || '-')}</div></div>
                     <div><span class="label">Relationship</span><div class="value">${escapeHTML(member.kin_relationship || '-')}</div></div>
@@ -1867,27 +1741,17 @@
             }
         }
 
-        // ============================================================
-        // CLOSE MEMBER MODAL
-        // ============================================================
-
         function closeMemberModal() {
             document.getElementById('memberModal').classList.remove('open');
             selectedMemberId = null;
             clearModalMessages();
         }
 
-        // ============================================================
-        // MEMBER ID CARD MODAL
-        // ============================================================
-
         function findMemberInCache(memberId) {
             return currentMembersCache.find(m => String(m.id) === String(memberId)) || null;
         }
 
         async function getMemberRecord(memberId) {
-            // Use the cached row from the current table page if we have it,
-            // otherwise fetch fresh (e.g. if cache was cleared/paged away).
             const cached = findMemberInCache(memberId);
             if (cached) return cached;
 
@@ -1913,7 +1777,7 @@
                 const initials = name.split(' ').filter(Boolean).slice(0, 2).map(p => p[0].toUpperCase()).join('') || '–';
                 const planName = member.plan_type ? member.plan_type.charAt(0).toUpperCase() + member.plan_type.slice(1) : '—';
                 const joined = member.created_at ? new Date(member.created_at).toLocaleDateString('en-KE') : '—';
-                const memberNumber = member.membership_number || 'PENDING';
+                const memberNumber = getMembershipNumber(member) || 'PENDING';
 
                 document.getElementById('idCardInitials').textContent = initials;
                 document.getElementById('idCardName').textContent = name;
@@ -1923,16 +1787,12 @@
                 document.getElementById('idCardPhone').textContent = member.phone || '—';
                 document.getElementById('idCardJoined').textContent = joined;
 
-                // 12-month validity, renewed whenever the membership is paid up.
                 const validUntilDate = computeValidUntil(member);
                 const isExpired = validUntilDate < new Date();
                 const validUntilEl = document.getElementById('idCardValidUntil');
                 validUntilEl.textContent = validUntilDate.toLocaleDateString('en-KE', { day: '2-digit', month: 'short', year: 'numeric' }) + (isExpired ? ' (expired)' : '');
                 validUntilEl.classList.toggle('expired', isExpired);
 
-                // Ongoing M-Pesa payment details — Paybill is fixed org-wide,
-                // account is the member's own membership number so payments
-                // reconcile automatically; amount depends on the plan chosen.
                 document.getElementById('idCardPaybill').textContent = ORG_PAYBILL;
                 document.getElementById('idCardAccount').textContent = memberNumber;
                 document.getElementById('idCardAmount').textContent = 'Loading…';
@@ -1944,8 +1804,6 @@
                     document.getElementById('idCardAmount').textContent = 'Contact office';
                 });
 
-                // QR encodes a verification payload — swap the URL below for a real
-                // verification page on your domain once one exists.
                 const qrPayload = `MASIKA-BBS|${memberNumber}|${member.id}`;
                 const qrImg = document.getElementById('idCardQr');
                 const qrBox = qrImg.closest('.id-card-qr');
@@ -1978,10 +1836,6 @@
             window.print();
         }
 
-        // ============================================================
-        // STK PUSH MODAL (M-Pesa Daraja via Masika FastAPI backend)
-        // ============================================================
-
         let stkSelectedMember = null;
         let stkAbortController = null;
 
@@ -2000,7 +1854,7 @@
 
                 document.getElementById('stkAvatar').textContent = initials;
                 document.getElementById('stkName').textContent = name;
-                document.getElementById('stkSub').textContent = `${member.membership_number || 'Pending'} · ${member.plan_type ? member.plan_type.charAt(0).toUpperCase() + member.plan_type.slice(1) : '—'}`;
+                document.getElementById('stkSub').textContent = `${getMembershipNumber(member) || 'Pending'} · ${member.plan_type ? member.plan_type.charAt(0).toUpperCase() + member.plan_type.slice(1) : '—'}`;
                 document.getElementById('stkPhone').value = member.phone || '';
                 document.getElementById('stkAmount').value = '';
                 document.getElementById('stkAmount').placeholder = 'e.g. 500';
@@ -2009,8 +1863,6 @@
                 document.getElementById('stkPushModal').classList.add('open');
                 document.getElementById('stkAmount').focus();
 
-                // Pre-fill with the plan's monthly contribution — admin can
-                // still override it (e.g. to collect arrears or a top-up).
                 getPlanAmount(member.plan_type).then(amount => {
                     const amountInput = document.getElementById('stkAmount');
                     if (amount && !amountInput.value) {
@@ -2048,8 +1900,6 @@
             document.getElementById('stkStatus').className = 'stk-status';
         }
 
-        // Normalises Kenyan numbers (07xx / 01xx / +254xx / 254xx) into the
-        // 2547XXXXXXXX / 2541XXXXXXXX format Daraja expects.
         function normalizeMsisdn(raw) {
             let digits = String(raw || '').replace(/\D/g, '');
             if (digits.startsWith('0')) digits = '254' + digits.slice(1);
@@ -2081,8 +1931,6 @@
             sendBtn.disabled = true;
             setStkStatus('loading', 'Sending payment request to phone…');
 
-            // Abort automatically if Safaricom / the backend takes too long,
-            // so the button never gets stuck disabled forever.
             stkAbortController = new AbortController();
             const timeoutId = setTimeout(() => stkAbortController.abort(), 30000);
 
@@ -2095,7 +1943,7 @@
                         phone,
                         amount,
                         member_id: stkSelectedMember.id,
-                        membership_number: stkSelectedMember.membership_number || null,
+                        membership_number: getMembershipNumber(stkSelectedMember) || null,
                         payment_type: 'subscription'
                     })
                 });
@@ -2127,10 +1975,6 @@
             }
         }
 
-        // ============================================================
-        // SAVE MEMBER STATUS
-        // ============================================================
-
         async function saveMemberStatus() {
             if (!selectedMemberId) {
                 showModalError('No member selected.');
@@ -2158,10 +2002,6 @@
                 showModalError('Failed to update member status.');
             }
         }
-
-        // ============================================================
-        // SAVE MEMBER PLAN
-        // ============================================================
 
         async function saveMemberPlan() {
             if (!selectedMemberId) {
@@ -2193,15 +2033,11 @@
             }
         }
 
-        // ============================================================
-        // EXPORT MEMBERS
-        // ============================================================
-
         async function exportMembers() {
             try {
                 const { data, error } = await supabaseClient
                     .from('members')
-                    .select('membership_number, first_name, last_name, phone, email, plan_type, status, created_at, county, town')
+                    .select('*')
                     .order('created_at', { ascending: false });
 
                 if (error) throw error;
@@ -2213,7 +2049,7 @@
 
                 const headers = ['Member Number', 'First Name', 'Last Name', 'Phone', 'Email', 'Plan', 'Status', 'County', 'Town', 'Joined'];
                 const rows = data.map(m => [
-                    m.membership_number || '',
+                    getMembershipNumber(m) || '',
                     m.first_name || '',
                     m.last_name || '',
                     m.phone || '',
@@ -2248,10 +2084,6 @@
             }
         }
 
-        // ============================================================
-        // REFRESH DATA
-        // ============================================================
-
         async function refreshData() {
             refreshBtn.disabled = true;
             refreshIcon.classList.add('fa-spin');
@@ -2266,10 +2098,6 @@
                 refreshIcon.classList.remove('fa-spin');
             }
         }
-
-        // ============================================================
-        // MODAL MESSAGES
-        // ============================================================
 
         function showModalError(message) {
             const errorEl = document.getElementById('memberModalError');
@@ -2289,10 +2117,6 @@
             document.getElementById('memberModalError').style.display = 'none';
             document.getElementById('memberModalSuccess').style.display = 'none';
         }
-
-        // ============================================================
-        // SIDEBAR TOGGLE
-        // ============================================================
 
         function setupSidebarToggle() {
             const sidebar = document.getElementById('sidebar');
@@ -2321,10 +2145,6 @@
             });
         }
 
-        // ============================================================
-        // CLOCK
-        // ============================================================
-
         function updateClock() {
             const clockEl = document.getElementById('currentDateTime');
             if (clockEl) {
@@ -2341,10 +2161,6 @@
             setTimeout(updateClock, 30000);
         }
 
-        // ============================================================
-        // TOAST NOTIFICATIONS
-        // ============================================================
-
         function showToast(message, type = 'info') {
             const container = document.getElementById('toastContainer');
             if (!container) return;
@@ -2359,10 +2175,6 @@
             }, 4000);
         }
 
-        // ============================================================
-        // ESCAPE HTML
-        // ============================================================
-
         function escapeHTML(value) {
             if (!value) return '-';
             return String(value)
@@ -2372,10 +2184,6 @@
                 .replace(/"/g, '&quot;')
                 .replace(/'/g, '&#039;');
         }
-
-        // ============================================================
-        // LOGOUT
-        // ============================================================
 
         async function handleLogout() {
             try {
@@ -2389,10 +2197,6 @@
                 showToast('Failed to logout. Please try again.', 'error');
             }
         }
-
-        // ============================================================
-        // EXPOSE FUNCTIONS
-        // ============================================================
 
         window.loadMembers = loadMembers;
         window.applyFilters = applyFilters;
@@ -2413,7 +2217,6 @@
         window.closeStkPushModal = closeStkPushModal;
         window.sendStkPush = sendStkPush;
 
-        // Modal close on backdrop click
         document.getElementById('memberModal').addEventListener('click', function(e) {
             if (e.target === this) {
                 closeMemberModal();
