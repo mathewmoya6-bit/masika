@@ -1258,9 +1258,14 @@
         <div class="modal">
             <h3>
                 <span><i class="fas fa-id-card" style="color:var(--primary);"></i> <span id="memberModalName">Member</span></span>
-                <button class="btn btn-secondary btn-sm" onclick="closeMemberModal()">
-                    <i class="fas fa-times"></i>
-                </button>
+                <span style="display:flex;gap:8px;">
+                    <button class="btn btn-secondary btn-sm" id="memberEditToggleBtn" onclick="toggleEditMember()">
+                        <i class="fas fa-pen"></i> Edit Details
+                    </button>
+                    <button class="btn btn-secondary btn-sm" onclick="closeMemberModal()">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </span>
             </h3>
 
             <div class="status-row">
@@ -1310,6 +1315,13 @@
                 <legend>Next of Kin</legend>
                 <div class="detail-grid" id="memberKinInfo"></div>
             </fieldset>
+
+            <div class="modal-actions" id="memberEditActions" style="display:none;margin-top:-8px;">
+                <button type="button" class="btn btn-secondary" onclick="toggleEditMember()">Cancel</button>
+                <button type="button" class="btn btn-primary" id="memberEditSaveBtn" onclick="saveMemberDetails()">
+                    <i class="fas fa-check"></i> Save Changes
+                </button>
+            </div>
 
             <fieldset>
                 <legend>Dependants</legend>
@@ -2045,8 +2057,12 @@
             loadMembers(1);
         }
 
+        let currentMemberRecord = null;
+        let memberEditMode = false;
+
         async function openMemberModal(memberId) {
             selectedMemberId = memberId;
+            memberEditMode = false;
 
             try {
                 const { data: member, error } = await supabaseClient
@@ -2057,43 +2073,15 @@
 
                 if (error) throw error;
 
+                currentMemberRecord = member;
+
                 document.getElementById('memberModalName').textContent =
                     `${member.first_name || ''} ${member.last_name || ''}`.trim() || 'Member';
 
                 document.getElementById('memberStatusSelect').value = member.status || 'PENDING';
                 document.getElementById('memberPlanSelect').value = member.plan_type || '';
 
-                document.getElementById('memberPersonalInfo').innerHTML = `
-                    <div><span class="label">Full Name</span><div class="value">${escapeHTML(member.first_name || '')} ${escapeHTML(member.last_name || '')}</div></div>
-                    <div><span class="label">Date of Birth</span><div class="value">${escapeHTML(member.date_of_birth || '-')}</div></div>
-                    <div><span class="label">Gender</span><div class="value">${escapeHTML(member.gender || '-')}</div></div>
-                    <div><span class="label">ID Number</span><div class="value">${escapeHTML(member.id_number || '-')}</div></div>
-                `;
-
-                document.getElementById('memberContactInfo').innerHTML = `
-                    <div><span class="label">Phone</span><div class="value">${escapeHTML(member.phone || '-')}</div></div>
-                    <div><span class="label">Alternative Phone</span><div class="value">${escapeHTML(member.alternative_phone || '-')}</div></div>
-                    <div><span class="label">Email</span><div class="value">${escapeHTML(member.email || '-')}</div></div>
-                    <div><span class="label">County</span><div class="value">${escapeHTML(member.county || '-')}</div></div>
-                    <div><span class="label">Town</span><div class="value">${escapeHTML(member.town || '-')}</div></div>
-                    <div><span class="label">Location</span><div class="value">${escapeHTML(member.location || '-')}</div></div>
-                `;
-
-                document.getElementById('memberMembershipInfo').innerHTML = `
-                    <div><span class="label">Membership Number</span><div class="value">${escapeHTML(getMembershipNumber(member) || '-')}</div></div>
-                    <div><span class="label">Plan Type</span><div class="value">${escapeHTML(member.plan_type || '-')}</div></div>
-                    <div><span class="label">Benefit Option</span><div class="value">${escapeHTML(member.benefit_option || '-')}</div></div>
-                    <div><span class="label">Registration Fee</span><div class="value">KES ${parseFloat(member.registration_fee || 0).toLocaleString()}</div></div>
-                    <div><span class="label">Status</span><div class="value"><span class="status-badge ${member.status || 'PENDING'}">${member.status || 'PENDING'}</span></div></div>
-                    <div><span class="label">Joined</span><div class="value">${member.created_at ? new Date(member.created_at).toLocaleDateString('en-KE') : '-'}</div></div>
-                `;
-
-                document.getElementById('memberKinInfo').innerHTML = `
-                    <div><span class="label">Name</span><div class="value">${escapeHTML(member.kin_name || '-')}</div></div>
-                    <div><span class="label">Relationship</span><div class="value">${escapeHTML(member.kin_relationship || '-')}</div></div>
-                    <div><span class="label">Phone</span><div class="value">${escapeHTML(member.kin_phone || '-')}</div></div>
-                    <div><span class="label">ID Number</span><div class="value">${escapeHTML(member.kin_id || '-')}</div></div>
-                `;
+                setMemberEditMode(false);
 
                 document.getElementById('memberModal').classList.add('open');
                 clearModalMessages();
@@ -2101,15 +2089,199 @@
 
             } catch (error) {
                 console.error('Open member modal error:', error);
-                showModalError('Failed to load member details.');
+                showModalError(`Failed to load member details: ${error.message || error.details || error.hint || 'unknown error'}`);
             }
         }
 
         function closeMemberModal() {
             document.getElementById('memberModal').classList.remove('open');
             selectedMemberId = null;
+            currentMemberRecord = null;
+            memberEditMode = false;
             memberDependantsCache = [];
             clearModalMessages();
+        }
+
+        // ------------------------------------------------------------
+        // EDIT MEMBER DETAILS (Personal Info, Contact & Location,
+        // Next of Kin, Benefit Option, Registration Fee). Status and
+        // Plan keep their own dedicated Update controls above.
+        // ------------------------------------------------------------
+        function renderMemberViewFields(member) {
+            document.getElementById('memberPersonalInfo').innerHTML = `
+                <div><span class="label">Full Name</span><div class="value">${escapeHTML(member.first_name || '')} ${escapeHTML(member.last_name || '')}</div></div>
+                <div><span class="label">Date of Birth</span><div class="value">${escapeHTML(member.date_of_birth || '-')}</div></div>
+                <div><span class="label">Gender</span><div class="value">${escapeHTML(member.gender || '-')}</div></div>
+                <div><span class="label">ID Number</span><div class="value">${escapeHTML(member.id_number || '-')}</div></div>
+            `;
+
+            document.getElementById('memberContactInfo').innerHTML = `
+                <div><span class="label">Phone</span><div class="value">${escapeHTML(member.phone || '-')}</div></div>
+                <div><span class="label">Alternative Phone</span><div class="value">${escapeHTML(member.alternative_phone || '-')}</div></div>
+                <div><span class="label">Email</span><div class="value">${escapeHTML(member.email || '-')}</div></div>
+                <div><span class="label">County</span><div class="value">${escapeHTML(member.county || '-')}</div></div>
+                <div><span class="label">Town</span><div class="value">${escapeHTML(member.town || '-')}</div></div>
+                <div><span class="label">Location</span><div class="value">${escapeHTML(member.location || '-')}</div></div>
+            `;
+
+            document.getElementById('memberMembershipInfo').innerHTML = `
+                <div><span class="label">Membership Number</span><div class="value">${escapeHTML(getMembershipNumber(member) || '-')}</div></div>
+                <div><span class="label">Plan Type</span><div class="value">${escapeHTML(member.plan_type || '-')}</div></div>
+                <div><span class="label">Benefit Option</span><div class="value">${escapeHTML(member.benefit_option || '-')}</div></div>
+                <div><span class="label">Registration Fee</span><div class="value">KES ${parseFloat(member.registration_fee || 0).toLocaleString()}</div></div>
+                <div><span class="label">Status</span><div class="value"><span class="status-badge ${member.status || 'PENDING'}">${member.status || 'PENDING'}</span></div></div>
+                <div><span class="label">Joined</span><div class="value">${member.created_at ? new Date(member.created_at).toLocaleDateString('en-KE') : '-'}</div></div>
+            `;
+
+            document.getElementById('memberKinInfo').innerHTML = `
+                <div><span class="label">Name</span><div class="value">${escapeHTML(member.kin_name || '-')}</div></div>
+                <div><span class="label">Relationship</span><div class="value">${escapeHTML(member.kin_relationship || '-')}</div></div>
+                <div><span class="label">Phone</span><div class="value">${escapeHTML(member.kin_phone || '-')}</div></div>
+                <div><span class="label">ID Number</span><div class="value">${escapeHTML(member.kin_id || '-')}</div></div>
+            `;
+        }
+
+        function renderMemberEditFields(member) {
+            const dob = member.date_of_birth ? String(member.date_of_birth).slice(0, 10) : '';
+
+            document.getElementById('memberPersonalInfo').innerHTML = `
+                <div class="form-group"><label>First Name</label><input type="text" id="emFirstName" maxlength="100" value="${escapeAttr(member.first_name)}"></div>
+                <div class="form-group"><label>Last Name</label><input type="text" id="emLastName" maxlength="100" value="${escapeAttr(member.last_name)}"></div>
+                <div class="form-group"><label>Date of Birth</label><input type="date" id="emDob" value="${dob}"></div>
+                <div class="form-group"><label>Gender</label>
+                    <select id="emGender">
+                        <option value="" ${!member.gender ? 'selected' : ''}>Not specified</option>
+                        <option value="MALE" ${member.gender === 'MALE' ? 'selected' : ''}>Male</option>
+                        <option value="FEMALE" ${member.gender === 'FEMALE' ? 'selected' : ''}>Female</option>
+                    </select>
+                </div>
+                <div class="form-group full"><label>ID Number</label><input type="text" id="emIdNumber" maxlength="30" value="${escapeAttr(member.id_number)}"></div>
+            `;
+
+            document.getElementById('memberContactInfo').innerHTML = `
+                <div class="form-group"><label>Phone</label><input type="tel" id="emPhone" value="${escapeAttr(member.phone)}"></div>
+                <div class="form-group"><label>Alternative Phone</label><input type="tel" id="emAltPhone" value="${escapeAttr(member.alternative_phone)}"></div>
+                <div class="form-group"><label>Email</label><input type="email" id="emEmail" maxlength="150" value="${escapeAttr(member.email)}"></div>
+                <div class="form-group"><label>County</label>
+                    <select id="emCounty"></select>
+                </div>
+                <div class="form-group"><label>Town</label><input type="text" id="emTown" maxlength="100" value="${escapeAttr(member.town)}"></div>
+                <div class="form-group full"><label>Location / Area</label><input type="text" id="emLocation" maxlength="150" value="${escapeAttr(member.location)}"></div>
+            `;
+
+            const countySelect = document.getElementById('emCounty');
+            countySelect.innerHTML = '<option value="">Select county</option>' +
+                KENYA_COUNTIES.map(c => `<option value="${escapeAttr(c)}" ${member.county === c ? 'selected' : ''}>${escapeHTML(c)}</option>`).join('');
+
+            document.getElementById('memberMembershipInfo').innerHTML = `
+                <div class="form-group"><label>Benefit Option</label>
+                    <select id="emBenefit">
+                        <option value="" ${!member.benefit_option ? 'selected' : ''}>Not specified</option>
+                        <option value="service" ${member.benefit_option === 'service' ? 'selected' : ''}>Service</option>
+                        <option value="cash" ${member.benefit_option === 'cash' ? 'selected' : ''}>Cash</option>
+                    </select>
+                </div>
+                <div class="form-group"><label>Registration Fee (KES)</label><input type="number" id="emFee" min="0" step="1" value="${escapeAttr(member.registration_fee ?? '')}"></div>
+                <p class="hint" style="grid-column:1/-1;">Membership Number, Plan Type and Status are updated using the controls above.</p>
+            `;
+
+            document.getElementById('memberKinInfo').innerHTML = `
+                <div class="form-group"><label>Full Name</label><input type="text" id="emKinName" maxlength="150" value="${escapeAttr(member.kin_name)}"></div>
+                <div class="form-group"><label>Relationship</label><input type="text" id="emKinRelationship" maxlength="50" value="${escapeAttr(member.kin_relationship)}"></div>
+                <div class="form-group"><label>Phone</label><input type="tel" id="emKinPhone" value="${escapeAttr(member.kin_phone)}"></div>
+                <div class="form-group"><label>ID Number</label><input type="text" id="emKinId" maxlength="30" value="${escapeAttr(member.kin_id)}"></div>
+            `;
+        }
+
+        function setMemberEditMode(on) {
+            memberEditMode = on;
+            const btn = document.getElementById('memberEditToggleBtn');
+            document.getElementById('memberEditActions').style.display = on ? 'flex' : 'none';
+            btn.innerHTML = on ? '<i class="fas fa-eye"></i> View' : '<i class="fas fa-pen"></i> Edit Details';
+
+            if (on) renderMemberEditFields(currentMemberRecord);
+            else renderMemberViewFields(currentMemberRecord);
+        }
+
+        function toggleEditMember() {
+            if (!currentMemberRecord) return;
+            clearModalMessages();
+            setMemberEditMode(!memberEditMode);
+        }
+
+        async function saveMemberDetails() {
+            if (!selectedMemberId || !currentMemberRecord) return;
+
+            const val = id => document.getElementById(id).value.trim();
+            const phonePattern = /^254(7|1)\d{8}$/;
+
+            const first_name = val('emFirstName');
+            const last_name = val('emLastName');
+            if (!first_name) return showModalError('First name is required.');
+            if (!last_name) return showModalError('Last name is required.');
+
+            const phoneRaw = val('emPhone');
+            const phone = phoneRaw ? normalizeMsisdn(phoneRaw) : '';
+            if (!phone || !phonePattern.test(phone)) return showModalError('Enter a valid phone number, e.g. 0712345678.');
+
+            const altRaw = val('emAltPhone');
+            const alternative_phone = altRaw ? normalizeMsisdn(altRaw) : '';
+            if (alternative_phone && !phonePattern.test(alternative_phone)) return showModalError('The alternative phone number is not valid.');
+
+            const kinPhoneRaw = val('emKinPhone');
+            const kin_phone = kinPhoneRaw ? normalizeMsisdn(kinPhoneRaw) : '';
+            if (kin_phone && !phonePattern.test(kin_phone)) return showModalError('The next of kin phone number is not valid.');
+
+            const email = val('emEmail');
+            if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return showModalError('Enter a valid email address.');
+
+            const dob = val('emDob');
+            const today = new Date();
+            if (dob && (isNaN(new Date(dob).getTime()) || new Date(dob) > today)) return showModalError('Enter a valid date of birth.');
+
+            const feeRaw = val('emFee');
+            if (feeRaw !== '' && (!Number.isFinite(Number(feeRaw)) || Number(feeRaw) < 0)) return showModalError('Enter a valid registration fee.');
+
+            const payload = {
+                first_name,
+                last_name,
+                date_of_birth: dob || null,
+                gender: val('emGender') || null,
+                id_number: val('emIdNumber') || null,
+                phone,
+                alternative_phone: alternative_phone || null,
+                email: email || null,
+                county: val('emCounty') || null,
+                town: val('emTown') || null,
+                location: val('emLocation') || null,
+                benefit_option: val('emBenefit') || null,
+                registration_fee: feeRaw !== '' ? Number(feeRaw) : null,
+                kin_name: val('emKinName') || null,
+                kin_relationship: val('emKinRelationship') || null,
+                kin_phone: kin_phone || null,
+                kin_id: val('emKinId') || null,
+                updated_at: new Date().toISOString()
+            };
+
+            const saveBtn = document.getElementById('memberEditSaveBtn');
+            saveBtn.disabled = true;
+            saveBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Saving...';
+
+            try {
+                const { data, dropped } = await updateResilient('members', selectedMemberId, payload, ['first_name', 'last_name']);
+                currentMemberRecord = data;
+                setMemberEditMode(false);
+                showModalSuccess(dropped.length
+                    ? `Details updated, but these fields don't exist on the members table: ${dropped.join(', ')}.`
+                    : 'Member details updated.');
+                loadMembers(currentPage);
+            } catch (error) {
+                console.error('Save member details error:', error);
+                showModalError(`Failed to save member details: ${error.message || error.details || error.hint || 'unknown error'}`);
+            } finally {
+                saveBtn.disabled = false;
+                saveBtn.innerHTML = '<i class="fas fa-check"></i> Save Changes';
+            }
         }
 
         // ============================================================
@@ -2529,7 +2701,7 @@
                 renderMemberDependants();
             } catch (error) {
                 console.error('Load dependants error:', error);
-                container.innerHTML = '<p style="font-size:13px;color:var(--danger);">Failed to load dependants.</p>';
+                container.innerHTML = `<p style="font-size:13px;color:var(--danger);">Failed to load dependants: ${escapeHTML(error.message || error.details || error.hint || 'unknown error')}</p>`;
             }
         }
 
@@ -3194,7 +3366,7 @@
 
             } catch (error) {
                 console.error('Save status error:', error);
-                showModalError('Failed to update member status.');
+                showModalError(`Failed to update member status: ${error.message || error.details || error.hint || 'unknown error'}`);
             }
         }
 
@@ -3400,6 +3572,8 @@
         window.refreshData = refreshData;
         window.openMemberModal = openMemberModal;
         window.closeMemberModal = closeMemberModal;
+        window.toggleEditMember = toggleEditMember;
+        window.saveMemberDetails = saveMemberDetails;
         window.saveMemberStatus = saveMemberStatus;
         window.saveMemberPlan = saveMemberPlan;
         window.exportMembers = exportMembers;
