@@ -2752,6 +2752,33 @@
                 return;
             }
 
+            const isWazazi = String(planType || '').trim().toLowerCase() === 'wazazi';
+
+            // Show the parents panel immediately for Wazazi, using known
+            // defaults. This no longer waits on (or can be blocked by) the
+            // plans-table lookup below — that lookup only refines the
+            // pricing afterwards, it never controls whether the panel
+            // appears.
+            if (isWazazi) {
+                currentPlanConfig = {
+                    label: 'Wazazi',
+                    amount: 300,
+                    registrationFee: 200,
+                    parentMonthly: 350,
+                    parentFee: 100,
+                    minParents: 1,
+                    maxParents: 4,
+                    maxDependants: null
+                };
+                parentsSection.style.display = 'block';
+                dependantsHint.style.display = 'none';
+                addDependantBtn.disabled = false;
+                updateParentsHint();
+                addParentRow();
+            } else {
+                parentsSection.style.display = 'none';
+            }
+
             planHint.textContent = 'Loading plan details…';
             summaryEl.style.display = 'none';
 
@@ -2760,12 +2787,13 @@
 
                 // WAZAZI always uses parents (1–4). Force these bounds even
                 // if the plans row for Wazazi hasn't had them set yet.
-                const isWazazi = String(planType || '').trim().toLowerCase() === 'wazazi';
                 if (isWazazi) {
                     if (!config.minParents || config.minParents < 1) config.minParents = 1;
                     if (!config.maxParents || config.maxParents < 1) config.maxParents = 4;
                     if (!config.parentMonthly || config.parentMonthly <= 0) config.parentMonthly = 350;
                     if (!config.parentFee || config.parentFee <= 0) config.parentFee = 100;
+                    if (!config.amount || config.amount <= 0) config.amount = 300;
+                    if (!config.registrationFee || config.registrationFee <= 0) config.registrationFee = 200;
                 }
 
                 currentPlanConfig = config;
@@ -2773,9 +2801,11 @@
                 if (planUsesParents(config)) {
                     parentsSection.style.display = 'block';
                     updateParentsHint();
-                    // Always pre-fill at least 1 parent row for Wazazi.
-                    const prefill = Math.max(config.minParents, 1);
-                    for (let i = 0; i < prefill; i++) addParentRow();
+                    // Rows may already be pre-filled above for Wazazi —
+                    // only top up to the (possibly refined) minimum.
+                    const existing = byId('amParentsList').querySelectorAll('.dependant-row').length;
+                    const target = Math.max(config.minParents, 1);
+                    for (let i = existing; i < target; i++) addParentRow();
                 } else {
                     parentsSection.style.display = 'none';
                     resetParentRows();
@@ -2807,9 +2837,18 @@
                 if (feeInput && !feeInput.value && regFee > 0) feeInput.value = regFee;
             } catch (err) {
                 console.error('Plan config error:', err);
-                planHint.textContent = '';
-                currentPlanConfig = null;
-                summaryEl.style.display = 'none';
+                // Keep whatever was already shown synchronously above —
+                // in particular, never hide the Wazazi parents panel or
+                // null out its config just because the plans-table lookup
+                // failed.
+                if (isWazazi) {
+                    planHint.textContent = 'Monthly: KES 300 base + KES 350/parent · Registration: KES 200 base + KES 100/parent';
+                    renderPlanSummary(currentPlanConfig);
+                } else {
+                    planHint.textContent = '';
+                    currentPlanConfig = null;
+                    summaryEl.style.display = 'none';
+                }
             }
         }
 
