@@ -118,12 +118,7 @@
             text-transform: uppercase;
         }
 
-        .sidebar-nav {
-            list-style: none;
-            padding: 0 12px;
-            flex: 1;
-        }
-
+        .sidebar-nav { list-style: none; padding: 0 12px; flex: 1; }
         .sidebar-nav li { margin-bottom: 2px; }
 
         .sidebar-nav .nav-label {
@@ -149,15 +144,8 @@
             position: relative;
         }
 
-        .sidebar-nav a:hover {
-            background: rgba(255,255,255,0.08);
-            color: white;
-        }
-
-        .sidebar-nav a.active {
-            background: rgba(255,255,255,0.12);
-            color: white;
-        }
+        .sidebar-nav a:hover { background: rgba(255,255,255,0.08); color: white; }
+        .sidebar-nav a.active { background: rgba(255,255,255,0.12); color: white; }
 
         .sidebar-nav a.active::before {
             content: '';
@@ -170,11 +158,7 @@
             border-radius: 0 3px 3px 0;
         }
 
-        .sidebar-nav a i {
-            width: 20px;
-            text-align: center;
-            font-size: 16px;
-        }
+        .sidebar-nav a i { width: 20px; text-align: center; font-size: 16px; }
 
         .sidebar-nav .badge {
             margin-left: auto;
@@ -195,11 +179,7 @@
             flex-shrink: 0;
         }
 
-        .sidebar-footer .user-info {
-            display: flex;
-            align-items: center;
-            gap: 12px;
-        }
+        .sidebar-footer .user-info { display: flex; align-items: center; gap: 12px; }
 
         .sidebar-footer .user-avatar {
             width: 40px;
@@ -268,11 +248,7 @@
             gap: 12px;
         }
 
-        .topbar-left {
-            display: flex;
-            align-items: center;
-            gap: 16px;
-        }
+        .topbar-left { display: flex; align-items: center; gap: 16px; }
 
         .topbar h1 {
             font-size: 28px;
@@ -288,18 +264,8 @@
             margin-top: 2px;
         }
 
-        .topbar .actions {
-            display: flex;
-            gap: 12px;
-            align-items: center;
-            flex-wrap: wrap;
-        }
-
-        .topbar .actions .date-time {
-            font-size: 14px;
-            color: var(--text-light);
-            font-weight: 500;
-        }
+        .topbar .actions { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
+        .topbar .actions .date-time { font-size: 14px; color: var(--text-light); font-weight: 500; }
 
         .sidebar-toggle {
             display: none;
@@ -410,12 +376,7 @@
             gap: 10px;
         }
 
-        .filters {
-            display: flex;
-            gap: 10px;
-            flex-wrap: wrap;
-            margin-bottom: 16px;
-        }
+        .filters { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 16px; }
 
         .filters input,
         .filters select {
@@ -439,12 +400,7 @@
 
         .table-wrapper { overflow-x: auto; border-radius: 8px; }
 
-        table {
-            width: 100%;
-            border-collapse: collapse;
-            font-size: 14px;
-        }
-
+        table { width: 100%; border-collapse: collapse; font-size: 14px; }
         table thead { background: var(--gray-50); }
 
         table thead th {
@@ -514,7 +470,6 @@
         .status-badge.wazazi { background: #f3e5f5; color: #4a148c; }
         .status-badge.chama { background: #fff4e5; color: #9a5b00; }
 
-        /* Duration / renewal badges */
         .mini-badge {
             display: inline-flex;
             align-items: center;
@@ -668,12 +623,7 @@
             box-shadow: 0 0 0 4px rgba(11, 93, 59, 0.1);
         }
 
-        .modal-actions {
-            display: flex;
-            gap: 10px;
-            justify-content: flex-end;
-            margin-top: 16px;
-        }
+        .modal-actions { display: flex; gap: 10px; justify-content: flex-end; margin-top: 16px; }
 
         .form-error {
             color: var(--danger);
@@ -828,11 +778,7 @@
             cursor: not-allowed;
         }
 
-        .audit-panel {
-            display: flex;
-            flex-direction: column;
-            gap: 10px;
-        }
+        .audit-panel { display: flex; flex-direction: column; gap: 10px; }
         .audit-summary {
             display: flex;
             flex-wrap: wrap;
@@ -842,11 +788,7 @@
         }
         .audit-summary .as-item { display: inline-flex; align-items: center; gap: 6px; }
         .audit-summary .as-item b { font-weight: 800; }
-        .audit-months {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 6px;
-        }
+        .audit-months { display: flex; flex-wrap: wrap; gap: 6px; }
         .audit-month {
             display: inline-flex;
             align-items: center;
@@ -959,12 +901,7 @@
         .id-card-header .id-card-org strong { display: block; font-size: 14px; font-weight: 800; }
         .id-card-header .id-card-org span { font-size: 10px; opacity: 0.75; letter-spacing: 0.05em; text-transform: uppercase; }
 
-        .id-card-body {
-            background: white;
-            padding: 18px;
-            display: flex;
-            gap: 16px;
-        }
+        .id-card-body { background: white; padding: 18px; display: flex; gap: 16px; }
 
         .id-card-photo {
             width: 82px;
@@ -1649,14 +1586,14 @@
         const ORG_PAYBILL = '348127';
 
         // ============================================================
-        // PLAN FALLBACK CONFIG
-        // Wazazi: main member 200, each parent 100, dependants allowed.
+        // PLAN FALLBACK CONFIG (used only when the plans table is
+        // unreachable). Wazazi: main 300/200, parent 350/100.
         // ============================================================
         const PLAN_FALLBACK_CONFIG = {
-            comfort: { label: 'Comfort', amount: 300,  registrationFee: 200,  minParents: 0, maxParents: 0, maxDependants: null, parentFee: 0   },
-            dignity: { label: 'Dignity', amount: 100,  registrationFee: 2000, minParents: 0, maxParents: 0, maxDependants: null, parentFee: 0   },
-            wazazi:  { label: 'Wazazi',  amount: 350,  registrationFee: 200,  minParents: 1, maxParents: 4, maxDependants: null, parentFee: 100 },
-            chama:   { label: 'Chama',   amount: 150,  registrationFee: 1200, minParents: 0, maxParents: 0, maxDependants: null, parentFee: 0   }
+            comfort: { label: 'Comfort', amount: 300,  registrationFee: 200,  minParents: 0, maxParents: 0, maxDependants: null, parentMonthly: 0,   parentFee: 0   },
+            dignity: { label: 'Dignity', amount: 100,  registrationFee: 2000, minParents: 0, maxParents: 0, maxDependants: null, parentMonthly: 0,   parentFee: 0   },
+            wazazi:  { label: 'Wazazi',  amount: 300,  registrationFee: 200,  minParents: 1, maxParents: 4, maxDependants: null, parentMonthly: 350, parentFee: 100 },
+            chama:   { label: 'Chama',   amount: 150,  registrationFee: 1200, minParents: 0, maxParents: 0, maxDependants: null, parentMonthly: 0,   parentFee: 0   }
         };
 
         // ============================================================
@@ -1684,43 +1621,116 @@
         }
 
         // ============================================================
-        // PLAN CONFIG
+        // PLAN PRICING LOOKUP — single source of truth.
+        // Reads the plans table (NOT "pricing" or "plan_pricing").
+        // Case-insensitive on plan_code; only active plans are returned.
+        // ============================================================
+        async function getPlanPricing(planValue) {
+            const planCode = String(planValue || '').trim().toUpperCase();
+
+            if (!planCode) {
+                throw new Error('Membership plan is required.');
+            }
+
+            const { data, error } = await supabaseClient
+                .from('plans')
+                .select('*')
+                .ilike('plan_code', planCode)
+                .eq('is_active', true)
+                .maybeSingle();
+
+            if (error) {
+                console.error('Plan pricing lookup failed:', error);
+                throw new Error(`Unable to load pricing for ${planCode}.`);
+            }
+
+            if (!data) {
+                throw new Error(
+                    `Plan '${planCode}' was not found in pricing. Contact support before retrying.`
+                );
+            }
+
+            return data;
+        }
+
+        // ============================================================
+        // WAZAZI PRICING (main 300 + parents×350 monthly;
+        //                   main 200 + parents×100 registration)
+        // ============================================================
+        function calculateWazaziAmount(parentCount, includeRegistration = false) {
+            const parents = Number(parentCount || 0);
+
+            if (parents < 1) {
+                throw new Error('Wazazi requires at least 1 parent.');
+            }
+
+            if (parents > 4) {
+                throw new Error('Wazazi allows a maximum of 4 parents.');
+            }
+
+            const monthlyAmount = 300 + (parents * 350);
+            const registrationAmount = 200 + (parents * 100);
+
+            return {
+                monthlyAmount,
+                registrationAmount,
+                totalAmount: includeRegistration
+                    ? monthlyAmount + registrationAmount
+                    : monthlyAmount
+            };
+        }
+
+        // Counts Wazazi parents by reading the dependants table.
+        // Relationship matches "parent" (case-insensitive).
+        async function countWazaziParents(memberId) {
+            if (!memberId) return 0;
+            try {
+                const { data, error } = await supabaseClient
+                    .from('dependants')
+                    .select('id,relationship')
+                    .eq('principal_member_id', memberId);
+
+                if (error) throw error;
+
+                return (data || []).filter(d => {
+                    const rel = String(d.relationship || '').trim().toLowerCase();
+                    return rel === 'parent' || rel === 'parents';
+                }).length;
+            } catch (err) {
+                console.warn('Could not count Wazazi parents:', err);
+                return 0;
+            }
+        }
+
+        // ============================================================
+        // PLAN CONFIG (used by Add Existing Member form and elsewhere)
+        // Reads plans table; supports parent pricing columns.
         // ============================================================
         const planConfigCache = {};
 
         async function getPlanConfig(planType) {
-            const key = String(planType || '').toLowerCase();
+            const key = String(planType || '').trim().toLowerCase();
             if (!key) return null;
             if (planConfigCache[key]) return planConfigCache[key];
 
             let resolved = null;
 
-            for (const tableName of ['plans', 'pricing', 'plan_pricing']) {
-                try {
-                    const { data, error } = await supabaseClient
-                        .from(tableName)
-                        .select('*')
-                        .eq('plan_type', key)
-                        .maybeSingle();
-
-                    if (!error && data) {
-                        resolved = {
-                            label: key.charAt(0).toUpperCase() + key.slice(1),
-                            amount: Number(data.monthly_amount ?? data.amount ?? data.premium ?? data.price ?? 0) || 0,
-                            registrationFee: Number(data.registration_fee ?? data.reg_fee ?? 0) || 0,
-                            minParents: Number(data.minimum_parents ?? data.min_parents ?? 0) || 0,
-                            maxParents: Number(data.maximum_parents ?? data.max_parents ?? 0) || 0,
-                            maxDependants: (data.max_dependants ?? data.maximum_dependants) != null
-                                ? Number(data.max_dependants ?? data.maximum_dependants)
-                                : null,
-                            parentFee: Number(
-                                data.parent_fee ?? data.parent_registration_fee ??
-                                data.parent_reg_fee ?? data.per_parent_fee ?? 0
-                            ) || 0
-                        };
-                        break;
-                    }
-                } catch (e) { /* try next */ }
+            try {
+                const row = await getPlanPricing(key);
+                resolved = {
+                    label: (row.plan_name || key).trim(),
+                    amount: Number(row.monthly_premium || row.monthly_amount || 0) || 0,
+                    registrationFee: Number(row.registration_fee || 0) || 0,
+                    parentMonthly: Number(row.parent_monthly_premium || 0) || 0,
+                    parentFee: Number(row.parent_registration_fee || 0) || 0,
+                    minParents: Number(row.minimum_parents || row.min_parents || 0) || 0,
+                    maxParents: Number(row.maximum_parents || row.max_parents || 0) || 0,
+                    maxDependants: (row.max_dependants ?? row.maximum_dependants) != null
+                        ? Number(row.max_dependants ?? row.maximum_dependants)
+                        : null
+                };
+            } catch (err) {
+                console.warn(`getPlanConfig(${key}) failed, using fallback:`, err.message);
             }
 
             if (!resolved) {
@@ -1730,16 +1740,17 @@
                         label: fb.label,
                         amount: fb.amount,
                         registrationFee: fb.registrationFee,
+                        parentMonthly: fb.parentMonthly,
+                        parentFee: fb.parentFee,
                         minParents: fb.minParents,
                         maxParents: fb.maxParents,
-                        maxDependants: fb.maxDependants,
-                        parentFee: fb.parentFee || 0
+                        maxDependants: fb.maxDependants
                     }
                     : {
                         label: key.charAt(0).toUpperCase() + key.slice(1),
                         amount: 0, registrationFee: 0,
-                        minParents: 0, maxParents: 0, maxDependants: null,
-                        parentFee: 0
+                        parentMonthly: 0, parentFee: 0,
+                        minParents: 0, maxParents: 0, maxDependants: null
                     };
             }
 
@@ -1747,11 +1758,37 @@
             return resolved;
         }
 
-        async function getPlanAmount(planType) {
-            const config = await getPlanConfig(planType);
-            if (config && Number.isFinite(Number(config.amount)) && Number(config.amount) > 0) return Number(config.amount);
-            const key = String(planType || '').toLowerCase();
-            return PLAN_FALLBACK_CONFIG[key]?.amount ?? null;
+        // Monthly amount used for audit / status:
+        // Wazazi is main + parents × parent_monthly. Others use monthly_premium.
+        async function getPlanAmount(planType, memberId = null) {
+            const key = String(planType || '').trim().toLowerCase();
+            if (!key) return null;
+
+            let config;
+            try {
+                config = await getPlanConfig(key);
+            } catch {
+                config = PLAN_FALLBACK_CONFIG[key];
+                if (!config) return null;
+                config = {
+                    amount: config.amount,
+                    parentMonthly: config.parentMonthly
+                };
+            }
+
+            if (key === 'wazazi') {
+                const parentCount = memberId ? await countWazaziParents(memberId) : 0;
+                // Base monthly from plan + parents × parent_monthly.
+                const base = Number(config.amount || 300);
+                const parentMonthly = Number(config.parentMonthly || 350);
+                if (parentCount >= 1) {
+                    return base + (parentCount * parentMonthly);
+                }
+                // No parents recorded yet — fall back to base so audits don't break.
+                return base;
+            }
+
+            return Number(config.amount || 0) || null;
         }
 
         function planUsesParents(config) { return !!config && Number(config.maxParents) > 0; }
@@ -1763,7 +1800,7 @@
         }
 
         // ============================================================
-        // DURATION / RENEWAL HELPERS
+        // DURATION / RENEWAL
         // ============================================================
         function computeTenure(joinedDate) {
             if (!joinedDate) return { months: 0, years: 0, remMonths: 0, label: '—' };
@@ -2020,18 +2057,15 @@
             };
             if (!member?.id || !member?.plan_type) return empty;
 
-            // Members flagged for manual payment tracking (typically migrated from
-            // the old system and already up to date there) are never auto-audited
-            // or auto-changed here — their status stays exactly as set by the admin.
             if (member.payment_override) {
-                const monthlyAmount = Number(await getPlanAmount(member.plan_type));
+                const monthlyAmount = await getPlanAmount(member.plan_type, member.id);
                 return {
                     status: member.status || 'PENDING',
                     paymentAvailable: true,
                     manualOverride: true,
                     missingMonths: [],
                     paidByMonth: new Map(),
-                    monthlyAmount: Number.isFinite(monthlyAmount) ? monthlyAmount : null,
+                    monthlyAmount: Number.isFinite(Number(monthlyAmount)) ? Number(monthlyAmount) : null,
                     monthDetails: []
                 };
             }
@@ -2043,7 +2077,7 @@
             const rows = await loadPaymentRows(Boolean(options.forcePayments));
             if (!rows) return { ...empty, skipped: true };
 
-            const monthlyAmount = Number(await getPlanAmount(member.plan_type));
+            const monthlyAmount = Number(await getPlanAmount(member.plan_type, member.id));
             if (!Number.isFinite(monthlyAmount) || monthlyAmount <= 0) return { ...empty, paymentAvailable: true, skipped: true };
 
             const joinedRaw = member.created_at || member.joined_at || member.member_since;
@@ -2732,6 +2766,7 @@
             const amount = Number(config.amount || 0);
             const regFee = Number(config.registrationFee || 0);
             const parentFee = Number(config.parentFee || 0);
+            const parentMonthly = Number(config.parentMonthly || 0);
             const depLimit = planDependantLimit(config);
             const usesParents = planUsesParents(config);
 
@@ -2741,20 +2776,22 @@
             const parentCount = usesParents
                 ? byId('amParentsList').querySelectorAll('.dependant-row').length
                 : 0;
-            const parentTotal = parentFee * parentCount;
-            const grandTotal = regFee + parentTotal;
+            const parentRegTotal = parentFee * parentCount;
+            const parentMonthlyTotal = parentMonthly * parentCount;
+            const grandTotal = regFee + parentRegTotal;
+            const monthlyTotal = amount + parentMonthlyTotal;
 
-            const parentFeeLine = (usesParents && parentFee > 0)
-                ? `<span class="ps-item"><i class="fas fa-user-friends"></i> Parent fee: <b>KES ${parentFee.toLocaleString()} each</b></span>`
+            const parentFeeLine = (usesParents && (parentFee > 0 || parentMonthly > 0))
+                ? `<span class="ps-item"><i class="fas fa-user-friends"></i> Per parent: <b>KES ${parentFee.toLocaleString()} reg · KES ${parentMonthly.toLocaleString()} monthly</b></span>`
                 : '';
 
             const parentTotalLine = (usesParents && parentCount > 0)
-                ? `<span class="ps-item"><i class="fas fa-users"></i> Parents ×${parentCount}: <b>KES ${parentTotal.toLocaleString()}</b></span>`
+                ? `<span class="ps-item"><i class="fas fa-users"></i> Parents ×${parentCount}: <b>KES ${parentRegTotal.toLocaleString()} reg · KES ${parentMonthlyTotal.toLocaleString()} monthly</b></span>`
                 : '';
 
-            const grandLine = (usesParents && parentFee > 0)
+            const grandLine = (usesParents && (parentFee > 0 || parentMonthly > 0))
                 ? `<span class="ps-tag" style="background:#fff;border-color:var(--primary);color:var(--primary);">
-                        <i class="fas fa-calculator"></i> Total registration: KES ${grandTotal.toLocaleString()}
+                        <i class="fas fa-calculator"></i> Total: KES ${monthlyTotal.toLocaleString()} monthly + KES ${grandTotal.toLocaleString()} registration
                    </span>`
                 : '';
 
@@ -3122,7 +3159,7 @@
                 Object.entries(optional).forEach(([k, v]) => { if (v) payload[k] = v; });
 
                 // Registration fee: typed value wins, otherwise compute
-                // from the plan (member reg + parent fees × parent count).
+                // from plan (member reg + parent fees × parent count).
                 if (feeRaw !== '') {
                     payload.registration_fee = Number(feeRaw);
                 } else if (currentPlanConfig) {
@@ -3439,7 +3476,7 @@
                 document.getElementById('idCardPaybill').textContent = ORG_PAYBILL;
                 document.getElementById('idCardAccount').textContent = memberNo;
                 document.getElementById('idCardAmount').textContent = 'Loading…';
-                getPlanAmount(m.plan_type).then(amount => {
+                getPlanAmount(m.plan_type, m.id).then(amount => {
                     document.getElementById('idCardAmount').textContent = amount
                         ? `KES ${Number(amount).toLocaleString()} / month`
                         : 'Contact office';
@@ -3497,7 +3534,8 @@
                 document.getElementById('stkPushModal').classList.add('open');
                 document.getElementById('stkAmount').focus();
 
-                getPlanAmount(m.plan_type).then(amount => {
+                // Default amount comes from the live plan price (Wazazi-aware).
+                getPlanAmount(m.plan_type, m.id).then(amount => {
                     const a = document.getElementById('stkAmount');
                     if (amount && !a.value) {
                         a.value = amount;
@@ -3544,6 +3582,26 @@
             if (!/^254(7|1)\d{8}$/.test(phone)) return setStkStatus('error', 'Enter a valid Safaricom number.');
             if (!amount || amount < 1 || !Number.isFinite(amount)) return setStkStatus('error', 'Enter a valid whole amount in KES.');
 
+            // Resolve the plan code robustly — never send "" to the backend.
+            const planCode = String(
+                stkSelectedMember.plan_type ||
+                stkSelectedMember.plan ||
+                stkSelectedMember.plan_code ||
+                ''
+            ).trim().toUpperCase();
+
+            if (!planCode) {
+                return setStkStatus('error', 'Member has no membership plan. Set a plan before sending an STK request.');
+            }
+
+            let parentCount = 0;
+            if (planCode === 'WAZAZI') {
+                parentCount = await countWazaziParents(stkSelectedMember.id);
+                if (parentCount < 1) {
+                    return setStkStatus('error', 'Wazazi requires at least 1 parent before sending payment.');
+                }
+            }
+
             const btn = document.getElementById('stkSendBtn');
             btn.disabled = true;
             setStkStatus('loading', 'Sending payment request to phone…');
@@ -3557,9 +3615,14 @@
                     headers: { 'Content-Type': 'application/json' },
                     signal: stkAbortController.signal,
                     body: JSON.stringify({
-                        phone, amount,
+                        phone,
+                        amount,
                         member_id: stkSelectedMember.id,
                         membership_number: getMembershipNumber(stkSelectedMember) || null,
+                        plan: planCode,
+                        plan_code: planCode,
+                        plan_type: planCode,
+                        parent_count: parentCount,
                         payment_type: 'subscription'
                     })
                 });
@@ -3835,7 +3898,8 @@
             addDependantRow, removeDependantRow, addParentRow, removeParentRow,
             addMemberDependant, createMemberDependant, editMemberDependant,
             saveMemberDependant, deleteMemberDependant, renderMemberDependants,
-            renewMemberNow
+            renewMemberNow,
+            getPlanPricing, calculateWazaziAmount, countWazaziParents, getPlanAmount
         });
 
         document.getElementById('memberModal').addEventListener('click', function(e) { if (e.target === this) closeMemberModal(); });
