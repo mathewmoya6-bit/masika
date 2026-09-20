@@ -1678,25 +1678,44 @@
             };
         }
 
-        // Counts Wazazi parents (dependants table, relationship = parent).
+        // ============================================================
+        // WAZAZI PARENT COUNT — reads both storage paths:
+        //   1. parents table (written by the Add Existing Member form)
+        //   2. dependants table with relationship in (parent, parents)
+        // ============================================================
         async function countWazaziParents(memberId) {
             if (!memberId) return 0;
+            let parentCount = 0;
+
+            // Source 1: parents table
+            try {
+                const { data, error } = await supabaseClient
+                    .from('parents')
+                    .select('id')
+                    .eq('member_id', memberId);
+                if (!error && Array.isArray(data)) parentCount += data.length;
+            } catch (err) {
+                // parents table might not exist yet — that's fine.
+            }
+
+            // Source 2: dependants with relationship = parent
             try {
                 const { data, error } = await supabaseClient
                     .from('dependants')
                     .select('id,relationship')
                     .eq('principal_member_id', memberId);
-
-                if (error) throw error;
-
-                return (data || []).filter(d => {
-                    const rel = String(d.relationship || '').trim().toLowerCase();
-                    return rel === 'parent' || rel === 'parents';
-                }).length;
+                if (!error && Array.isArray(data)) {
+                    const fromDeps = data.filter(d => {
+                        const rel = String(d.relationship || '').trim().toLowerCase();
+                        return rel === 'parent' || rel === 'parents';
+                    }).length;
+                    parentCount += fromDeps;
+                }
             } catch (err) {
-                console.warn('Could not count Wazazi parents:', err);
-                return 0;
+                console.warn('Could not count parents from dependants:', err);
             }
+
+            return parentCount;
         }
 
         // ============================================================
@@ -2359,6 +2378,12 @@
                 document.getElementById('memberPaymentOverride').checked = !!member.payment_override;
 
                 try {
+                    // Wazazi members: always re-count parents so the audit
+                    // uses the current parent count, not a stale cached one.
+                    if (String(member.plan_type || '').toLowerCase() === 'wazazi') {
+                        const parentCount = await countWazaziParents(member.id);
+                        member._wazazi_parent_count = parentCount;
+                    }
                     currentAudit = await reconcileMemberPaymentStatus(member, { persist: true, forcePayments: true });
                     currentAuditCache.set(String(member.id), currentAudit);
                     document.getElementById('memberStatusSelect').value = member.status || 'PENDING';
@@ -2393,6 +2418,13 @@
             const tenure = computeTenure(member.created_at);
             const renewal = computeRenewal(member.created_at);
             const validUntil = computeValidUntil(member);
+            const isWazazi = String(member.plan_type || '').toLowerCase() === 'wazazi';
+            const parentCount = Number(member._wazazi_parent_count);
+            const parentCountText = isWazazi
+                ? (Number.isFinite(parentCount)
+                    ? parentCount + (parentCount === 1 ? ' parent' : ' parents')
+                    : '<span style="color:var(--warning);">loading…</span>')
+                : '—';
 
             document.getElementById('memberPersonalInfo').innerHTML = `
                 <div><span class="label">Full Name</span><div class="value">${escapeHTML(member.first_name || '')} ${escapeHTML(member.last_name || '')}</div></div>
@@ -2412,6 +2444,7 @@
                 <div><span class="label">Membership Number</span><div class="value">${escapeHTML(getMembershipNumber(member) || '-')}</div></div>
                 <div><span class="label">Plan Type</span><div class="value">${escapeHTML(member.plan_type || '-')}</div></div>
                 <div><span class="label">Benefit Option</span><div class="value">${escapeHTML(member.benefit_option || '-')}</div></div>
+                <div><span class="label">Parents on plan</span><div class="value">${parentCountText}</div></div>
                 <div><span class="label">Registration Fee</span><div class="value">KES ${parseFloat(member.registration_fee || 0).toLocaleString()}</div></div>
                 <div><span class="label">Status</span><div class="value"><span class="status-badge ${member.status || 'PENDING'}">${member.status || 'PENDING'}</span></div></div>
                 <div><span class="label">Joined</span><div class="value">${member.created_at ? new Date(member.created_at).toLocaleDateString('en-KE') : '-'}</div></div>
@@ -2456,6 +2489,12 @@
             const totalDue = (audit.monthDetails?.length || 0) * monthly;
             const totalPaid = Array.from(audit.paidByMonth.values()).reduce((a, b) => a + b, 0);
 
+            const parentCount = Number(member._wazazi_parent_count);
+            const isWazazi = String(member.plan_type || '').toLowerCase() === 'wazazi';
+            const breakdown = (isWazazi && Number.isFinite(parentCount) && parentCount > 0)
+                ? ` <small style="color:var(--text-light);">(300 + ${parentCount}×350)</small>`
+                : '';
+
             const chips = (audit.monthDetails || []).map(m => {
                 const cls = m.state === 'paid' ? 'paid' : m.state === 'partial' ? 'partial' : 'missing';
                 const cur = m.isCurrent ? ' current' : '';
@@ -2466,7 +2505,7 @@
 
             el.innerHTML = `
                 <div class="audit-summary">
-                    <span class="as-item"><i class="fas fa-coins"></i> Monthly: <b>KES ${monthly.toLocaleString()}</b></span>
+                    <span class="as-item"><i class="fas fa-coins"></i> Monthly: <b>KES ${monthly.toLocaleString()}</b>${breakdown}</span>
                     <span class="as-item"><i class="fas fa-wallet"></i> Total paid: <b>KES ${totalPaid.toLocaleString()}</b></span>
                     <span class="as-item"><i class="fas fa-flag-checkered"></i> Due to date: <b>KES ${totalDue.toLocaleString()}</b></span>
                     <span class="as-item"><i class="fas fa-triangle-exclamation"></i> Missed/partial months: <b>${missed}</b></span>
@@ -2857,7 +2896,15 @@
                 </div>
                 <div class="form-grid">
                     <div class="form-group"><label>Full Name <span class="req">*</span></label><input type="text" class="par-name" maxlength="150" autocomplete="off"></div>
-                    <div class="form-group"><label>Relationship</label><input type="text" class="par-relationship" maxlength="50" placeholder="e.g. Mother, Father" autocomplete="off"></div>
+                    <div class="form-group">
+                        <label>Relationship to Member</label>
+                        <select class="par-relationship">
+                            <option value="PARENT" selected>Parent (default)</option>
+                            <option value="Mother">Mother</option>
+                            <option value="Father">Father</option>
+                            <option value="Guardian">Guardian</option>
+                        </select>
+                    </div>
                     <div class="form-group"><label>Phone</label><input type="tel" class="par-phone" placeholder="07XXXXXXXX" autocomplete="off"></div>
                     <div class="form-group"><label>Date of Birth</label><input type="date" class="par-dob"></div>
                     <div class="form-group full"><label>National ID</label><input type="text" class="par-id" maxlength="30" autocomplete="off"></div>
@@ -2891,7 +2938,9 @@
             const list = [];
             rows.forEach(row => {
                 const name = row.querySelector('.par-name').value.trim();
-                const relationship = row.querySelector('.par-relationship').value.trim();
+                const relField = row.querySelector('.par-relationship');
+                const relationshipRaw = relField ? relField.value.trim() : '';
+                const relationship = relationshipRaw || 'PARENT';
                 const phone = row.querySelector('.par-phone').value.trim();
                 const dob = row.querySelector('.par-dob').value;
                 const idNumber = row.querySelector('.par-id').value.trim();
