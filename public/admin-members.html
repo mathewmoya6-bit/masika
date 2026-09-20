@@ -820,9 +820,7 @@
             border-color: #b8d9c8;
             background: #fbfffd;
         }
-        #amParentsList .dependant-row .dependant-row-header span {
-            color: var(--primary);
-        }
+        #amParentsList .dependant-row .dependant-row-header span { color: var(--primary); }
 
         #amAddDependantBtn:disabled,
         #amAddParentBtn:disabled {
@@ -830,7 +828,6 @@
             cursor: not-allowed;
         }
 
-        /* Payment audit panel */
         .audit-panel {
             display: flex;
             flex-direction: column;
@@ -843,11 +840,7 @@
             font-size: 13px;
             align-items: center;
         }
-        .audit-summary .as-item {
-            display: inline-flex;
-            align-items: center;
-            gap: 6px;
-        }
+        .audit-summary .as-item { display: inline-flex; align-items: center; gap: 6px; }
         .audit-summary .as-item b { font-weight: 800; }
         .audit-months {
             display: flex;
@@ -1635,11 +1628,15 @@
         const MASIKA_API_BASE = 'https://masika-c921.onrender.com';
         const ORG_PAYBILL = '348127';
 
+        // ============================================================
+        // PLAN FALLBACK CONFIG
+        // Wazazi: main member 200, each parent 100, dependants allowed.
+        // ============================================================
         const PLAN_FALLBACK_CONFIG = {
-            comfort: { label: 'Comfort', amount: 300,  registrationFee: 200,  minParents: 0, maxParents: 0, maxDependants: null },
-            dignity: { label: 'Dignity', amount: 100,  registrationFee: 2000, minParents: 0, maxParents: 0, maxDependants: null },
-            wazazi:  { label: 'Wazazi',  amount: 350,  registrationFee: 100,  minParents: 1, maxParents: 4, maxDependants: 0    },
-            chama:   { label: 'Chama',   amount: 150,  registrationFee: 1200, minParents: 0, maxParents: 0, maxDependants: null }
+            comfort: { label: 'Comfort', amount: 300,  registrationFee: 200,  minParents: 0, maxParents: 0, maxDependants: null, parentFee: 0   },
+            dignity: { label: 'Dignity', amount: 100,  registrationFee: 2000, minParents: 0, maxParents: 0, maxDependants: null, parentFee: 0   },
+            wazazi:  { label: 'Wazazi',  amount: 350,  registrationFee: 200,  minParents: 1, maxParents: 4, maxDependants: null, parentFee: 100 },
+            chama:   { label: 'Chama',   amount: 150,  registrationFee: 1200, minParents: 0, maxParents: 0, maxDependants: null, parentFee: 0   }
         };
 
         // ============================================================
@@ -1695,7 +1692,11 @@
                             maxParents: Number(data.maximum_parents ?? data.max_parents ?? 0) || 0,
                             maxDependants: (data.max_dependants ?? data.maximum_dependants) != null
                                 ? Number(data.max_dependants ?? data.maximum_dependants)
-                                : null
+                                : null,
+                            parentFee: Number(
+                                data.parent_fee ?? data.parent_registration_fee ??
+                                data.parent_reg_fee ?? data.per_parent_fee ?? 0
+                            ) || 0
                         };
                         break;
                     }
@@ -1705,8 +1706,21 @@
             if (!resolved) {
                 const fb = PLAN_FALLBACK_CONFIG[key];
                 resolved = fb
-                    ? { label: fb.label, amount: fb.amount, registrationFee: fb.registrationFee, minParents: fb.minParents, maxParents: fb.maxParents, maxDependants: fb.maxDependants }
-                    : { label: key.charAt(0).toUpperCase() + key.slice(1), amount: 0, registrationFee: 0, minParents: 0, maxParents: 0, maxDependants: null };
+                    ? {
+                        label: fb.label,
+                        amount: fb.amount,
+                        registrationFee: fb.registrationFee,
+                        minParents: fb.minParents,
+                        maxParents: fb.maxParents,
+                        maxDependants: fb.maxDependants,
+                        parentFee: fb.parentFee || 0
+                    }
+                    : {
+                        label: key.charAt(0).toUpperCase() + key.slice(1),
+                        amount: 0, registrationFee: 0,
+                        minParents: 0, maxParents: 0, maxDependants: null,
+                        parentFee: 0
+                    };
             }
 
             planConfigCache[key] = resolved;
@@ -1809,6 +1823,7 @@
         let memberEditMode = false;
         let memberDependantsCache = [];
         let currentAudit = null;
+        const currentAuditCache = new Map();
 
         const membersList = document.getElementById('membersList');
         const pagination = document.getElementById('membersPagination');
@@ -1880,7 +1895,7 @@
         }
 
         // ============================================================
-        // PAYMENT RECONCILIATION (returns audit incl. missingMonths)
+        // PAYMENT RECONCILIATION
         // ============================================================
         let paymentRowsCache = null;
         let paymentRowsCacheAt = 0;
@@ -2049,8 +2064,10 @@
             const rows = await loadPaymentRows();
             if (!rows) return members;
             for (const m of members) {
-                try { await reconcileMemberPaymentStatus(m, { persist: true }); }
-                catch (e) { console.warn('Reconcile failed:', m.id, e); }
+                try {
+                    const audit = await reconcileMemberPaymentStatus(m, { persist: true });
+                    currentAuditCache.set(String(m.id), audit);
+                } catch (e) { console.warn('Reconcile failed:', m.id, e); }
             }
             return members;
         }
@@ -2103,7 +2120,6 @@
                 totalRecords = count || 0;
                 const reconciled = await reconcileVisibleMemberStatuses(data || []);
 
-                // Attach audit + tenure + renewal onto each row (client-side only)
                 for (const m of reconciled) {
                     m._tenure = computeTenure(m.created_at);
                     m._renewal = computeRenewal(m.created_at);
@@ -2111,11 +2127,8 @@
 
                 currentMembersCache = reconciled;
 
-                // Renewal filter is client-side
                 let visible = reconciled;
-                if (renewal) {
-                    visible = reconciled.filter(m => m._renewal.status === renewal);
-                }
+                if (renewal) visible = reconciled.filter(m => m._renewal.status === renewal);
 
                 renderMembers(visible);
                 renderPagination();
@@ -2221,9 +2234,6 @@
             membersList.innerHTML = html;
         }
 
-        // Cache audit results per member so the list can show missed months quickly.
-        const currentAuditCache = new Map();
-
         function renderPagination() {
             const totalPages = Math.ceil(totalRecords / pageSize);
             if (totalPages <= 1) { pagination.style.display = 'none'; return; }
@@ -2272,7 +2282,6 @@
                 document.getElementById('memberStatusSelect').value = member.status || 'PENDING';
                 document.getElementById('memberPlanSelect').value = member.plan_type || '';
 
-                // Run payment audit
                 try {
                     currentAudit = await reconcileMemberPaymentStatus(member, { persist: true, forcePayments: true });
                     currentAuditCache.set(String(member.id), currentAudit);
@@ -2387,7 +2396,6 @@
             }
         }
 
-        // -------- EDIT MODE --------
         function renderMemberEditFields(member) {
             const dob = member.date_of_birth ? String(member.date_of_birth).slice(0,10) : '';
 
@@ -2536,7 +2544,6 @@
                 const member = await getMemberRecord(memberId);
                 const base = member.created_at ? new Date(member.created_at) : new Date();
                 const next = new Date(base);
-                // Roll the anniversary forward by whole years until it is in the future
                 while (next <= new Date()) next.setFullYear(next.getFullYear() + 1);
 
                 const { error } = await supabaseClient
@@ -2672,21 +2679,45 @@
 
             const amount = Number(config.amount || 0);
             const regFee = Number(config.registrationFee || 0);
+            const parentFee = Number(config.parentFee || 0);
             const depLimit = planDependantLimit(config);
             const usesParents = planUsesParents(config);
 
             const depText = depLimit === null ? 'Unlimited' : depLimit === 0 ? 'Not allowed' : `Up to ${depLimit}`;
             const parentText = usesParents ? `${config.minParents}–${config.maxParents}` : 'Not required';
 
+            const parentCount = usesParents
+                ? byId('amParentsList').querySelectorAll('.dependant-row').length
+                : 0;
+            const parentTotal = parentFee * parentCount;
+            const grandTotal = regFee + parentTotal;
+
+            const parentFeeLine = (usesParents && parentFee > 0)
+                ? `<span class="ps-item"><i class="fas fa-user-friends"></i> Parent fee: <b>KES ${parentFee.toLocaleString()} each</b></span>`
+                : '';
+
+            const parentTotalLine = (usesParents && parentCount > 0)
+                ? `<span class="ps-item"><i class="fas fa-users"></i> Parents ×${parentCount}: <b>KES ${parentTotal.toLocaleString()}</b></span>`
+                : '';
+
+            const grandLine = (usesParents && parentFee > 0)
+                ? `<span class="ps-tag" style="background:#fff;border-color:var(--primary);color:var(--primary);">
+                        <i class="fas fa-calculator"></i> Total registration: KES ${grandTotal.toLocaleString()}
+                   </span>`
+                : '';
+
             summaryEl.innerHTML = `
                 <span class="ps-item"><i class="fas fa-tag"></i> Plan: <b>${escapeHTML(config.label)}</b></span>
                 <span class="ps-item"><i class="fas fa-coins"></i> Monthly: <b>KES ${amount.toLocaleString()}</b></span>
-                <span class="ps-item"><i class="fas fa-receipt"></i> Registration: <b>KES ${regFee.toLocaleString()}</b></span>
+                <span class="ps-item"><i class="fas fa-receipt"></i> Member registration: <b>KES ${regFee.toLocaleString()}</b></span>
+                ${parentFeeLine}
+                ${parentTotalLine}
                 <span class="ps-item"><i class="fas fa-user-friends"></i> Dependants: <b>${depText}</b></span>
                 <span class="ps-tag ${usesParents ? '' : 'warn'}">
                     <i class="fas ${usesParents ? 'fa-check' : 'fa-minus'}"></i>
                     Parents: ${parentText}
-                </span>`;
+                </span>
+                ${grandLine}`;
             summaryEl.style.display = 'flex';
         }
 
@@ -2699,6 +2730,7 @@
             const range = minParents === maxParents ? `exactly ${minParents}` : `${minParents}–${maxParents}`;
             hint.innerHTML = `This plan requires ${range} parent(s). Currently added: <span class="${ok ? 'count-ok' : 'count-bad'}">${count}</span>.`;
             byId('amAddParentBtn').disabled = count >= maxParents;
+            if (currentPlanConfig) renderPlanSummary(currentPlanConfig);
         }
 
         function addParentRow() {
@@ -2728,6 +2760,7 @@
                 </div>`;
             list.appendChild(row);
             updateParentsHint();
+            if (currentPlanConfig) renderPlanSummary(currentPlanConfig);
         }
 
         function removeParentRow(btn) {
@@ -2735,6 +2768,7 @@
             if (row) row.remove();
             renumberParentRows();
             updateParentsHint();
+            if (currentPlanConfig) renderPlanSummary(currentPlanConfig);
         }
 
         function renumberParentRows() {
@@ -3033,12 +3067,20 @@
                 };
                 Object.entries(optional).forEach(([k, v]) => { if (v) payload[k] = v; });
 
-                if (feeRaw !== '') payload.registration_fee = Number(feeRaw);
+                // Registration fee: typed value wins, otherwise compute
+                // from the plan (member reg + parent fees × parent count).
+                if (feeRaw !== '') {
+                    payload.registration_fee = Number(feeRaw);
+                } else if (currentPlanConfig) {
+                    const parentFee = Number(currentPlanConfig.parentFee || 0);
+                    const parentCount = planUsesParents(currentPlanConfig) ? parents.length : 0;
+                    const computed = Number(currentPlanConfig.registrationFee || 0) + parentFee * parentCount;
+                    if (computed > 0) payload.registration_fee = computed;
+                }
                 if (joined) payload.created_at = new Date(joined + 'T00:00:00').toISOString();
 
                 const { data, dropped } = await insertResilient('members', payload, ADD_MEMBER_CORE_COLUMNS);
 
-                // Reconcile payments immediately
                 let audit = null;
                 try {
                     paymentRowsCache = null;
@@ -3053,7 +3095,6 @@
                 }
                 if (dropped.length) notes.push(`fields skipped (no such column): ${dropped.join(', ')}`);
 
-                // Dependants
                 if (dependants.length) {
                     const depDropped = new Set();
                     const depFailed = [];
@@ -3072,7 +3113,6 @@
                     if (depFailed.length) notes.push(`could not save dependants: ${depFailed.join(', ')}`);
                 }
 
-                // Parents
                 if (parents.length) {
                     const parDropped = new Set();
                     const parFailed = [];
