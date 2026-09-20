@@ -545,6 +545,8 @@
         .btn-icon.idcard:hover { background: var(--gold); color: white; }
         .btn-icon.stk { background: var(--success-light); color: var(--success); }
         .btn-icon.stk:hover { background: var(--success); color: white; }
+        .btn-icon.delete { background: var(--danger-light); color: var(--danger); }
+        .btn-icon.delete:hover { background: var(--danger); color: white; }
 
         .status-badge {
             display: inline-block;
@@ -1300,6 +1302,14 @@
                 <div class="detail-grid" id="memberKinInfo"></div>
             </fieldset>
 
+            <fieldset>
+                <legend>Dependants</legend>
+                <div id="memberDependantsList"></div>
+                <button type="button" class="btn btn-secondary btn-sm" onclick="addMemberDependant()">
+                    <i class="fas fa-plus"></i> Add Dependant
+                </button>
+            </fieldset>
+
             <div class="form-error" id="memberModalError"></div>
             <div class="form-success" id="memberModalSuccess"></div>
         </div>
@@ -2015,6 +2025,7 @@
 
                 document.getElementById('memberModal').classList.add('open');
                 clearModalMessages();
+                loadMemberDependants(memberId);
 
             } catch (error) {
                 console.error('Open member modal error:', error);
@@ -2025,6 +2036,7 @@
         function closeMemberModal() {
             document.getElementById('memberModal').classList.remove('open');
             selectedMemberId = null;
+            memberDependantsCache = [];
             clearModalMessages();
         }
 
@@ -2211,6 +2223,231 @@
             }
 
             throw new Error(`Could not save the record in ${table}: too many fields are missing from that table.`);
+        }
+
+        async function updateResilient(table, id, payload, coreColumns) {
+            const attempt = { ...payload };
+            const dropped = [];
+
+            for (let i = 0; i < 12; i++) {
+                const { data, error } = await supabaseClient
+                    .from(table)
+                    .update(attempt)
+                    .eq('id', id)
+                    .select('*')
+                    .single();
+
+                if (!error) return { data, dropped };
+
+                const message = String(error.message || '');
+                const match = message.match(/Could not find the '([^']+)' column/i)
+                    || new RegExp(`column "?([a-z_0-9]+)"? of relation "?${table}"? does not exist`, 'i').exec(message);
+                const column = match ? match[1] : null;
+
+                if (column && column in attempt && !coreColumns.includes(column)) {
+                    dropped.push(column);
+                    delete attempt[column];
+                    continue;
+                }
+
+                throw error;
+            }
+
+            throw new Error(`Could not update the record in ${table}: too many fields are missing from that table.`);
+        }
+
+        // ------------------------------------------------------------
+        // DEPENDANTS management on the View Member modal (list, add,
+        // edit, delete — separate from the create-time rows on the
+        // Add Existing Member form).
+        // ------------------------------------------------------------
+        let memberDependantsCache = [];
+
+        function escapeAttr(value) {
+            return String(value || '')
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;')
+                .replace(/'/g, '&#039;');
+        }
+
+        async function loadMemberDependants(memberId) {
+            const container = byId('memberDependantsList');
+            container.innerHTML = '<p style="font-size:13px;color:var(--text-light);">Loading dependants…</p>';
+
+            try {
+                const { data, error } = await supabaseClient
+                    .from('dependants')
+                    .select('*')
+                    .eq('member_id', memberId);
+
+                if (error) throw error;
+
+                memberDependantsCache = data || [];
+                renderMemberDependants();
+            } catch (error) {
+                console.error('Load dependants error:', error);
+                container.innerHTML = '<p style="font-size:13px;color:var(--danger);">Failed to load dependants.</p>';
+            }
+        }
+
+        function renderMemberDependants() {
+            const container = byId('memberDependantsList');
+            if (!memberDependantsCache.length) {
+                container.innerHTML = '<p style="font-size:13px;color:var(--text-light);">No dependants on record.</p>';
+                return;
+            }
+            container.innerHTML = '';
+            memberDependantsCache.forEach(dep => container.appendChild(buildDependantViewRow(dep)));
+        }
+
+        function buildDependantViewRow(dep) {
+            const row = document.createElement('div');
+            row.className = 'dependant-row';
+            row.dataset.id = dep.id;
+
+            const bits = [];
+            if (dep.relationship) bits.push(escapeHTML(dep.relationship));
+            if (dep.date_of_birth) bits.push(new Date(dep.date_of_birth).toLocaleDateString('en-KE'));
+            if (dep.id_number) bits.push(`ID ${escapeHTML(dep.id_number)}`);
+
+            row.innerHTML = `
+                <div class="dependant-row-header">
+                    <span style="text-transform:none;font-size:13px;font-weight:700;color:var(--text);">${escapeHTML(dep.full_name || 'Unnamed')}</span>
+                    <div class="row-actions">
+                        <button type="button" class="btn-icon view" title="Edit" onclick="editMemberDependant('${dep.id}')"><i class="fas fa-pen"></i></button>
+                        <button type="button" class="btn-icon delete" title="Delete" onclick="deleteMemberDependant('${dep.id}')"><i class="fas fa-trash"></i></button>
+                    </div>
+                </div>
+                ${bits.length ? `<div style="font-size:12.5px;color:var(--text-light);">${bits.join(' · ')}</div>` : ''}
+            `;
+            return row;
+        }
+
+        function dependantEditFormHtml(dep) {
+            const dob = dep.date_of_birth ? String(dep.date_of_birth).slice(0, 10) : '';
+            return `
+                <div class="form-grid">
+                    <div class="form-group"><label>Full Name</label><input type="text" class="medep-name" maxlength="150" value="${escapeAttr(dep.full_name)}"></div>
+                    <div class="form-group"><label>Relationship</label><input type="text" class="medep-relationship" maxlength="50" placeholder="e.g. Child, Spouse" value="${escapeAttr(dep.relationship)}"></div>
+                    <div class="form-group"><label>Date of Birth</label><input type="date" class="medep-dob" value="${dob}"></div>
+                    <div class="form-group"><label>ID / Birth Cert. Number</label><input type="text" class="medep-id" maxlength="30" value="${escapeAttr(dep.id_number)}"></div>
+                </div>
+            `;
+        }
+
+        function editMemberDependant(id) {
+            const dep = memberDependantsCache.find(d => String(d.id) === String(id));
+            const row = byId('memberDependantsList').querySelector(`.dependant-row[data-id="${id}"]`);
+            if (!dep || !row) return;
+
+            row.innerHTML = `
+                ${dependantEditFormHtml(dep)}
+                <div class="modal-actions" style="margin-top:0;">
+                    <button type="button" class="btn btn-secondary btn-sm" onclick="renderMemberDependants()">Cancel</button>
+                    <button type="button" class="btn btn-primary btn-sm" onclick="saveMemberDependant('${id}')"><i class="fas fa-check"></i> Save</button>
+                </div>
+            `;
+        }
+
+        async function saveMemberDependant(id) {
+            const row = byId('memberDependantsList').querySelector(`.dependant-row[data-id="${id}"]`);
+            if (!row) return;
+
+            const name = row.querySelector('.medep-name').value.trim();
+            if (!name) {
+                showToast('Dependant needs a full name.', 'error');
+                return;
+            }
+
+            const dob = row.querySelector('.medep-dob').value;
+            const payload = {
+                full_name: name,
+                relationship: row.querySelector('.medep-relationship').value.trim(),
+                date_of_birth: dob || null,
+                id_number: row.querySelector('.medep-id').value.trim()
+            };
+
+            try {
+                const { data, dropped } = await updateResilient('dependants', id, payload, ADD_DEPENDANT_CORE_COLUMNS);
+                const idx = memberDependantsCache.findIndex(d => String(d.id) === String(id));
+                if (idx > -1) memberDependantsCache[idx] = data;
+                renderMemberDependants();
+                showToast(dropped.length
+                    ? `Dependant updated, but these fields don't exist on the dependants table: ${dropped.join(', ')}.`
+                    : 'Dependant updated.', dropped.length ? 'warning' : 'success');
+            } catch (error) {
+                console.error('Save dependant error:', error);
+                showToast('Failed to update dependant.', 'error');
+            }
+        }
+
+        async function deleteMemberDependant(id) {
+            if (!confirm('Remove this dependant?')) return;
+
+            try {
+                const { error } = await supabaseClient.from('dependants').delete().eq('id', id);
+                if (error) throw error;
+
+                memberDependantsCache = memberDependantsCache.filter(d => String(d.id) !== String(id));
+                renderMemberDependants();
+                showToast('Dependant removed.', 'success');
+            } catch (error) {
+                console.error('Delete dependant error:', error);
+                showToast('Failed to remove dependant.', 'error');
+            }
+        }
+
+        function addMemberDependant() {
+            if (!selectedMemberId) return;
+            const container = byId('memberDependantsList');
+            if (container.querySelector('.dependant-row[data-id="new"]')) return;
+
+            if (!memberDependantsCache.length) container.innerHTML = '';
+
+            const row = document.createElement('div');
+            row.className = 'dependant-row';
+            row.dataset.id = 'new';
+            row.innerHTML = `
+                ${dependantEditFormHtml({ full_name: '', relationship: '', date_of_birth: '', id_number: '' })}
+                <div class="modal-actions" style="margin-top:0;">
+                    <button type="button" class="btn btn-secondary btn-sm" onclick="renderMemberDependants()">Cancel</button>
+                    <button type="button" class="btn btn-primary btn-sm" onclick="createMemberDependant()"><i class="fas fa-check"></i> Save</button>
+                </div>
+            `;
+            container.appendChild(row);
+        }
+
+        async function createMemberDependant() {
+            const row = byId('memberDependantsList').querySelector('.dependant-row[data-id="new"]');
+            if (!row || !selectedMemberId) return;
+
+            const name = row.querySelector('.medep-name').value.trim();
+            if (!name) {
+                showToast('Dependant needs a full name.', 'error');
+                return;
+            }
+
+            const payload = { member_id: selectedMemberId, full_name: name };
+            const relationship = row.querySelector('.medep-relationship').value.trim();
+            const dob = row.querySelector('.medep-dob').value;
+            const idNumber = row.querySelector('.medep-id').value.trim();
+            if (relationship) payload.relationship = relationship;
+            if (dob) payload.date_of_birth = dob;
+            if (idNumber) payload.id_number = idNumber;
+
+            try {
+                const { data, dropped } = await insertResilient('dependants', payload, ADD_DEPENDANT_CORE_COLUMNS);
+                memberDependantsCache.push(data);
+                renderMemberDependants();
+                showToast(dropped.length
+                    ? `Dependant added, but these fields don't exist on the dependants table: ${dropped.join(', ')}.`
+                    : 'Dependant added.', dropped.length ? 'warning' : 'success');
+            } catch (error) {
+                console.error('Add dependant error:', error);
+                showToast('Failed to add dependant.', 'error');
+            }
         }
 
         async function insertMemberResilient(payload) {
@@ -2875,6 +3112,12 @@
         window.saveExistingMember = saveExistingMember;
         window.addDependantRow = addDependantRow;
         window.removeDependantRow = removeDependantRow;
+        window.addMemberDependant = addMemberDependant;
+        window.createMemberDependant = createMemberDependant;
+        window.editMemberDependant = editMemberDependant;
+        window.saveMemberDependant = saveMemberDependant;
+        window.deleteMemberDependant = deleteMemberDependant;
+        window.renderMemberDependants = renderMemberDependants;
 
         document.getElementById('memberModal').addEventListener('click', function(e) {
             if (e.target === this) {
