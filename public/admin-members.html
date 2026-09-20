@@ -1263,6 +1263,18 @@
             </div>
 
             <div class="status-row">
+                <label style="font-size:13px;font-weight:600;color:var(--text-light);">Payment tracking:</label>
+                <label style="display:flex;align-items:center;gap:6px;font-size:13px;font-weight:500;color:var(--text);cursor:pointer;">
+                    <input type="checkbox" id="memberPaymentOverride" style="width:16px;height:16px;">
+                    Manual (skip automatic audit)
+                </label>
+                <button class="btn btn-primary btn-sm" onclick="saveMemberPaymentOverride()">
+                    <i class="fas fa-check"></i> Update
+                </button>
+                <span style="font-size:12px;color:var(--text-light);">Use for members migrated from the old system who were already up to date.</span>
+            </div>
+
+            <div class="status-row">
                 <label style="font-size:13px;font-weight:600;color:var(--text-light);">Plan:</label>
                 <select id="memberPlanSelect">
                     <option value="">— No plan —</option>
@@ -1395,6 +1407,14 @@
                             <select id="amSalesCode">
                                 <option value="">Loading agents...</option>
                             </select>
+                        </div>
+                        <div class="form-group full" style="display:flex;align-items:center;gap:8px;">
+                            <input type="checkbox" id="amManualPaymentOverride" style="width:16px;height:16px;" checked>
+                            <label for="amManualPaymentOverride" style="text-transform:none;font-size:13px;font-weight:500;color:var(--text);margin:0;">
+                                Manual payment tracking (skip automatic audit) — recommended here since this member is
+                                migrated from the old system and was already up to date. Uncheck to let the system
+                                audit their M-Pesa payments automatically instead.
+                            </label>
                         </div>
                     </div>
                     <div class="plan-summary" id="amPlanSummary" style="display:none;"></div>
@@ -2000,6 +2020,22 @@
             };
             if (!member?.id || !member?.plan_type) return empty;
 
+            // Members flagged for manual payment tracking (typically migrated from
+            // the old system and already up to date there) are never auto-audited
+            // or auto-changed here — their status stays exactly as set by the admin.
+            if (member.payment_override) {
+                const monthlyAmount = Number(await getPlanAmount(member.plan_type));
+                return {
+                    status: member.status || 'PENDING',
+                    paymentAvailable: true,
+                    manualOverride: true,
+                    missingMonths: [],
+                    paidByMonth: new Map(),
+                    monthlyAmount: Number.isFinite(monthlyAmount) ? monthlyAmount : null,
+                    monthDetails: []
+                };
+            }
+
             if (['SUSPENDED','CANCELLED'].includes(String(member.status || '').toUpperCase())) {
                 return { ...empty, status: member.status };
             }
@@ -2189,10 +2225,13 @@
                 const tenure = m._tenure || computeTenure(m.created_at);
                 const renewal = m._renewal || computeRenewal(m.created_at);
 
-                const skipped = currentAuditCache.get(String(m.id))?.missingMonths?.length || 0;
-                const payBadge = skipped
-                    ? `<span class="mini-badge late" title="${skipped} month(s) missing or short"><i class="fas fa-exclamation-circle"></i> ${skipped} missed</span>`
-                    : `<span class="mini-badge ok"><i class="fas fa-check"></i> up to date</span>`;
+                const auditEntry = currentAuditCache.get(String(m.id));
+                const skipped = auditEntry?.missingMonths?.length || 0;
+                const payBadge = auditEntry?.manualOverride
+                    ? `<span class="mini-badge info" title="Payment tracked manually for this member"><i class="fas fa-user-check"></i> manual</span>`
+                    : skipped
+                        ? `<span class="mini-badge late" title="${skipped} month(s) missing or short"><i class="fas fa-exclamation-circle"></i> ${skipped} missed</span>`
+                        : `<span class="mini-badge ok"><i class="fas fa-check"></i> up to date</span>`;
 
                 html += `
                     <tr>
@@ -2281,6 +2320,7 @@
 
                 document.getElementById('memberStatusSelect').value = member.status || 'PENDING';
                 document.getElementById('memberPlanSelect').value = member.plan_type || '';
+                document.getElementById('memberPaymentOverride').checked = !!member.payment_override;
 
                 try {
                     currentAudit = await reconcileMemberPaymentStatus(member, { persist: true, forcePayments: true });
@@ -2354,6 +2394,18 @@
             const el = document.getElementById('memberAuditPanel');
             if (!audit) {
                 el.innerHTML = `<div style="font-size:13px;color:var(--text-light);">Payment audit unavailable.</div>`;
+                return;
+            }
+            if (audit.manualOverride) {
+                const monthly = audit.monthlyAmount || 0;
+                el.innerHTML = `
+                    <div style="font-size:13px;color:var(--text-light);display:flex;flex-direction:column;gap:6px;">
+                        <span class="mini-badge info" style="width:fit-content;"><i class="fas fa-user-check"></i> Manual tracking</span>
+                        <span>Payment status for this member is managed manually — automatic monthly reconciliation is disabled.
+                        This is normally used for members migrated from the old system who were already up to date.
+                        ${monthly ? `Monthly contribution for reference: <b>KES ${monthly.toLocaleString()}</b>.` : ''}</span>
+                        <span>Uncheck "Manual" in Payment tracking above and click Update to re-enable automatic auditing from M-Pesa payments.</span>
+                    </div>`;
                 return;
             }
             if (audit.skipped || audit.paymentAvailable === false) {
@@ -2433,7 +2485,7 @@
                     </select>
                 </div>
                 <div class="form-group"><label>Registration Fee (KES)</label><input type="number" id="emFee" min="0" step="1" value="${escapeAttr(member.registration_fee ?? '')}"></div>
-                <p class="hint" style="grid-column:1/-1;">Membership Number, Plan Type and Status are updated using the controls above.</p>`;
+                <p class="hint" style="grid-column:1/-1;">Membership Number, Plan Type, Status and Payment tracking are updated using the controls above.</p>`;
 
             document.getElementById('memberKinInfo').innerHTML = `
                 <div class="form-group"><label>Full Name</label><input type="text" id="emKinName" maxlength="150" value="${escapeAttr(member.kin_name)}"></div>
@@ -2893,6 +2945,7 @@
             resetDependantRows();
             resetParentRows();
             currentPlanConfig = null;
+            byId('amManualPaymentOverride').checked = true;
 
             byId('amParentsSection').style.display = 'none';
             byId('amDependantsHint').style.display = 'none';
@@ -3048,7 +3101,8 @@
                 const payload = {
                     [numberCol || 'membership_number']: membership_number,
                     first_name, last_name, phone, plan_type,
-                    status: val('amStatus') || 'ACTIVE'
+                    status: val('amStatus') || 'ACTIVE',
+                    payment_override: byId('amManualPaymentOverride').checked
                 };
 
                 const optional = {
@@ -3088,7 +3142,9 @@
                 } catch (e) { console.warn('Post-insert audit failed:', e); }
 
                 const notes = [];
-                if (audit?.paymentAvailable && audit.missingMonths?.length) {
+                if (audit?.manualOverride) {
+                    notes.push('payment tracking set to manual (migrated member) — status left as entered');
+                } else if (audit?.paymentAvailable && audit.missingMonths?.length) {
                     notes.push(`payment audit: ${audit.missingMonths.length} month(s) missing or short; member set to DORMANT`);
                 } else if (audit?.paymentAvailable && audit.status === 'ACTIVE') {
                     notes.push('payment audit: all due monthly contributions received');
@@ -3530,7 +3586,7 @@
         }
 
         // ============================================================
-        // VALIDATE / SAVE STATUS / PLAN
+        // VALIDATE / SAVE STATUS / PLAN / PAYMENT TRACKING
         // ============================================================
         async function validateMemberPayments(memberId, force = true) {
             try {
@@ -3542,7 +3598,9 @@
                 currentAudit = audit;
                 currentAuditCache.set(String(memberId), audit);
 
-                if (audit.skipped) {
+                if (audit.manualOverride) {
+                    showToast('Payment tracking is manual for this member — automatic validation skipped.', 'info');
+                } else if (audit.skipped) {
                     showToast('Payment audit skipped (payments/plan amount unavailable). Status unchanged.', 'warning');
                 } else if (audit.status === 'ACTIVE') {
                     showToast('All due monthly contributions received. Member is ACTIVE.', 'success');
@@ -3573,10 +3631,43 @@
                     .update({ status: ns, updated_at: new Date().toISOString() })
                     .eq('id', selectedMemberId);
                 if (error) throw error;
+                if (currentMemberRecord) currentMemberRecord.status = ns;
                 showModalSuccess(`Status updated to ${ns}.`);
                 loadMembers(currentPage);
             } catch (err) {
                 showModalError(`Failed to update status: ${err.message || 'unknown error'}`);
+            }
+        }
+
+        async function saveMemberPaymentOverride() {
+            if (!selectedMemberId) return showModalError('No member selected.');
+            const manual = document.getElementById('memberPaymentOverride').checked;
+            try {
+                const { data, error } = await supabaseClient.from('members')
+                    .update({ payment_override: manual, updated_at: new Date().toISOString() })
+                    .eq('id', selectedMemberId)
+                    .select('*')
+                    .single();
+                if (error) throw error;
+
+                currentMemberRecord = data;
+                showModalSuccess(manual
+                    ? 'Payment tracking set to manual — automatic audit disabled for this member.'
+                    : 'Payment tracking set to automatic — status will follow M-Pesa payments again.');
+
+                currentAudit = await reconcileMemberPaymentStatus(data, { persist: true, forcePayments: true });
+                currentAuditCache.set(String(data.id), currentAudit);
+                document.getElementById('memberStatusSelect').value = data.status || 'PENDING';
+                renderAuditPanel(data, currentAudit);
+                loadMembers(currentPage);
+            } catch (err) {
+                console.error('Save payment override error:', err);
+                const msg = String(err?.message || '');
+                if (/payment_override.*column|column.*payment_override/i.test(msg)) {
+                    showModalError('Could not save: the "payment_override" column does not exist on the members table yet. Add it in Supabase (boolean, default false) to use manual payment tracking.');
+                } else {
+                    showModalError(`Failed to update payment tracking: ${msg || 'unknown error'}`);
+                }
             }
         }
 
@@ -3737,7 +3828,7 @@
         Object.assign(window, {
             loadMembers, applyFilters, resetFilters, changePage, refreshData,
             openMemberModal, closeMemberModal, toggleEditMember, saveMemberDetails,
-            saveMemberStatus, validateMemberPayments, saveMemberPlan, exportMembers,
+            saveMemberStatus, saveMemberPaymentOverride, validateMemberPayments, saveMemberPlan, exportMembers,
             handleLogout, showToast, openIdCardModal, closeIdCardModal, printIdCard,
             openStkPushModal, closeStkPushModal, sendStkPush,
             openAddMemberModal, closeAddMemberModal, saveExistingMember, handlePlanChange,
