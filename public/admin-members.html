@@ -1615,7 +1615,7 @@
         //     what IS populated, to pin down the real column/table.
         // ============================================================
         const MEMBERSHIP_NUMBER_KEYS = [
-            'membership_number', 'member_number', 'membership_no',
+            'member_number', 'membership_number', 'membership_no',
             'member_no', 'reg_number', 'registration_number',
             'membership_id_number', 'card_number'
         ];
@@ -1629,6 +1629,14 @@
         }
 
         let _loggedMissingNumberOnce = false;
+
+        // Confirmed: the `members` table's real column is `member_number`
+        // (not `membership_number`). Hardcoded now instead of probed.
+        let membershipNumberColumn = 'member_number';
+
+        async function detectMembershipNumberColumn() {
+            return membershipNumberColumn;
+        }
 
         function getMembershipNumber(member) {
             const direct = extractMembershipNumber(member);
@@ -1795,13 +1803,15 @@
                     .select('*', { count: 'exact' });
 
                 if (search) {
-                    query = query.or(
-                        `first_name.ilike.%${search}%,` +
-                        `last_name.ilike.%${search}%,` +
-                        `membership_number.ilike.%${search}%,` +
-                        `phone.ilike.%${search}%,` +
+                    const numberCol = await detectMembershipNumberColumn();
+                    const orTerms = [
+                        `first_name.ilike.%${search}%`,
+                        `last_name.ilike.%${search}%`,
+                        `phone.ilike.%${search}%`,
                         `id_number.ilike.%${search}%`
-                    );
+                    ];
+                    if (numberCol) orTerms.splice(2, 0, `${numberCol}.ilike.%${search}%`);
+                    query = query.or(orTerms.join(','));
                 }
 
                 if (status) {
@@ -2036,7 +2046,12 @@
         ];
 
         // Columns the insert cannot work without; never dropped on retry.
-        const ADD_MEMBER_CORE_COLUMNS = ['membership_number', 'first_name', 'last_name', 'phone', 'plan_type'];
+        // membership_number is NOT a real column on this members table
+        // (confirmed error: "column members.membership_number does not
+        // exist"), so it is not core — it's written under whichever
+        // candidate key detectMembershipNumberColumn() finds, and dropped
+        // like any other optional field if none of them exist.
+        const ADD_MEMBER_CORE_COLUMNS = ['first_name', 'last_name', 'phone', 'plan_type'];
         const ADD_DEPENDANT_CORE_COLUMNS = ['member_id', 'full_name'];
 
         let addMemberSaving = false;
@@ -2278,13 +2293,16 @@
                 const { data: { session } } = await supabaseClient.auth.getSession();
                 if (!session?.user) throw new Error('Your session has expired. Please log in again.');
 
-                const { data: sameNumber, error: numberError } = await supabaseClient
-                    .from('members')
-                    .select('id')
-                    .eq('membership_number', membership_number)
-                    .limit(1);
-                if (numberError) throw numberError;
-                if (sameNumber && sameNumber.length) return fail('A member with this membership number already exists.');
+                const numberCol = await detectMembershipNumberColumn();
+                if (numberCol) {
+                    const { data: sameNumber, error: numberError } = await supabaseClient
+                        .from('members')
+                        .select('id')
+                        .eq(numberCol, membership_number)
+                        .limit(1);
+                    if (numberError) throw numberError;
+                    if (sameNumber && sameNumber.length) return fail('A member with this membership number already exists.');
+                }
 
                 if (id_number) {
                     const { data: sameId, error: idError } = await supabaseClient
@@ -2297,7 +2315,7 @@
                 }
 
                 const payload = {
-                    membership_number,
+                    [numberCol || 'membership_number']: membership_number,
                     first_name,
                     last_name,
                     phone,
