@@ -826,6 +826,15 @@
             letter-spacing: 0.03em;
         }
 
+        .plan-fieldset-hint {
+            font-size: 12px;
+            color: var(--text-light);
+            margin-bottom: 10px;
+        }
+
+        .plan-fieldset-hint .count-ok { color: var(--success); font-weight: 700; }
+        .plan-fieldset-hint .count-bad { color: var(--danger); font-weight: 700; }
+
         .toast-container {
             position: fixed;
             right: 20px;
@@ -1341,13 +1350,14 @@
                         </div>
                         <div class="form-group">
                             <label for="amPlan">Plan <span class="req">*</span></label>
-                            <select id="amPlan">
+                            <select id="amPlan" onchange="handlePlanChange()">
                                 <option value="">Select plan</option>
                                 <option value="comfort">Comfort</option>
                                 <option value="dignity">Dignity</option>
                                 <option value="wazazi">Wazazi</option>
                                 <option value="chama">Chama</option>
                             </select>
+                            <span class="hint" id="amPlanHint"></span>
                         </div>
                         <div class="form-group">
                             <label for="amStatus">Status</label>
@@ -1469,10 +1479,21 @@
                     </div>
                 </fieldset>
 
+                <!-- Plan-specific: Parents (Wazazi and any plan configured with minimum_parents/maximum_parents > 0) -->
+                <fieldset id="amParentsSection" style="display:none;">
+                    <legend>Parents on this Plan</legend>
+                    <p class="plan-fieldset-hint" id="amParentsHint"></p>
+                    <div id="amParentsList"></div>
+                    <button type="button" class="btn btn-secondary btn-sm" id="amAddParentBtn" onclick="addParentRow()">
+                        <i class="fas fa-plus"></i> Add Parent
+                    </button>
+                </fieldset>
+
                 <fieldset>
                     <legend>Dependants</legend>
+                    <p class="plan-fieldset-hint" id="amDependantsHint" style="display:none;"></p>
                     <div id="amDependantsList"></div>
-                    <button type="button" class="btn btn-secondary btn-sm" onclick="addDependantRow()">
+                    <button type="button" class="btn btn-secondary btn-sm" id="amAddDependantBtn" onclick="addDependantRow()">
                         <i class="fas fa-plus"></i> Add Dependant
                     </button>
                 </fieldset>
@@ -1606,10 +1627,10 @@
         const ORG_PAYBILL = '348127';
 
         const PLAN_FALLBACK_CONFIG = {
-            comfort: { label: 'Comfort', amount: 300, registrationFee: 200 },
-            dignity: { label: 'Dignity', amount: 100, registrationFee: 2000 },
-            wazazi:  { label: 'Wazazi',  amount: 350, registrationFee: 100 },
-            chama:   { label: 'Chama',   amount: 150, registrationFee: 1200 }
+            comfort: { label: 'Comfort', amount: 300, registrationFee: 200, minParents: 0, maxParents: 0, maxDependants: null },
+            dignity: { label: 'Dignity', amount: 100, registrationFee: 2000, minParents: 0, maxParents: 0, maxDependants: null },
+            wazazi:  { label: 'Wazazi',  amount: 350, registrationFee: 100, minParents: 1, maxParents: 4, maxDependants: 0 },
+            chama:   { label: 'Chama',   amount: 150, registrationFee: 1200, minParents: 0, maxParents: 0, maxDependants: null }
         };
 
         // ============================================================
@@ -1684,6 +1705,57 @@
             }
 
             return PLAN_FALLBACK_CONFIG[key]?.amount ?? null;
+        }
+
+        // ============================================================
+        // PLAN CONFIG RESOLVER
+        // ------------------------------------------------------------
+        // Mirrors the fields admin-pricing.html manages for each plan
+        // (minimum_parents / maximum_parents / max_dependants), so the
+        // Add Existing Member form can show only the fields that are
+        // actually relevant to the selected plan — e.g. Wazazi needs
+        // 1-4 parents captured, other plans don't.
+        // ============================================================
+        const planConfigCache = {};
+
+        async function getPlanConfig(planType) {
+            const key = String(planType || '').toLowerCase();
+            if (!key) return null;
+            if (planConfigCache[key]) return planConfigCache[key];
+
+            let resolved = null;
+
+            for (const tableName of ['plans', 'pricing', 'plan_pricing']) {
+                try {
+                    const { data, error } = await supabaseClient
+                        .from(tableName)
+                        .select('*')
+                        .eq('plan_type', key)
+                        .maybeSingle();
+
+                    if (!error && data) {
+                        resolved = {
+                            label: key.charAt(0).toUpperCase() + key.slice(1),
+                            minParents: Number(data.minimum_parents ?? data.min_parents ?? 0) || 0,
+                            maxParents: Number(data.maximum_parents ?? data.max_parents ?? 0) || 0,
+                            maxDependants: (data.max_dependants ?? data.maximum_dependants) != null
+                                ? Number(data.max_dependants ?? data.maximum_dependants)
+                                : null
+                        };
+                        break;
+                    }
+                } catch (e) { /* table doesn't exist — try the next name */ }
+            }
+
+            if (!resolved) {
+                const fallback = PLAN_FALLBACK_CONFIG[key];
+                resolved = fallback
+                    ? { label: fallback.label, minParents: fallback.minParents, maxParents: fallback.maxParents, maxDependants: fallback.maxDependants }
+                    : { label: key.charAt(0).toUpperCase() + key.slice(1), minParents: 0, maxParents: 0, maxDependants: null };
+            }
+
+            planConfigCache[key] = resolved;
+            return resolved;
         }
 
         function computeValidUntil(member) {
@@ -2065,9 +2137,12 @@
         // like any other optional field if none of them exist.
         const ADD_MEMBER_CORE_COLUMNS = ['first_name', 'last_name', 'phone', 'plan_type'];
         const ADD_DEPENDANT_CORE_COLUMNS = ['member_id', 'full_name'];
+        const ADD_PARENT_CORE_COLUMNS = ['member_id', 'full_name'];
 
         let addMemberSaving = false;
         let dependantRowSeq = 0;
+        let parentRowSeq = 0;
+        let currentPlanConfig = null;
 
         function byId(id) { return document.getElementById(id); }
 
@@ -2083,9 +2158,163 @@
         }
 
         // ------------------------------------------------------------
+        // PLAN-SPECIFIC FIELDS
+        // ------------------------------------------------------------
+        // Selecting a plan on the Add Existing Member form fetches that
+        // plan's configuration (same source admin-pricing.html manages:
+        // minimum_parents / maximum_parents / max_dependants) and shows
+        // only the fields relevant to it — e.g. Wazazi needs 1-4 parents
+        // captured, other plans just use the general Dependants section.
+        // ------------------------------------------------------------
+        async function handlePlanChange() {
+            const planType = byId('amPlan').value;
+            const planHint = byId('amPlanHint');
+            const parentsSection = byId('amParentsSection');
+            const dependantsHint = byId('amDependantsHint');
+
+            resetParentRows();
+
+            if (!planType) {
+                currentPlanConfig = null;
+                planHint.textContent = '';
+                parentsSection.style.display = 'none';
+                dependantsHint.style.display = 'none';
+                byId('amAddDependantBtn').disabled = false;
+                return;
+            }
+
+            planHint.textContent = 'Loading plan details…';
+
+            try {
+                const config = await getPlanConfig(planType);
+                currentPlanConfig = config;
+
+                if (config.maxParents > 0) {
+                    parentsSection.style.display = 'block';
+                    updateParentsHint();
+                    // Pre-fill the minimum required parent rows
+                    for (let i = 0; i < config.minParents; i++) addParentRow();
+                } else {
+                    parentsSection.style.display = 'none';
+                }
+
+                if (Number.isFinite(config.maxDependants) && config.maxDependants !== null) {
+                    dependantsHint.style.display = 'block';
+                    dependantsHint.textContent = config.maxDependants > 0
+                        ? `Up to ${config.maxDependants} dependant${config.maxDependants === 1 ? '' : 's'} allowed on this plan.`
+                        : 'This plan does not allow dependants.';
+                    byId('amAddDependantBtn').disabled = config.maxDependants <= 0;
+                } else {
+                    dependantsHint.style.display = 'none';
+                    byId('amAddDependantBtn').disabled = false;
+                }
+
+                planHint.textContent = '';
+            } catch (error) {
+                console.error('Load plan config error:', error);
+                planHint.textContent = '';
+            }
+        }
+
+        function updateParentsHint() {
+            if (!currentPlanConfig) return;
+            const hint = byId('amParentsHint');
+            const count = byId('amParentsList').querySelectorAll('.dependant-row').length;
+            const { minParents, maxParents } = currentPlanConfig;
+            const ok = count >= minParents && count <= maxParents;
+            const range = minParents === maxParents ? `exactly ${minParents}` : `${minParents}-${maxParents}`;
+            hint.innerHTML = `This plan requires ${range} parent(s). Currently added: <span class="${ok ? 'count-ok' : 'count-bad'}">${count}</span>.`;
+            byId('amAddParentBtn').disabled = count >= maxParents;
+        }
+
+        // ------------------------------------------------------------
+        // PARENTS (Wazazi-style plans: 1-4 parents per membership)
+        // ------------------------------------------------------------
+        function addParentRow() {
+            if (currentPlanConfig && byId('amParentsList').querySelectorAll('.dependant-row').length >= currentPlanConfig.maxParents) {
+                return;
+            }
+            const list = byId('amParentsList');
+            const index = parentRowSeq++;
+            const row = document.createElement('div');
+            row.className = 'dependant-row';
+            row.dataset.index = index;
+            row.innerHTML = `
+                <div class="dependant-row-header">
+                    <span>Parent ${list.children.length + 1}</span>
+                    <button type="button" class="btn btn-outline btn-sm" onclick="removeParentRow(this)">
+                        <i class="fas fa-trash"></i> Remove
+                    </button>
+                </div>
+                <div class="form-grid">
+                    <div class="form-group">
+                        <label>Full Name</label>
+                        <input type="text" class="par-name" maxlength="150" autocomplete="off">
+                    </div>
+                    <div class="form-group">
+                        <label>Relationship to Member</label>
+                        <input type="text" class="par-relationship" maxlength="50" placeholder="e.g. Mother, Father" autocomplete="off">
+                    </div>
+                    <div class="form-group">
+                        <label>Phone</label>
+                        <input type="tel" class="par-phone" placeholder="07XXXXXXXX" autocomplete="off">
+                    </div>
+                    <div class="form-group">
+                        <label>Date of Birth</label>
+                        <input type="date" class="par-dob">
+                    </div>
+                    <div class="form-group full">
+                        <label>ID Number</label>
+                        <input type="text" class="par-id" maxlength="30" autocomplete="off">
+                    </div>
+                </div>
+            `;
+            list.appendChild(row);
+            updateParentsHint();
+        }
+
+        function removeParentRow(btn) {
+            const row = btn.closest('.dependant-row');
+            if (row) row.remove();
+            renumberParentRows();
+            updateParentsHint();
+        }
+
+        function renumberParentRows() {
+            byId('amParentsList').querySelectorAll('.dependant-row').forEach((row, i) => {
+                row.querySelector('.dependant-row-header span').textContent = `Parent ${i + 1}`;
+            });
+        }
+
+        function resetParentRows() {
+            byId('amParentsList').innerHTML = '';
+            parentRowSeq = 0;
+        }
+
+        function collectParents() {
+            const rows = byId('amParentsList').querySelectorAll('.dependant-row');
+            const list = [];
+            rows.forEach(row => {
+                const name = row.querySelector('.par-name').value.trim();
+                const relationship = row.querySelector('.par-relationship').value.trim();
+                const phone = row.querySelector('.par-phone').value.trim();
+                const dob = row.querySelector('.par-dob').value;
+                const idNumber = row.querySelector('.par-id').value.trim();
+                if (name || relationship || phone || dob || idNumber) {
+                    list.push({ name, relationship, phone, dob, idNumber });
+                }
+            });
+            return list;
+        }
+
+        // ------------------------------------------------------------
         // DEPENDANTS (children/other beneficiaries tied to a member)
         // ------------------------------------------------------------
         function addDependantRow() {
+            if (currentPlanConfig && Number.isFinite(currentPlanConfig.maxDependants) &&
+                byId('amDependantsList').querySelectorAll('.dependant-row').length >= currentPlanConfig.maxDependants) {
+                return;
+            }
             const list = byId('amDependantsList');
             const index = dependantRowSeq++;
             const row = document.createElement('div');
@@ -2118,12 +2347,18 @@
                 </div>
             `;
             list.appendChild(row);
+            if (currentPlanConfig && Number.isFinite(currentPlanConfig.maxDependants)) {
+                byId('amAddDependantBtn').disabled = list.querySelectorAll('.dependant-row').length >= currentPlanConfig.maxDependants;
+            }
         }
 
         function removeDependantRow(btn) {
             const row = btn.closest('.dependant-row');
             if (row) row.remove();
             renumberDependantRows();
+            if (currentPlanConfig && Number.isFinite(currentPlanConfig.maxDependants)) {
+                byId('amAddDependantBtn').disabled = byId('amDependantsList').querySelectorAll('.dependant-row').length >= currentPlanConfig.maxDependants;
+            }
         }
 
         function renumberDependantRows() {
@@ -2185,6 +2420,12 @@
             byId('addMemberError').style.display = 'none';
             ensureCountyOptions();
             resetDependantRows();
+            resetParentRows();
+            currentPlanConfig = null;
+            byId('amParentsSection').style.display = 'none';
+            byId('amDependantsHint').style.display = 'none';
+            byId('amPlanHint').textContent = '';
+            byId('amAddDependantBtn').disabled = false;
             byId('addMemberModal').classList.add('open');
             loadAgentsForAddMember();
             setTimeout(() => byId('amNumber').focus(), 50);
@@ -2521,6 +2762,32 @@
                 }
             }
 
+            if (currentPlanConfig && currentPlanConfig.maxDependants !== null &&
+                Number.isFinite(currentPlanConfig.maxDependants) && dependants.length > currentPlanConfig.maxDependants) {
+                return fail(`This plan allows at most ${currentPlanConfig.maxDependants} dependant(s).`);
+            }
+
+            // Plan-specific: parents (e.g. Wazazi requires 1-4)
+            const parents = collectParents();
+            if (currentPlanConfig && currentPlanConfig.maxParents > 0) {
+                if (parents.length < currentPlanConfig.minParents || parents.length > currentPlanConfig.maxParents) {
+                    const range = currentPlanConfig.minParents === currentPlanConfig.maxParents
+                        ? `exactly ${currentPlanConfig.minParents}`
+                        : `${currentPlanConfig.minParents}-${currentPlanConfig.maxParents}`;
+                    return fail(`This plan requires ${range} parent(s). Currently added: ${parents.length}.`);
+                }
+                for (const par of parents) {
+                    if (!par.name) return fail('Every parent needs a full name.');
+                    if (par.dob && (isNaN(new Date(par.dob).getTime()) || new Date(par.dob) > today)) {
+                        return fail(`Enter a valid date of birth for parent "${par.name}".`);
+                    }
+                    if (par.phone) {
+                        const parPhone = normalizeMsisdn(par.phone);
+                        if (!phonePattern.test(parPhone)) return fail(`Enter a valid phone number for parent "${par.name}".`);
+                    }
+                }
+            }
+
             addMemberSaving = true;
             const saveBtn = byId('amSaveBtn');
             saveBtn.disabled = true;
@@ -2619,9 +2886,46 @@
                     }
                 }
 
+                if (parents.length) {
+                    const parDropped = new Set();
+                    const parFailed = [];
+                    let parTableMissing = false;
+                    for (const par of parents) {
+                        const parPayload = { member_id: data.id, full_name: par.name };
+                        if (par.relationship) parPayload.relationship = par.relationship;
+                        if (par.phone) parPayload.phone = normalizeMsisdn(par.phone);
+                        if (par.dob) parPayload.date_of_birth = par.dob;
+                        if (par.idNumber) parPayload.id_number = par.idNumber;
+
+                        try {
+                            const parResult = await insertResilient('parents', parPayload, ADD_PARENT_CORE_COLUMNS);
+                            parResult.dropped.forEach(c => parDropped.add(c));
+                        } catch (parError) {
+                            console.error('Add parent error:', parError);
+                            const msg = String(parError?.message || '');
+                            if (/relation .*parents.* does not exist|could not find the table/i.test(msg)) {
+                                parTableMissing = true;
+                            }
+                            parFailed.push(par.name);
+                        }
+                    }
+                    if (parTableMissing) {
+                        notes.push(`parents could not be saved — there is no "parents" table in Supabase yet, so ${parents.length} parent(s) were not recorded`);
+                    } else {
+                        if (parDropped.size) {
+                            notes.push(`parent fields skipped (no such column on the parents table): ${[...parDropped].join(', ')}`);
+                        }
+                        if (parFailed.length) {
+                            notes.push(`could not save these parents: ${parFailed.join(', ')}`);
+                        }
+                    }
+                }
+
                 byId('addMemberModal').classList.remove('open');
                 byId('addMemberForm').reset();
                 resetDependantRows();
+                resetParentRows();
+                currentPlanConfig = null;
 
                 if (notes.length) showToast(`Member added, but ${notes.join('; and ')}.`, 'warning');
                 else showToast(`Member ${membership_number} added.`, 'success');
@@ -3110,8 +3414,11 @@
         window.openAddMemberModal = openAddMemberModal;
         window.closeAddMemberModal = closeAddMemberModal;
         window.saveExistingMember = saveExistingMember;
+        window.handlePlanChange = handlePlanChange;
         window.addDependantRow = addDependantRow;
         window.removeDependantRow = removeDependantRow;
+        window.addParentRow = addParentRow;
+        window.removeParentRow = removeParentRow;
         window.addMemberDependant = addMemberDependant;
         window.createMemberDependant = createMemberDependant;
         window.editMemberDependant = editMemberDependant;
