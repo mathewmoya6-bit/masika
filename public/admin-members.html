@@ -103,11 +103,7 @@
             font-size: 20px;
         }
 
-        .sidebar-brand .logo-text {
-            font-weight: 800;
-            font-size: 20px;
-            letter-spacing: -0.5px;
-        }
+        .sidebar-brand .logo-text { font-weight: 800; font-size: 20px; letter-spacing: -0.5px; }
 
         .sidebar-brand .logo-sub {
             font-size: 11px;
@@ -250,11 +246,7 @@
 
         .topbar-left { display: flex; align-items: center; gap: 16px; }
 
-        .topbar h1 {
-            font-size: 28px;
-            font-weight: 800;
-            letter-spacing: -0.5px;
-        }
+        .topbar h1 { font-size: 28px; font-weight: 800; letter-spacing: -0.5px; }
 
         .topbar h1 small {
             font-size: 14px;
@@ -310,13 +302,6 @@
             box-shadow: 0 4px 16px rgba(25, 135, 84, 0.3);
         }
 
-        .btn-danger { background: var(--danger); color: white; }
-        .btn-danger:hover {
-            background: #c82333;
-            transform: translateY(-2px);
-            box-shadow: 0 4px 16px rgba(220, 53, 69, 0.3);
-        }
-
         .btn-secondary { background: var(--gray-200); color: var(--text); }
         .btn-secondary:hover { background: var(--gray-300); transform: translateY(-2px); }
 
@@ -339,12 +324,7 @@
         }
 
         .btn-sm { padding: 4px 12px; font-size: 12px; border-radius: 6px; }
-
-        .btn:disabled {
-            opacity: 0.6;
-            cursor: not-allowed;
-            transform: none !important;
-        }
+        .btn:disabled { opacity: 0.6; cursor: not-allowed; transform: none !important; }
 
         .card {
             background: white;
@@ -447,8 +427,6 @@
         .btn-icon.idcard:hover { background: var(--gold); color: white; }
         .btn-icon.stk { background: var(--success-light); color: var(--success); }
         .btn-icon.stk:hover { background: var(--success); color: white; }
-        .btn-icon.delete { background: var(--danger-light); color: var(--danger); }
-        .btn-icon.delete:hover { background: var(--danger); color: white; }
 
         .status-badge {
             display: inline-block;
@@ -488,6 +466,28 @@
 
         .duration-cell { display: flex; flex-direction: column; gap: 3px; }
         .duration-cell small { color: var(--text-light); font-size: 11px; }
+
+        /* Payment display matching the view's missed_months */
+        .missed-payment {
+            display: inline-block;
+            padding: 3px 12px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: 700;
+            background: var(--danger-light);
+            color: var(--danger);
+            white-space: nowrap;
+        }
+        .paid-status {
+            display: inline-block;
+            padding: 3px 12px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: 700;
+            background: var(--success-light);
+            color: var(--success);
+            white-space: nowrap;
+        }
 
         .pagination {
             display: flex;
@@ -773,10 +773,7 @@
         #amParentsList .dependant-row .dependant-row-header span { color: var(--primary); }
 
         #amAddDependantBtn:disabled,
-        #amAddParentBtn:disabled {
-            opacity: 0.45;
-            cursor: not-allowed;
-        }
+        #amAddParentBtn:disabled { opacity: 0.45; cursor: not-allowed; }
 
         .audit-panel { display: flex; flex-direction: column; gap: 10px; }
         .audit-summary {
@@ -867,11 +864,7 @@
             animation: spin 0.7s linear infinite; flex-shrink: 0;
         }
 
-        #idCardPrintArea {
-            display: flex;
-            justify-content: center;
-            padding: 10px 0 4px;
-        }
+        #idCardPrintArea { display: flex; justify-content: center; padding: 10px 0 4px; }
 
         .id-card {
             width: 340px;
@@ -904,68 +897,32 @@
         .id-card-body { background: white; padding: 18px; display: flex; gap: 16px; }
 
         .id-card-photo {
-            width: 82px;
-            height: 82px;
-            border-radius: 12px;
-            background: var(--primary-light);
-            color: var(--primary);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-weight: 800;
-            font-size: 26px;
-            flex-shrink: 0;
+            width: 82px; height: 82px; border-radius: 12px;
+            background: var(--primary-light); color: var(--primary);
+            display: flex; align-items: center; justify-content: center;
+            font-weight: 800; font-size: 26px; flex-shrink: 0;
             border: 2px solid var(--gray-200);
         }
 
         .id-card-info { flex: 1; min-width: 0; }
-        .id-card-info .id-card-name {
-            font-size: 16px;
-            font-weight: 800;
-            color: var(--text);
-            margin-bottom: 4px;
-            word-break: break-word;
-        }
-        .id-card-info .id-card-number {
-            font-size: 12.5px;
-            color: var(--text-light);
-            font-weight: 600;
-            margin-bottom: 8px;
-        }
-        .id-card-info .id-card-meta {
-            display: flex;
-            flex-direction: column;
-            gap: 4px;
-            font-size: 11.5px;
-            color: var(--text-light);
-        }
+        .id-card-info .id-card-name { font-size: 16px; font-weight: 800; color: var(--text); margin-bottom: 4px; word-break: break-word; }
+        .id-card-info .id-card-number { font-size: 12.5px; color: var(--text-light); font-weight: 600; margin-bottom: 8px; }
+        .id-card-info .id-card-meta { display: flex; flex-direction: column; gap: 4px; font-size: 11.5px; color: var(--text-light); }
         .id-card-info .id-card-meta b { color: var(--text); font-weight: 700; }
 
         .id-card-payment {
             background: var(--gold-light);
             border-top: 1px solid var(--gray-200);
             padding: 10px 18px;
-            display: flex;
-            flex-direction: column;
-            gap: 4px;
+            display: flex; flex-direction: column; gap: 4px;
         }
 
         .id-card-payment .id-card-payment-row {
-            display: flex;
-            justify-content: space-between;
-            align-items: baseline;
-            font-size: 11.5px;
-            color: #6b5013;
-            gap: 12px;
+            display: flex; justify-content: space-between; align-items: baseline;
+            font-size: 11.5px; color: #6b5013; gap: 12px;
         }
-
         .id-card-payment .id-card-payment-row span { flex-shrink: 0; }
-        .id-card-payment .id-card-payment-row b {
-            color: #4a3a0d;
-            font-weight: 800;
-            text-align: right;
-            word-break: break-word;
-        }
+        .id-card-payment .id-card-payment-row b { color: #4a3a0d; font-weight: 800; text-align: right; word-break: break-word; }
 
         .id-card-footer .id-card-valid b.expired { color: var(--danger); }
 
@@ -973,42 +930,23 @@
             background: var(--gray-50);
             border-top: 1px dashed var(--gray-300);
             padding: 12px 18px;
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            gap: 10px;
+            display: flex; align-items: center; justify-content: space-between; gap: 10px;
         }
 
         .id-card-footer .id-card-qr {
-            width: 64px;
-            height: 64px;
-            border-radius: 8px;
-            border: 1px solid var(--gray-200);
-            background: white;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            overflow: hidden;
-            flex-shrink: 0;
+            width: 64px; height: 64px; border-radius: 8px;
+            border: 1px solid var(--gray-200); background: white;
+            display: flex; align-items: center; justify-content: center;
+            overflow: hidden; flex-shrink: 0;
         }
         .id-card-footer .id-card-qr img { width: 100%; height: 100%; object-fit: contain; }
 
-        .id-card-footer .id-card-valid {
-            font-size: 10px;
-            color: var(--text-lighter);
-            text-align: right;
-            line-height: 1.5;
-        }
+        .id-card-footer .id-card-valid { font-size: 10px; color: var(--text-lighter); text-align: right; line-height: 1.5; }
 
         @media print {
             body * { visibility: hidden; }
             #idCardPrintArea, #idCardPrintArea * { visibility: visible; }
-            #idCardPrintArea {
-                position: absolute;
-                top: 0;
-                left: 0;
-                width: 100%;
-            }
+            #idCardPrintArea { position: absolute; top: 0; left: 0; width: 100%; }
         }
 
         @media (max-width: 768px) {
@@ -1195,7 +1133,7 @@
                     <i class="fas fa-check"></i> Update
                 </button>
                 <button class="btn btn-success btn-sm" onclick="validateMemberPayments(selectedMemberId, true)">
-                    <i class="fas fa-receipt"></i> Validate Payments
+                    <i class="fas fa-receipt"></i> Refresh Audit
                 </button>
             </div>
 
@@ -1261,6 +1199,14 @@
                     <i class="fas fa-check"></i> Save Changes
                 </button>
             </div>
+
+            <fieldset id="memberParentsFieldset" style="display:none;">
+                <legend>Parents on this Plan</legend>
+                <div id="memberParentsList"></div>
+                <button type="button" class="btn btn-secondary btn-sm" onclick="addMemberParent()">
+                    <i class="fas fa-plus"></i> Add Parent
+                </button>
+            </fieldset>
 
             <fieldset>
                 <legend>Dependants</legend>
@@ -1586,8 +1532,12 @@
         const ORG_PAYBILL = '348127';
 
         // ============================================================
-        // PLAN FALLBACK CONFIG (used only when the plans table is
-        // unreachable). Wazazi: main 300/200, parent 350/100.
+        // SUPABASE VIEW (single source of truth for status + missed months)
+        // ============================================================
+        const MEMBERS_VIEW = 'admin_member_payment_status';
+
+        // ============================================================
+        // PLAN FALLBACK CONFIG
         // ============================================================
         const PLAN_FALLBACK_CONFIG = {
             comfort: { label: 'Comfort', amount: 300,  registrationFee: 200,  minParents: 0, maxParents: 0, maxDependants: null, parentMonthly: 0,   parentFee: 0   },
@@ -1616,112 +1566,61 @@
         let membershipNumberColumn = 'member_number';
         async function detectMembershipNumberColumn() { return membershipNumberColumn; }
 
-        function getMembershipNumber(member) {
-            return extractMembershipNumber(member);
-        }
+        function getMembershipNumber(member) { return extractMembershipNumber(member); }
 
         // ============================================================
-        // PLAN PRICING LOOKUP — reads plans table only.
+        // PLAN PRICING LOOKUP
         // ============================================================
         async function getPlanPricing(planValue) {
             const planCode = String(planValue || '').trim().toUpperCase();
-
-            if (!planCode) {
-                throw new Error('Membership plan is required.');
-            }
+            if (!planCode) throw new Error('Membership plan is required.');
 
             const { data, error } = await supabaseClient
-                .from('plans')
-                .select('*')
+                .from('plans').select('*')
                 .ilike('plan_code', planCode)
                 .eq('is_active', true)
                 .maybeSingle();
 
-            if (error) {
-                console.error('Plan pricing lookup failed:', error);
-                throw new Error(`Unable to load pricing for ${planCode}.`);
-            }
-
-            if (!data) {
-                throw new Error(
-                    `Plan '${planCode}' was not found in pricing. Contact support before retrying.`
-                );
-            }
-
+            if (error) throw new Error(`Unable to load pricing for ${planCode}.`);
+            if (!data) throw new Error(`Plan '${planCode}' was not found in pricing.`);
             return data;
         }
 
-        // ============================================================
-        // WAZAZI PRICING (main 300 + parents×350 monthly;
-        //                   main 200 + parents×100 registration)
-        // ============================================================
         function calculateWazaziAmount(parentCount, includeRegistration = false) {
             const parents = Number(parentCount || 0);
-
-            if (parents < 1) {
-                throw new Error('Wazazi requires at least 1 parent.');
-            }
-
-            if (parents > 4) {
-                throw new Error('Wazazi allows a maximum of 4 parents.');
-            }
-
+            if (parents < 1) throw new Error('Wazazi requires at least 1 parent.');
+            if (parents > 4) throw new Error('Wazazi allows a maximum of 4 parents.');
             const monthlyAmount = 300 + (parents * 350);
             const registrationAmount = 200 + (parents * 100);
-
             return {
                 monthlyAmount,
                 registrationAmount,
-                totalAmount: includeRegistration
-                    ? monthlyAmount + registrationAmount
-                    : monthlyAmount
+                totalAmount: includeRegistration ? monthlyAmount + registrationAmount : monthlyAmount
             };
         }
 
-        // ============================================================
-        // WAZAZI PARENT COUNT — reads both storage paths:
-        //   1. parents table (written by the Add Existing Member form)
-        //   2. dependants table with relationship in (parent, parents)
-        // ============================================================
         async function countWazaziParents(memberId) {
             if (!memberId) return 0;
             let parentCount = 0;
-
-            // Source 1: parents table
             try {
                 const { data, error } = await supabaseClient
-                    .from('parents')
-                    .select('id')
-                    .eq('member_id', memberId);
+                    .from('parents').select('id').eq('member_id', memberId);
                 if (!error && Array.isArray(data)) parentCount += data.length;
-            } catch (err) {
-                // parents table might not exist yet — that's fine.
-            }
-
-            // Source 2: dependants with relationship = parent
+            } catch (e) { /* parents table may not exist yet */ }
             try {
                 const { data, error } = await supabaseClient
-                    .from('dependants')
-                    .select('id,relationship')
+                    .from('dependants').select('id,relationship')
                     .eq('principal_member_id', memberId);
                 if (!error && Array.isArray(data)) {
-                    const fromDeps = data.filter(d => {
+                    parentCount += data.filter(d => {
                         const rel = String(d.relationship || '').trim().toLowerCase();
                         return rel === 'parent' || rel === 'parents';
                     }).length;
-                    parentCount += fromDeps;
                 }
-            } catch (err) {
-                console.warn('Could not count parents from dependants:', err);
-            }
-
+            } catch (e) { /* ignore */ }
             return parentCount;
         }
 
-        // ============================================================
-        // PLAN CONFIG — supports parent pricing columns and forces
-        // Wazazi defaults so parents always appear.
-        // ============================================================
         const planConfigCache = {};
 
         async function getPlanConfig(planType) {
@@ -1730,7 +1629,6 @@
             if (planConfigCache[key]) return planConfigCache[key];
 
             let resolved = null;
-
             try {
                 const row = await getPlanPricing(key);
                 resolved = {
@@ -1742,36 +1640,21 @@
                     minParents: Number(row.minimum_parents || row.min_parents || 0) || 0,
                     maxParents: Number(row.maximum_parents || row.max_parents || 0) || 0,
                     maxDependants: (row.max_dependants ?? row.maximum_dependants) != null
-                        ? Number(row.max_dependants ?? row.maximum_dependants)
-                        : null
+                        ? Number(row.max_dependants ?? row.maximum_dependants) : null
                 };
             } catch (err) {
-                console.warn(`getPlanConfig(${key}) failed, using fallback:`, err.message);
+                console.warn(`getPlanConfig(${key}) fallback:`, err.message);
             }
 
             if (!resolved) {
                 const fb = PLAN_FALLBACK_CONFIG[key];
-                resolved = fb
-                    ? {
-                        label: fb.label,
-                        amount: fb.amount,
-                        registrationFee: fb.registrationFee,
-                        parentMonthly: fb.parentMonthly,
-                        parentFee: fb.parentFee,
-                        minParents: fb.minParents,
-                        maxParents: fb.maxParents,
-                        maxDependants: fb.maxDependants
-                    }
-                    : {
-                        label: key.charAt(0).toUpperCase() + key.slice(1),
-                        amount: 0, registrationFee: 0,
-                        parentMonthly: 0, parentFee: 0,
-                        minParents: 0, maxParents: 0, maxDependants: null
-                    };
+                resolved = fb ? { ...fb } : {
+                    label: key.charAt(0).toUpperCase() + key.slice(1),
+                    amount: 0, registrationFee: 0, parentMonthly: 0, parentFee: 0,
+                    minParents: 0, maxParents: 0, maxDependants: null
+                };
             }
 
-            // Safety net: Wazazi always has parent pricing + bounds even
-            // if the plans table row is missing these columns.
             if (key === 'wazazi') {
                 if (!resolved.parentMonthly || resolved.parentMonthly <= 0) resolved.parentMonthly = 350;
                 if (!resolved.parentFee || resolved.parentFee <= 0) resolved.parentFee = 100;
@@ -1785,30 +1668,20 @@
             return resolved;
         }
 
-        // Monthly amount used for audit / status.
-        // Wazazi = main + parents × parent_monthly.
         async function getPlanAmount(planType, memberId = null) {
             const key = String(planType || '').trim().toLowerCase();
             if (!key) return null;
-
             let config;
-            try {
-                config = await getPlanConfig(key);
-            } catch {
+            try { config = await getPlanConfig(key); } catch {
                 config = PLAN_FALLBACK_CONFIG[key];
                 if (!config) return null;
             }
-
             if (key === 'wazazi') {
                 const parentCount = memberId ? await countWazaziParents(memberId) : 0;
                 const base = Number(config.amount || 300);
                 const parentMonthly = Number(config.parentMonthly || 350);
-                if (parentCount >= 1) {
-                    return base + (parentCount * parentMonthly);
-                }
-                return base;
+                return parentCount >= 1 ? base + (parentCount * parentMonthly) : base;
             }
-
             return Number(config.amount || 0) || null;
         }
 
@@ -1821,27 +1694,23 @@
         }
 
         // ============================================================
-        // DURATION / RENEWAL
+        // DURATION / RENEWAL (fallback — view provides payment_duration)
         // ============================================================
         function computeTenure(joinedDate) {
             if (!joinedDate) return { months: 0, years: 0, remMonths: 0, label: '—' };
             const joined = new Date(joinedDate);
             if (isNaN(joined.getTime())) return { months: 0, years: 0, remMonths: 0, label: '—' };
-
             const now = new Date();
             let months = (now.getFullYear() - joined.getFullYear()) * 12 + (now.getMonth() - joined.getMonth());
             if (now.getDate() < joined.getDate()) months -= 1;
             if (months < 0) months = 0;
-
             const years = Math.floor(months / 12);
             const remMonths = months % 12;
-
             let label;
             if (years === 0 && remMonths === 0) label = 'New member';
             else if (years === 0) label = `${remMonths} month${remMonths === 1 ? '' : 's'}`;
             else if (remMonths === 0) label = `${years} year${years === 1 ? '' : 's'}`;
             else label = `${years}y ${remMonths}m`;
-
             return { months, years, remMonths, label };
         }
 
@@ -1849,20 +1718,15 @@
             if (!joinedDate) return { status: 'ok', label: '—', dueDate: null, daysLeft: null };
             const joined = new Date(joinedDate);
             if (isNaN(joined.getTime())) return { status: 'ok', label: '—', dueDate: null, daysLeft: null };
-
             const dueDate = new Date(joined);
             dueDate.setFullYear(dueDate.getFullYear() + 1);
-
             const now = new Date();
             const daysLeft = Math.round((dueDate - now) / (1000 * 60 * 60 * 24));
-
             let status, label;
             if (daysLeft < 0) {
                 status = 'late';
                 const overdue = Math.abs(daysLeft);
-                label = overdue < 30
-                    ? `${overdue}d overdue`
-                    : `${Math.floor(overdue / 30)}mo overdue`;
+                label = overdue < 30 ? `${overdue}d overdue` : `${Math.floor(overdue / 30)}mo overdue`;
             } else if (daysLeft <= 30) {
                 status = 'soon';
                 label = daysLeft === 0 ? 'Due today' : `${daysLeft}d left`;
@@ -1871,20 +1735,14 @@
                 const d = Math.floor(daysLeft / 30);
                 label = d < 12 ? `${d}mo to renew` : `${Math.floor(d / 12)}y to renew`;
             }
-
             return { status, label, dueDate, daysLeft };
         }
 
         function computeValidUntil(member) {
             const explicit = member.expiry_date || member.valid_until || member.membership_expiry;
-            if (explicit) {
-                const d = new Date(explicit);
-                if (!isNaN(d.getTime())) return d;
-            }
+            if (explicit) { const d = new Date(explicit); if (!isNaN(d.getTime())) return d; }
             const base = member.created_at ? new Date(member.created_at) : new Date();
-            const d = new Date(base);
-            d.setFullYear(d.getFullYear() + 1);
-            return d;
+            const d = new Date(base); d.setFullYear(d.getFullYear() + 1); return d;
         }
 
         // ============================================================
@@ -1900,8 +1758,8 @@
         let currentMemberRecord = null;
         let memberEditMode = false;
         let memberDependantsCache = [];
+        let memberParentsCache = [];
         let currentAudit = null;
-        const currentAuditCache = new Map();
 
         const membersList = document.getElementById('membersList');
         const pagination = document.getElementById('membersPagination');
@@ -1973,7 +1831,12 @@
         }
 
         // ============================================================
-        // PAYMENT RECONCILIATION
+        // LOCAL AUDIT (used only inside the member view modal)
+        // ------------------------------------------------------------
+        // The list no longer uses this. The list reads calculated_status
+        // and missed_months from the admin_member_payment_status view.
+        // This function remains so the modal can render a per-month
+        // breakdown when the admin opens a member's details.
         // ============================================================
         let paymentRowsCache = null;
         let paymentRowsCacheAt = 0;
@@ -2003,28 +1866,23 @@
             const memberNo = String(getMembershipNumber(member) ?? '').trim();
             const phone = normalizeMsisdn(member?.phone || '');
 
-            const ids = [row.member_id, row.membership_id, row.member_uuid]
-                .filter(v => v != null).map(String);
+            const ids = [row.member_id, row.membership_id, row.member_uuid].filter(v => v != null).map(String);
             if (memberId && ids.includes(memberId)) return true;
 
             const nos = [row.member_number, row.membership_number, row.membership_no,
                 row.member_no, row.registration_number, row.account_number,
-                row.account, row.bill_ref_number, row.reference]
-                .filter(v => v != null).map(v => String(v).trim());
+                row.account, row.bill_ref_number, row.reference].filter(v => v != null).map(v => String(v).trim());
             if (memberNo && nos.includes(memberNo)) return true;
 
-            const phones = [row.phone, row.msisdn, row.customer_phone, row.phone_number]
-                .filter(v => v != null).map(normalizeMsisdn);
+            const phones = [row.phone, row.msisdn, row.customer_phone, row.phone_number].filter(v => v != null).map(normalizeMsisdn);
             if (phone && phones.includes(phone)) return true;
-
             return false;
         }
 
         function paymentAmount(row) {
             const v = row.amount ?? row.paid_amount ?? row.payment_amount ??
                 row.received_amount ?? row.total_amount ?? row.transaction_amount;
-            const n = Number(v);
-            return Number.isFinite(n) ? n : 0;
+            const n = Number(v); return Number.isFinite(n) ? n : 0;
         }
 
         function paymentDate(row) {
@@ -2034,10 +1892,7 @@
             return d && !Number.isNaN(d.getTime()) ? d : null;
         }
 
-        function monthKey(date) {
-            return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
-        }
-
+        function monthKey(date) { return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`; }
         function monthLabel(key) {
             const [y, m] = key.split('-').map(Number);
             return new Date(y, m - 1, 1).toLocaleDateString('en-KE', { month: 'short', year: '2-digit' });
@@ -2047,17 +1902,13 @@
             const months = [];
             const d = new Date(startDate.getFullYear(), startDate.getMonth(), 1);
             const end = new Date(endDate.getFullYear(), endDate.getMonth(), 1);
-            while (d <= end) {
-                months.push(monthKey(d));
-                d.setMonth(d.getMonth() + 1);
-            }
+            while (d <= end) { months.push(monthKey(d)); d.setMonth(d.getMonth() + 1); }
             return months;
         }
 
         async function loadPaymentRows(force = false) {
             const now = Date.now();
             if (!force && paymentRowsCache && now - paymentRowsCacheAt < PAYMENT_CACHE_MS) return paymentRowsCache;
-
             try {
                 const { data, error } = await supabaseClient.from('payments').select('*').limit(10000);
                 if (error) { paymentRowsCache = null; return null; }
@@ -2067,34 +1918,17 @@
             } catch { paymentRowsCache = null; return null; }
         }
 
-        async function reconcileMemberPaymentStatus(member, options = {}) {
+        async function buildLocalAudit(member, options = {}) {
             const empty = {
-                status: member?.status || 'PENDING',
-                paymentAvailable: false,
-                missingMonths: [],
-                paidByMonth: new Map(),
-                monthlyAmount: null,
-                monthDetails: []
+                status: member?.calculated_status || member?.status || 'PENDING',
+                paymentAvailable: false, missingMonths: [], paidByMonth: new Map(),
+                monthlyAmount: null, monthDetails: [], manualOverride: !!member?.payment_override
             };
             if (!member?.id || !member?.plan_type) return empty;
-
             if (member.payment_override) {
                 const monthlyAmount = await getPlanAmount(member.plan_type, member.id);
-                return {
-                    status: member.status || 'PENDING',
-                    paymentAvailable: true,
-                    manualOverride: true,
-                    missingMonths: [],
-                    paidByMonth: new Map(),
-                    monthlyAmount: Number.isFinite(Number(monthlyAmount)) ? Number(monthlyAmount) : null,
-                    monthDetails: []
-                };
+                return { ...empty, paymentAvailable: true, manualOverride: true, monthlyAmount: Number(monthlyAmount) || null };
             }
-
-            if (['SUSPENDED','CANCELLED'].includes(String(member.status || '').toUpperCase())) {
-                return { ...empty, status: member.status };
-            }
-
             const rows = await loadPaymentRows(Boolean(options.forcePayments));
             if (!rows) return { ...empty, skipped: true };
 
@@ -2132,14 +1966,6 @@
             const missingMonths = monthDetails.filter(m => m.state !== 'paid').map(m => m.key);
             const calculatedStatus = missingMonths.length === 0 ? 'ACTIVE' : 'DORMANT';
 
-            if (options.persist !== false && member.status !== calculatedStatus) {
-                const { error } = await supabaseClient
-                    .from('members')
-                    .update({ status: calculatedStatus, updated_at: new Date().toISOString() })
-                    .eq('id', member.id);
-                if (!error) member.status = calculatedStatus;
-            }
-
             return {
                 status: calculatedStatus,
                 paymentAvailable: true,
@@ -2150,21 +1976,11 @@
             };
         }
 
-        async function reconcileVisibleMemberStatuses(members) {
-            if (!Array.isArray(members) || !members.length) return members;
-            const rows = await loadPaymentRows();
-            if (!rows) return members;
-            for (const m of members) {
-                try {
-                    const audit = await reconcileMemberPaymentStatus(m, { persist: true });
-                    currentAuditCache.set(String(m.id), audit);
-                } catch (e) { console.warn('Reconcile failed:', m.id, e); }
-            }
-            return members;
-        }
-
         // ============================================================
         // LOAD / RENDER LIST
+        // ------------------------------------------------------------
+        // Reads from the admin_member_payment_status VIEW.
+        // Falls back to the members table if the view isn't available.
         // ============================================================
         async function loadMembers(page = 1) {
             if (!authReady) return;
@@ -2183,50 +1999,82 @@
             pagination.style.display = 'none';
 
             try {
-                let query = supabaseClient.from('members').select('*', { count: 'exact' });
+                let query = supabaseClient
+                    .from(MEMBERS_VIEW)
+                    .select('id, member_number, full_name, phone, plan_type, calculated_status, missed_months, last_payment_month, months_paid, payment_duration', { count: 'exact' });
 
-                if (search) {
-                    const numberCol = await detectMembershipNumberColumn();
-                    const terms = [
-                        `first_name.ilike.%${search}%`,
-                        `last_name.ilike.%${search}%`,
-                        `phone.ilike.%${search}%`,
-                        `id_number.ilike.%${search}%`
-                    ];
-                    if (numberCol) terms.splice(2, 0, `${numberCol}.ilike.%${search}%`);
-                    query = query.or(terms.join(','));
-                }
-                if (status) query = query.eq('status', status);
+                if (status) query = query.eq('calculated_status', status);
                 if (plan) query = query.eq('plan_type', plan);
 
                 const from = (page - 1) * pageSize;
                 const to = from + pageSize - 1;
 
-                const { data, error, count } = await query
-                    .order('created_at', { ascending: false })
-                    .range(from, to);
+                let { data, error, count } = await query.range(from, to);
 
-                if (error) throw error;
-
-                totalRecords = count || 0;
-                const reconciled = await reconcileVisibleMemberStatuses(data || []);
-
-                for (const m of reconciled) {
-                    m._tenure = computeTenure(m.created_at);
-                    m._renewal = computeRenewal(m.created_at);
+                // Fall back to the members table if the view doesn't exist yet
+                if (error && /relation .* does not exist|admin_member_payment_status/i.test(String(error.message || ''))) {
+                    console.warn('View admin_member_payment_status unavailable — falling back to members table.');
+                    const fb = await supabaseClient
+                        .from('members').select('*', { count: 'exact' })
+                        .order('created_at', { ascending: false })
+                        .range(from, to);
+                    if (fb.error) throw fb.error;
+                    data = (fb.data || []).map(m => ({
+                        id: m.id,
+                        member_number: m.member_number,
+                        full_name: `${m.first_name || ''} ${m.last_name || ''}`.trim() || 'Unknown',
+                        phone: m.phone,
+                        plan_type: m.plan_type,
+                        calculated_status: m.status || 'PENDING',
+                        missed_months: 0,
+                        last_payment_month: null,
+                        months_paid: 0,
+                        payment_duration: null,
+                        // keep the raw record for the modal
+                        _raw: m
+                    }));
+                    count = fb.count || 0;
+                } else if (error) {
+                    throw error;
                 }
 
-                currentMembersCache = reconciled;
+                totalRecords = count || 0;
 
-                let visible = reconciled;
-                if (renewal) visible = reconciled.filter(m => m._renewal.status === renewal);
+                // Client-side search (view may not support .or ilike on all columns)
+                let visible = Array.isArray(data) ? data.slice() : [];
+                if (search) {
+                    const s = search.toLowerCase();
+                    visible = visible.filter(m =>
+                        String(m.member_number || '').toLowerCase().includes(s) ||
+                        String(m.full_name || '').toLowerCase().includes(s) ||
+                        String(m.phone || '').toLowerCase().includes(s)
+                    );
+                }
+
+                // Attach tenure + renewal for display (renewal is derived from created_at)
+                for (const m of visible) {
+                    const raw = m._raw;
+                    m._tenure = raw ? computeTenure(raw.created_at) : null;
+                    m._renewal = raw ? computeRenewal(raw.created_at) : null;
+                    if (!m._renewal && m.last_payment_month) {
+                        m._renewal = computeRenewal(m.last_payment_month);
+                    }
+                }
+
+                if (renewal) {
+                    visible = visible.filter(m => m._renewal && m._renewal.status === renewal);
+                }
+
+                currentMembersCache = visible;
 
                 renderMembers(visible);
                 renderPagination();
 
+                // Count badge
                 const { count: total } = await supabaseClient
-                    .from('members').select('*', { count: 'exact', head: true });
-                document.getElementById('memberCountBadge').textContent = total || 0;
+                    .from(MEMBERS_VIEW)
+                    .select('*', { count: 'exact', head: true });
+                document.getElementById('memberCountBadge').textContent = total || totalRecords || 0;
 
             } catch (err) {
                 console.error('Load members error:', err);
@@ -2273,41 +2121,38 @@
                         <tbody>`;
 
             members.forEach(m => {
-                const name = `${m.first_name || ''} ${m.last_name || ''}`.trim() || 'Unknown';
-                const statusClass = m.status || 'PENDING';
-                const planName = m.plan_type ? m.plan_type.charAt(0).toUpperCase() + m.plan_type.slice(1) : '-';
-                const memberNo = getMembershipNumber(m);
-                const tenure = m._tenure || computeTenure(m.created_at);
-                const renewal = m._renewal || computeRenewal(m.created_at);
+                // -------- Values come straight from the view --------
+                const name = m.full_name || 'Unknown';
+                const status = m.calculated_status || 'PENDING';
+                const missedPayments = Number(m.missed_months || 0);
+                const duration = m.payment_duration || (m._tenure ? m._tenure.label : 'New member');
 
-                const auditEntry = currentAuditCache.get(String(m.id));
-                const skipped = auditEntry?.missingMonths?.length || 0;
-                const payBadge = auditEntry?.manualOverride
-                    ? `<span class="mini-badge info" title="Payment tracked manually for this member"><i class="fas fa-user-check"></i> manual</span>`
-                    : skipped
-                        ? `<span class="mini-badge late" title="${skipped} month(s) missing or short"><i class="fas fa-exclamation-circle"></i> ${skipped} missed</span>`
-                        : `<span class="mini-badge ok"><i class="fas fa-check"></i> up to date</span>`;
+                const statusClass = String(status).toLowerCase();
+                const statusBadge = `<span class="status-badge ${statusClass}">${status}</span>`;
+
+                const paymentDisplay = missedPayments > 0
+                    ? `<span class="missed-payment">${missedPayments} missed</span>`
+                    : `<span class="paid-status">up to date</span>`;
+
+                const planName = m.plan_type ? m.plan_type.charAt(0).toUpperCase() + m.plan_type.slice(1) : '-';
+                const memberNo = m.member_number || '-';
+                const renewal = m._renewal || { status: 'ok', label: '—' };
 
                 html += `
                     <tr>
-                        <td><strong>${memberNo ? escapeHTML(memberNo) : '-'}</strong></td>
+                        <td><strong>${escapeHTML(memberNo)}</strong></td>
                         <td>${escapeHTML(name)}</td>
                         <td>${escapeHTML(m.phone || '-')}</td>
                         <td><span class="status-badge ${m.plan_type || ''}">${planName}</span></td>
-                        <td><span class="status-badge ${statusClass}">${statusClass}</span></td>
-                        <td>
-                            <div class="duration-cell">
-                                <span class="mini-badge info"><i class="fas fa-clock"></i> ${tenure.label}</span>
-                                <small>since ${m.created_at ? new Date(m.created_at).toLocaleDateString('en-KE') : '-'}</small>
-                            </div>
-                        </td>
+                        <td>${statusBadge}</td>
+                        <td><span class="mini-badge info"><i class="fas fa-clock"></i> ${escapeHTML(duration)}</span></td>
                         <td>
                             <span class="mini-badge ${renewal.status}">
                                 <i class="fas ${renewal.status === 'late' ? 'fa-triangle-exclamation' : renewal.status === 'soon' ? 'fa-bell' : 'fa-calendar-check'}"></i>
-                                ${renewal.label}
+                                ${escapeHTML(renewal.label)}
                             </span>
                         </td>
-                        <td>${payBadge}</td>
+                        <td>${paymentDisplay}</td>
                         <td>
                             <div class="row-actions">
                                 <button class="btn-icon view" title="View member" onclick="openMemberModal('${m.id}')">
@@ -2331,7 +2176,6 @@
         function renderPagination() {
             const totalPages = Math.ceil(totalRecords / pageSize);
             if (totalPages <= 1) { pagination.style.display = 'none'; return; }
-
             pagination.style.display = 'flex';
             paginationInfo.textContent = `Showing ${((currentPage - 1) * pageSize) + 1}-${Math.min(currentPage * pageSize, totalRecords)} of ${totalRecords}`;
             prevPageBtn.disabled = currentPage <= 1;
@@ -2364,6 +2208,7 @@
             currentAudit = null;
 
             try {
+                // Fetch the full member record from members (view has only a subset)
                 const { data: member, error } = await supabaseClient
                     .from('members').select('*').eq('id', memberId).single();
                 if (error) throw error;
@@ -2377,18 +2222,14 @@
                 document.getElementById('memberPlanSelect').value = member.plan_type || '';
                 document.getElementById('memberPaymentOverride').checked = !!member.payment_override;
 
+                if (String(member.plan_type || '').toLowerCase() === 'wazazi') {
+                    member._wazazi_parent_count = await countWazaziParents(member.id);
+                }
+
                 try {
-                    // Wazazi members: always re-count parents so the audit
-                    // uses the current parent count, not a stale cached one.
-                    if (String(member.plan_type || '').toLowerCase() === 'wazazi') {
-                        const parentCount = await countWazaziParents(member.id);
-                        member._wazazi_parent_count = parentCount;
-                    }
-                    currentAudit = await reconcileMemberPaymentStatus(member, { persist: true, forcePayments: true });
-                    currentAuditCache.set(String(member.id), currentAudit);
-                    document.getElementById('memberStatusSelect').value = member.status || 'PENDING';
+                    currentAudit = await buildLocalAudit(member, { persist: false, forcePayments: true });
                 } catch (e) {
-                    console.warn('Audit failed:', e);
+                    console.warn('Audit preview failed:', e);
                 }
 
                 setMemberEditMode(false);
@@ -2396,6 +2237,7 @@
                 clearModalMessages();
                 renderMemberViewFields(member);
                 renderAuditPanel(member, currentAudit);
+                await loadMemberParents(memberId);
                 await loadMemberDependants(memberId);
 
             } catch (err) {
@@ -2410,6 +2252,7 @@
             currentMemberRecord = null;
             memberEditMode = false;
             memberDependantsCache = [];
+            memberParentsCache = [];
             currentAudit = null;
             clearModalMessages();
         }
@@ -2473,13 +2316,12 @@
                         <span>Payment status for this member is managed manually — automatic monthly reconciliation is disabled.
                         This is normally used for members migrated from the old system who were already up to date.
                         ${monthly ? `Monthly contribution for reference: <b>KES ${monthly.toLocaleString()}</b>.` : ''}</span>
-                        <span>Uncheck "Manual" in Payment tracking above and click Update to re-enable automatic auditing from M-Pesa payments.</span>
                     </div>`;
                 return;
             }
             if (audit.skipped || audit.paymentAvailable === false) {
                 el.innerHTML = `<div style="font-size:13px;color:var(--text-light);">
-                    <i class="fas fa-info-circle"></i> Payment history could not be verified (payments table or plan amount missing). Current status left as <b>${escapeHTML(member.status || 'PENDING')}</b>.
+                    <i class="fas fa-info-circle"></i> Payment history could not be verified. Current status left as <b>${escapeHTML(member.status || 'PENDING')}</b>.
                 </div>`;
                 return;
             }
@@ -2498,9 +2340,8 @@
             const chips = (audit.monthDetails || []).map(m => {
                 const cls = m.state === 'paid' ? 'paid' : m.state === 'partial' ? 'partial' : 'missing';
                 const cur = m.isCurrent ? ' current' : '';
-                const tip = `Paid KES ${m.paid.toLocaleString()} of KES ${monthly.toLocaleString()}`;
                 const icon = m.state === 'paid' ? 'fa-check' : m.state === 'partial' ? 'fa-circle-half-stroke' : 'fa-times';
-                return `<span class="audit-month ${cls}${cur}" title="${tip}"><i class="fas ${icon}"></i> ${m.label}</span>`;
+                return `<span class="audit-month ${cls}${cur}"><i class="fas ${icon}"></i> ${m.label}</span>`;
             }).join('');
 
             el.innerHTML = `
@@ -2665,8 +2506,7 @@
         // ============================================================
         async function renewMemberNow(memberId) {
             if (!memberId) return;
-            if (!confirm('Mark this member as renewed today? This updates the "member since" reference by extending their validity.')) return;
-
+            if (!confirm('Mark this member as renewed today?')) return;
             try {
                 const member = await getMemberRecord(memberId);
                 const base = member.created_at ? new Date(member.created_at) : new Date();
@@ -2675,21 +2515,13 @@
 
                 const { error } = await supabaseClient
                     .from('members')
-                    .update({
-                        expiry_date: next.toISOString(),
-                        status: 'ACTIVE',
-                        updated_at: new Date().toISOString()
-                    })
+                    .update({ expiry_date: next.toISOString(), status: 'ACTIVE', updated_at: new Date().toISOString() })
                     .eq('id', memberId);
-
                 if (error) throw error;
 
                 showToast(`Member renewed. Next renewal: ${next.toLocaleDateString('en-KE')}.`, 'success');
                 await loadMembers(currentPage);
-
-                if (selectedMemberId === memberId) {
-                    await openMemberModal(memberId);
-                }
+                if (selectedMemberId === memberId) await openMemberModal(memberId);
             } catch (err) {
                 console.error('Renew error:', err);
                 showToast(`Failed to renew: ${err.message || 'unknown error'}`, 'error');
@@ -2724,8 +2556,7 @@
             if (select.options.length > 1) return;
             KENYA_COUNTIES.forEach(name => {
                 const o = document.createElement('option');
-                o.value = name;
-                o.textContent = name;
+                o.value = name; o.textContent = name;
                 select.appendChild(o);
             });
         }
@@ -2754,21 +2585,13 @@
 
             const isWazazi = String(planType || '').trim().toLowerCase() === 'wazazi';
 
-            // Show the parents panel immediately for Wazazi, using known
-            // defaults. This no longer waits on (or can be blocked by) the
-            // plans-table lookup below — that lookup only refines the
-            // pricing afterwards, it never controls whether the panel
-            // appears.
+            // Show parents panel synchronously for Wazazi — never blocked by
+            // the plans table lookup below.
             if (isWazazi) {
                 currentPlanConfig = {
-                    label: 'Wazazi',
-                    amount: 300,
-                    registrationFee: 200,
-                    parentMonthly: 350,
-                    parentFee: 100,
-                    minParents: 1,
-                    maxParents: 4,
-                    maxDependants: null
+                    label: 'Wazazi', amount: 300, registrationFee: 200,
+                    parentMonthly: 350, parentFee: 100,
+                    minParents: 1, maxParents: 4, maxDependants: null
                 };
                 parentsSection.style.display = 'block';
                 dependantsHint.style.display = 'none';
@@ -2785,8 +2608,6 @@
             try {
                 const config = await getPlanConfig(planType);
 
-                // WAZAZI always uses parents (1–4). Force these bounds even
-                // if the plans row for Wazazi hasn't had them set yet.
                 if (isWazazi) {
                     if (!config.minParents || config.minParents < 1) config.minParents = 1;
                     if (!config.maxParents || config.maxParents < 1) config.maxParents = 4;
@@ -2801,14 +2622,9 @@
                 if (planUsesParents(config)) {
                     parentsSection.style.display = 'block';
                     updateParentsHint();
-                    // Rows may already be pre-filled above for Wazazi —
-                    // only top up to the (possibly refined) minimum.
                     const existing = byId('amParentsList').querySelectorAll('.dependant-row').length;
                     const target = Math.max(config.minParents, 1);
                     for (let i = existing; i < target; i++) addParentRow();
-                } else {
-                    parentsSection.style.display = 'none';
-                    resetParentRows();
                 }
 
                 const depLimit = planDependantLimit(config);
@@ -2837,10 +2653,6 @@
                 if (feeInput && !feeInput.value && regFee > 0) feeInput.value = regFee;
             } catch (err) {
                 console.error('Plan config error:', err);
-                // Keep whatever was already shown synchronously above —
-                // in particular, never hide the Wazazi parents panel or
-                // null out its config just because the plans-table lookup
-                // failed.
                 if (isWazazi) {
                     planHint.textContent = 'Monthly: KES 300 base + KES 350/parent · Registration: KES 200 base + KES 100/parent';
                     renderPlanSummary(currentPlanConfig);
@@ -2867,8 +2679,7 @@
             const parentText = usesParents ? `${config.minParents}–${config.maxParents}` : 'Not required';
 
             const parentCount = usesParents
-                ? byId('amParentsList').querySelectorAll('.dependant-row').length
-                : 0;
+                ? byId('amParentsList').querySelectorAll('.dependant-row').length : 0;
             const parentRegTotal = parentFee * parentCount;
             const parentMonthlyTotal = parentMonthly * parentCount;
             const grandTotal = regFee + parentRegTotal;
@@ -2877,11 +2688,9 @@
             const parentFeeLine = (usesParents && (parentFee > 0 || parentMonthly > 0))
                 ? `<span class="ps-item"><i class="fas fa-user-friends"></i> Per parent: <b>KES ${parentFee.toLocaleString()} reg · KES ${parentMonthly.toLocaleString()} monthly</b></span>`
                 : '';
-
             const parentTotalLine = (usesParents && parentCount > 0)
                 ? `<span class="ps-item"><i class="fas fa-users"></i> Parents ×${parentCount}: <b>KES ${parentRegTotal.toLocaleString()} reg · KES ${parentMonthlyTotal.toLocaleString()} monthly</b></span>`
                 : '';
-
             const grandLine = (usesParents && (parentFee > 0 || parentMonthly > 0))
                 ? `<span class="ps-tag" style="background:#fff;border-color:var(--primary);color:var(--primary);">
                         <i class="fas fa-calculator"></i> Total: KES ${monthlyTotal.toLocaleString()} monthly + KES ${grandTotal.toLocaleString()} registration
@@ -3117,13 +2926,11 @@
                     || new RegExp(`column "?([a-z_0-9]+)"? of relation "?${table}"? does not exist`, 'i').exec(msg);
                 const column = match ? match[1] : null;
                 if (column && column in attempt && !coreColumns.includes(column)) {
-                    dropped.push(column);
-                    delete attempt[column];
-                    continue;
+                    dropped.push(column); delete attempt[column]; continue;
                 }
                 throw error;
             }
-            throw new Error(`Could not save record in ${table}: too many missing fields.`);
+            throw new Error(`Could not save record in ${table}.`);
         }
 
         async function updateResilient(table, id, payload, coreColumns) {
@@ -3137,13 +2944,11 @@
                     || new RegExp(`column "?([a-z_0-9]+)"? of relation "?${table}"? does not exist`, 'i').exec(msg);
                 const column = match ? match[1] : null;
                 if (column && column in attempt && !coreColumns.includes(column)) {
-                    dropped.push(column);
-                    delete attempt[column];
-                    continue;
+                    dropped.push(column); delete attempt[column]; continue;
                 }
                 throw error;
             }
-            throw new Error(`Could not update record in ${table}: too many missing fields.`);
+            throw new Error(`Could not update record in ${table}.`);
         }
 
         async function saveExistingMember(event) {
@@ -3203,8 +3008,6 @@
             const parents = collectParents();
             const isWazaziSelected = String(plan_type || '').trim().toLowerCase() === 'wazazi';
 
-            // Wazazi always requires parents, even if the plan config somehow
-            // came back without min/max set.
             if (isWazaziSelected && (!currentPlanConfig || currentPlanConfig.maxParents === 0)) {
                 currentPlanConfig = currentPlanConfig || {};
                 currentPlanConfig.minParents = 1;
@@ -3276,8 +3079,6 @@
                 };
                 Object.entries(optional).forEach(([k, v]) => { if (v) payload[k] = v; });
 
-                // Registration fee: typed value wins, otherwise compute
-                // from plan (member reg + parent fees × parent count).
                 if (feeRaw !== '') {
                     payload.registration_fee = Number(feeRaw);
                 } else {
@@ -3291,20 +3092,7 @@
 
                 const { data, dropped } = await insertResilient('members', payload, ADD_MEMBER_CORE_COLUMNS);
 
-                let audit = null;
-                try {
-                    paymentRowsCache = null;
-                    audit = await reconcileMemberPaymentStatus(data, { persist: true, forcePayments: true });
-                } catch (e) { console.warn('Post-insert audit failed:', e); }
-
                 const notes = [];
-                if (audit?.manualOverride) {
-                    notes.push('payment tracking set to manual (migrated member) — status left as entered');
-                } else if (audit?.paymentAvailable && audit.missingMonths?.length) {
-                    notes.push(`payment audit: ${audit.missingMonths.length} month(s) missing or short; member set to DORMANT`);
-                } else if (audit?.paymentAvailable && audit.status === 'ACTIVE') {
-                    notes.push('payment audit: all due monthly contributions received');
-                }
                 if (dropped.length) notes.push(`fields skipped (no such column): ${dropped.join(', ')}`);
 
                 if (dependants.length) {
@@ -3376,7 +3164,7 @@
         }
 
         // ============================================================
-        // DEPENDANTS IN VIEW MODAL
+        // PARENTS (VIEW MODAL)
         // ============================================================
         function escapeAttr(value) {
             return String(value || '')
@@ -3384,6 +3172,195 @@
                 .replace(/"/g, '&quot;').replace(/'/g, '&#039;');
         }
 
+        async function loadMemberParents(memberId) {
+            const fieldset = byId('memberParentsFieldset');
+            const c = byId('memberParentsList');
+            if (!fieldset || !c) return;
+
+            memberParentsCache = [];
+            const isWazazi = String(currentMemberRecord?.plan_type || '').toLowerCase() === 'wazazi';
+            if (!isWazazi) { fieldset.style.display = 'none'; return; }
+            fieldset.style.display = 'block';
+            c.innerHTML = '<p style="font-size:13px;color:var(--text-light);">Loading parents…</p>';
+
+            try {
+                const { data, error } = await supabaseClient
+                    .from('parents')
+                    .select('id,member_id,full_name,relationship,phone,date_of_birth,national_id,created_at')
+                    .eq('member_id', memberId)
+                    .order('created_at', { ascending: true });
+                if (error) throw error;
+                memberParentsCache = Array.isArray(data) ? data : [];
+                renderMemberParents();
+            } catch (err) {
+                console.error('Load parents error:', err);
+                c.innerHTML = `<div style="font-size:13px;color:var(--danger);">Failed to load parents: ${escapeHTML(err.message || 'unknown')}</div>`;
+            }
+        }
+
+        function renderMemberParents() {
+            const c = byId('memberParentsList');
+            if (!c) return;
+            if (!memberParentsCache.length) {
+                c.innerHTML = '<p style="font-size:13px;color:var(--text-light);">No parents on record.</p>';
+                return;
+            }
+            c.innerHTML = '';
+            memberParentsCache.forEach(p => c.appendChild(buildParentViewRow(p)));
+        }
+
+        function buildParentViewRow(par) {
+            const row = document.createElement('div');
+            row.className = 'dependant-row';
+            row.dataset.id = par.id;
+            const bits = [];
+            if (par.relationship) bits.push(escapeHTML(par.relationship));
+            if (par.date_of_birth) bits.push(new Date(par.date_of_birth).toLocaleDateString('en-KE'));
+            if (par.phone) bits.push(escapeHTML(par.phone));
+            if (par.national_id) bits.push(`ID ${escapeHTML(par.national_id)}`);
+            row.innerHTML = `
+                <div class="dependant-row-header">
+                    <span style="text-transform:none;font-size:13px;font-weight:700;color:var(--text);">${escapeHTML(par.full_name || 'Unnamed')}</span>
+                    <div class="row-actions">
+                        <button type="button" class="btn-icon view" title="Edit" onclick="editMemberParent('${par.id}')"><i class="fas fa-pen"></i></button>
+                        <button type="button" class="btn-icon delete" title="Delete" onclick="deleteMemberParent('${par.id}')"><i class="fas fa-trash"></i></button>
+                    </div>
+                </div>
+                ${bits.length ? `<div style="font-size:12.5px;color:var(--text-light);">${bits.join(' · ')}</div>` : ''}`;
+            return row;
+        }
+
+        function parentEditFormHtml(par) {
+            const dob = par.date_of_birth ? String(par.date_of_birth).slice(0, 10) : '';
+            return `
+                <div class="form-grid">
+                    <div class="form-group"><label>Full Name</label><input type="text" class="mepar-name" maxlength="150" value="${escapeAttr(par.full_name)}"></div>
+                    <div class="form-group">
+                        <label>Relationship</label>
+                        <select class="mepar-relationship">
+                            <option value="PARENT" ${(!par.relationship || par.relationship === 'PARENT') ? 'selected' : ''}>Parent (default)</option>
+                            <option value="Mother" ${par.relationship === 'Mother' ? 'selected' : ''}>Mother</option>
+                            <option value="Father" ${par.relationship === 'Father' ? 'selected' : ''}>Father</option>
+                            <option value="Guardian" ${par.relationship === 'Guardian' ? 'selected' : ''}>Guardian</option>
+                        </select>
+                    </div>
+                    <div class="form-group"><label>Phone</label><input type="tel" class="mepar-phone" maxlength="20" value="${escapeAttr(par.phone)}"></div>
+                    <div class="form-group"><label>Date of Birth</label><input type="date" class="mepar-dob" value="${dob}"></div>
+                    <div class="form-group full"><label>National ID</label><input type="text" class="mepar-id" maxlength="30" value="${escapeAttr(par.national_id)}"></div>
+                </div>`;
+        }
+
+        function editMemberParent(id) {
+            const par = memberParentsCache.find(p => String(p.id) === String(id));
+            const row = byId('memberParentsList').querySelector(`.dependant-row[data-id="${id}"]`);
+            if (!par || !row) return;
+            row.innerHTML = `
+                ${parentEditFormHtml(par)}
+                <div class="modal-actions" style="margin-top:0;">
+                    <button type="button" class="btn btn-secondary btn-sm" onclick="renderMemberParents()">Cancel</button>
+                    <button type="button" class="btn btn-primary btn-sm" onclick="saveMemberParent('${id}')"><i class="fas fa-check"></i> Save</button>
+                </div>`;
+        }
+
+        async function saveMemberParent(id) {
+            const row = byId('memberParentsList').querySelector(`.dependant-row[data-id="${id}"]`);
+            if (!row) return;
+            const name = row.querySelector('.mepar-name').value.trim();
+            if (!name) return showToast('Parent needs a full name.', 'error');
+
+            const dob = row.querySelector('.mepar-dob').value;
+            const payload = {
+                full_name: name,
+                relationship: row.querySelector('.mepar-relationship').value || 'PARENT',
+                phone: row.querySelector('.mepar-phone').value.trim() || null,
+                date_of_birth: dob || null,
+                national_id: row.querySelector('.mepar-id').value.trim() || null
+            };
+            try {
+                const { data, dropped } = await updateResilient('parents', id, payload, ADD_PARENT_CORE_COLUMNS);
+                const idx = memberParentsCache.findIndex(p => String(p.id) === String(id));
+                if (idx > -1) memberParentsCache[idx] = data;
+                renderMemberParents();
+                if (currentMemberRecord) {
+                    currentMemberRecord._wazazi_parent_count = await countWazaziParents(currentMemberRecord.id);
+                    renderMemberViewFields(currentMemberRecord);
+                }
+                showToast(dropped.length ? `Parent updated; skipped: ${dropped.join(', ')}.` : 'Parent updated.', dropped.length ? 'warning' : 'success');
+            } catch (err) {
+                console.error('Save parent error:', err);
+                showToast('Failed to update parent.', 'error');
+            }
+        }
+
+        async function deleteMemberParent(id) {
+            if (!confirm('Remove this parent?')) return;
+            try {
+                const { error } = await supabaseClient.from('parents').delete().eq('id', id);
+                if (error) throw error;
+                memberParentsCache = memberParentsCache.filter(p => String(p.id) !== String(id));
+                renderMemberParents();
+                if (currentMemberRecord) {
+                    currentMemberRecord._wazazi_parent_count = await countWazaziParents(currentMemberRecord.id);
+                    renderMemberViewFields(currentMemberRecord);
+                }
+                showToast('Parent removed.', 'success');
+            } catch (err) {
+                console.error('Delete parent error:', err);
+                showToast('Failed to remove parent.', 'error');
+            }
+        }
+
+        function addMemberParent() {
+            if (!selectedMemberId) return;
+            const c = byId('memberParentsList');
+            if (c.querySelector('.dependant-row[data-id="new"]')) return;
+            if (!memberParentsCache.length) c.innerHTML = '';
+
+            const row = document.createElement('div');
+            row.className = 'dependant-row';
+            row.dataset.id = 'new';
+            row.innerHTML = `
+                ${parentEditFormHtml({ full_name: '', relationship: 'PARENT', phone: '', date_of_birth: '', national_id: '' })}
+                <div class="modal-actions" style="margin-top:0;">
+                    <button type="button" class="btn btn-secondary btn-sm" onclick="renderMemberParents()">Cancel</button>
+                    <button type="button" class="btn btn-primary btn-sm" onclick="createMemberParent()"><i class="fas fa-check"></i> Save</button>
+                </div>`;
+            c.appendChild(row);
+        }
+
+        async function createMemberParent() {
+            const row = byId('memberParentsList').querySelector('.dependant-row[data-id="new"]');
+            if (!row || !selectedMemberId) return;
+            const name = row.querySelector('.mepar-name').value.trim();
+            if (!name) return showToast('Parent needs a full name.', 'error');
+
+            const dob = row.querySelector('.mepar-dob').value;
+            const payload = {
+                member_id: selectedMemberId,
+                full_name: name,
+                relationship: row.querySelector('.mepar-relationship').value || 'PARENT',
+                phone: row.querySelector('.mepar-phone').value.trim() || null,
+                date_of_birth: dob || null,
+                national_id: row.querySelector('.mepar-id').value.trim() || null
+            };
+            try {
+                const { data, dropped } = await insertResilient('parents', payload, ADD_PARENT_CORE_COLUMNS);
+                memberParentsCache.push(data);
+                renderMemberParents();
+                if (currentMemberRecord) {
+                    currentMemberRecord._wazazi_parent_count = await countWazaziParents(currentMemberRecord.id);
+                    renderMemberViewFields(currentMemberRecord);
+                }
+                showToast(dropped.length ? `Parent added; skipped: ${dropped.join(', ')}.` : 'Parent added.', dropped.length ? 'warning' : 'success');
+            } catch (err) {
+                console.error('Add parent error:', err);
+                showToast('Failed to add parent.', 'error');
+            }
+        }
+
+        // ============================================================
+        // DEPENDANTS (VIEW MODAL)
+        // ============================================================
         async function loadMemberDependants(memberId) {
             const c = byId('memberDependantsList');
             c.innerHTML = '<p style="font-size:13px;color:var(--text-light);">Loading dependants…</p>';
@@ -3399,15 +3376,7 @@
                 renderMemberDependants();
             } catch (err) {
                 console.error('Load dependants error:', err);
-                c.innerHTML = `
-                    <div style="font-size:13px;color:var(--danger);">
-                        <strong>Failed to load dependants.</strong>
-                        <div style="margin-top:4px;">${escapeHTML(err.message || 'unknown error')}</div>
-                        <button type="button" class="btn btn-secondary btn-sm" style="margin-top:8px;"
-                            onclick="loadMemberDependants('${escapeAttr(memberId)}')">
-                            <i class="fas fa-sync"></i> Retry
-                        </button>
-                    </div>`;
+                c.innerHTML = `<div style="font-size:13px;color:var(--danger);">Failed to load dependants: ${escapeHTML(err.message || 'unknown')}</div>`;
             }
         }
 
@@ -3485,7 +3454,7 @@
                 const idx = memberDependantsCache.findIndex(d => String(d.id) === String(id));
                 if (idx > -1) memberDependantsCache[idx] = data;
                 renderMemberDependants();
-                showToast(dropped.length ? `Dependant updated; fields skipped: ${dropped.join(', ')}.` : 'Dependant updated.', dropped.length ? 'warning' : 'success');
+                showToast(dropped.length ? `Dependant updated; skipped: ${dropped.join(', ')}.` : 'Dependant updated.', dropped.length ? 'warning' : 'success');
             } catch (err) {
                 console.error('Save dependant error:', err);
                 showToast('Failed to update dependant.', 'error');
@@ -3543,7 +3512,7 @@
                 const { data, dropped } = await insertResilient('dependants', dp, ADD_DEPENDANT_CORE_COLUMNS);
                 memberDependantsCache.push(data);
                 renderMemberDependants();
-                showToast(dropped.length ? `Dependant added; fields skipped: ${dropped.join(', ')}.` : 'Dependant added.', dropped.length ? 'warning' : 'success');
+                showToast(dropped.length ? `Dependant added; skipped: ${dropped.join(', ')}.` : 'Dependant added.', dropped.length ? 'warning' : 'success');
             } catch (err) {
                 console.error('Add dependant error:', err);
                 showToast('Failed to add dependant.', 'error');
@@ -3559,7 +3528,7 @@
 
         async function getMemberRecord(id) {
             const cached = findMemberInCache(id);
-            if (cached) return cached;
+            if (cached && cached._raw) return cached._raw;
             const { data, error } = await supabaseClient.from('members').select('*').eq('id', id).single();
             if (error) throw error;
             return data;
@@ -3653,7 +3622,6 @@
                 document.getElementById('stkPushModal').classList.add('open');
                 document.getElementById('stkAmount').focus();
 
-                // Default amount comes from the live plan price (Wazazi-aware).
                 getPlanAmount(m.plan_type, m.id).then(amount => {
                     const a = document.getElementById('stkAmount');
                     if (amount && !a.value) {
@@ -3701,7 +3669,6 @@
             if (!/^254(7|1)\d{8}$/.test(phone)) return setStkStatus('error', 'Enter a valid Safaricom number.');
             if (!amount || amount < 1 || !Number.isFinite(amount)) return setStkStatus('error', 'Enter a valid whole amount in KES.');
 
-            // Resolve the plan code robustly — never send "" to the backend.
             const planCode = String(
                 stkSelectedMember.plan_type ||
                 stkSelectedMember.plan ||
@@ -3709,16 +3676,12 @@
                 ''
             ).trim().toUpperCase();
 
-            if (!planCode) {
-                return setStkStatus('error', 'Member has no membership plan. Set a plan before sending an STK request.');
-            }
+            if (!planCode) return setStkStatus('error', 'Member has no membership plan.');
 
             let parentCount = 0;
             if (planCode === 'WAZAZI') {
                 parentCount = await countWazaziParents(stkSelectedMember.id);
-                if (parentCount < 1) {
-                    return setStkStatus('error', 'Wazazi requires at least 1 parent before sending payment.');
-                }
+                if (parentCount < 1) return setStkStatus('error', 'Wazazi requires at least 1 parent.');
             }
 
             const btn = document.getElementById('stkSendBtn');
@@ -3734,13 +3697,10 @@
                     headers: { 'Content-Type': 'application/json' },
                     signal: stkAbortController.signal,
                     body: JSON.stringify({
-                        phone,
-                        amount,
+                        phone, amount,
                         member_id: stkSelectedMember.id,
                         membership_number: getMembershipNumber(stkSelectedMember) || null,
-                        plan: planCode,
-                        plan_code: planCode,
-                        plan_type: planCode,
+                        plan: planCode, plan_code: planCode, plan_type: planCode,
                         parent_count: parentCount,
                         payment_type: 'subscription'
                     })
@@ -3768,7 +3728,7 @@
         }
 
         // ============================================================
-        // VALIDATE / SAVE STATUS / PLAN / PAYMENT TRACKING
+        // VALIDATE (REFRESH AUDIT PREVIEW) — modal only
         // ============================================================
         async function validateMemberPayments(memberId, force = true) {
             try {
@@ -3776,35 +3736,29 @@
                 if (!m) throw new Error('Member not found.');
 
                 paymentRowsCache = null;
-                const audit = await reconcileMemberPaymentStatus(m, { persist: true, forcePayments: force });
+                const audit = await buildLocalAudit(m, { forcePayments: force });
                 currentAudit = audit;
-                currentAuditCache.set(String(memberId), audit);
-
-                if (audit.manualOverride) {
-                    showToast('Payment tracking is manual for this member — automatic validation skipped.', 'info');
-                } else if (audit.skipped) {
-                    showToast('Payment audit skipped (payments/plan amount unavailable). Status unchanged.', 'warning');
-                } else if (audit.status === 'ACTIVE') {
-                    showToast('All due monthly contributions received. Member is ACTIVE.', 'success');
-                } else {
-                    showToast(`${audit.missingMonths.length} month(s) missing or short. Member set to DORMANT.`, 'warning');
-                }
 
                 if (currentMemberRecord && String(currentMemberRecord.id) === String(memberId)) {
-                    currentMemberRecord.status = audit.status;
-                    byId('memberStatusSelect').value = audit.status;
                     renderAuditPanel(currentMemberRecord, audit);
                 }
 
-                await loadMembers(currentPage);
+                showToast('Audit refreshed from live payments.', 'success');
                 return audit;
             } catch (err) {
                 console.error('Validate error:', err);
-                showToast(`Payment validation failed: ${err.message || 'unknown error'}`, 'error');
+                showToast(`Audit refresh failed: ${err.message || 'unknown error'}`, 'error');
                 return null;
             }
         }
 
+        // ============================================================
+        // SAVE STATUS / PLAN / PAYMENT OVERRIDE
+        // ------------------------------------------------------------
+        // These write to the members table. The DB trigger/view then
+        // reflects the new calculated_status on the next load — we do
+        // NOT set member.status = ... from JS.
+        // ============================================================
         async function saveMemberStatus() {
             if (!selectedMemberId) return showModalError('No member selected.');
             const ns = document.getElementById('memberStatusSelect').value;
@@ -3813,9 +3767,8 @@
                     .update({ status: ns, updated_at: new Date().toISOString() })
                     .eq('id', selectedMemberId);
                 if (error) throw error;
-                if (currentMemberRecord) currentMemberRecord.status = ns;
                 showModalSuccess(`Status updated to ${ns}.`);
-                loadMembers(currentPage);
+                await loadMembers(currentPage);
             } catch (err) {
                 showModalError(`Failed to update status: ${err.message || 'unknown error'}`);
             }
@@ -3834,19 +3787,17 @@
 
                 currentMemberRecord = data;
                 showModalSuccess(manual
-                    ? 'Payment tracking set to manual — automatic audit disabled for this member.'
+                    ? 'Payment tracking set to manual — automatic audit disabled.'
                     : 'Payment tracking set to automatic — status will follow M-Pesa payments again.');
 
-                currentAudit = await reconcileMemberPaymentStatus(data, { persist: true, forcePayments: true });
-                currentAuditCache.set(String(data.id), currentAudit);
-                document.getElementById('memberStatusSelect').value = data.status || 'PENDING';
+                currentAudit = await buildLocalAudit(data, { forcePayments: true });
                 renderAuditPanel(data, currentAudit);
-                loadMembers(currentPage);
+                await loadMembers(currentPage);
             } catch (err) {
                 console.error('Save payment override error:', err);
                 const msg = String(err?.message || '');
                 if (/payment_override.*column|column.*payment_override/i.test(msg)) {
-                    showModalError('Could not save: the "payment_override" column does not exist on the members table yet. Add it in Supabase (boolean, default false) to use manual payment tracking.');
+                    showModalError('The "payment_override" column does not exist on the members table. Add it in Supabase (boolean, default false).');
                 } else {
                     showModalError(`Failed to update payment tracking: ${msg || 'unknown error'}`);
                 }
@@ -3862,7 +3813,7 @@
                     .eq('id', selectedMemberId);
                 if (error) throw error;
                 showModalSuccess(np ? `Plan updated to ${np}.` : 'Plan cleared.');
-                loadMembers(currentPage);
+                await loadMembers(currentPage);
             } catch (err) {
                 showModalError(`Failed to update plan: ${err.message || 'unknown error'}`);
             }
@@ -3873,30 +3824,23 @@
         // ============================================================
         async function exportMembers() {
             try {
-                const { data, error } = await supabaseClient.from('members').select('*').order('created_at', { ascending: false });
+                const { data, error } = await supabaseClient
+                    .from(MEMBERS_VIEW)
+                    .select('*');
                 if (error) throw error;
                 if (!data || !data.length) return showToast('No members to export.', 'warning');
 
-                const headers = [
-                    'Member Number','First Name','Last Name','Phone','Email','Plan','Status',
-                    'County','Town','Joined','Duration (months)','Renewal Status','Next Renewal'
-                ];
-
-                const rows = data.map(m => {
-                    const t = computeTenure(m.created_at);
-                    const r = computeRenewal(m.created_at);
-                    return [
-                        getMembershipNumber(m) || '',
-                        m.first_name || '', m.last_name || '',
-                        m.phone || '', m.email || '',
-                        m.plan_type || '', m.status || '',
-                        m.county || '', m.town || '',
-                        m.created_at ? new Date(m.created_at).toLocaleDateString('en-KE') : '',
-                        t.months,
-                        r.status,
-                        r.dueDate ? r.dueDate.toLocaleDateString('en-KE') : ''
-                    ];
-                });
+                const headers = ['Member Number','Full Name','Phone','Plan','Status','Missed Months','Duration','Last Payment'];
+                const rows = data.map(m => [
+                    m.member_number || '',
+                    m.full_name || '',
+                    m.phone || '',
+                    m.plan_type || '',
+                    m.calculated_status || '',
+                    m.missed_months || 0,
+                    m.payment_duration || '',
+                    m.last_payment_month || ''
+                ]);
 
                 let csv = headers.join(',') + '\n';
                 rows.forEach(row => {
@@ -3937,15 +3881,13 @@
         // ============================================================
         function showModalError(msg) {
             const el = document.getElementById('memberModalError');
-            el.textContent = msg;
-            el.style.display = 'block';
+            el.textContent = msg; el.style.display = 'block';
             document.getElementById('memberModalSuccess').style.display = 'none';
         }
 
         function showModalSuccess(msg) {
             const el = document.getElementById('memberModalSuccess');
-            el.textContent = msg;
-            el.style.display = 'block';
+            el.textContent = msg; el.style.display = 'block';
             document.getElementById('memberModalError').style.display = 'none';
         }
 
@@ -4015,6 +3957,7 @@
             openStkPushModal, closeStkPushModal, sendStkPush,
             openAddMemberModal, closeAddMemberModal, saveExistingMember, handlePlanChange,
             addDependantRow, removeDependantRow, addParentRow, removeParentRow,
+            addMemberParent, createMemberParent, editMemberParent, saveMemberParent, deleteMemberParent, renderMemberParents,
             addMemberDependant, createMemberDependant, editMemberDependant,
             saveMemberDependant, deleteMemberDependant, renderMemberDependants,
             renewMemberNow,
