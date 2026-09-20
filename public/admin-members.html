@@ -632,6 +632,7 @@
         }
 
         .modal.modal-sm { max-width: 420px; }
+        .modal.modal-lg { max-width: 760px; }
 
         @keyframes modalSlide {
             from { transform: translateY(-30px); opacity: 0; }
@@ -761,6 +762,69 @@
             border-color: var(--primary);
             box-shadow: 0 0 0 4px rgba(11, 93, 59, 0.1);
         }
+
+        /* --- Add Existing Member form --- */
+        .form-group select {
+            width: 100%;
+            padding: 10px 12px;
+            border: 2px solid var(--gray-200);
+            border-radius: 8px;
+            font-family: inherit;
+            font-size: 14px;
+            transition: var(--transition);
+            background: white;
+        }
+
+        .form-group select:focus {
+            outline: none;
+            border-color: var(--primary);
+            box-shadow: 0 0 0 4px rgba(11, 93, 59, 0.1);
+        }
+
+        .form-group .req { color: var(--danger); }
+
+        .form-group .hint {
+            display: block;
+            font-size: 11.5px;
+            color: var(--text-lighter);
+            margin-top: 4px;
+            text-transform: none;
+            letter-spacing: 0;
+            font-weight: 400;
+        }
+
+        .form-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 0 16px;
+        }
+
+        .form-grid .full { grid-column: 1 / -1; }
+
+        .toast-container {
+            position: fixed;
+            right: 20px;
+            bottom: 20px;
+            z-index: 400;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .toast {
+            padding: 12px 16px;
+            border-radius: 10px;
+            color: white;
+            font-size: 14px;
+            font-weight: 500;
+            max-width: 380px;
+            box-shadow: 0 8px 24px rgba(0,0,0,0.18);
+        }
+
+        .toast.success { background: var(--success); }
+        .toast.error { background: var(--danger); }
+        .toast.warning { background: #b7791f; }
+        .toast.info { background: var(--primary); }
 
         .stk-summary {
             display: flex;
@@ -988,6 +1052,10 @@
                 grid-template-columns: 1fr;
             }
 
+            .form-grid {
+                grid-template-columns: 1fr;
+            }
+
             .modal {
                 padding: 20px;
             }
@@ -1096,6 +1164,9 @@
             <div class="card">
                 <div class="card-header">
                     <h3><i class="fas fa-users" style="color:var(--gold);"></i> All Members</h3>
+                    <button class="btn btn-gold" onclick="openAddMemberModal()">
+                        <i class="fas fa-user-plus"></i> Add Existing Member
+                    </button>
                 </div>
 
                 <div class="filters">
@@ -1211,6 +1282,172 @@
         </div>
     </div>
 
+    <!-- =========================================================
+         ADD EXISTING MEMBER (from the previous system)
+         ========================================================= -->
+    <div class="modal-overlay" id="addMemberModal">
+        <div class="modal modal-lg">
+            <h3>
+                <span><i class="fas fa-user-plus" style="color:var(--gold);"></i> Add Existing Member</span>
+                <button type="button" class="btn btn-secondary btn-sm" onclick="closeAddMemberModal()">
+                    <i class="fas fa-times"></i>
+                </button>
+            </h3>
+            <p style="font-size:13px;color:var(--text-light);margin-bottom:14px;">
+                Use this for a member from the previous system. Their existing membership number is saved exactly as entered. Fields marked <span style="color:var(--danger);">*</span> are required.
+            </p>
+
+            <form id="addMemberForm" novalidate onsubmit="saveExistingMember(event)">
+
+                <fieldset>
+                    <legend>Membership</legend>
+                    <div class="form-grid">
+                        <div class="form-group">
+                            <label for="amNumber">Existing Membership Number <span class="req">*</span></label>
+                            <input type="text" id="amNumber" maxlength="40" autocomplete="off">
+                        </div>
+                        <div class="form-group">
+                            <label for="amPlan">Plan <span class="req">*</span></label>
+                            <select id="amPlan">
+                                <option value="">Select plan</option>
+                                <option value="comfort">Comfort</option>
+                                <option value="dignity">Dignity</option>
+                                <option value="wazazi">Wazazi</option>
+                                <option value="chama">Chama</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label for="amStatus">Status</label>
+                            <select id="amStatus">
+                                <option value="ACTIVE">Active</option>
+                                <option value="DORMANT">Dormant</option>
+                                <option value="SUSPENDED">Suspended</option>
+                                <option value="CANCELLED">Cancelled</option>
+                                <option value="PENDING">Pending</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label for="amBenefit">Benefit Option</label>
+                            <select id="amBenefit">
+                                <option value="">Not specified</option>
+                                <option value="service">Service</option>
+                                <option value="cash">Cash</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label for="amJoined">Member Since</label>
+                            <input type="date" id="amJoined">
+                            <span class="hint">Original join date. Leave blank to use today.</span>
+                        </div>
+                        <div class="form-group">
+                            <label for="amFee">Registration Fee Paid (KES)</label>
+                            <input type="number" id="amFee" min="0" step="1" inputmode="numeric">
+                        </div>
+                        <div class="form-group full">
+                            <label for="amSalesCode">Sales Agent</label>
+                            <select id="amSalesCode">
+                                <option value="">Loading agents...</option>
+                            </select>
+                        </div>
+                    </div>
+                </fieldset>
+
+                <fieldset>
+                    <legend>Personal Info</legend>
+                    <div class="form-grid">
+                        <div class="form-group">
+                            <label for="amFirstName">First Name <span class="req">*</span></label>
+                            <input type="text" id="amFirstName" maxlength="100" autocomplete="off">
+                        </div>
+                        <div class="form-group">
+                            <label for="amLastName">Last Name <span class="req">*</span></label>
+                            <input type="text" id="amLastName" maxlength="100" autocomplete="off">
+                        </div>
+                        <div class="form-group">
+                            <label for="amIdNumber">National ID / Passport</label>
+                            <input type="text" id="amIdNumber" maxlength="30" autocomplete="off">
+                        </div>
+                        <div class="form-group">
+                            <label for="amDob">Date of Birth</label>
+                            <input type="date" id="amDob">
+                        </div>
+                        <div class="form-group">
+                            <label for="amGender">Gender</label>
+                            <select id="amGender">
+                                <option value="">Not specified</option>
+                                <option value="MALE">Male</option>
+                                <option value="FEMALE">Female</option>
+                            </select>
+                        </div>
+                    </div>
+                </fieldset>
+
+                <fieldset>
+                    <legend>Contact &amp; Location</legend>
+                    <div class="form-grid">
+                        <div class="form-group">
+                            <label for="amPhone">Phone <span class="req">*</span></label>
+                            <input type="tel" id="amPhone" placeholder="07XXXXXXXX or 2547XXXXXXXX" autocomplete="off">
+                        </div>
+                        <div class="form-group">
+                            <label for="amAltPhone">Alternative Phone</label>
+                            <input type="tel" id="amAltPhone" autocomplete="off">
+                        </div>
+                        <div class="form-group">
+                            <label for="amEmail">Email</label>
+                            <input type="email" id="amEmail" maxlength="150" autocomplete="off">
+                        </div>
+                        <div class="form-group">
+                            <label for="amCounty">County</label>
+                            <select id="amCounty">
+                                <option value="">Select county</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label for="amTown">Town</label>
+                            <input type="text" id="amTown" maxlength="100" autocomplete="off">
+                        </div>
+                        <div class="form-group">
+                            <label for="amLocation">Location / Area</label>
+                            <input type="text" id="amLocation" maxlength="150" autocomplete="off">
+                        </div>
+                    </div>
+                </fieldset>
+
+                <fieldset>
+                    <legend>Next of Kin</legend>
+                    <div class="form-grid">
+                        <div class="form-group">
+                            <label for="amKinName">Full Name</label>
+                            <input type="text" id="amKinName" maxlength="150" autocomplete="off">
+                        </div>
+                        <div class="form-group">
+                            <label for="amKinRelationship">Relationship</label>
+                            <input type="text" id="amKinRelationship" maxlength="50" placeholder="e.g. Spouse, Sibling" autocomplete="off">
+                        </div>
+                        <div class="form-group">
+                            <label for="amKinPhone">Phone</label>
+                            <input type="tel" id="amKinPhone" autocomplete="off">
+                        </div>
+                        <div class="form-group">
+                            <label for="amKinId">ID Number</label>
+                            <input type="text" id="amKinId" maxlength="30" autocomplete="off">
+                        </div>
+                    </div>
+                </fieldset>
+
+                <div class="form-error" id="addMemberError"></div>
+
+                <div class="modal-actions">
+                    <button type="button" class="btn btn-secondary" onclick="closeAddMemberModal()">Cancel</button>
+                    <button type="submit" class="btn btn-primary" id="amSaveBtn">
+                        <i class="fas fa-check"></i> Add Member
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
     <div class="modal-overlay" id="idCardModal">
         <div class="modal modal-sm">
             <h3>
@@ -1311,6 +1548,8 @@
             </div>
         </div>
     </div>
+
+    <div class="toast-container" id="toastContainer"></div>
 
     <script>
         const SUPABASE_URL = 'https://wpxzlcdrirlcyvfiquld.supabase.co';
@@ -1451,6 +1690,7 @@
                 if (e.key !== 'Escape') return;
                 if (document.getElementById('stkPushModal').classList.contains('open')) closeStkPushModal();
                 else if (document.getElementById('idCardModal').classList.contains('open')) closeIdCardModal();
+                else if (document.getElementById('addMemberModal').classList.contains('open')) closeAddMemberModal();
                 else if (document.getElementById('memberModal').classList.contains('open')) closeMemberModal();
             });
         });
@@ -1745,6 +1985,260 @@
             document.getElementById('memberModal').classList.remove('open');
             selectedMemberId = null;
             clearModalMessages();
+        }
+
+        // ============================================================
+        // ADD EXISTING MEMBER (manual entry, keeps the old member number)
+        // ------------------------------------------------------------
+        // Inserts straight into the `members` table, like the status and
+        // plan updates on this page. If the table is missing an optional
+        // column, that field is dropped and the save is retried, and you
+        // are told which fields were skipped.
+        // ============================================================
+        const KENYA_COUNTIES = [
+            'Mombasa', 'Kwale', 'Kilifi', 'Tana River', 'Lamu', 'Taita-Taveta', 'Garissa', 'Wajir', 'Mandera',
+            'Marsabit', 'Isiolo', 'Meru', 'Tharaka-Nithi', 'Embu', 'Kitui', 'Machakos', 'Makueni', 'Nyandarua',
+            'Nyeri', 'Kirinyaga', "Murang'a", 'Kiambu', 'Turkana', 'West Pokot', 'Samburu', 'Trans-Nzoia',
+            'Uasin Gishu', 'Elgeyo-Marakwet', 'Nandi', 'Baringo', 'Laikipia', 'Nakuru', 'Narok', 'Kajiado',
+            'Kericho', 'Bomet', 'Kakamega', 'Vihiga', 'Bungoma', 'Busia', 'Siaya', 'Kisumu', 'Homa Bay',
+            'Migori', 'Kisii', 'Nyamira', 'Nairobi'
+        ];
+
+        // Columns the insert cannot work without; never dropped on retry.
+        const ADD_MEMBER_CORE_COLUMNS = ['membership_number', 'first_name', 'last_name', 'phone', 'plan_type'];
+
+        let addMemberSaving = false;
+
+        function byId(id) { return document.getElementById(id); }
+
+        function ensureCountyOptions() {
+            const select = byId('amCounty');
+            if (select.options.length > 1) return;
+            KENYA_COUNTIES.forEach(name => {
+                const option = document.createElement('option');
+                option.value = name;
+                option.textContent = name;
+                select.appendChild(option);
+            });
+        }
+
+        async function loadAgentsForAddMember() {
+            const select = byId('amSalesCode');
+            select.innerHTML = '<option value="">Loading agents...</option>';
+
+            try {
+                const { data, error } = await supabaseClient
+                    .from('sales_agents')
+                    .select('sales_code, full_name, status')
+                    .order('full_name', { ascending: true });
+
+                if (error) throw error;
+
+                select.innerHTML = '<option value="">No agent / not specified</option>';
+
+                (data || []).forEach(agent => {
+                    if (!agent.sales_code) return;
+                    const option = document.createElement('option');
+                    option.value = String(agent.sales_code).trim();
+                    const inactive = String(agent.status || '').toUpperCase() !== 'ACTIVE';
+                    option.textContent = `${agent.sales_code} - ${agent.full_name || 'Agent'}${inactive ? ' (' + String(agent.status || 'inactive').toLowerCase() + ')' : ''}`;
+                    select.appendChild(option);
+                });
+            } catch (error) {
+                console.error('Load agents for add member error:', error);
+                select.innerHTML = '<option value="">Unable to load agents</option>';
+            }
+        }
+
+        function openAddMemberModal() {
+            byId('addMemberForm').reset();
+            byId('addMemberError').style.display = 'none';
+            ensureCountyOptions();
+            byId('addMemberModal').classList.add('open');
+            loadAgentsForAddMember();
+            setTimeout(() => byId('amNumber').focus(), 50);
+        }
+
+        function closeAddMemberModal() {
+            if (addMemberSaving) return;
+            byId('addMemberModal').classList.remove('open');
+        }
+
+        async function insertMemberResilient(payload) {
+            const attempt = { ...payload };
+            const dropped = [];
+
+            for (let i = 0; i < 12; i++) {
+                const { data, error } = await supabaseClient
+                    .from('members')
+                    .insert(attempt)
+                    .select('*')
+                    .single();
+
+                if (!error) return { data, dropped };
+
+                const message = String(error.message || '');
+                const match = message.match(/Could not find the '([^']+)' column/i)
+                    || message.match(/column "?([a-z_0-9]+)"? of relation "?members"? does not exist/i);
+                const column = match ? match[1] : null;
+
+                if (column && column in attempt && !ADD_MEMBER_CORE_COLUMNS.includes(column)) {
+                    dropped.push(column);
+                    delete attempt[column];
+                    continue;
+                }
+
+                throw error;
+            }
+
+            throw new Error('Could not save the member: too many fields are missing from the members table.');
+        }
+
+        function addMemberErrorText(error) {
+            const message = String(error?.message || error?.details || error?.hint || 'Failed to add member.');
+            const lower = message.toLowerCase();
+            if (lower.includes('row-level security')) {
+                return 'Permission denied by Supabase. Check that the members table allows admins to insert rows (RLS policy).';
+            }
+            if (lower.includes('duplicate key') || lower.includes('unique constraint')) {
+                return 'A member with the same unique value (such as the membership number or ID number) already exists.';
+            }
+            return message;
+        }
+
+        async function saveExistingMember(event) {
+            event.preventDefault();
+            if (addMemberSaving) return;
+
+            const errorEl = byId('addMemberError');
+            errorEl.style.display = 'none';
+            const fail = message => {
+                errorEl.textContent = message;
+                errorEl.style.display = 'block';
+                errorEl.scrollIntoView({ block: 'nearest' });
+            };
+            const val = id => byId(id).value.trim();
+
+            const membership_number = val('amNumber');
+            const first_name = val('amFirstName');
+            const last_name = val('amLastName');
+            const plan_type = val('amPlan');
+            const id_number = val('amIdNumber');
+            const email = val('amEmail');
+            const dob = val('amDob');
+            const joined = val('amJoined');
+            const feeRaw = val('amFee');
+            const phone = normalizeMsisdn(val('amPhone'));
+            const altRaw = val('amAltPhone');
+            const kinPhoneRaw = val('amKinPhone');
+            const phonePattern = /^254(7|1)\d{8}$/;
+
+            if (!membership_number) return fail('The existing membership number is required.');
+            if (!plan_type) return fail('Please select a plan.');
+            if (!first_name) return fail('First name is required.');
+            if (!last_name) return fail('Last name is required.');
+            if (!phonePattern.test(phone)) return fail('Enter a valid phone number, e.g. 0712345678.');
+
+            const alternative_phone = altRaw ? normalizeMsisdn(altRaw) : '';
+            if (alternative_phone && !phonePattern.test(alternative_phone)) return fail('The alternative phone number is not valid.');
+
+            const kin_phone = kinPhoneRaw ? normalizeMsisdn(kinPhoneRaw) : '';
+            if (kin_phone && !phonePattern.test(kin_phone)) return fail('The next of kin phone number is not valid.');
+
+            if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return fail('Enter a valid email address.');
+
+            const today = new Date();
+            if (dob && (isNaN(new Date(dob).getTime()) || new Date(dob) > today)) return fail('Enter a valid date of birth.');
+            if (joined && (isNaN(new Date(joined).getTime()) || new Date(joined) > today)) return fail('The member-since date cannot be in the future.');
+
+            if (feeRaw !== '' && (!Number.isFinite(Number(feeRaw)) || Number(feeRaw) < 0)) return fail('Enter a valid registration fee.');
+
+            addMemberSaving = true;
+            const saveBtn = byId('amSaveBtn');
+            saveBtn.disabled = true;
+            saveBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Adding...';
+
+            try {
+                const { data: { session } } = await supabaseClient.auth.getSession();
+                if (!session?.user) throw new Error('Your session has expired. Please log in again.');
+
+                const { data: sameNumber, error: numberError } = await supabaseClient
+                    .from('members')
+                    .select('id')
+                    .eq('membership_number', membership_number)
+                    .limit(1);
+                if (numberError) throw numberError;
+                if (sameNumber && sameNumber.length) return fail('A member with this membership number already exists.');
+
+                if (id_number) {
+                    const { data: sameId, error: idError } = await supabaseClient
+                        .from('members')
+                        .select('id')
+                        .eq('id_number', id_number)
+                        .limit(1);
+                    if (idError) throw idError;
+                    if (sameId && sameId.length && !confirm('A member with this ID number already exists. Add this member anyway?')) return;
+                }
+
+                const payload = {
+                    membership_number,
+                    first_name,
+                    last_name,
+                    phone,
+                    plan_type,
+                    status: val('amStatus') || 'ACTIVE'
+                };
+
+                const optional = {
+                    alternative_phone,
+                    email,
+                    id_number,
+                    date_of_birth: dob,
+                    gender: val('amGender'),
+                    county: val('amCounty'),
+                    town: val('amTown'),
+                    location: val('amLocation'),
+                    benefit_option: val('amBenefit'),
+                    sales_code: val('amSalesCode'),
+                    kin_name: val('amKinName'),
+                    kin_relationship: val('amKinRelationship'),
+                    kin_phone,
+                    kin_id: val('amKinId')
+                };
+                Object.entries(optional).forEach(([key, value]) => {
+                    if (value) payload[key] = value;
+                });
+
+                if (feeRaw !== '') payload.registration_fee = Number(feeRaw);
+                if (joined) payload.created_at = new Date(joined + 'T00:00:00').toISOString();
+
+                const { data, dropped } = await insertMemberResilient(payload);
+
+                byId('addMemberModal').classList.remove('open');
+                byId('addMemberForm').reset();
+
+                const notes = [];
+                const savedNumber = getMembershipNumber(data);
+                if (savedNumber && String(savedNumber).trim() !== membership_number) {
+                    notes.push(`the system assigned number ${savedNumber} instead of ${membership_number} (a database trigger is likely overwriting it)`);
+                }
+                if (dropped.length) {
+                    notes.push(`these fields were skipped because the members table has no such column: ${dropped.join(', ')}`);
+                }
+
+                if (notes.length) showToast(`Member added, but ${notes.join('; and ')}.`, 'warning');
+                else showToast(`Member ${membership_number} added.`, 'success');
+
+                await loadMembers(1);
+
+            } catch (error) {
+                console.error('Add existing member error:', error);
+                fail(addMemberErrorText(error));
+            } finally {
+                addMemberSaving = false;
+                saveBtn.disabled = false;
+                saveBtn.innerHTML = '<i class="fas fa-check"></i> Add Member';
+            }
         }
 
         function findMemberInCache(memberId) {
@@ -2167,12 +2661,12 @@
 
             const toast = document.createElement('div');
             toast.className = `toast ${type}`;
-            toast.innerHTML = `<span>${message}</span>`;
+            toast.textContent = message;
             container.appendChild(toast);
 
             setTimeout(() => {
                 toast.remove();
-            }, 4000);
+            }, type === 'warning' ? 9000 : 4000);
         }
 
         function escapeHTML(value) {
@@ -2216,6 +2710,9 @@
         window.openStkPushModal = openStkPushModal;
         window.closeStkPushModal = closeStkPushModal;
         window.sendStkPush = sendStkPush;
+        window.openAddMemberModal = openAddMemberModal;
+        window.closeAddMemberModal = closeAddMemberModal;
+        window.saveExistingMember = saveExistingMember;
 
         document.getElementById('memberModal').addEventListener('click', function(e) {
             if (e.target === this) {
