@@ -2994,13 +2994,13 @@
             memberDependantsCache = [];
 
             try {
-                // Use only the columns used by this page.  This prevents one
-                // unrelated/missing column (for example email) from making
-                // the whole dependant list fail with PGRST204.
+                // Actual dependants schema:
+                // principal_member_id, full_name, national_id,
+                // birth_certificate_number, date_of_birth, relationship.
                 const { data, error } = await supabaseClient
                     .from('dependants')
-                    .select('id,member_id,full_name,relationship,date_of_birth,id_number,created_at')
-                    .eq('member_id', memberId)
+                    .select('id,principal_member_id,full_name,national_id,birth_certificate_number,date_of_birth,relationship,created_at')
+                    .eq('principal_member_id', memberId)
                     .order('created_at', { ascending: true });
 
                 if (error) throw error;
@@ -3039,7 +3039,7 @@
             const bits = [];
             if (dep.relationship) bits.push(escapeHTML(dep.relationship));
             if (dep.date_of_birth) bits.push(new Date(dep.date_of_birth).toLocaleDateString('en-KE'));
-            if (dep.id_number) bits.push(`ID ${escapeHTML(dep.id_number)}`);
+            if (dep.national_id || dep.id_number) bits.push(`ID ${escapeHTML(dep.national_id || dep.id_number)}`);
 
             row.innerHTML = `
                 <div class="dependant-row-header">
@@ -3061,7 +3061,7 @@
                     <div class="form-group"><label>Full Name</label><input type="text" class="medep-name" maxlength="150" value="${escapeAttr(dep.full_name)}"></div>
                     <div class="form-group"><label>Relationship</label><input type="text" class="medep-relationship" maxlength="50" placeholder="e.g. Child, Spouse" value="${escapeAttr(dep.relationship)}"></div>
                     <div class="form-group"><label>Date of Birth</label><input type="date" class="medep-dob" value="${dob}"></div>
-                    <div class="form-group"><label>ID / Birth Cert. Number</label><input type="text" class="medep-id" maxlength="30" value="${escapeAttr(dep.id_number)}"></div>
+                    <div class="form-group"><label>ID / Birth Cert. Number</label><input type="text" class="medep-id" maxlength="30" value="${escapeAttr(dep.national_id || dep.id_number)}"></div>
                 </div>
             `;
         }
@@ -3095,7 +3095,7 @@
                 full_name: name,
                 relationship: row.querySelector('.medep-relationship').value.trim(),
                 date_of_birth: dob || null,
-                id_number: row.querySelector('.medep-id').value.trim()
+                national_id: row.querySelector('.medep-id').value.trim()
             };
 
             try {
@@ -3158,13 +3158,13 @@
                 return;
             }
 
-            const payload = { member_id: selectedMemberId, full_name: name };
+            const payload = { principal_member_id: selectedMemberId, full_name: name };
             const relationship = row.querySelector('.medep-relationship').value.trim();
             const dob = row.querySelector('.medep-dob').value;
             const idNumber = row.querySelector('.medep-id').value.trim();
             if (relationship) payload.relationship = relationship;
             if (dob) payload.date_of_birth = dob;
-            if (idNumber) payload.id_number = idNumber;
+            if (idNumber) payload.national_id = idNumber;
 
             try {
                 const { data, dropped } = await insertResilient('dependants', payload, ADD_DEPENDANT_CORE_COLUMNS);
@@ -3372,10 +3372,10 @@
                     const depDropped = new Set();
                     const depFailed = [];
                     for (const dep of dependants) {
-                        const depPayload = { member_id: data.id, full_name: dep.name };
+                        const depPayload = { principal_member_id: data.id, full_name: dep.name };
                         if (dep.relationship) depPayload.relationship = dep.relationship;
                         if (dep.dob) depPayload.date_of_birth = dep.dob;
-                        if (dep.idNumber) depPayload.id_number = dep.idNumber;
+                        if (dep.idNumber) depPayload.national_id = dep.idNumber;
 
                         try {
                             const depResult = await insertResilient('dependants', depPayload, ADD_DEPENDANT_CORE_COLUMNS);
