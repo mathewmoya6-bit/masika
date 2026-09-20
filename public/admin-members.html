@@ -1280,6 +1280,9 @@
                 <button class="btn btn-primary btn-sm" onclick="saveMemberStatus()">
                     <i class="fas fa-check"></i> Update
                 </button>
+                <button class="btn btn-success btn-sm" onclick="validateMemberPayments(selectedMemberId, true)">
+                    <i class="fas fa-receipt"></i> Validate Payments
+                </button>
             </div>
 
             <div class="status-row">
@@ -1875,6 +1878,267 @@
             document.getElementById('adminAvatar').textContent = name.charAt(0).toUpperCase();
         }
 
+
+        // ============================================================
+        // PAYMENT RECONCILIATION / AUTOMATIC MEMBER STATUS
+        // ------------------------------------------------------------
+        // Existing members can be imported after they already have a
+        // payment history.  This reconciler matches payments by:
+        //   1. member_id
+        //   2. membership/member number
+        //   3. phone
+        //
+        // A monthly contribution is considered received only when a
+        // successful/confirmed payment for that member reaches the plan
+        // monthly amount during the relevant calendar month.
+        //
+        // ACTIVE = every month from the member's join month through the
+        // current month has the required monthly contribution.
+        // DORMANT = at least one required month is missing/short.
+        //
+        // SUSPENDED/CANCELLED are never overwritten automatically.
+        // If the payments table is not available, the function leaves
+        // the existing status unchanged instead of guessing.
+        // ============================================================
+
+        let paymentRowsCache = null;
+        let paymentRowsCacheAt = 0;
+        const PAYMENT_CACHE_MS = 30000;
+
+        const PAYMENT_SUCCESS_VALUES = new Set([
+            'paid', 'completed', 'complete', 'success', 'successful',
+            'confirmed', 'received', 'settled', 'processed', 'approved'
+        ]);
+
+        function paymentText(v) {
+            return String(v ?? '').trim().toLowerCase();
+        }
+
+        function paymentIsSuccessful(row) {
+            // If a status column exists, require an explicitly successful
+            // status. Rows without a status are accepted only when they have
+            // a usable amount and no failure/cancellation marker.
+            const rawStatus =
+                row.status ??
+                row.payment_status ??
+                row.transaction_status ??
+                row.result_status ??
+                row.result ??
+                row.state;
+
+            if (rawStatus !== undefined && rawStatus !== null && String(rawStatus).trim() !== '') {
+                return PAYMENT_SUCCESS_VALUES.has(paymentText(rawStatus));
+            }
+
+            const rawResult = paymentText(row.result_code ?? row.mpesa_result_code ?? row.response_code);
+            if (rawResult && rawResult !== '0' && rawResult !== '00') return false;
+
+            const failed = paymentText(row.error ?? row.failure_reason ?? row.reason);
+            if (/fail|cancel|reject|declin|timeout|reverse|revers/.test(failed)) return false;
+
+            return true;
+        }
+
+        function paymentMemberMatches(row, member) {
+            const memberId = String(member?.id ?? '');
+            const memberNo = String(getMembershipNumber(member) ?? '').trim();
+            const phone = normalizeMsisdn(member?.phone || '');
+
+            const rowMemberIds = [
+                row.member_id, row.membership_id, row.member_uuid
+            ].filter(v => v !== undefined && v !== null).map(String);
+
+            if (memberId && rowMemberIds.includes(memberId)) return true;
+
+            const rowNumbers = [
+                row.member_number, row.membership_number, row.membership_no,
+                row.member_no, row.registration_number, row.account_number,
+                row.account, row.bill_ref_number, row.reference
+            ].filter(v => v !== undefined && v !== null).map(v => String(v).trim());
+
+            if (memberNo && rowNumbers.includes(memberNo)) return true;
+
+            const rowPhones = [
+                row.phone, row.msisdn, row.customer_phone, row.phone_number
+            ].filter(v => v !== undefined && v !== null).map(normalizeMsisdn);
+
+            if (phone && rowPhones.includes(phone)) return true;
+
+            return false;
+        }
+
+        function paymentAmount(row) {
+            const value =
+                row.amount ??
+                row.paid_amount ??
+                row.payment_amount ??
+                row.received_amount ??
+                row.total_amount ??
+                row.transaction_amount;
+            const n = Number(value);
+            return Number.isFinite(n) ? n : 0;
+        }
+
+        function paymentDate(row) {
+            const raw =
+                row.payment_date ??
+                row.paid_at ??
+                row.transaction_date ??
+                row.transaction_time ??
+                row.created_at ??
+                row.date ??
+                row.received_at;
+
+            const d = raw ? new Date(raw) : null;
+            return d && !Number.isNaN(d.getTime()) ? d : null;
+        }
+
+        function monthKey(date) {
+            return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+        }
+
+        function requiredMonths(startDate, endDate = new Date()) {
+            const months = [];
+            const d = new Date(startDate.getFullYear(), startDate.getMonth(), 1);
+            const end = new Date(endDate.getFullYear(), endDate.getMonth(), 1);
+            while (d <= end) {
+                months.push(monthKey(d));
+                d.setMonth(d.getMonth() + 1);
+            }
+            return months;
+        }
+
+        async function loadPaymentRows(force = false) {
+            const now = Date.now();
+            if (!force && paymentRowsCache && now - paymentRowsCacheAt < PAYMENT_CACHE_MS) {
+                return paymentRowsCache;
+            }
+
+            try {
+                const { data, error } = await supabaseClient
+                    .from('payments')
+                    .select('*')
+                    .limit(10000);
+
+                if (error) {
+                    console.warn('Payment reconciliation skipped:', error.message || error);
+                    paymentRowsCache = null;
+                    return null;
+                }
+
+                paymentRowsCache = Array.isArray(data) ? data : [];
+                paymentRowsCacheAt = now;
+                return paymentRowsCache;
+            } catch (error) {
+                console.warn('Payment reconciliation skipped:', error);
+                paymentRowsCache = null;
+                return null;
+            }
+        }
+
+        async function reconcileMemberPaymentStatus(member, options = {}) {
+            if (!member?.id || !member?.plan_type) return {
+                status: member?.status || 'PENDING',
+                paymentAvailable: false,
+                missingMonths: []
+            };
+
+            // Never automatically turn manually suspended/cancelled members
+            // back on.
+            if (['SUSPENDED', 'CANCELLED'].includes(String(member.status || '').toUpperCase())) {
+                return {
+                    status: member.status,
+                    paymentAvailable: false,
+                    missingMonths: []
+                };
+            }
+
+            const rows = await loadPaymentRows(Boolean(options.forcePayments));
+            if (!rows) {
+                return {
+                    status: member.status || 'PENDING',
+                    paymentAvailable: false,
+                    missingMonths: [],
+                    skipped: true
+                };
+            }
+
+            const amount = await getPlanAmount(member.plan_type);
+            const monthlyAmount = Number(amount);
+            if (!Number.isFinite(monthlyAmount) || monthlyAmount <= 0) {
+                return {
+                    status: member.status || 'PENDING',
+                    paymentAvailable: true,
+                    missingMonths: [],
+                    skipped: true
+                };
+            }
+
+            const joinedRaw = member.created_at || member.joined_at || member.member_since;
+            const joined = joinedRaw ? new Date(joinedRaw) : new Date();
+            if (Number.isNaN(joined.getTime())) {
+                return { status: member.status || 'PENDING', paymentAvailable: true, missingMonths: [], skipped: true };
+            }
+
+            const memberPayments = rows
+                .filter(row => paymentMemberMatches(row, member))
+                .filter(paymentIsSuccessful)
+                .map(row => ({ row, amount: paymentAmount(row), date: paymentDate(row) }))
+                .filter(x => x.amount > 0 && x.date);
+
+            const paidByMonth = new Map();
+            memberPayments.forEach(({ amount: paid, date }) => {
+                const key = monthKey(date);
+                paidByMonth.set(key, (paidByMonth.get(key) || 0) + paid);
+            });
+
+            const dueMonths = requiredMonths(joined);
+            const missingMonths = dueMonths.filter(key => (paidByMonth.get(key) || 0) < monthlyAmount);
+
+            // For a newly imported member, no payment history means dormant,
+            // not active. This is intentional: adding the member does not
+            // create a payment that was never received.
+            const calculatedStatus = missingMonths.length === 0 ? 'ACTIVE' : 'DORMANT';
+
+            if (options.persist !== false && member.status !== calculatedStatus) {
+                const { error } = await supabaseClient
+                    .from('members')
+                    .update({
+                        status: calculatedStatus,
+                        updated_at: new Date().toISOString()
+                    })
+                    .eq('id', member.id);
+
+                if (!error) member.status = calculatedStatus;
+                else console.warn('Could not persist automatic member status:', error);
+            }
+
+            return {
+                status: calculatedStatus,
+                paymentAvailable: true,
+                missingMonths,
+                paidByMonth,
+                monthlyAmount
+            };
+        }
+
+        async function reconcileVisibleMemberStatuses(members) {
+            if (!Array.isArray(members) || !members.length) return members;
+
+            const rows = await loadPaymentRows();
+            if (!rows) return members;
+
+            // Reuse one payment snapshot for the current page.
+            for (const member of members) {
+                try {
+                    await reconcileMemberPaymentStatus(member, { persist: true });
+                } catch (error) {
+                    console.warn('Status reconciliation failed for member:', member.id, error);
+                }
+            }
+            return members;
+        }
+
         async function loadMembers(page = 1) {
             if (!authReady) return;
             currentPage = page;
@@ -1926,8 +2190,13 @@
                 if (error) throw error;
 
                 totalRecords = count || 0;
-                currentMembersCache = data || [];
-                renderMembers(data || []);
+
+                // Reconcile payment history before displaying the page so the
+                // Active/Dormant status is based on actual received/missed
+                // monthly contributions rather than a manually entered value.
+                const reconciledMembers = await reconcileVisibleMemberStatuses(data || []);
+                currentMembersCache = reconciledMembers;
+                renderMembers(reconciledMembers);
                 renderPagination();
 
                 const { count: total } = await supabaseClient
@@ -2081,11 +2350,21 @@
                 document.getElementById('memberStatusSelect').value = member.status || 'PENDING';
                 document.getElementById('memberPlanSelect').value = member.plan_type || '';
 
+                // Recalculate the status from actual payments when the record
+                // is opened. Suspended/Cancelled remain untouched.
+                try {
+                    await reconcileMemberPaymentStatus(member, { persist: true, forcePayments: true });
+                    currentMemberRecord = member;
+                    document.getElementById('memberStatusSelect').value = member.status || 'PENDING';
+                } catch (statusError) {
+                    console.warn('Member payment status validation skipped:', statusError);
+                }
+
                 setMemberEditMode(false);
 
                 document.getElementById('memberModal').classList.add('open');
                 clearModalMessages();
-                loadMemberDependants(memberId);
+                await loadMemberDependants(memberId);
 
             } catch (error) {
                 console.error('Open member modal error:', error);
@@ -2712,20 +2991,33 @@
         async function loadMemberDependants(memberId) {
             const container = byId('memberDependantsList');
             container.innerHTML = '<p style="font-size:13px;color:var(--text-light);">Loading dependants…</p>';
+            memberDependantsCache = [];
 
             try {
+                // Use only the columns used by this page.  This prevents one
+                // unrelated/missing column (for example email) from making
+                // the whole dependant list fail with PGRST204.
                 const { data, error } = await supabaseClient
                     .from('dependants')
-                    .select('*')
-                    .eq('member_id', memberId);
+                    .select('id,member_id,full_name,relationship,date_of_birth,id_number,created_at')
+                    .eq('member_id', memberId)
+                    .order('created_at', { ascending: true });
 
                 if (error) throw error;
 
-                memberDependantsCache = data || [];
+                memberDependantsCache = Array.isArray(data) ? data : [];
                 renderMemberDependants();
             } catch (error) {
                 console.error('Load dependants error:', error);
-                container.innerHTML = `<p style="font-size:13px;color:var(--danger);">Failed to load dependants: ${escapeHTML(error.message || error.details || error.hint || 'unknown error')}</p>`;
+                container.innerHTML = `
+                    <div style="font-size:13px;color:var(--danger);">
+                        <strong>Failed to load dependants.</strong>
+                        <div style="margin-top:4px;">${escapeHTML(error.message || error.details || error.hint || 'unknown error')}</div>
+                        <button type="button" class="btn btn-secondary btn-sm" style="margin-top:8px;"
+                            onclick="loadMemberDependants('${escapeAttr(memberId)}')">
+                            <i class="fas fa-sync"></i> Retry
+                        </button>
+                    </div>`;
             }
         }
 
@@ -3048,7 +3340,26 @@
 
                 const { data, dropped } = await insertMemberResilient(payload);
 
+                // IMPORTANT: importing an existing member must not assume that
+                // the member is active just because the record was added.
+                // Reconcile any historical payments immediately after insert.
+                let paymentAudit = null;
+                try {
+                    paymentRowsCache = null;
+                    paymentAudit = await reconcileMemberPaymentStatus(data, {
+                        persist: true,
+                        forcePayments: true
+                    });
+                } catch (statusError) {
+                    console.warn('Existing-member payment validation skipped:', statusError);
+                }
+
                 const notes = [];
+                if (paymentAudit?.paymentAvailable && paymentAudit.missingMonths?.length) {
+                    notes.push(`payment audit: ${paymentAudit.missingMonths.length} month(s) missing/short; member set to DORMANT`);
+                } else if (paymentAudit?.paymentAvailable && paymentAudit.status === 'ACTIVE') {
+                    notes.push('payment audit: all due monthly contributions received; member set to ACTIVE');
+                }
                 const savedNumber = getMembershipNumber(data);
                 if (savedNumber && String(savedNumber).trim() !== membership_number) {
                     notes.push(`the system assigned number ${savedNumber} instead of ${membership_number} (a database trigger is likely overwriting it)`);
@@ -3346,7 +3657,8 @@
 
                 if (data?.checkout_request_id || data?.CheckoutRequestID) {
                     setStkStatus('success', `Request sent. Ask the member to enter their M-Pesa PIN on ${phone}.`);
-                    showToast('STK push sent successfully.', 'success');
+                    paymentRowsCache = null;
+                    showToast('STK push sent successfully. Payment status will update after the M-Pesa callback records the payment.', 'success');
                 } else if (data?.error || data?.errorMessage) {
                     setStkStatus('error', data.error || data.errorMessage);
                 } else {
@@ -3363,6 +3675,40 @@
                 clearTimeout(timeoutId);
                 stkAbortController = null;
                 sendBtn.disabled = false;
+            }
+        }
+
+
+        async function validateMemberPayments(memberId, force = true) {
+            try {
+                const member = await getMemberRecord(memberId);
+                if (!member) throw new Error('Member not found.');
+
+                paymentRowsCache = null;
+                const audit = await reconcileMemberPaymentStatus(member, {
+                    persist: true,
+                    forcePayments: force
+                });
+
+                if (audit.skipped) {
+                    showToast('Payment table/plan amount could not be verified, so the current status was left unchanged.', 'warning');
+                } else if (audit.status === 'ACTIVE') {
+                    showToast('Payment audit complete: all due monthly payments have been received. Member is ACTIVE.', 'success');
+                } else {
+                    showToast(`Payment audit complete: ${audit.missingMonths.length} month(s) are missing or short. Member is DORMANT.`, 'warning');
+                }
+
+                if (currentMemberRecord && String(currentMemberRecord.id) === String(memberId)) {
+                    currentMemberRecord.status = audit.status;
+                    byId('memberStatusSelect').value = audit.status;
+                }
+
+                await loadMembers(currentPage);
+                return audit;
+            } catch (error) {
+                console.error('Validate member payments error:', error);
+                showToast(`Payment validation failed: ${error.message || 'unknown error'}`, 'error');
+                return null;
             }
         }
 
@@ -3599,6 +3945,7 @@
         window.toggleEditMember = toggleEditMember;
         window.saveMemberDetails = saveMemberDetails;
         window.saveMemberStatus = saveMemberStatus;
+        window.validateMemberPayments = validateMemberPayments;
         window.saveMemberPlan = saveMemberPlan;
         window.exportMembers = exportMembers;
         window.handleLogout = handleLogout;
