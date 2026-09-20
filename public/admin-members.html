@@ -801,6 +801,29 @@
 
         .form-grid .full { grid-column: 1 / -1; }
 
+        .dependant-row {
+            border: 1px dashed var(--gray-300);
+            border-radius: 8px;
+            padding: 12px 14px 2px;
+            margin-bottom: 12px;
+            position: relative;
+        }
+
+        .dependant-row .dependant-row-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 4px;
+        }
+
+        .dependant-row .dependant-row-header span {
+            font-size: 11px;
+            font-weight: 700;
+            color: var(--text-light);
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+        }
+
         .toast-container {
             position: fixed;
             right: 20px;
@@ -1436,6 +1459,14 @@
                     </div>
                 </fieldset>
 
+                <fieldset>
+                    <legend>Dependants</legend>
+                    <div id="amDependantsList"></div>
+                    <button type="button" class="btn btn-secondary btn-sm" onclick="addDependantRow()">
+                        <i class="fas fa-plus"></i> Add Dependant
+                    </button>
+                </fieldset>
+
                 <div class="form-error" id="addMemberError"></div>
 
                 <div class="modal-actions">
@@ -2006,8 +2037,10 @@
 
         // Columns the insert cannot work without; never dropped on retry.
         const ADD_MEMBER_CORE_COLUMNS = ['membership_number', 'first_name', 'last_name', 'phone', 'plan_type'];
+        const ADD_DEPENDANT_CORE_COLUMNS = ['member_id', 'full_name'];
 
         let addMemberSaving = false;
+        let dependantRowSeq = 0;
 
         function byId(id) { return document.getElementById(id); }
 
@@ -2020,6 +2053,76 @@
                 option.textContent = name;
                 select.appendChild(option);
             });
+        }
+
+        // ------------------------------------------------------------
+        // DEPENDANTS (children/other beneficiaries tied to a member)
+        // ------------------------------------------------------------
+        function addDependantRow() {
+            const list = byId('amDependantsList');
+            const index = dependantRowSeq++;
+            const row = document.createElement('div');
+            row.className = 'dependant-row';
+            row.dataset.index = index;
+            row.innerHTML = `
+                <div class="dependant-row-header">
+                    <span>Dependant ${list.children.length + 1}</span>
+                    <button type="button" class="btn btn-outline btn-sm" onclick="removeDependantRow(this)">
+                        <i class="fas fa-trash"></i> Remove
+                    </button>
+                </div>
+                <div class="form-grid">
+                    <div class="form-group">
+                        <label>Full Name</label>
+                        <input type="text" class="dep-name" maxlength="150" autocomplete="off">
+                    </div>
+                    <div class="form-group">
+                        <label>Relationship</label>
+                        <input type="text" class="dep-relationship" maxlength="50" placeholder="e.g. Child, Spouse" autocomplete="off">
+                    </div>
+                    <div class="form-group">
+                        <label>Date of Birth</label>
+                        <input type="date" class="dep-dob">
+                    </div>
+                    <div class="form-group">
+                        <label>ID / Birth Cert. Number</label>
+                        <input type="text" class="dep-id" maxlength="30" autocomplete="off">
+                    </div>
+                </div>
+            `;
+            list.appendChild(row);
+        }
+
+        function removeDependantRow(btn) {
+            const row = btn.closest('.dependant-row');
+            if (row) row.remove();
+            renumberDependantRows();
+        }
+
+        function renumberDependantRows() {
+            byId('amDependantsList').querySelectorAll('.dependant-row').forEach((row, i) => {
+                row.querySelector('.dependant-row-header span').textContent = `Dependant ${i + 1}`;
+            });
+        }
+
+        function resetDependantRows() {
+            byId('amDependantsList').innerHTML = '';
+            dependantRowSeq = 0;
+        }
+
+        function collectDependants() {
+            const rows = byId('amDependantsList').querySelectorAll('.dependant-row');
+            const list = [];
+            rows.forEach(row => {
+                const name = row.querySelector('.dep-name').value.trim();
+                const relationship = row.querySelector('.dep-relationship').value.trim();
+                const dob = row.querySelector('.dep-dob').value;
+                const idNumber = row.querySelector('.dep-id').value.trim();
+                if (name || relationship || dob || idNumber) {
+                    list.push({ name, relationship, dob, idNumber });
+                }
+            });
+            return list;
         }
 
         async function loadAgentsForAddMember() {
@@ -2054,6 +2157,7 @@
             byId('addMemberForm').reset();
             byId('addMemberError').style.display = 'none';
             ensureCountyOptions();
+            resetDependantRows();
             byId('addMemberModal').classList.add('open');
             loadAgentsForAddMember();
             setTimeout(() => byId('amNumber').focus(), 50);
@@ -2064,13 +2168,13 @@
             byId('addMemberModal').classList.remove('open');
         }
 
-        async function insertMemberResilient(payload) {
+        async function insertResilient(table, payload, coreColumns) {
             const attempt = { ...payload };
             const dropped = [];
 
             for (let i = 0; i < 12; i++) {
                 const { data, error } = await supabaseClient
-                    .from('members')
+                    .from(table)
                     .insert(attempt)
                     .select('*')
                     .single();
@@ -2079,10 +2183,10 @@
 
                 const message = String(error.message || '');
                 const match = message.match(/Could not find the '([^']+)' column/i)
-                    || message.match(/column "?([a-z_0-9]+)"? of relation "?members"? does not exist/i);
+                    || new RegExp(`column "?([a-z_0-9]+)"? of relation "?${table}"? does not exist`, 'i').exec(message);
                 const column = match ? match[1] : null;
 
-                if (column && column in attempt && !ADD_MEMBER_CORE_COLUMNS.includes(column)) {
+                if (column && column in attempt && !coreColumns.includes(column)) {
                     dropped.push(column);
                     delete attempt[column];
                     continue;
@@ -2091,7 +2195,11 @@
                 throw error;
             }
 
-            throw new Error('Could not save the member: too many fields are missing from the members table.');
+            throw new Error(`Could not save the record in ${table}: too many fields are missing from that table.`);
+        }
+
+        async function insertMemberResilient(payload) {
+            return insertResilient('members', payload, ADD_MEMBER_CORE_COLUMNS);
         }
 
         function addMemberErrorText(error) {
@@ -2152,6 +2260,14 @@
             if (joined && (isNaN(new Date(joined).getTime()) || new Date(joined) > today)) return fail('The member-since date cannot be in the future.');
 
             if (feeRaw !== '' && (!Number.isFinite(Number(feeRaw)) || Number(feeRaw) < 0)) return fail('Enter a valid registration fee.');
+
+            const dependants = collectDependants();
+            for (const dep of dependants) {
+                if (!dep.name) return fail('Every dependant needs a full name.');
+                if (dep.dob && (isNaN(new Date(dep.dob).getTime()) || new Date(dep.dob) > today)) {
+                    return fail(`Enter a valid date of birth for dependant "${dep.name}".`);
+                }
+            }
 
             addMemberSaving = true;
             const saveBtn = byId('amSaveBtn');
@@ -2214,9 +2330,6 @@
 
                 const { data, dropped } = await insertMemberResilient(payload);
 
-                byId('addMemberModal').classList.remove('open');
-                byId('addMemberForm').reset();
-
                 const notes = [];
                 const savedNumber = getMembershipNumber(data);
                 if (savedNumber && String(savedNumber).trim() !== membership_number) {
@@ -2225,6 +2338,35 @@
                 if (dropped.length) {
                     notes.push(`these fields were skipped because the members table has no such column: ${dropped.join(', ')}`);
                 }
+
+                if (dependants.length) {
+                    const depDropped = new Set();
+                    const depFailed = [];
+                    for (const dep of dependants) {
+                        const depPayload = { member_id: data.id, full_name: dep.name };
+                        if (dep.relationship) depPayload.relationship = dep.relationship;
+                        if (dep.dob) depPayload.date_of_birth = dep.dob;
+                        if (dep.idNumber) depPayload.id_number = dep.idNumber;
+
+                        try {
+                            const depResult = await insertResilient('dependants', depPayload, ADD_DEPENDANT_CORE_COLUMNS);
+                            depResult.dropped.forEach(c => depDropped.add(c));
+                        } catch (depError) {
+                            console.error('Add dependant error:', depError);
+                            depFailed.push(dep.name);
+                        }
+                    }
+                    if (depDropped.size) {
+                        notes.push(`dependant fields skipped (no such column on the dependants table): ${[...depDropped].join(', ')}`);
+                    }
+                    if (depFailed.length) {
+                        notes.push(`could not save these dependants: ${depFailed.join(', ')}`);
+                    }
+                }
+
+                byId('addMemberModal').classList.remove('open');
+                byId('addMemberForm').reset();
+                resetDependantRows();
 
                 if (notes.length) showToast(`Member added, but ${notes.join('; and ')}.`, 'warning');
                 else showToast(`Member ${membership_number} added.`, 'success');
@@ -2713,6 +2855,8 @@
         window.openAddMemberModal = openAddMemberModal;
         window.closeAddMemberModal = closeAddMemberModal;
         window.saveExistingMember = saveExistingMember;
+        window.addDependantRow = addDependantRow;
+        window.removeDependantRow = removeDependantRow;
 
         document.getElementById('memberModal').addEventListener('click', function(e) {
             if (e.target === this) {
