@@ -1621,9 +1621,7 @@
         }
 
         // ============================================================
-        // PLAN PRICING LOOKUP — single source of truth.
-        // Reads the plans table (NOT "pricing" or "plan_pricing").
-        // Case-insensitive on plan_code; only active plans are returned.
+        // PLAN PRICING LOOKUP — reads plans table only.
         // ============================================================
         async function getPlanPricing(planValue) {
             const planCode = String(planValue || '').trim().toUpperCase();
@@ -1680,8 +1678,7 @@
             };
         }
 
-        // Counts Wazazi parents by reading the dependants table.
-        // Relationship matches "parent" (case-insensitive).
+        // Counts Wazazi parents (dependants table, relationship = parent).
         async function countWazaziParents(memberId) {
             if (!memberId) return 0;
             try {
@@ -1703,8 +1700,8 @@
         }
 
         // ============================================================
-        // PLAN CONFIG (used by Add Existing Member form and elsewhere)
-        // Reads plans table; supports parent pricing columns.
+        // PLAN CONFIG — supports parent pricing columns and forces
+        // Wazazi defaults so parents always appear.
         // ============================================================
         const planConfigCache = {};
 
@@ -1754,12 +1751,23 @@
                     };
             }
 
+            // Safety net: Wazazi always has parent pricing + bounds even
+            // if the plans table row is missing these columns.
+            if (key === 'wazazi') {
+                if (!resolved.parentMonthly || resolved.parentMonthly <= 0) resolved.parentMonthly = 350;
+                if (!resolved.parentFee || resolved.parentFee <= 0) resolved.parentFee = 100;
+                if (!resolved.minParents || resolved.minParents < 1) resolved.minParents = 1;
+                if (!resolved.maxParents || resolved.maxParents < 1) resolved.maxParents = 4;
+                if (!resolved.amount || resolved.amount <= 0) resolved.amount = 300;
+                if (!resolved.registrationFee || resolved.registrationFee <= 0) resolved.registrationFee = 200;
+            }
+
             planConfigCache[key] = resolved;
             return resolved;
         }
 
-        // Monthly amount used for audit / status:
-        // Wazazi is main + parents × parent_monthly. Others use monthly_premium.
+        // Monthly amount used for audit / status.
+        // Wazazi = main + parents × parent_monthly.
         async function getPlanAmount(planType, memberId = null) {
             const key = String(planType || '').trim().toLowerCase();
             if (!key) return null;
@@ -1770,21 +1778,15 @@
             } catch {
                 config = PLAN_FALLBACK_CONFIG[key];
                 if (!config) return null;
-                config = {
-                    amount: config.amount,
-                    parentMonthly: config.parentMonthly
-                };
             }
 
             if (key === 'wazazi') {
                 const parentCount = memberId ? await countWazaziParents(memberId) : 0;
-                // Base monthly from plan + parents × parent_monthly.
                 const base = Number(config.amount || 300);
                 const parentMonthly = Number(config.parentMonthly || 350);
                 if (parentCount >= 1) {
                     return base + (parentCount * parentMonthly);
                 }
-                // No parents recorded yet — fall back to base so audits don't break.
                 return base;
             }
 
@@ -2716,12 +2718,25 @@
 
             try {
                 const config = await getPlanConfig(planType);
+
+                // WAZAZI always uses parents (1–4). Force these bounds even
+                // if the plans row for Wazazi hasn't had them set yet.
+                const isWazazi = String(planType || '').trim().toLowerCase() === 'wazazi';
+                if (isWazazi) {
+                    if (!config.minParents || config.minParents < 1) config.minParents = 1;
+                    if (!config.maxParents || config.maxParents < 1) config.maxParents = 4;
+                    if (!config.parentMonthly || config.parentMonthly <= 0) config.parentMonthly = 350;
+                    if (!config.parentFee || config.parentFee <= 0) config.parentFee = 100;
+                }
+
                 currentPlanConfig = config;
 
                 if (planUsesParents(config)) {
                     parentsSection.style.display = 'block';
                     updateParentsHint();
-                    for (let i = 0; i < config.minParents; i++) addParentRow();
+                    // Always pre-fill at least 1 parent row for Wazazi.
+                    const prefill = Math.max(config.minParents, 1);
+                    for (let i = 0; i < prefill; i++) addParentRow();
                 } else {
                     parentsSection.style.display = 'none';
                     resetParentRows();
@@ -3098,6 +3113,21 @@
             if (depLimit !== null && dependants.length > depLimit) return fail(`This plan allows at most ${depLimit} dependant(s).`);
 
             const parents = collectParents();
+            const isWazaziSelected = String(plan_type || '').trim().toLowerCase() === 'wazazi';
+
+            // Wazazi always requires parents, even if the plan config somehow
+            // came back without min/max set.
+            if (isWazaziSelected && (!currentPlanConfig || currentPlanConfig.maxParents === 0)) {
+                currentPlanConfig = currentPlanConfig || {};
+                currentPlanConfig.minParents = 1;
+                currentPlanConfig.maxParents = 4;
+                currentPlanConfig.parentFee = currentPlanConfig.parentFee || 100;
+                currentPlanConfig.parentMonthly = currentPlanConfig.parentMonthly || 350;
+                currentPlanConfig.registrationFee = currentPlanConfig.registrationFee || 200;
+                currentPlanConfig.amount = currentPlanConfig.amount || 300;
+                currentPlanConfig.label = currentPlanConfig.label || 'Wazazi';
+            }
+
             if (planUsesParents(currentPlanConfig)) {
                 const { minParents, maxParents } = currentPlanConfig;
                 if (parents.length < minParents || parents.length > maxParents) {
@@ -3162,10 +3192,11 @@
                 // from plan (member reg + parent fees × parent count).
                 if (feeRaw !== '') {
                     payload.registration_fee = Number(feeRaw);
-                } else if (currentPlanConfig) {
-                    const parentFee = Number(currentPlanConfig.parentFee || 0);
-                    const parentCount = planUsesParents(currentPlanConfig) ? parents.length : 0;
-                    const computed = Number(currentPlanConfig.registrationFee || 0) + parentFee * parentCount;
+                } else {
+                    const parentFee = Number(currentPlanConfig?.parentFee || (isWazaziSelected ? 100 : 0));
+                    const parentCount = (planUsesParents(currentPlanConfig) || isWazaziSelected) ? parents.length : 0;
+                    const base = Number(currentPlanConfig?.registrationFee || (isWazaziSelected ? 200 : 0));
+                    const computed = base + parentFee * parentCount;
                     if (computed > 0) payload.registration_fee = computed;
                 }
                 if (joined) payload.created_at = new Date(joined + 'T00:00:00').toISOString();
