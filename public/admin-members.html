@@ -2509,12 +2509,32 @@
                         <input type="text" class="dep-relationship" maxlength="50" placeholder="e.g. Child, Spouse" autocomplete="off">
                     </div>
                     <div class="form-group">
+                        <label>Gender</label>
+                        <select class="dep-gender">
+                            <option value="">Not specified</option>
+                            <option value="MALE">Male</option>
+                            <option value="FEMALE">Female</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
                         <label>Date of Birth</label>
                         <input type="date" class="dep-dob">
                     </div>
                     <div class="form-group">
-                        <label>ID / Birth Cert. Number</label>
-                        <input type="text" class="dep-id" maxlength="30" autocomplete="off">
+                        <label>Phone</label>
+                        <input type="tel" class="dep-phone" placeholder="07XXXXXXXX" autocomplete="off">
+                    </div>
+                    <div class="form-group">
+                        <label>Email</label>
+                        <input type="email" class="dep-email" maxlength="150" autocomplete="off">
+                    </div>
+                    <div class="form-group">
+                        <label>National ID</label>
+                        <input type="text" class="dep-national-id" maxlength="30" autocomplete="off">
+                    </div>
+                    <div class="form-group">
+                        <label>Birth Certificate Number</label>
+                        <input type="text" class="dep-birth-cert" maxlength="30" autocomplete="off">
                     </div>
                 </div>
             `;
@@ -2550,10 +2570,14 @@
             rows.forEach(row => {
                 const name = row.querySelector('.dep-name').value.trim();
                 const relationship = row.querySelector('.dep-relationship').value.trim();
+                const gender = row.querySelector('.dep-gender').value;
                 const dob = row.querySelector('.dep-dob').value;
-                const idNumber = row.querySelector('.dep-id').value.trim();
-                if (name || relationship || dob || idNumber) {
-                    list.push({ name, relationship, dob, idNumber });
+                const phone = row.querySelector('.dep-phone').value.trim();
+                const email = row.querySelector('.dep-email').value.trim();
+                const nationalId = row.querySelector('.dep-national-id').value.trim();
+                const birthCert = row.querySelector('.dep-birth-cert').value.trim();
+                if (name || relationship || gender || dob || phone || email || nationalId || birthCert) {
+                    list.push({ name, relationship, gender, dob, phone, email, nationalId, birthCert });
                 }
             });
             return list;
