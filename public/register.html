@@ -753,6 +753,31 @@
                             <div class="form-section">
                                 <div class="form-section-title">
                                     <span class="step-number">3</span>
+                                    <h3>Registration Source</h3>
+                                </div>
+                                <div class="form-grid">
+                                    <div class="form-group">
+                                        <label for="chamaSalesCode">Sales Agent Code</label>
+                                        <select id="chamaSalesCode" name="sales_code">
+                                            <option value="">Loading agents...</option>
+                                        </select>
+                                        <span class="help-text">Select the agent who assisted with your registration.</span>
+                                    </div>
+                                    <div class="form-group">
+                                        <label for="chamaBenefitOption">Benefit Option <span class="required">*</span></label>
+                                        <select id="chamaBenefitOption" name="benefit_option" required>
+                                            <option value="">Select benefit option</option>
+                                            <option value="service">Service</option>
+                                            <option value="cash">Cash</option>
+                                        </select>
+                                        <span class="help-text">Select how the applicable benevolent benefit is to be provided.</span>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="form-section">
+                                <div class="form-section-title">
+                                    <span class="step-number">4</span>
                                     <h3>Upload Members CSV (optional)</h3>
                                 </div>
                                 <div class="csv-box">
@@ -873,6 +898,8 @@
             plansContainer: $('plansContainer'),
             planHelp: $('planHelp'),
             salesCode: $('salesCode'),
+            chamaSalesCode: $('chamaSalesCode'),
+            chamaBenefitOption: $('chamaBenefitOption'),
             dependantsContainer: $('dependantsContainer'),
             addDependantBtn: $('addDependantBtn'),
             submitBtn: $('submitBtn'),
@@ -1069,12 +1096,15 @@
 
         // ============================================================
         // LOAD SALES AGENTS
+        // Fills BOTH the individual and the chama agent dropdowns
+        // from a single Supabase query.
         // ============================================================
         async function loadSalesAgents() {
-            const select = elements.salesCode;
-            if (!select) return;
+            const selects = [elements.salesCode, elements.chamaSalesCode].filter(Boolean);
+            if (!selects.length) return;
 
-            select.innerHTML = '<option value="">Loading agents...</option>';
+            const setAll = html => selects.forEach(s => { s.innerHTML = html; });
+            setAll('<option value="">Loading agents...</option>');
 
             try {
                 if (!supabaseClient) {
@@ -1092,25 +1122,27 @@
                 allSalesAgents = data || [];
 
                 if (!allSalesAgents.length) {
-                    select.innerHTML = '<option value="">No sales agents available</option>';
+                    setAll('<option value="">No sales agents available</option>');
                     return;
                 }
 
-                select.innerHTML = '<option value="">Select sales agent</option>';
+                selects.forEach(select => {
+                    select.innerHTML = '<option value="">Select sales agent</option>';
 
-                allSalesAgents.forEach(agent => {
-                    if (!agent.sales_code) return;
-                    const option = document.createElement('option');
-                    option.value = String(agent.sales_code).trim();
-                    option.textContent = `${agent.sales_code} - ${agent.full_name || 'Agent'}`;
-                    select.appendChild(option);
+                    allSalesAgents.forEach(agent => {
+                        if (!agent.sales_code) return;
+                        const option = document.createElement('option');
+                        option.value = String(agent.sales_code).trim();
+                        option.textContent = `${agent.sales_code} - ${agent.full_name || 'Agent'}`;
+                        select.appendChild(option);
+                    });
                 });
 
                 console.log(`✅ Loaded ${allSalesAgents.length} active sales agents`);
 
             } catch (error) {
                 console.error('❌ Failed to load sales agents:', error);
-                select.innerHTML = '<option value="">Unable to load sales agents</option>';
+                setAll('<option value="">Unable to load sales agents</option>');
                 showAlert(`Failed to load sales agents: ${error.message}`, 'warning');
             }
         }
@@ -1644,6 +1676,14 @@
                 }
             }
 
+            // Registration Source (sales agent is optional, benefit option is required)
+            const chamaBenefitOption = elements.chamaBenefitOption.value;
+            if (!chamaBenefitOption) {
+                showAlert('Please select a benefit option.', 'error');
+                return;
+            }
+            const chamaSalesCode = elements.chamaSalesCode.value || null;
+
             if (parsedChamaMembers.length > 0 &&
                 declaredMembers !== parsedChamaMembers.length) {
                 showAlert(
@@ -1673,6 +1713,8 @@
                     chairperson,
                     treasurer,
                     secretary,
+                    sales_code: chamaSalesCode,
+                    benefit_option: chamaBenefitOption,
                     members: normalizedMembers
                 };
 
@@ -1712,6 +1754,10 @@
                 sessionStorage.setItem('newChamaPhone', chamaPhone);
                 sessionStorage.setItem('registrationAmount', String(totalAmount));
                 sessionStorage.setItem('isChamaRegistration', 'true');
+
+                if (chamaSalesCode) {
+                    sessionStorage.setItem('newSalesCode', chamaSalesCode);
+                }
 
                 showAlert(`Chama registration successful! ${declaredMembers} members registered. Redirecting to payment...`, 'success');
 
@@ -1909,6 +1955,7 @@
         function resetChamaForm() {
             if (!confirm('Reset this chama registration?')) return;
 
+            // reset() also clears the chama sales agent and benefit option selects
             elements.chamaForm.reset();
             parsedChamaMembers = [];
             renderChamaPreview();
