@@ -1564,6 +1564,20 @@ async def query_mpesa_transaction_status(checkout_request_id: str) -> dict:
         logger.error(f"Status query error: {e}")
         return {"success": False}
 
+# Known terminal M-Pesa failure ResultCodes (STK query). Anything not in
+# this set is treated as "still pending" rather than guessed as a failure.
+KNOWN_MPESA_FAILURE_CODES = {
+    "1",      # Insufficient balance
+    "1001",   # Unable to lock subscriber / another transaction in progress
+    "1002",   # Wrong PIN
+    "1019",   # Transaction expired
+    "1025",   # System error
+    "1032",   # Cancelled by user
+    "1037",   # DS timeout (kept here for completeness; handled separately)
+    "2001",   # Wrong PIN
+    "2028",   # User cancel
+}
+
 # ------------------------------------------------------------
 # 8. PAYMENT CALLBACK
 # ------------------------------------------------------------
@@ -1770,6 +1784,439 @@ async def activate_registration(payment: dict):
 
     except Exception as e:
         logger.error(f"Activation failed: {e}")
+
+
+# ============================================================
+# PAYMENT VALIDATION / MEMBERSHIP RECONCILIATION
+# ============================================================
+# Reconciles a member's registration + monthly contributions using the
+# payments ledger. The registration payment is never counted as a monthly
+# contribution. Legacy status fields (legacy_status, legacy_missing_months)
+# are returned for reference only and never influence the computed status.
+
+def _parse_date(value):
+    """Safely convert a Supabase date/datetime value to a date."""
+    if not value:
+        return None
+
+    if isinstance(value, datetime):
+        return value.date()
+
+    if isinstance(value, date):
+        return value
+
+    try:
+        return datetime.fromisoformat(str(value).replace("Z", "+00:00")).date()
+    except Exception:
+        try:
+            return date.fromisoformat(str(value)[:10])
+        except Exception:
+            return None
+
+
+def _months_between(start_date: date, end_date: date) -> int:
+    """
+    Number of monthly contribution periods between two dates.
+
+    Monthly contributions begin in the month after registration.
+    The current month is included only if it has already started as
+    a required contribution period.
+    """
+    if not start_date or not end_date:
+        return 0
+
+    start_month = start_date.year * 12 + start_date.month
+    end_month = end_date.year * 12 + end_date.month
+
+    # Monthly contribution starts the month after registration.
+    months = end_month - start_month
+
+    return max(0, months)
+
+
+def get_plan_monthly_fee(plan_slug: str) -> float:
+    """
+    Get the current monthly contribution from the live plans table.
+    Never hardcode the monthly fee.
+    """
+    if not supabase:
+        raise HTTPException(status_code=500, detail="Database not available")
+
+    plan_slug = (plan_slug or "").strip().lower()
+
+    result = (
+        supabase.table("plans")
+        .select("plan_code, monthly_premium, is_active")
+        .ilike("plan_code", plan_slug)
+        .limit(1)
+        .execute()
+    )
+
+    if not result.data:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Plan '{plan_slug}' was not found in pricing."
+        )
+
+    plan = result.data[0]
+
+    return float(plan.get("monthly_premium") or 0)
+
+
+def calculate_member_payment_validation(member_id: str) -> dict:
+    """
+    Reconcile a member using the NEW SYSTEM payment ledger.
+
+    IMPORTANT:
+    legacy_status / legacy_missing_months are historical only.
+    They are NEVER used to determine the new status.
+    """
+
+    if not supabase:
+        raise HTTPException(status_code=500, detail="Database not available")
+
+    member_result = (
+        supabase.table("members")
+        .select("*")
+        .eq("id", member_id)
+        .limit(1)
+        .execute()
+    )
+
+    if not member_result.data:
+        raise HTTPException(status_code=404, detail="Member not found")
+
+    member = member_result.data[0]
+
+    plan = (member.get("plan") or "").strip().lower()
+
+    if plan == "chama":
+        return {
+            "success": False,
+            "validation_status": "NOT_APPLICABLE",
+            "message": "Chama members use group payment validation."
+        }
+
+    registration_date = _parse_date(member.get("registration_date"))
+
+    if not registration_date:
+        return {
+            "success": False,
+            "validation_status": "REQUIRES_RECONCILIATION",
+            "message": "Member has no valid registration date."
+        }
+
+    monthly_fee = get_plan_monthly_fee(plan)
+
+    if monthly_fee <= 0:
+        return {
+            "success": False,
+            "validation_status": "REQUIRES_RECONCILIATION",
+            "message": f"No monthly contribution is configured for plan '{plan}'."
+        }
+
+    # --------------------------------------------------------
+    # Load ALL completed payments in the new system.
+    # Do NOT use only the last 10 payments.
+    # --------------------------------------------------------
+
+    payment_result = (
+        supabase.table("payments")
+        .select("*")
+        .eq("member_id", member_id)
+        .eq("status", "completed")
+        .order("payment_date", desc=False)
+        .execute()
+    )
+
+    payments = payment_result.data or []
+
+    registration_paid = 0.0
+    monthly_paid = 0.0
+    monthly_payments = []
+
+    for payment in payments:
+        payment_type = (payment.get("payment_type") or "").lower()
+        amount = float(payment.get("amount") or 0)
+
+        if payment_type == "registration":
+            registration_paid += amount
+
+        elif payment_type in ("monthly", "topup", "addon"):
+            monthly_paid += amount
+            monthly_payments.append(payment)
+
+    # --------------------------------------------------------
+    # Registration payment is NOT counted as monthly payment.
+    # --------------------------------------------------------
+
+    expected_months = _months_between(
+        registration_date,
+        date.today()
+    )
+
+    expected_monthly_amount = expected_months * monthly_fee
+
+    # --------------------------------------------------------
+    # Match monthly payments chronologically against required
+    # monthly contributions.
+    #
+    # Example:
+    # monthly fee = 50
+    # payment = 100
+    #
+    # This satisfies two months.
+    # --------------------------------------------------------
+
+    remaining_credit = monthly_paid
+    months_paid = 0
+    months_short = 0
+    months_missing = 0
+
+    for _ in range(expected_months):
+        if remaining_credit >= monthly_fee:
+            remaining_credit -= monthly_fee
+            months_paid += 1
+
+        elif remaining_credit > 0:
+            months_short += 1
+            remaining_credit = 0
+
+        else:
+            months_missing += 1
+
+    # --------------------------------------------------------
+    # Determine status.
+    #
+    # No historical payment evidence:
+    # don't falsely declare DORMANT.
+    # --------------------------------------------------------
+
+    has_new_system_monthly_evidence = len(monthly_payments) > 0
+
+    if expected_months == 0:
+        current_status = "ACTIVE"
+        validation_status = "VALIDATED"
+        note = "No monthly contribution period is currently due."
+
+    elif months_missing == 0 and months_short == 0:
+        current_status = "ACTIVE"
+        validation_status = "VALIDATED"
+        note = "All required monthly contributions are satisfied."
+
+    elif not has_new_system_monthly_evidence:
+        current_status = "PENDING"
+        validation_status = "REQUIRES_RECONCILIATION"
+        note = (
+            "No completed monthly payments exist in the new system. "
+            "Historical payments must be imported or verified before "
+            "determining current arrears."
+        )
+
+    else:
+        current_status = "DORMANT"
+        validation_status = "VALIDATED"
+        note = (
+            f"{months_missing} month(s) missing and "
+            f"{months_short} month(s) short."
+        )
+
+    # --------------------------------------------------------
+    # Update BOTH status fields.
+    #
+    # member_status is the existing field used throughout the
+    # application.
+    #
+    # status is the new normalized field.
+    # --------------------------------------------------------
+
+    update_data = {
+        "status": current_status,
+        "member_status": current_status,
+        "payment_validation_status": validation_status,
+        "months_paid": months_paid,
+        "months_missing": months_missing,
+        "months_short": months_short,
+        "amount_expected": expected_monthly_amount,
+        "amount_paid": monthly_paid,
+        "payment_validated_at": datetime.now().isoformat(),
+        "payment_validation_note": note,
+        "updated_at": datetime.now().isoformat()
+    }
+
+    try:
+        update_result = (
+            supabase.table("members")
+            .update(update_data)
+            .eq("id", member_id)
+            .execute()
+        )
+    except Exception as e:
+        logger.error(
+            f"Could not save payment validation for {member_id}: {e}"
+        )
+        raise HTTPException(
+            status_code=400,
+            detail=f"Could not save payment validation: {str(e)}"
+        )
+
+    return {
+        "success": True,
+        "member_id": member_id,
+        "member_number": member.get("member_number"),
+        "plan": plan,
+
+        "registration_date": registration_date.isoformat(),
+
+        "monthly_fee": monthly_fee,
+
+        "expected_months": expected_months,
+        "months_paid": months_paid,
+        "months_missing": months_missing,
+        "months_short": months_short,
+
+        "amount_expected": round(expected_monthly_amount, 2),
+        "amount_paid": round(monthly_paid, 2),
+
+        "registration_paid": round(registration_paid, 2),
+
+        "status": current_status,
+        "payment_validation_status": validation_status,
+
+        "legacy_status": member.get("legacy_status"),
+        "legacy_missing_months": member.get("legacy_missing_months"),
+
+        "note": note
+    }
+
+
+# ------------------------------------------------------------
+# 9b. PAYMENT VALIDATION ENDPOINTS
+# ------------------------------------------------------------
+# Wraps calculate_member_payment_validation() so the admin panel
+# (admin-members.html "Validate Payments" button) and any cron /
+# reporting job can trigger the reconciliation on demand.
+
+class BulkValidateRequest(BaseModel):
+    """Optionally restrict the sweep to a specific list of member ids."""
+    member_ids: Optional[List[str]] = None
+    # Safety cap so a misconfigured call can't try to reconcile
+    # tens of thousands of members in one request.
+    limit: int = 200
+
+
+@public_router.post("/payment/validate/{member_id}")
+async def validate_member_payment(member_id: str):
+    """
+    Reconcile ONE member's payment history against their plan's
+    current monthly contribution and update their status.
+
+    Returns the full audit dict from calculate_member_payment_validation(),
+    including months_paid / months_missing / months_short and amounts.
+    """
+    try:
+        result = calculate_member_payment_validation(member_id)
+        return result
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Payment validation failed for {member_id}: {e}")
+        raise HTTPException(
+            status_code=400,
+            detail=f"Payment validation failed: {str(e)}"
+        )
+
+
+@public_router.post("/payment/validate-bulk")
+async def validate_members_bulk(payload: BulkValidateRequest):
+    """
+    Reconcile many members at once.
+
+    - If `member_ids` is provided, only those are validated.
+    - Otherwise the newest `limit` members with a known plan are swept.
+
+    Returns per-member results plus a summary count so a cron job or
+    an admin "Refresh all" button can see what changed.
+    """
+    if not supabase:
+        raise HTTPException(status_code=500, detail="Database not available")
+
+    if payload.member_ids:
+        ids = payload.member_ids[: payload.limit]
+    else:
+        try:
+            rows = (
+                supabase.table("members")
+                .select("id")
+                .not_.is_("plan", "null")
+                .order("created_at", desc=True)
+                .limit(payload.limit)
+                .execute()
+                .data or []
+            )
+        except Exception as e:
+            logger.error(f"Bulk validation: could not list members: {e}")
+            raise HTTPException(status_code=400, detail="Could not list members")
+
+        ids = [r["id"] for r in rows if r.get("id")]
+
+    results = []
+    summary = {
+        "checked": 0,
+        "active": 0,
+        "dormant": 0,
+        "pending": 0,
+        "requires_reconciliation": 0,
+        "not_applicable": 0,
+        "errors": 0,
+    }
+
+    for member_id in ids:
+        try:
+            result = calculate_member_payment_validation(member_id)
+        except HTTPException as http_err:
+            results.append({
+                "member_id": member_id,
+                "success": False,
+                "error": http_err.detail,
+            })
+            summary["errors"] += 1
+            continue
+        except Exception as e:
+            logger.error(f"Bulk validation error for {member_id}: {e}")
+            results.append({
+                "member_id": member_id,
+                "success": False,
+                "error": str(e),
+            })
+            summary["errors"] += 1
+            continue
+
+        results.append(result)
+        summary["checked"] += 1
+
+        if result.get("validation_status") == "NOT_APPLICABLE":
+            summary["not_applicable"] += 1
+            continue
+
+        if result.get("validation_status") == "REQUIRES_RECONCILIATION":
+            summary["requires_reconciliation"] += 1
+            continue
+
+        status = result.get("status")
+        if status == "ACTIVE":
+            summary["active"] += 1
+        elif status == "DORMANT":
+            summary["dormant"] += 1
+        elif status == "PENDING":
+            summary["pending"] += 1
+
+    return {
+        "success": True,
+        "summary": summary,
+        "results": results,
+    }
+
 
 # ------------------------------------------------------------
 # 10. PUBLIC MEMBER LOOKUP (plain record)
