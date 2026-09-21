@@ -642,10 +642,6 @@
                                         <option value="">Loading branches...</option>
                                     </select>
                                 </div>
-                                <div class="form-group full">
-                                    <label for="address">Physical / Postal Address</label>
-                                    <textarea id="address" name="address"></textarea>
-                                </div>
                             </div>
                         </div>
 
@@ -897,9 +893,11 @@
         // cannot be reached, the form tells the user pricing is
         // unavailable instead of silently using stale numbers.
         //
-        // BRANCHES: loaded from the Supabase `branches` table
-        // (branch_code, branch_name, status), same pattern as
-        // sales agents.
+        // BRANCHES: loaded from the Supabase `branches` table.
+        // Columns used: branch_code, branch_name, is_active.
+        // NOTE: `branches` uses a BOOLEAN `is_active` column
+        // (NOT a text `status` column), so we filter with
+        // .eq('is_active', true) instead of .ilike('status', ...).
         // ============================================================
 
         const SUPABASE_URL = 'https://wpxzlcdrirlcyvfiquld.supabase.co';
@@ -1194,8 +1192,14 @@
         // ============================================================
         // LOAD BRANCHES
         // Fills BOTH the individual and the chama branch dropdowns
-        // from a single Supabase query (same pattern as sales agents).
+        // from a single Supabase query.
+        //
+        // Source of truth: public.branches
+        // Columns used: branch_code, branch_name, county, town, is_active
         // The submitted value is the branch_code.
+        //
+        // IMPORTANT: `branches` uses a BOOLEAN `is_active` column,
+        // not a text `status` column. Filter with .eq('is_active', true).
         // ============================================================
         async function loadBranches() {
             const selects = [elements.branch, elements.chamaBranch].filter(Boolean);
@@ -1211,8 +1215,8 @@
 
                 const { data, error } = await supabaseClient
                     .from('branches')
-                    .select('branch_code, branch_name, status')
-                    .ilike('status', 'active')
+                    .select('branch_code, branch_name, county, town, is_active')
+                    .eq('is_active', true)
                     .order('branch_name', { ascending: true });
 
                 if (error) throw error;
@@ -1545,7 +1549,6 @@
                 location: $('location').value.trim() || null,
                 town: $('town').value.trim() || null,
                 branch: $('branch').value,
-                address: $('address').value.trim() || null,
                 next_of_kin_name: $('nextOfKinName').value.trim(),
                 next_of_kin_id_number: $('nextOfKinId').value.trim(),
                 next_of_kin_phone: normalizePhone($('nextOfKinPhone').value),
@@ -2183,7 +2186,7 @@
         console.log('📌 Plans are loaded LIVE from Supabase `plans` table (admin-pricing writes here)');
         console.log('📌 Realtime subscription active — admin price edits push instantly');
         console.log('📌 Sales agents: public.sales_agents.sales_code');
-        console.log('📌 Branches: public.branches.branch_code');
+        console.log('📌 Branches: public.branches.branch_code (filtered by is_active = true)');
         console.log('🆔 Payment identifier: member_id');
     </script>
 
