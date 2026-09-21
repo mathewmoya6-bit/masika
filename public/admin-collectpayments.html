@@ -1,4 +1,3 @@
-```html
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -7,29 +6,20 @@
     <title>Collect Payment | Masika Benevolent</title>
     <link rel="icon" type="image/png" sizes="32x32" href="assets/branding/favicon-32.png">
 
-    <!-- =========================================================
-         SUPABASE & EXTERNAL JS
-         ========================================================= -->
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
-    <link rel="stylesheet"
-          href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap"
-          rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
 
     <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
+        /* ========== BASE ========== */
+        * { margin: 0; padding: 0; box-sizing: border-box; }
 
         :root {
             --primary: #0b5d3b;
             --primary-dark: #06452c;
             --primary-light: #e8f5ee;
             --gold: #d4a843;
-            --gold-light: #f5e6b8;
             --danger: #dc3545;
             --danger-light: #fce4e8;
             --success: #198754;
@@ -37,12 +27,8 @@
             --warning: #ffc107;
             --warning-light: #fff3cd;
             --info: #0dcaf0;
-            --info-light: #d1f0f9;
             --text: #1f2933;
             --text-light: #6b7280;
-            --text-lighter: #9ca3af;
-            --white: #ffffff;
-            --gray-50: #f9fafb;
             --gray-100: #f3f4f6;
             --gray-200: #e5e7eb;
             --gray-300: #d1d5db;
@@ -50,7 +36,6 @@
             --shadow: 0 2px 12px rgba(0,0,0,0.08);
             --shadow-hover: 0 4px 24px rgba(0,0,0,0.12);
             --radius: 12px;
-            --radius-lg: 16px;
             --transition: all 0.3s ease;
         }
 
@@ -61,38 +46,23 @@
             min-height: 100vh;
         }
 
-        ::-webkit-scrollbar {
-            width: 6px;
-            height: 6px;
-        }
+        /* Hidden until authentication is verified (prevents flash / redirect bounce) */
+        body.auth-pending { visibility: hidden; }
 
-        ::-webkit-scrollbar-track {
-            background: var(--gray-100);
-            border-radius: 10px;
-        }
+        .hidden { display: none !important; }
 
-        ::-webkit-scrollbar-thumb {
-            background: var(--gray-300);
-            border-radius: 10px;
-        }
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        ::-webkit-scrollbar-track { background: var(--gray-100); border-radius: 10px; }
+        ::-webkit-scrollbar-thumb { background: var(--gray-300); border-radius: 10px; }
+        ::-webkit-scrollbar-thumb:hover { background: var(--gray-400); }
 
-        ::-webkit-scrollbar-thumb:hover {
-            background: var(--gray-400);
-        }
+        .admin-layout { display: flex; min-height: 100vh; }
 
-        .admin-layout {
-            display: flex;
-            min-height: 100vh;
-        }
-
-        /* ============================================================
-           SIDEBAR
-           ============================================================ */
-
+        /* ========== SIDEBAR ========== */
         .sidebar {
             width: 280px;
             background: var(--primary);
-            color: white;
+            color: #fff;
             padding: 24px 0;
             position: fixed;
             height: 100vh;
@@ -103,18 +73,9 @@
             flex-direction: column;
         }
 
-        .sidebar::-webkit-scrollbar {
-            width: 4px;
-        }
-
-        .sidebar::-webkit-scrollbar-track {
-            background: rgba(255,255,255,0.05);
-        }
-
-        .sidebar::-webkit-scrollbar-thumb {
-            background: rgba(255,255,255,0.2);
-            border-radius: 10px;
-        }
+        .sidebar::-webkit-scrollbar { width: 4px; }
+        .sidebar::-webkit-scrollbar-track { background: rgba(255,255,255,0.05); }
+        .sidebar::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.2); border-radius: 10px; }
 
         .sidebar-brand {
             padding: 0 24px 24px;
@@ -128,7 +89,7 @@
             align-items: center;
             gap: 12px;
             text-decoration: none;
-            color: white;
+            color: #fff;
         }
 
         .sidebar-brand .logo-icon {
@@ -140,42 +101,30 @@
             align-items: center;
             justify-content: center;
             font-weight: 900;
-            color: var(--white);
             font-size: 20px;
         }
 
-        .sidebar-brand .logo-text {
-            font-weight: 800;
-            font-size: 20px;
-            letter-spacing: -0.5px;
-        }
+        .sidebar-brand .logo-text { font-weight: 800; font-size: 20px; letter-spacing: -0.5px; }
 
         .sidebar-brand .logo-sub {
-            font-size: 11px;
-            opacity: 0.6;
             display: block;
+            font-size: 11px;
             font-weight: 400;
+            opacity: 0.6;
             letter-spacing: 0.5px;
             text-transform: uppercase;
         }
 
-        .sidebar-nav {
-            list-style: none;
-            padding: 0 12px;
-            flex: 1;
-        }
-
-        .sidebar-nav li {
-            margin-bottom: 2px;
-        }
+        .sidebar-nav { list-style: none; padding: 0 12px; flex: 1; }
+        .sidebar-nav li { margin-bottom: 2px; }
 
         .sidebar-nav .nav-label {
             font-size: 10px;
+            font-weight: 700;
             text-transform: uppercase;
             letter-spacing: 0.8px;
             color: rgba(255,255,255,0.3);
             padding: 12px 16px 6px;
-            font-weight: 700;
         }
 
         .sidebar-nav a {
@@ -192,15 +141,8 @@
             position: relative;
         }
 
-        .sidebar-nav a:hover {
-            background: rgba(255,255,255,0.08);
-            color: white;
-        }
-
-        .sidebar-nav a.active {
-            background: rgba(255,255,255,0.12);
-            color: white;
-        }
+        .sidebar-nav a:hover { background: rgba(255,255,255,0.08); color: #fff; }
+        .sidebar-nav a.active { background: rgba(255,255,255,0.12); color: #fff; }
 
         .sidebar-nav a.active::before {
             content: '';
@@ -213,23 +155,7 @@
             border-radius: 0 3px 3px 0;
         }
 
-        .sidebar-nav a i {
-            width: 20px;
-            text-align: center;
-            font-size: 16px;
-        }
-
-        .sidebar-nav .badge {
-            margin-left: auto;
-            background: var(--gold);
-            color: white;
-            padding: 1px 10px;
-            border-radius: 12px;
-            font-size: 11px;
-            font-weight: 700;
-            min-width: 20px;
-            text-align: center;
-        }
+        .sidebar-nav a i { width: 20px; text-align: center; font-size: 16px; }
 
         .sidebar-footer {
             padding: 16px 24px;
@@ -238,11 +164,7 @@
             flex-shrink: 0;
         }
 
-        .sidebar-footer .user-info {
-            display: flex;
-            align-items: center;
-            gap: 12px;
-        }
+        .sidebar-footer .user-info { display: flex; align-items: center; gap: 12px; }
 
         .sidebar-footer .user-avatar {
             width: 40px;
@@ -254,19 +176,11 @@
             justify-content: center;
             font-weight: 700;
             font-size: 16px;
-            color: white;
             flex-shrink: 0;
         }
 
-        .sidebar-footer .user-name {
-            font-weight: 600;
-            font-size: 14px;
-        }
-
-        .sidebar-footer .user-role {
-            font-size: 12px;
-            opacity: 0.5;
-        }
+        .sidebar-footer .user-name { font-weight: 600; font-size: 14px; }
+        .sidebar-footer .user-role { font-size: 12px; opacity: 0.5; }
 
         .sidebar-footer .logout-btn {
             display: block;
@@ -286,13 +200,9 @@
 
         .sidebar-footer .logout-btn:hover {
             background: rgba(255,255,255,0.08);
-            color: white;
+            color: #fff;
             border-color: rgba(255,255,255,0.3);
         }
-
-        /* ============================================================
-           SIDEBAR BACKDROP
-           ============================================================ */
 
         .sidebar-backdrop {
             display: none;
@@ -303,14 +213,9 @@
             z-index: 99;
         }
 
-        .sidebar-backdrop.show {
-            display: block;
-        }
+        .sidebar-backdrop.show { display: block; }
 
-        /* ============================================================
-           MAIN CONTENT
-           ============================================================ */
-
+        /* ========== MAIN ========== */
         .main-content {
             margin-left: 280px;
             padding: 24px 32px 40px;
@@ -318,10 +223,6 @@
             width: calc(100% - 280px);
             min-height: 100vh;
         }
-
-        /* ============================================================
-           TOPBAR
-           ============================================================ */
 
         .topbar {
             display: flex;
@@ -332,43 +233,35 @@
             gap: 12px;
         }
 
-        .topbar-left {
-            display: flex;
-            align-items: center;
-            gap: 16px;
-        }
-
-        .topbar h1 {
-            font-size: 28px;
-            font-weight: 800;
-            letter-spacing: -0.5px;
-        }
+        .topbar-left { display: flex; align-items: center; gap: 16px; }
+        .topbar h1 { font-size: 28px; font-weight: 800; letter-spacing: -0.5px; }
 
         .topbar h1 small {
+            display: block;
+            margin-top: 2px;
             font-size: 14px;
             font-weight: 400;
             color: var(--text-light);
-            display: block;
-            margin-top: 2px;
         }
 
-        .topbar .actions {
-            display: flex;
-            gap: 12px;
-            align-items: center;
-            flex-wrap: wrap;
+        .topbar .actions { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
+        .topbar .date-time { font-size: 14px; color: var(--text-light); font-weight: 500; }
+
+        .sidebar-toggle {
+            display: none;
+            background: var(--primary);
+            color: #fff;
+            border: none;
+            padding: 8px 14px;
+            border-radius: 10px;
+            font-size: 20px;
+            cursor: pointer;
+            transition: var(--transition);
         }
 
-        .topbar .actions .date-time {
-            font-size: 14px;
-            color: var(--text-light);
-            font-weight: 500;
-        }
+        .sidebar-toggle:hover { background: var(--primary-dark); }
 
-        /* ============================================================
-           BUTTONS
-           ============================================================ */
-
+        /* ========== BUTTONS ========== */
         .btn {
             display: inline-flex;
             align-items: center;
@@ -378,91 +271,31 @@
             border-radius: 8px;
             font-weight: 600;
             font-size: 14px;
-            cursor: pointer;
-            transition: var(--transition);
             font-family: inherit;
             text-decoration: none;
+            cursor: pointer;
+            transition: var(--transition);
         }
 
-        .btn-primary {
-            background: var(--primary);
-            color: white;
-        }
+        .btn-primary { background: var(--primary); color: #fff; }
+        .btn-primary:hover { background: var(--primary-dark); transform: translateY(-2px); box-shadow: 0 4px 16px rgba(11,93,59,0.3); }
 
-        .btn-primary:hover {
-            background: var(--primary-dark);
-            transform: translateY(-2px);
-            box-shadow: 0 4px 16px rgba(11, 93, 59, 0.3);
-        }
+        .btn-gold { background: var(--gold); color: #fff; }
+        .btn-gold:hover { background: #c49a3a; transform: translateY(-2px); box-shadow: 0 4px 16px rgba(212,168,67,0.3); }
 
-        .btn-gold {
-            background: var(--gold);
-            color: white;
-        }
+        .btn-success { background: var(--success); color: #fff; }
+        .btn-success:hover { background: #157347; transform: translateY(-2px); box-shadow: 0 4px 16px rgba(25,135,84,0.3); }
 
-        .btn-gold:hover {
-            background: #c49a3a;
-            transform: translateY(-2px);
-            box-shadow: 0 4px 16px rgba(212, 168, 67, 0.3);
-        }
+        .btn-outline { background: transparent; border: 2px solid var(--gray-200); color: var(--text-light); }
+        .btn-outline:hover { border-color: var(--primary); color: var(--primary); transform: translateY(-2px); }
 
-        .btn-success {
-            background: var(--success);
-            color: white;
-        }
+        .btn-sm { padding: 6px 14px; font-size: 12px; border-radius: 6px; }
+        .btn-block { width: 100%; justify-content: center; }
+        .btn:disabled { opacity: 0.6; cursor: not-allowed; transform: none !important; }
 
-        .btn-success:hover {
-            background: #157347;
-            transform: translateY(-2px);
-            box-shadow: 0 4px 16px rgba(25, 135, 84, 0.3);
-        }
-
-        .btn-danger {
-            background: var(--danger);
-            color: white;
-        }
-
-        .btn-danger:hover {
-            background: #c82333;
-            transform: translateY(-2px);
-            box-shadow: 0 4px 16px rgba(220, 53, 69, 0.3);
-        }
-
-        .btn-outline {
-            background: transparent;
-            border: 2px solid var(--gray-200);
-            color: var(--text-light);
-        }
-
-        .btn-outline:hover {
-            border-color: var(--primary);
-            color: var(--primary);
-            transform: translateY(-2px);
-        }
-
-        .btn-sm {
-            padding: 6px 14px;
-            font-size: 12px;
-            border-radius: 6px;
-        }
-
-        .btn-block {
-            width: 100%;
-            justify-content: center;
-        }
-
-        .btn:disabled {
-            opacity: 0.6;
-            cursor: not-allowed;
-            transform: none !important;
-        }
-
-        /* ============================================================
-           CARDS
-           ============================================================ */
-
+        /* ========== CARDS ========== */
         .card {
-            background: white;
+            background: #fff;
             border-radius: var(--radius);
             padding: 24px;
             box-shadow: var(--shadow);
@@ -470,9 +303,7 @@
             transition: var(--transition);
         }
 
-        .card:hover {
-            box-shadow: var(--shadow-hover);
-        }
+        .card:hover { box-shadow: var(--shadow-hover); }
 
         .card-header {
             display: flex;
@@ -485,21 +316,10 @@
             gap: 10px;
         }
 
-        .card-header h3 {
-            font-size: 18px;
-            font-weight: 700;
-            display: flex;
-            align-items: center;
-            gap: 10px;
-        }
+        .card-header h3 { font-size: 18px; font-weight: 700; display: flex; align-items: center; gap: 10px; }
 
-        /* ============================================================
-           FORM ELEMENTS
-           ============================================================ */
-
-        .form-group {
-            margin-bottom: 16px;
-        }
+        /* ========== FORMS ========== */
+        .form-group { margin-bottom: 16px; }
 
         .form-group label {
             display: block;
@@ -510,59 +330,34 @@
         }
 
         .form-group input,
-        .form-group select {
+        .form-group select,
+        .search-row input {
             width: 100%;
             padding: 11px 14px;
             border: 2px solid var(--gray-200);
             border-radius: 8px;
             font-family: inherit;
             font-size: 15px;
-            transition: var(--transition);
             background: #fff;
+            transition: var(--transition);
         }
 
         .form-group input:focus,
-        .form-group select:focus {
-            outline: none;
-            border-color: var(--primary);
-            box-shadow: 0 0 0 4px rgba(11, 93, 59, 0.1);
-        }
-
-        .form-group input:disabled,
-        .form-group select:disabled {
-            background: var(--gray-100);
-            cursor: not-allowed;
-        }
-
-        .required {
-            color: var(--danger);
-        }
-
-        /* ============================================================
-           SEARCH
-           ============================================================ */
-
-        .search-row {
-            display: flex;
-            gap: 10px;
-            margin-bottom: 12px;
-        }
-
-        .search-row input {
-            flex: 1;
-            padding: 10px 14px;
-            border: 2px solid var(--gray-200);
-            border-radius: 8px;
-            font-family: inherit;
-            font-size: 14px;
-            transition: var(--transition);
-        }
-
+        .form-group select:focus,
         .search-row input:focus {
             outline: none;
             border-color: var(--primary);
-            box-shadow: 0 0 0 4px rgba(11, 93, 59, 0.1);
+            box-shadow: 0 0 0 4px rgba(11,93,59,0.1);
         }
+
+        .form-group input:disabled,
+        .form-group select:disabled { background: var(--gray-100); cursor: not-allowed; }
+
+        .required { color: var(--danger); }
+
+        /* ========== SEARCH ========== */
+        .search-row { display: flex; gap: 10px; margin-bottom: 12px; }
+        .search-row input { flex: 1; padding: 10px 14px; font-size: 14px; }
 
         #searchResults {
             max-height: 260px;
@@ -571,6 +366,8 @@
             border-radius: 8px;
             margin-bottom: 4px;
         }
+
+        #searchResults:empty { display: none; }
 
         .search-result-row {
             display: flex;
@@ -582,37 +379,18 @@
             transition: var(--transition);
         }
 
-        .search-result-row:last-child {
-            border-bottom: none;
-        }
+        .search-result-row:last-child { border-bottom: none; }
+        .search-result-row:hover { background: var(--gray-100); }
+        .search-result-row .name { font-weight: 600; font-size: 14px; }
+        .search-result-row .meta { font-size: 12px; color: var(--text-light); }
 
-        .search-result-row:hover {
-            background: var(--gray-100);
-        }
+        .search-empty { padding: 14px; text-align: center; color: var(--text-light); font-size: 13px; }
+        .search-empty i { display: block; font-size: 24px; margin-bottom: 8px; }
+        .search-empty.error { color: var(--danger); }
 
-        .search-result-row .name {
-            font-weight: 600;
-            font-size: 14px;
-        }
-
-        .search-result-row .meta {
-            font-size: 12px;
-            color: var(--text-light);
-        }
-
-        .search-empty {
-            padding: 14px;
-            text-align: center;
-            color: var(--text-light);
-            font-size: 13px;
-        }
-
-        /* ============================================================
-           SELECTED MEMBER
-           ============================================================ */
-
+        /* ========== SELECTED MEMBER ========== */
         #selectedMember {
-            display: none;
+            display: flex;
             align-items: center;
             justify-content: space-between;
             background: var(--primary-light);
@@ -621,23 +399,10 @@
             margin-bottom: 20px;
         }
 
-        #selectedMember.show {
-            display: flex;
-        }
+        #selectedMember .name { font-weight: 700; }
+        #selectedMember .num { font-size: 12px; color: var(--text-light); }
 
-        #selectedMember .name {
-            font-weight: 700;
-        }
-
-        #selectedMember .num {
-            font-size: 12px;
-            color: var(--text-light);
-        }
-
-        /* ============================================================
-           STATUS BADGES
-           ============================================================ */
-
+        /* ========== STATUS BADGES ========== */
         .status-badge {
             display: inline-block;
             padding: 3px 12px;
@@ -647,91 +412,22 @@
             white-space: nowrap;
         }
 
-        .status-badge.active {
-            background: var(--success-light);
-            color: var(--success);
-        }
+        .status-badge.active { background: var(--success-light); color: var(--success); }
+        .status-badge.inactive,
+        .status-badge.failed { background: var(--danger-light); color: var(--danger); }
+        .status-badge.pending { background: var(--warning-light); color: #856404; }
 
-        .status-badge.inactive {
-            background: var(--danger-light);
-            color: var(--danger);
-        }
+        /* ========== PAYMENT STATUS ========== */
+        #paymentStatus { text-align: center; padding: 20px 0; }
+        .status-icon { font-size: 48px; margin-bottom: 12px; }
+        #statusTitle { font-size: 18px; font-weight: 700; margin-bottom: 6px; }
+        #statusMessage { color: var(--text-light); font-size: 14px; margin-bottom: 16px; }
+        .status-actions { display: flex; gap: 10px; justify-content: center; margin-top: 16px; }
 
-        .status-badge.pending {
-            background: var(--warning-light);
-            color: #856404;
-        }
-
-        .status-badge.completed,
-        .status-badge.confirmed {
-            background: var(--success-light);
-            color: var(--success);
-        }
-
-        .status-badge.failed {
-            background: var(--danger-light);
-            color: var(--danger);
-        }
-
-        .status-badge.unassigned {
-            background: var(--warning-light);
-            color: #856404;
-        }
-
-        /* ============================================================
-           PAYMENT STATUS
-           ============================================================ */
-
-        #paymentStatus {
-            display: none;
-            text-align: center;
-            padding: 20px 0;
-        }
-
-        .status-icon {
-            font-size: 48px;
-            margin-bottom: 12px;
-        }
-
-        #statusTitle {
-            font-size: 18px;
-            font-weight: 700;
-            margin-bottom: 6px;
-        }
-
-        #statusMessage {
-            color: var(--text-light);
-            font-size: 14px;
-            margin-bottom: 16px;
-        }
-
-        .status-actions {
-            display: flex;
-            gap: 10px;
-            justify-content: center;
-            margin-top: 16px;
-        }
-
-        /* ============================================================
-           SUCCESS CARD
-           ============================================================ */
-
-        #successCard {
-            display: none;
-            border: 2px solid var(--success);
-        }
-
-        #successCard .check {
-            font-size: 56px;
-            color: var(--success);
-            text-align: center;
-            margin-bottom: 8px;
-        }
-
-        #successCard h3 {
-            text-align: center;
-            margin-bottom: 20px;
-        }
+        /* ========== SUCCESS CARD ========== */
+        #successCard { border: 2px solid var(--success); }
+        #successCard .check { font-size: 56px; color: var(--success); text-align: center; margin-bottom: 8px; }
+        #successCard h3 { text-align: center; margin-bottom: 20px; }
 
         .row {
             display: flex;
@@ -742,62 +438,13 @@
             gap: 20px;
         }
 
-        .row .label {
-            color: var(--text-light);
-        }
+        .row .label { color: var(--text-light); }
+        .row .value { text-align: right; word-break: break-all; }
+        .row .value.highlight { font-weight: 700; color: var(--primary); }
 
-        .row .value.highlight {
-            font-weight: 700;
-            color: var(--primary);
-            text-align: right;
-        }
+        .success-actions { display: flex; gap: 10px; margin-top: 20px; }
 
-        .success-actions {
-            display: flex;
-            gap: 10px;
-            margin-top: 20px;
-        }
-
-        /* ============================================================
-           ALERTS
-           ============================================================ */
-
-        .alert {
-            display: none;
-            padding: 12px 16px;
-            border-radius: 8px;
-            font-size: 14px;
-            margin-bottom: 20px;
-        }
-
-        .alert.show {
-            display: block;
-        }
-
-        .alert.error {
-            background: var(--danger-light);
-            color: var(--danger);
-        }
-
-        .alert.info {
-            background: var(--info-light);
-            color: #055160;
-        }
-
-        .alert.success {
-            background: var(--success-light);
-            color: var(--success);
-        }
-
-        .alert.warning {
-            background: var(--warning-light);
-            color: #856404;
-        }
-
-        /* ============================================================
-           TOAST NOTIFICATIONS
-           ============================================================ */
-
+        /* ========== TOASTS ========== */
         .toast-container {
             position: fixed;
             bottom: 30px;
@@ -810,76 +457,46 @@
         }
 
         .toast {
-            padding: 14px 20px;
-            border-radius: 12px;
-            color: white;
-            font-weight: 600;
-            font-size: 14px;
-            animation: slideIn 0.4s ease;
-            box-shadow: 0 12px 48px rgba(0,0,0,0.15);
             display: flex;
             align-items: center;
             gap: 12px;
+            padding: 14px 20px;
+            border-radius: 12px;
+            color: #fff;
+            font-weight: 600;
+            font-size: 14px;
             cursor: pointer;
+            box-shadow: 0 12px 48px rgba(0,0,0,0.15);
+            animation: slideIn 0.4s ease;
             transition: all 0.3s ease;
         }
 
-        .toast:hover {
-            transform: scale(1.02);
-        }
-
-        .toast.success {
-            background: var(--success);
-        }
-
-        .toast.error {
-            background: var(--danger);
-        }
-
-        .toast.info {
-            background: var(--info);
-            color: var(--text);
-        }
-
-        .toast.warning {
-            background: var(--warning);
-            color: var(--text);
-        }
+        .toast:hover { transform: scale(1.02); }
+        .toast.success { background: var(--success); }
+        .toast.error { background: var(--danger); }
+        .toast.info { background: var(--info); color: var(--text); }
+        .toast.warning { background: var(--warning); color: var(--text); }
 
         .toast .toast-close {
-            background: none;
-            border: none;
-            color: rgba(255,255,255,0.7);
-            cursor: pointer;
-            font-size: 18px;
             margin-left: auto;
             padding: 0 4px;
+            background: none;
+            border: none;
+            color: inherit;
+            opacity: 0.7;
+            font-size: 18px;
+            cursor: pointer;
         }
 
-        .toast .toast-close:hover {
-            color: white;
-        }
+        .toast .toast-close:hover { opacity: 1; }
 
         @keyframes slideIn {
-            from {
-                transform: translateX(100px);
-                opacity: 0;
-            }
-
-            to {
-                transform: translateX(0);
-                opacity: 1;
-            }
+            from { transform: translateX(100px); opacity: 0; }
+            to   { transform: translateX(0); opacity: 1; }
         }
 
-        /* ============================================================
-           LOADING
-           ============================================================ */
-
-        .loading-spinner {
-            text-align: center;
-            padding: 20px;
-        }
+        /* ========== LOADING ========== */
+        .loading-spinner { text-align: center; padding: 20px; }
 
         .loading-spinner .spinner {
             display: inline-block;
@@ -891,116 +508,42 @@
             animation: spin 0.8s linear infinite;
         }
 
-        @keyframes spin {
-            to {
-                transform: rotate(360deg);
-            }
-        }
+        @keyframes spin { to { transform: rotate(360deg); } }
 
-        /* ============================================================
-           RESPONSIVE
-           ============================================================ */
-
-        .sidebar-toggle {
-            display: none;
-            background: var(--primary);
-            color: white;
-            border: none;
-            padding: 8px 14px;
-            border-radius: 10px;
-            font-size: 20px;
-            cursor: pointer;
-            transition: var(--transition);
-        }
-
-        .sidebar-toggle:hover {
-            background: var(--primary-dark);
-        }
-
+        /* ========== RESPONSIVE ========== */
         @media (max-width: 768px) {
-            .sidebar {
-                transform: translateX(-100%);
-                width: 280px;
-            }
-
-            .sidebar.open {
-                transform: translateX(0);
-            }
-
-            .main-content {
-                margin-left: 0;
-                width: 100%;
-                padding: 16px;
-            }
-
-            .sidebar-toggle {
-                display: block;
-            }
-
-            .topbar .actions .date-time {
-                display: none;
-            }
-
-            .topbar h1 {
-                font-size: 22px;
-            }
-
-            .search-row {
-                flex-direction: column;
-            }
-
-            .success-actions {
-                flex-direction: column;
-            }
-
-            .status-actions {
-                flex-direction: column;
-            }
+            .sidebar { transform: translateX(-100%); }
+            .sidebar.open { transform: translateX(0); }
+            .main-content { margin-left: 0; width: 100%; padding: 16px; }
+            .sidebar-toggle { display: block; }
+            .topbar .date-time { display: none; }
+            .topbar h1 { font-size: 22px; }
+            .search-row,
+            .success-actions,
+            .status-actions { flex-direction: column; }
         }
 
         @media (max-width: 480px) {
-            .topbar {
-                flex-direction: column;
-                align-items: stretch;
-            }
-
-            .topbar .actions {
-                justify-content: flex-start;
-            }
-
-            .card {
-                padding: 18px;
-            }
-
-            .toast-container {
-                left: 15px;
-                right: 15px;
-                bottom: 15px;
-                max-width: none;
-            }
+            .topbar { flex-direction: column; align-items: stretch; }
+            .topbar .actions { justify-content: flex-start; }
+            .card { padding: 18px; }
+            .toast-container { left: 15px; right: 15px; bottom: 15px; max-width: none; }
         }
     </style>
 </head>
 
-<body>
+<body class="auth-pending">
 
 <div class="admin-layout">
 
-    <!-- ============================================================
-         SIDEBAR BACKDROP
-         ============================================================ -->
     <div class="sidebar-backdrop" id="sidebarBackdrop"></div>
 
-    <!-- ============================================================
-         SIDEBAR
-         ============================================================ -->
-
+    <!-- ========== SIDEBAR ========== -->
     <aside class="sidebar" id="sidebar">
 
         <div class="sidebar-brand">
             <a href="admin-dashboard.html" class="logo">
                 <div class="logo-icon">MB</div>
-
                 <div>
                     <span class="logo-text">Masika</span>
                     <span class="logo-sub">Admin Panel</span>
@@ -1009,402 +552,175 @@
         </div>
 
         <ul class="sidebar-nav">
-
             <li class="nav-label">Main</li>
-
-            <li>
-                <a href="admin-dashboard.html">
-                    <i class="fas fa-chart-pie"></i>
-                    Dashboard
-                </a>
-            </li>
-
-            <li>
-                <a href="admin-members.html">
-                    <i class="fas fa-users"></i>
-                    Members
-                </a>
-            </li>
-
-            <li>
-                <a href="admin-agents.html">
-                    <i class="fas fa-user-tie"></i>
-                    Agents
-                </a>
-            </li>
+            <li><a href="admin-dashboard.html"><i class="fas fa-chart-pie"></i> Dashboard</a></li>
+            <li><a href="admin-members.html"><i class="fas fa-users"></i> Members</a></li>
+            <li><a href="admin-agents.html"><i class="fas fa-user-tie"></i> Agents</a></li>
 
             <li class="nav-label">Finance</li>
-
-            <li>
-                <a href="admin-collectpayments.html" class="active">
-                    <i class="fas fa-credit-card"></i>
-                    Payments
-                </a>
-            </li>
-
-            <li>
-                <a href="admin-revenue.html">
-                    <i class="fas fa-chart-line"></i>
-                    Revenue
-                </a>
-            </li>
+            <li><a href="admin-collectpayments.html" class="active"><i class="fas fa-credit-card"></i> Payments</a></li>
+            <li><a href="admin-revenue.html"><i class="fas fa-chart-line"></i> Revenue</a></li>
 
             <li class="nav-label">Settings</li>
-
-            <li>
-                <a href="admin-pricing.html">
-                    <i class="fas fa-tags"></i>
-                    Pricing
-                </a>
-            </li>
-
-            <li>
-                <a href="admin-reports.html">
-                    <i class="fas fa-file-alt"></i>
-                    Reports
-                </a>
-            </li>
-
-            <li>
-                <a href="admin-settings.html">
-                    <i class="fas fa-cog"></i>
-                    Settings
-                </a>
-            </li>
-
+            <li><a href="admin-pricing.html"><i class="fas fa-tags"></i> Pricing</a></li>
+            <li><a href="admin-reports.html"><i class="fas fa-file-alt"></i> Reports</a></li>
+            <li><a href="admin-settings.html"><i class="fas fa-cog"></i> Settings</a></li>
         </ul>
 
         <div class="sidebar-footer">
-
             <div class="user-info">
-
                 <div class="user-avatar" id="adminAvatar">A</div>
-
                 <div>
                     <div class="user-name" id="adminName">Admin</div>
                     <div class="user-role" id="adminRole">Administrator</div>
                 </div>
-
             </div>
 
-            <button class="logout-btn" onclick="handleLogout()">
-                <i class="fas fa-sign-out-alt"></i>
-                Logout
+            <button class="logout-btn" id="logoutBtn" type="button">
+                <i class="fas fa-sign-out-alt"></i> Logout
             </button>
-
         </div>
 
     </aside>
 
-    <!-- ============================================================
-         MAIN CONTENT
-         ============================================================ -->
-
+    <!-- ========== MAIN ========== -->
     <main class="main-content">
 
-        <!-- Topbar -->
         <div class="topbar">
-
             <div class="topbar-left">
-
-                <button class="sidebar-toggle"
-                        id="sidebarToggle"
-                        aria-label="Toggle menu">
+                <button class="sidebar-toggle" id="sidebarToggle" type="button" aria-label="Toggle menu">
                     <i class="fas fa-bars"></i>
                 </button>
 
                 <h1>
                     Collect Payment
-                    <small>
-                        Search a member and send an M-Pesa STK push on their behalf
-                    </small>
+                    <small>Search a member and send an M-Pesa STK push on their behalf</small>
                 </h1>
-
             </div>
 
             <div class="actions">
-
                 <span class="date-time" id="currentDateTime"></span>
-
-                <button onclick="resetForm()"
-                        class="btn btn-outline btn-sm">
-                    <i class="fas fa-undo"></i>
-                    Reset
+                <button class="btn btn-outline btn-sm" id="resetBtn" type="button">
+                    <i class="fas fa-undo"></i> Reset
                 </button>
-
             </div>
-
         </div>
 
-        <!-- Alert -->
-        <div class="alert" id="alertBox"></div>
-
-        <!-- ========================================================
-             PAYMENT CARD
-             ======================================================== -->
-
+        <!-- Payment card -->
         <div class="card" id="paymentCard">
 
             <div class="card-header">
                 <h3>
-                    <i class="fas fa-magnifying-glass"
-                       style="color:var(--gold);"></i>
+                    <i class="fas fa-magnifying-glass" style="color:var(--gold);"></i>
                     Find Member
                 </h3>
             </div>
 
-            <!-- Search -->
-            <div class="search-row">
+            <div id="searchSection">
+                <div class="search-row">
+                    <input type="text"
+                           id="memberSearchInput"
+                           placeholder="Search by name, member #, phone, or ID number..."
+                           autocomplete="off">
 
-                <input type="text"
-                       id="memberSearchInput"
-                       placeholder="Search by name, member #, phone, or ID number..."
-                       autocomplete="off">
+                    <button class="btn btn-primary btn-sm" id="memberSearchBtn" type="button">
+                        <i class="fas fa-search"></i> Search
+                    </button>
+                </div>
 
-                <button class="btn btn-primary btn-sm"
-                        id="memberSearchBtn"
-                        type="button">
-                    <i class="fas fa-search"></i>
-                    Search
-                </button>
-
+                <div id="searchResults"></div>
             </div>
 
-            <div id="searchResults"></div>
-
-            <!-- Selected Member -->
-            <div id="selectedMember">
-
+            <div id="selectedMember" class="hidden">
                 <div>
-
-                    <div class="name"
-                         id="selectedMemberName">
-                        —
-                    </div>
-
+                    <div class="name" id="selectedMemberName">—</div>
                     <div class="num">
-                        #<span id="selectedMemberNumber">—</span>
-                        ·
+                        #<span id="selectedMemberNumber">—</span> ·
                         <span id="selectedMemberStatus"></span>
                     </div>
-
                 </div>
 
-                <button class="btn btn-outline btn-sm"
-                        type="button"
-                        onclick="clearSelectedMember()">
-                    <i class="fas fa-times"></i>
-                    Change
+                <button class="btn btn-outline btn-sm" id="changeMemberBtn" type="button">
+                    <i class="fas fa-times"></i> Change
                 </button>
-
             </div>
 
-            <!-- Payment Form -->
-            <form id="paymentForm"
-                  onsubmit="initiatePayment(event)">
+            <form id="paymentForm">
 
                 <div class="form-group">
-
-                    <label for="phoneNumber">
-                        M-Pesa Phone Number
-                        <span class="required">*</span>
-                    </label>
-
-                    <input type="tel"
-                           id="phoneNumber"
-                           placeholder="07XXXXXXXX"
-                           disabled
-                           required>
-
+                    <label for="phoneNumber">M-Pesa Phone Number <span class="required">*</span></label>
+                    <input type="tel" id="phoneNumber" placeholder="07XXXXXXXX" disabled required>
                 </div>
 
                 <div class="form-group">
-
-                    <label for="amountInput">
-                        Amount (KES)
-                        <span class="required">*</span>
-                    </label>
-
-                    <input type="number"
-                           id="amountInput"
-                           placeholder="Enter amount"
-                           min="1"
-                           step="1"
-                           disabled
-                           required>
-
+                    <label for="amountInput">Amount (KES) <span class="required">*</span></label>
+                    <input type="number" id="amountInput" placeholder="Enter amount" min="1" step="1" disabled required>
                 </div>
 
                 <div class="form-group">
-
-                    <label for="paymentType">
-                        Payment Type
-                        <span class="required">*</span>
-                    </label>
-
-                    <select id="paymentType"
-                            disabled
-                            required>
-
-                        <option value="monthly">
-                            Monthly Premium
-                        </option>
-
-                        <option value="registration">
-                            Registration Fee
-                        </option>
-
-                        <option value="addon">
-                            Add-on
-                        </option>
-
-                        <option value="topup">
-                            Top-up
-                        </option>
-
+                    <label for="paymentType">Payment Type <span class="required">*</span></label>
+                    <select id="paymentType" disabled required>
+                        <option value="monthly">Monthly Premium</option>
+                        <option value="registration">Registration Fee</option>
+                        <option value="addon">Add-on</option>
+                        <option value="topup">Top-up</option>
                     </select>
-
                 </div>
 
-                <button type="submit"
-                        class="btn btn-gold btn-block"
-                        id="payBtn"
-                        disabled>
-
-                    <i class="fas fa-mobile-screen-button"></i>
-
-                    <span class="btn-label">
-                        Send STK Push
-                    </span>
-
-                </button>
+                <button type="submit" class="btn btn-gold btn-block" id="payBtn" disabled></button>
 
             </form>
 
-            <!-- Payment Status -->
-            <div id="paymentStatus">
-
-                <div class="status-icon"
-                     id="statusIcon">
-                    ⏳
-                </div>
-
-                <div id="statusTitle">
-                    Payment Sent to Phone
-                </div>
-
-                <div id="statusMessage">
-                    Waiting for the member to enter their M-Pesa PIN.
-                </div>
-
-                <span class="status-badge pending"
-                      id="statusBadge">
-                    Pending
-                </span>
+            <div id="paymentStatus" class="hidden">
+                <div class="status-icon" id="statusIcon">⏳</div>
+                <div id="statusTitle">Payment Sent to Phone</div>
+                <div id="statusMessage">Waiting for the member to enter their M-Pesa PIN.</div>
+                <span class="status-badge pending" id="statusBadge">Pending</span>
 
                 <div class="status-actions">
+                    <button class="btn btn-primary btn-sm" id="checkStatusBtn" type="button"></button>
 
-                    <button class="btn btn-primary btn-sm"
-                            id="checkStatusBtn"
-                            type="button"
-                            onclick="checkPaymentStatus()">
-                        <i class="fas fa-sync"></i>
-                        Check Status
+                    <button class="btn btn-outline btn-sm hidden" id="retryBtn" type="button">
+                        <i class="fas fa-rotate-left"></i> Try Again
                     </button>
-
-                    <button class="btn btn-outline btn-sm"
-                            id="retryBtn"
-                            type="button"
-                            style="display:none;"
-                            onclick="resetPayment()">
-                        <i class="fas fa-rotate-left"></i>
-                        Try Again
-                    </button>
-
                 </div>
-
             </div>
 
         </div>
 
-        <!-- ========================================================
-             SUCCESS CARD
-             ======================================================== -->
+        <!-- Success card -->
+        <div class="card hidden" id="successCard">
 
-        <div class="card" id="successCard">
+            <div class="check"><i class="fas fa-circle-check"></i></div>
+            <h3>Payment Confirmed!</h3>
 
-            <div class="check">
-                <i class="fas fa-circle-check"></i>
-            </div>
-
-            <h3>
-                Payment Confirmed!
-            </h3>
-
-            <div id="successDetails">
-
+            <div>
                 <div class="row">
-                    <span class="label">
-                        Member Name
-                    </span>
-
-                    <span class="value highlight"
-                          id="successName">
-                        —
-                    </span>
+                    <span class="label">Member Name</span>
+                    <span class="value highlight" id="successName">—</span>
                 </div>
-
                 <div class="row">
-                    <span class="label">
-                        Member Number
-                    </span>
-
-                    <span class="value highlight"
-                          id="successNumber">
-                        —
-                    </span>
+                    <span class="label">Member Number</span>
+                    <span class="value highlight" id="successNumber">—</span>
                 </div>
-
                 <div class="row">
-                    <span class="label">
-                        Amount Paid
-                    </span>
-
-                    <span class="value highlight"
-                          id="successAmount">
-                        KES 0
-                    </span>
+                    <span class="label">Amount Paid</span>
+                    <span class="value highlight" id="successAmount">KES 0</span>
                 </div>
-
                 <div class="row">
-                    <span class="label">
-                        Transaction ID
-                    </span>
-
-                    <span class="value"
-                          id="successTransactionId">
-                        —
-                    </span>
+                    <span class="label">Transaction ID</span>
+                    <span class="value" id="successTransactionId">—</span>
                 </div>
-
             </div>
 
             <div class="success-actions">
-
-                <button class="btn btn-success btn-sm"
-                        type="button"
-                        onclick="downloadReceipt()">
-                    <i class="fas fa-file-pdf"></i>
-                    Download Receipt
+                <button class="btn btn-success btn-sm" id="downloadReceiptBtn" type="button">
+                    <i class="fas fa-file-pdf"></i> Download Receipt
                 </button>
 
-                <button class="btn btn-primary btn-sm"
-                        type="button"
-                        onclick="collectAnotherPayment()">
-                    <i class="fas fa-plus"></i>
-                    Collect Another
+                <button class="btn btn-primary btn-sm" id="collectAnotherBtn" type="button">
+                    <i class="fas fa-plus"></i> Collect Another
                 </button>
-
             </div>
 
         </div>
@@ -1413,2048 +729,883 @@
 
 </div>
 
-<!-- ============================================================
-     TOAST CONTAINER
-     ============================================================ -->
-
-<div class="toast-container"
-     id="toastContainer"></div>
-
-<!-- ============================================================
-     JAVASCRIPT
-     ============================================================ -->
+<div class="toast-container" id="toastContainer"></div>
 
 <script>
-    'use strict';
+'use strict';
 
-    // ============================================================
-    // SUPABASE CONFIG
-    // ============================================================
-    //
-    // IMPORTANT:
-    // This page deliberately uses "masikaSupabase" instead of
-    // "supabase" so it cannot collide with another script that
-    // declares:
-    //
-    //     const supabase = ...
-    //
-    // ============================================================
+/* ==================================================================
+   CONFIG
+   ================================================================== */
 
-    const MASIKA_SUPABASE_URL =
-        'https://wpxzlcdrirlcyvfiquld.supabase.co';
+const SUPABASE_URL = 'https://wpxzlcdrirlcyvfiquld.supabase.co';
 
-    const MASIKA_SUPABASE_ANON_KEY =
-        'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6IndweHpsY2RyaXJsY3l2ZmlxdWxkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODc5Mjc4MDcsImV4cCI6MjEwMzUwMzgwN30.OUP9pmPbrML_egpHflZtDfLv1_UDM37_BYjtb842xjg';
+const SUPABASE_ANON_KEY =
+    'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6IndweHpsY2RyaXJsY3l2ZmlxdWxkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODc5Mjc4MDcsImV4cCI6MjEwMzUwMzgwN30.OUP9pmPbrML_egpHflZtDfLv1_UDM37_BYjtb842xjg';
 
-    if (!window.supabase || typeof window.supabase.createClient !== 'function') {
-        console.error('Supabase JS library failed to load.');
+const API_BASE_URL = 'https://masika-backend.onrender.com/api/v1';
+// Local development:
+// const API_BASE_URL = 'http://localhost:8000/api/v1';
+
+const LOGIN_PAGE = 'admin-login.html';
+const POLL_INTERVAL_MS = 10000;
+const POLL_MAX_ATTEMPTS = 12;
+
+const SUCCESS_STATUSES = ['completed', 'success', 'successful', 'confirmed'];
+const FAILED_STATUSES = ['failed', 'cancelled', 'canceled', 'rejected'];
+
+const PAYMENT_TYPE_LABELS = {
+    monthly: 'Monthly Premium',
+    registration: 'Registration Fee',
+    addon: 'Add-on',
+    topup: 'Top-up'
+};
+
+const PAY_BTN_HTML =
+    '<i class="fas fa-mobile-screen-button"></i><span>Send STK Push</span>';
+
+const CHECK_BTN_HTML = '<i class="fas fa-sync"></i> Check Status';
+
+/* ==================================================================
+   SUPABASE CLIENT
+   (named "masikaSupabase" so it never clashes with window.supabase)
+   ================================================================== */
+
+if (!window.supabase || typeof window.supabase.createClient !== 'function') {
+    document.body.innerHTML =
+        '<p style="padding:40px;font-family:sans-serif">' +
+        'Failed to load the Supabase library. Check your connection and refresh.</p>';
+    document.body.classList.remove('auth-pending');
+    throw new Error('Supabase JS library failed to load.');
+}
+
+const masikaSupabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+/* ==================================================================
+   STATE
+   ================================================================== */
+
+let currentAdmin = null;
+let selectedMember = null;
+let paymentCheckoutId = null;
+let paymentData = null;
+let statusPollTimer = null;
+let searchRequestId = 0;
+
+/* ==================================================================
+   HELPERS
+   ================================================================== */
+
+const $ = (id) => document.getElementById(id);
+
+const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
+function escapeHtml(value) {
+    if (value === null || value === undefined) return '';
+
+    return String(value)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#039;');
+}
+
+const fullName = (m) =>
+    `${m?.first_name || ''} ${m?.last_name || ''}`.trim() || 'N/A';
+
+const memberNumberOf = (m) =>
+    m?.member_number || m?.membership_number || 'N/A';
+
+const isMemberActive = (m) =>
+    m?.is_active === true || String(m?.status || '').toLowerCase() === 'active';
+
+const statusBadge = (active) =>
+    `<span class="status-badge ${active ? 'active' : 'inactive'}">${active ? 'Active' : 'Inactive'}</span>`;
+
+async function parseJson(response) {
+    try {
+        return await response.json();
+    } catch (_) {
+        return {};
     }
+}
 
-    const masikaSupabase =
-        window.supabase.createClient(
-            MASIKA_SUPABASE_URL,
-            MASIKA_SUPABASE_ANON_KEY
-        );
+async function getToken() {
+    const { data } = await masikaSupabase.auth.getSession();
+    return data?.session?.access_token || null;
+}
 
-    // ============================================================
-    // BACKEND API CONFIG
-    // ============================================================
+function normalizePhone(phone) {
+    let value = String(phone || '').replace(/[\s-]/g, '');
 
-    const API_BASE_URL =
-        'https://masika-backend.onrender.com/api/v1';
+    if (value.startsWith('+254')) value = '254' + value.slice(4);
+    else if (/^0[17]\d{8}$/.test(value)) value = '254' + value.slice(1);
+    else if (/^[17]\d{8}$/.test(value)) value = '254' + value;
 
-    // Local development:
-    // const API_BASE_URL = 'http://localhost:8000/api/v1';
+    return value;
+}
 
-    // ============================================================
-    // STATE
-    // ============================================================
+function getReceiptNumber() {
+    return (
+        paymentData?.mpesa_receipt_number ||
+        paymentData?.mpesa_receipt ||
+        paymentData?.receipt_number ||
+        paymentData?.transaction_id ||
+        paymentData?.checkout_request_id ||
+        paymentCheckoutId ||
+        'N/A'
+    );
+}
 
-    let currentUser = null;
-    let selectedMember = null;
-    let paymentCheckoutId = null;
-    let paymentData = null;
-    let statusPollInterval = null;
-    let paymentRecordId = null;
+/* ==================================================================
+   TOASTS
+   ================================================================== */
 
-    // ============================================================
-    // INITIALIZATION
-    // ============================================================
+function showToast(type, message) {
+    const icons = {
+        success: 'fa-check-circle',
+        error: 'fa-exclamation-circle',
+        warning: 'fa-triangle-exclamation',
+        info: 'fa-info-circle'
+    };
 
-    document.addEventListener('DOMContentLoaded', async function () {
+    const toast = document.createElement('div');
+    toast.className = `toast ${type}`;
+    toast.innerHTML = `
+        <i class="fas ${icons[type] || icons.info}"></i>
+        <span>${escapeHtml(message)}</span>
+        <button class="toast-close" type="button" aria-label="Close">&times;</button>
+    `;
 
-        await checkAuth();
+    toast.addEventListener('click', () => toast.remove());
+    $('toastContainer').appendChild(toast);
 
-        setupEventListeners();
+    setTimeout(() => {
+        toast.style.opacity = '0';
+        toast.style.transform = 'translateX(100px)';
+        setTimeout(() => toast.remove(), 400);
+    }, 4000);
+}
 
-        setupSidebarToggle();
+/* ==================================================================
+   AUTH
+   Only redirects when it is SURE the user is logged out or not an
+   admin. Transient errors show a toast instead of bouncing to login.
+   ================================================================== */
 
-        updateClock();
+async function checkAuth() {
+    const goLogin = (reason) => {
+        console.warn('Redirecting to login:', reason);
+        window.location.replace(LOGIN_PAGE);
+        return false;
+    };
 
-    });
+    try {
+        // 1. Session (retry briefly in case it is still being restored)
+        let session = null;
 
-    // ============================================================
-    // AUTH CHECK
-    // ============================================================
+        for (let i = 0; i < 3 && !session; i++) {
+            const { data } = await masikaSupabase.auth.getSession();
+            session = data?.session || null;
+            if (!session) await sleep(500);
+        }
 
-    async function checkAuth() {
+        if (!session) return goLogin('no session found');
 
-        try {
+        // 2. Admin row (retry on real errors such as network failures)
+        let admin = null;
+        let lastError = null;
 
-            const {
-                data: { session },
-                error
-            } = await masikaSupabase.auth.getSession();
-
-            if (error || !session) {
-                window.location.href = 'admin-login.html';
-                return;
-            }
-
-            const {
-                data: admin,
-                error: adminError
-            } = await masikaSupabase
+        for (let i = 0; i < 3; i++) {
+            const { data, error } = await masikaSupabase
                 .from('admins')
                 .select('*')
                 .eq('id', session.user.id)
-                .single();
+                .maybeSingle();
 
-            if (adminError || !admin) {
-
-                console.error(
-                    'Admin lookup error:',
-                    adminError
-                );
-
-                window.location.href = 'admin-login.html';
-                return;
+            if (!error) {
+                admin = data;
+                lastError = null;
+                break;
             }
 
-            currentUser = admin;
+            lastError = error;
+            await sleep(700);
+        }
 
-            document.getElementById('adminName').textContent =
-                admin.full_name || 'Admin';
+        if (lastError) {
+            console.error('Admin lookup failed:', lastError);
+            showToast('error', 'Could not verify admin: ' + (lastError.message || 'network error'));
+            document.body.classList.remove('auth-pending');
+            return false;
+        }
 
-            document.getElementById('adminRole').textContent =
-                admin.role || 'Administrator';
-
-            document.getElementById('adminAvatar').textContent =
-                (admin.full_name || 'A')
-                    .charAt(0)
-                    .toUpperCase();
-
-        } catch (error) {
-
-            console.error(
-                'Auth check error:',
-                error
-            );
-
-            showToast(
-                'error',
-                'Authentication error'
+        if (!admin) {
+            return goLogin(
+                'no row in "admins" for user ' + session.user.id +
+                ' (check the id column and the RLS policy)'
             );
         }
+
+        currentAdmin = admin;
+
+        $('adminName').textContent = admin.full_name || 'Admin';
+        $('adminRole').textContent = admin.role || 'Administrator';
+        $('adminAvatar').textContent = (admin.full_name || 'A').charAt(0).toUpperCase();
+
+        document.body.classList.remove('auth-pending');
+        return true;
+
+    } catch (error) {
+        console.error('Auth check error:', error);
+        showToast('error', 'Authentication error');
+        document.body.classList.remove('auth-pending');
+        return false;
+    }
+}
+
+async function handleLogout() {
+    try {
+        await masikaSupabase.auth.signOut();
+        sessionStorage.clear();
+        window.location.replace(LOGIN_PAGE);
+    } catch (error) {
+        console.error('Logout error:', error);
+        showToast('error', 'Failed to logout');
+    }
+}
+
+/* ==================================================================
+   VIEW MANAGEMENT
+   'form' = search + payment form, 'status' = waiting screen,
+   'success' = confirmation card
+   ================================================================== */
+
+function setView(view) {
+    $('paymentCard').classList.toggle('hidden', view === 'success');
+    $('successCard').classList.toggle('hidden', view !== 'success');
+    $('searchSection').classList.toggle('hidden', view !== 'form');
+    $('paymentForm').classList.toggle('hidden', view !== 'form');
+    $('paymentStatus').classList.toggle('hidden', view !== 'status');
+    $('selectedMember').classList.toggle('hidden', view !== 'form' || !selectedMember);
+}
+
+function setFormEnabled(enabled) {
+    ['phoneNumber', 'amountInput', 'paymentType', 'payBtn'].forEach((id) => {
+        $(id).disabled = !enabled;
+    });
+}
+
+function resetPayButton() {
+    const btn = $('payBtn');
+    btn.innerHTML = PAY_BTN_HTML;
+    btn.disabled = !selectedMember;
+}
+
+/* ==================================================================
+   MEMBER SEARCH
+   ================================================================== */
+
+async function searchMembers() {
+    const query = $('memberSearchInput').value.trim();
+    const box = $('searchResults');
+
+    if (query.length < 2) {
+        box.innerHTML = '<div class="search-empty">Type at least 2 characters to search</div>';
+        return;
     }
 
-    // ============================================================
-    // SETUP EVENT LISTENERS
-    // ============================================================
+    const requestId = ++searchRequestId;
 
-    function setupEventListeners() {
+    box.innerHTML = '<div class="loading-spinner"><div class="spinner"></div></div>';
 
-        const searchButton =
-            document.getElementById('memberSearchBtn');
+    try {
+        // Strip characters that would break the PostgREST filter syntax
+        const safe = query.replace(/[%_,()]/g, ' ').replace(/\s+/g, ' ').trim();
+        const terms = safe.split(' ').filter(Boolean);
 
-        const searchInput =
-            document.getElementById('memberSearchInput');
+        let request = masikaSupabase.from('members').select('*');
 
-        if (searchButton) {
-            searchButton.addEventListener(
-                'click',
-                searchMembers
+        if (terms.length > 1) {
+            // "John Doe" -> first name John, last name Doe
+            request = request
+                .ilike('first_name', `%${terms[0]}%`)
+                .ilike('last_name', `%${terms.slice(1).join(' ')}%`);
+        } else {
+            request = request.or(
+                `first_name.ilike.%${safe}%,` +
+                `last_name.ilike.%${safe}%,` +
+                `member_number.ilike.%${safe}%,` +
+                `phone.ilike.%${safe}%,` +
+                `id_number.ilike.%${safe}%`
             );
         }
 
-        if (searchInput) {
+        const { data, error } = await request.limit(10);
 
-            searchInput.addEventListener(
-                'keypress',
-                function (e) {
+        // Ignore responses from older searches
+        if (requestId !== searchRequestId) return;
+        if (error) throw error;
 
-                    if (e.key === 'Enter') {
-
-                        e.preventDefault();
-
-                        searchMembers();
-                    }
-                }
-            );
-
-            let searchTimeout;
-
-            searchInput.addEventListener(
-                'input',
-                function () {
-
-                    clearTimeout(searchTimeout);
-
-                    searchTimeout = setTimeout(
-                        () => {
-
-                            if (this.value.trim().length >= 2) {
-
-                                searchMembers();
-
-                            } else if (
-                                this.value.trim().length === 0
-                            ) {
-
-                                document.getElementById(
-                                    'searchResults'
-                                ).innerHTML = '';
-                            }
-
-                        },
-                        300
-                    );
-                }
-            );
-        }
-    }
-
-    // ============================================================
-    // ESCAPE HTML
-    // ============================================================
-
-    function escapeHtml(value) {
-
-        if (value === null || value === undefined) {
-            return '';
-        }
-
-        return String(value)
-            .replace(/&/g, '&amp;')
-            .replace(/</g, '&lt;')
-            .replace(/>/g, '&gt;')
-            .replace(/"/g, '&quot;')
-            .replace(/'/g, '&#039;');
-    }
-
-    // ============================================================
-    // SEARCH MEMBERS
-    // ============================================================
-
-    async function searchMembers() {
-
-        const query =
-            document
-                .getElementById('memberSearchInput')
-                .value
-                .trim();
-
-        const resultsContainer =
-            document.getElementById('searchResults');
-
-        if (!query || query.length < 2) {
-
-            resultsContainer.innerHTML = `
+        if (!data || data.length === 0) {
+            box.innerHTML = `
                 <div class="search-empty">
-                    Type at least 2 characters to search
+                    <i class="fas fa-user-slash"></i>
+                    No members found matching "<strong>${escapeHtml(query)}</strong>"
                 </div>
             `;
-
             return;
         }
 
-        resultsContainer.innerHTML = `
-            <div class="loading-spinner">
-                <div class="spinner"></div>
+        box.innerHTML = data.map((member) => `
+            <div class="search-result-row" data-id="${escapeHtml(member.id)}">
+                <div>
+                    <div class="name">${escapeHtml(fullName(member))}</div>
+                    <div class="meta">
+                        #${escapeHtml(memberNumberOf(member))} · ${escapeHtml(member.phone || 'N/A')}
+                    </div>
+                </div>
+                ${statusBadge(isMemberActive(member))}
+            </div>
+        `).join('');
+
+    } catch (error) {
+        if (requestId !== searchRequestId) return;
+
+        console.error('Search error:', error);
+
+        box.innerHTML = `
+            <div class="search-empty error">
+                <i class="fas fa-exclamation-triangle"></i>
+                Failed to search members.
+                <div style="font-size:11px;margin-top:6px;">${escapeHtml(error.message || '')}</div>
             </div>
         `;
+    }
+}
+
+async function selectMember(memberId) {
+    try {
+        const { data: member, error } = await masikaSupabase
+            .from('members')
+            .select('*')
+            .eq('id', memberId)
+            .single();
+
+        if (error) throw error;
+        if (!member) throw new Error('Member not found');
+
+        selectedMember = member;
+        searchRequestId++; // cancel any in-flight search
+
+        $('searchResults').innerHTML = '';
+        $('selectedMemberName').textContent = fullName(member);
+        $('selectedMemberNumber').textContent = memberNumberOf(member);
+        $('selectedMemberStatus').innerHTML = statusBadge(isMemberActive(member));
+
+        setFormEnabled(true);
+        $('phoneNumber').value = member.phone || '';
+        setView('form');
+        $('amountInput').focus();
+
+        showToast('success', `Member ${fullName(member)} selected`);
+
+    } catch (error) {
+        console.error('Select member error:', error);
+        showToast('error', error.message || 'Failed to select member');
+    }
+}
+
+function clearSelectedMember() {
+    selectedMember = null;
+
+    setFormEnabled(false);
+    $('phoneNumber').value = '';
+    $('amountInput').value = '';
+    $('searchResults').innerHTML = '';
+    $('memberSearchInput').value = '';
+
+    setView('form');
+    $('memberSearchInput').focus();
+}
+
+/* ==================================================================
+   PAYMENT: INITIATE
+   ================================================================== */
+
+async function initiatePayment(event) {
+    event.preventDefault();
+
+    if (!selectedMember) {
+        showToast('error', 'Please select a member first');
+        return;
+    }
+
+    const amount = parseFloat($('amountInput').value);
+    const paymentType = $('paymentType').value || 'monthly';
+    const phone = normalizePhone($('phoneNumber').value.trim());
+
+    if (!/^254[17]\d{8}$/.test(phone)) {
+        showToast('error', 'Enter a valid Kenyan M-Pesa number');
+        return;
+    }
+
+    if (!amount || amount < 1) {
+        showToast('error', 'Please enter a valid amount');
+        return;
+    }
+
+    const membershipNumber =
+        selectedMember.member_number || selectedMember.membership_number;
+
+    if (!membershipNumber) {
+        showToast('error', 'Selected member does not have a membership number');
+        return;
+    }
+
+    const token = await getToken();
+
+    if (!token) {
+        showToast('error', 'Authentication required. Please log in again.');
+        return;
+    }
+
+    const payBtn = $('payBtn');
+    payBtn.disabled = true;
+    payBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i><span>Sending...</span>';
+
+    try {
+        const response = await fetch(`${API_BASE_URL}/payments/mpesa/initiate`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${token}`
+            },
+            body: JSON.stringify({
+                membership_number: membershipNumber,
+                phone_number: phone,
+                amount: amount,
+                payment_type: paymentType
+            })
+        });
+
+        const data = await parseJson(response);
+
+        if (!response.ok) {
+            throw new Error(data.detail || data.message || 'Payment initiation failed');
+        }
+
+        paymentCheckoutId =
+            data.checkout_request_id ||
+            data.checkoutRequestID ||
+            data.CheckoutRequestID ||
+            null;
+
+        paymentData = {
+            ...data,
+            amount: data.amount ?? amount,
+            phone_number: data.phone_number || phone,
+            payment_type: data.payment_type || paymentType
+        };
+
+        showPaymentStatus(
+            'pending',
+            'Payment Sent to Phone',
+            'Waiting for the member to enter their M-Pesa PIN...'
+        );
+
+        if (paymentCheckoutId) {
+            startStatusPolling();
+        } else {
+            console.warn('Payment initiated without checkout_request_id:', data);
+            showToast('warning', 'Payment request sent, but no checkout ID was returned.');
+        }
+
+        showToast('success', 'STK Push sent successfully!');
+
+    } catch (error) {
+        console.error('Payment initiation error:', error);
+        showToast('error', error.message || 'Failed to initiate payment');
+        resetPayButton();
+    }
+}
+
+/* ==================================================================
+   PAYMENT: STATUS
+   ================================================================== */
+
+function showPaymentStatus(status, title, message, allowRetry = false) {
+    const icons = { pending: '⏳', failed: '❌' };
+
+    $('statusIcon').textContent = icons[status] || '⏳';
+    $('statusTitle').textContent = title;
+    $('statusMessage').textContent = message;
+
+    const badge = $('statusBadge');
+    badge.className = `status-badge ${status}`;
+    badge.textContent = status.charAt(0).toUpperCase() + status.slice(1);
+
+    $('retryBtn').classList.toggle('hidden', !allowRetry);
+    $('checkStatusBtn').innerHTML = CHECK_BTN_HTML;
+    $('checkStatusBtn').disabled = false;
+
+    setView('status');
+}
+
+async function fetchStatus(checkoutId) {
+    const token = await getToken();
+
+    if (!token) throw new Error('Authentication required. Please log in again.');
+
+    const response = await fetch(
+        `${API_BASE_URL}/payments/mpesa/status/${encodeURIComponent(checkoutId)}`,
+        { headers: { 'Authorization': `Bearer ${token}` } }
+    );
+
+    const data = await parseJson(response);
+
+    if (!response.ok) {
+        throw new Error(data.detail || data.message || 'Failed to check payment status');
+    }
+
+    return data;
+}
+
+// Returns 'success' | 'failed' | 'pending'
+function applyStatus(data) {
+    const status = String(data.status || data.payment_status || '').toLowerCase();
+
+    if (SUCCESS_STATUSES.includes(status)) {
+        stopPolling();
+        paymentData = { ...paymentData, ...data };
+        showSuccessCard();
+        showToast('success', 'Payment completed successfully!');
+        return 'success';
+    }
+
+    if (FAILED_STATUSES.includes(status)) {
+        stopPolling();
+        showPaymentStatus(
+            'failed',
+            'Payment Failed',
+            'The payment was not completed. Please try again.',
+            true
+        );
+        showToast('error', 'Payment failed');
+        return 'failed';
+    }
+
+    return 'pending';
+}
+
+function startStatusPolling() {
+    stopPolling();
+
+    let attempts = 0;
+
+    statusPollTimer = setInterval(async () => {
+        attempts++;
+
+        const checkoutId = paymentCheckoutId;
 
         try {
+            const data = await fetchStatus(checkoutId);
 
-            const safeQuery = query
-                .replace(/[%_,()]/g, ' ')
-                .trim();
+            // Payment was reset/replaced while the request was in flight
+            if (checkoutId !== paymentCheckoutId) return;
 
-            const {
-                data,
-                error
-            } = await masikaSupabase
-                .from('members')
-                .select('*')
-                .or(
-                    `first_name.ilike.%${safeQuery}%,` +
-                    `last_name.ilike.%${safeQuery}%,` +
-                    `member_number.ilike.%${safeQuery}%,` +
-                    `phone.ilike.%${safeQuery}%,` +
-                    `id_number.ilike.%${safeQuery}%`
-                )
-                .limit(10);
-
-            if (error) {
-                throw error;
-            }
-
-            if (!data || data.length === 0) {
-
-                resultsContainer.innerHTML = `
-                    <div class="search-empty">
-                        <i class="fas fa-user-slash"
-                           style="display:block;font-size:24px;margin-bottom:8px;"></i>
-
-                        No members found matching
-                        "<strong>${escapeHtml(query)}</strong>"
-                    </div>
-                `;
-
-                return;
-            }
-
-            resultsContainer.innerHTML =
-                data.map(member => {
-
-                    const memberName =
-                        `${member.first_name || ''} ${member.last_name || ''}`
-                            .trim() || 'N/A';
-
-                    const memberNumber =
-                        member.member_number ||
-                        member.membership_number ||
-                        'N/A';
-
-                    const phone =
-                        member.phone || 'N/A';
-
-                    const isActive =
-                        member.is_active === true ||
-                        String(member.status || '').toLowerCase() === 'active';
-
-                    return `
-                        <div class="search-result-row"
-                             onclick="selectMember('${member.id}')">
-
-                            <div>
-
-                                <div class="name">
-                                    ${escapeHtml(memberName)}
-                                </div>
-
-                                <div class="meta">
-                                    #${escapeHtml(memberNumber)}
-                                    ·
-                                    ${escapeHtml(phone)}
-                                </div>
-
-                            </div>
-
-                            <span class="status-badge ${isActive ? 'active' : 'inactive'}">
-                                ${isActive ? 'Active' : 'Inactive'}
-                            </span>
-
-                        </div>
-                    `;
-
-                }).join('');
+            if (applyStatus(data) !== 'pending') return;
 
         } catch (error) {
-
-            console.error(
-                'Search error:',
-                error
-            );
-
-            resultsContainer.innerHTML = `
-                <div class="search-empty"
-                     style="color:var(--danger);">
-
-                    <i class="fas fa-exclamation-triangle"
-                       style="display:block;font-size:24px;margin-bottom:8px;"></i>
-
-                    Failed to search members.
-
-                    <div style="font-size:11px;margin-top:6px;">
-                        ${escapeHtml(error.message || '')}
-                    </div>
-
-                </div>
-            `;
-        }
-    }
-
-    // ============================================================
-    // SELECT MEMBER
-    // ============================================================
-
-    async function selectMember(memberId) {
-
-        try {
-
-            const {
-                data: member,
-                error
-            } = await masikaSupabase
-                .from('members')
-                .select('*')
-                .eq('id', memberId)
-                .single();
-
-            if (error) {
-                throw error;
-            }
-
-            if (!member) {
-                throw new Error('Member not found');
-            }
-
-            selectedMember = member;
-
-            document.getElementById(
-                'searchResults'
-            ).innerHTML = '';
-
-            const selectedDiv =
-                document.getElementById('selectedMember');
-
-            selectedDiv.classList.add('show');
-
-            document.getElementById(
-                'selectedMemberName'
-            ).textContent =
-                `${member.first_name || ''} ${member.last_name || ''}`
-                    .trim() || 'N/A';
-
-            document.getElementById(
-                'selectedMemberNumber'
-            ).textContent =
-                member.member_number ||
-                member.membership_number ||
-                'N/A';
-
-            const isActive =
-                member.is_active === true ||
-                String(member.status || '').toLowerCase() === 'active';
-
-            document.getElementById(
-                'selectedMemberStatus'
-            ).innerHTML = `
-                <span class="status-badge ${isActive ? 'active' : 'inactive'}">
-                    ${isActive ? 'Active' : 'Inactive'}
-                </span>
-            `;
-
-            // Enable payment fields
-            document.getElementById(
-                'phoneNumber'
-            ).disabled = false;
-
-            document.getElementById(
-                'phoneNumber'
-            ).value = member.phone || '';
-
-            document.getElementById(
-                'amountInput'
-            ).disabled = false;
-
-            document.getElementById(
-                'amountInput'
-            ).focus();
-
-            document.getElementById(
-                'paymentType'
-            ).disabled = false;
-
-            document.getElementById(
-                'payBtn'
-            ).disabled = false;
-
-            showToast(
-                'success',
-                `Member ${member.first_name || ''} ${member.last_name || ''} selected`
-            );
-
-        } catch (error) {
-
-            console.error(
-                'Select member error:',
-                error
-            );
-
-            showToast(
-                'error',
-                error.message || 'Failed to select member'
-            );
-        }
-    }
-
-    // ============================================================
-    // CLEAR SELECTED MEMBER
-    // ============================================================
-
-    function clearSelectedMember() {
-
-        selectedMember = null;
-
-        document.getElementById(
-            'selectedMember'
-        ).classList.remove('show');
-
-        document.getElementById(
-            'phoneNumber'
-        ).disabled = true;
-
-        document.getElementById(
-            'phoneNumber'
-        ).value = '';
-
-        document.getElementById(
-            'amountInput'
-        ).disabled = true;
-
-        document.getElementById(
-            'amountInput'
-        ).value = '';
-
-        document.getElementById(
-            'paymentType'
-        ).disabled = true;
-
-        document.getElementById(
-            'payBtn'
-        ).disabled = true;
-
-        document.getElementById(
-            'searchResults'
-        ).innerHTML = '';
-
-        document.getElementById(
-            'memberSearchInput'
-        ).value = '';
-
-        document.getElementById(
-            'memberSearchInput'
-        ).focus();
-    }
-
-    // ============================================================
-    // NORMALIZE PHONE
-    // ============================================================
-
-    function normalizePhone(phone) {
-
-        let value =
-            String(phone || '')
-                .replace(/\s+/g, '')
-                .replace(/-/g, '');
-
-        if (value.startsWith('+254')) {
-            value = '254' + value.substring(4);
-        } else if (value.startsWith('07')) {
-            value = '254' + value.substring(1);
-        } else if (value.startsWith('01')) {
-            value = '254' + value.substring(1);
+            console.error('Status check error:', error);
         }
 
-        return value;
-    }
-
-    // ============================================================
-    // INITIATE PAYMENT
-    // ============================================================
-
-    async function initiatePayment(event) {
-
-        event.preventDefault();
-
-        if (!selectedMember) {
-
-            showToast(
-                'error',
-                'Please select a member first'
-            );
-
-            return;
-        }
-
-        const phone =
-            document
-                .getElementById('phoneNumber')
-                .value
-                .trim();
-
-        const amount =
-            parseFloat(
-                document.getElementById('amountInput').value
-            );
-
-        const paymentType =
-            document.getElementById('paymentType').value;
-
-        if (!phone || phone.length < 10) {
-
-            showToast(
-                'error',
-                'Please enter a valid phone number'
-            );
-
-            return;
-        }
-
-        if (!amount || amount < 1) {
-
-            showToast(
-                'error',
-                'Please enter a valid amount'
-            );
-
-            return;
-        }
-
-        const normalizedPhone =
-            normalizePhone(phone);
-
-        if (
-            !/^254(7|1)\d{8}$/.test(
-                normalizedPhone
-            )
-        ) {
-
-            showToast(
-                'error',
-                'Enter a valid Kenyan M-Pesa number'
-            );
-
-            return;
-        }
-
-        // Get authentication token
-        const {
-            data: { session }
-        } = await masikaSupabase.auth.getSession();
-
-        const token =
-            session?.access_token;
-
-        if (!token) {
-
-            showToast(
-                'error',
-                'Authentication required'
-            );
-
-            return;
-        }
-
-        const payBtn =
-            document.getElementById('payBtn');
-
-        const originalText =
-            payBtn.innerHTML;
-
-        payBtn.disabled = true;
-
-        payBtn.innerHTML = `
-            <i class="fas fa-spinner fa-spin"></i>
-            Sending...
-        `;
-
-        try {
-
-            const membershipNumber =
-                selectedMember.member_number ||
-                selectedMember.membership_number;
-
-            if (!membershipNumber) {
-                throw new Error(
-                    'Selected member does not have a membership number'
-                );
-            }
-
-            const response =
-                await fetch(
-                    `${API_BASE_URL}/payments/mpesa/initiate`,
-                    {
-                        method: 'POST',
-
-                        headers: {
-                            'Content-Type': 'application/json',
-                            'Authorization': `Bearer ${token}`
-                        },
-
-                        body: JSON.stringify({
-
-                            membership_number:
-                                membershipNumber,
-
-                            phone_number:
-                                normalizedPhone,
-
-                            amount:
-                                amount,
-
-                            payment_type:
-                                paymentType || 'monthly'
-
-                        })
-                    }
-                );
-
-            let data = {};
-
-            try {
-                data = await response.json();
-            } catch (_) {
-                data = {};
-            }
-
-            if (!response.ok) {
-
-                throw new Error(
-                    data.detail ||
-                    data.message ||
-                    'Payment initiation failed'
-                );
-            }
-
-            paymentCheckoutId =
-                data.checkout_request_id ||
-                data.checkoutRequestID ||
-                data.CheckoutRequestID ||
-                null;
-
-            paymentRecordId =
-                data.payment_id ||
-                data.id ||
-                null;
-
-            paymentData = {
-                ...data,
-                amount: data.amount ?? amount,
-                phone_number:
-                    data.phone_number || normalizedPhone,
-                payment_type:
-                    data.payment_type ||
-                    paymentType ||
-                    'monthly'
-            };
-
-            if (!paymentCheckoutId) {
-
-                console.warn(
-                    'Payment initiated without checkout_request_id:',
-                    data
-                );
-            }
+        if (attempts >= POLL_MAX_ATTEMPTS && checkoutId === paymentCheckoutId) {
+            stopPolling();
 
             showPaymentStatus(
                 'pending',
-                'Payment Sent to Phone',
-                'Waiting for the member to enter their M-Pesa PIN...'
+                'Payment Taking Longer',
+                'Please check the member phone or use Check Status.',
+                true
             );
 
-            if (paymentCheckoutId) {
-
-                startStatusPolling(
-                    paymentCheckoutId,
-                    token
-                );
-
-            } else {
-
-                showToast(
-                    'warning',
-                    'Payment request sent, but no checkout ID was returned.'
-                );
-            }
-
-            showToast(
-                'success',
-                'STK Push sent successfully!'
-            );
-
-        } catch (error) {
-
-            console.error(
-                'Payment initiation error:',
-                error
-            );
-
-            showToast(
-                'error',
-                error.message ||
-                'Failed to initiate payment'
-            );
-
-            payBtn.disabled = false;
-
-            payBtn.innerHTML =
-                originalText;
+            showToast('warning', 'Payment is taking longer than expected');
         }
+    }, POLL_INTERVAL_MS);
+}
+
+function stopPolling() {
+    if (statusPollTimer) {
+        clearInterval(statusPollTimer);
+        statusPollTimer = null;
+    }
+}
+
+async function checkPaymentStatus() {
+    if (!paymentCheckoutId) {
+        showToast('error', 'No payment to check');
+        return;
     }
 
-    // ============================================================
-    // SHOW PAYMENT STATUS
-    // ============================================================
+    const checkoutId = paymentCheckoutId;
+    const btn = $('checkStatusBtn');
 
-    function showPaymentStatus(
-        status,
-        title,
-        message
-    ) {
+    btn.disabled = true;
+    btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Checking...';
 
-        const statusDiv =
-            document.getElementById('paymentStatus');
+    try {
+        const data = await fetchStatus(checkoutId);
 
-        statusDiv.style.display = 'block';
+        if (checkoutId !== paymentCheckoutId) return;
 
-        const icons = {
-            pending: '⏳',
-            completed: '✅',
-            failed: '❌'
+        if (applyStatus(data) === 'pending') {
+            showToast('info', `Payment status: ${data.status || 'Pending'}`);
+        }
+
+    } catch (error) {
+        console.error('Status check error:', error);
+        showToast('error', error.message || 'Failed to check payment status');
+
+    } finally {
+        btn.disabled = false;
+        btn.innerHTML = CHECK_BTN_HTML;
+    }
+}
+
+/* ==================================================================
+   SUCCESS + RECEIPT
+   ================================================================== */
+
+function showSuccessCard() {
+    const amount = Number(paymentData?.amount || 0);
+
+    $('successName').textContent = fullName(selectedMember);
+    $('successNumber').textContent = memberNumberOf(selectedMember);
+    $('successAmount').textContent = `KES ${amount.toLocaleString('en-KE')}`;
+    $('successTransactionId').textContent = getReceiptNumber();
+
+    setView('success');
+}
+
+function downloadReceipt() {
+    try {
+        if (!window.jspdf || !window.jspdf.jsPDF) {
+            throw new Error('PDF library is not loaded');
+        }
+
+        const doc = new window.jspdf.jsPDF();
+        const now = new Date();
+        const memberNumber = memberNumberOf(selectedMember);
+        const receiptNumber = getReceiptNumber();
+        const amount = Number(paymentData?.amount || 0);
+        const typeKey = paymentData?.payment_type;
+
+        // Header band
+        doc.setFillColor(11, 93, 59);
+        doc.rect(0, 0, 210, 45, 'F');
+        doc.setTextColor(255, 255, 255);
+        doc.setFontSize(22);
+        doc.text('MASIKA BENEVOLENT', 20, 25);
+        doc.setFontSize(10);
+        doc.text('Payment Receipt', 20, 35);
+
+        // Body helpers
+        let y = 58;
+
+        const heading = (text) => {
+            y += 6;
+            doc.setFont('helvetica', 'bold');
+            doc.setFontSize(14);
+            doc.text(text, 20, y);
+            y += 10;
+            doc.setFont('helvetica', 'normal');
+            doc.setFontSize(12);
         };
 
-        document.getElementById(
-            'statusIcon'
-        ).textContent =
-            icons[status] || '⏳';
-
-        document.getElementById(
-            'statusTitle'
-        ).textContent =
-            title;
-
-        document.getElementById(
-            'statusMessage'
-        ).textContent =
-            message;
-
-        const badge =
-            document.getElementById('statusBadge');
-
-        badge.className =
-            `status-badge ${status}`;
-
-        badge.textContent =
-            status.charAt(0).toUpperCase() +
-            status.slice(1);
-
-        document.getElementById(
-            'retryBtn'
-        ).style.display =
-            status === 'failed'
-                ? 'inline-flex'
-                : 'none';
-
-        document.getElementById(
-            'paymentForm'
-        ).style.display =
-            'none';
-
-        document.getElementById(
-            'selectedMember'
-        ).style.display =
-            'none';
-
-        if (status === 'completed') {
-            showSuccessCard();
-        }
-    }
-
-    // ============================================================
-    // START STATUS POLLING
-    // ============================================================
-
-    function startStatusPolling(
-        checkoutId,
-        token
-    ) {
-
-        let attempts = 0;
-
-        const maxAttempts = 12;
-
-        if (statusPollInterval) {
-
-            clearInterval(
-                statusPollInterval
-            );
-        }
-
-        statusPollInterval =
-            setInterval(
-                async () => {
-
-                    attempts++;
-
-                    try {
-
-                        const response =
-                            await fetch(
-                                `${API_BASE_URL}/payments/mpesa/status/${encodeURIComponent(checkoutId)}`,
-                                {
-                                    headers: {
-                                        'Authorization':
-                                            `Bearer ${token}`
-                                    }
-                                }
-                            );
-
-                        let data = {};
-
-                        try {
-                            data = await response.json();
-                        } catch (_) {
-                            data = {};
-                        }
-
-                        const status =
-                            String(
-                                data.status ||
-                                data.payment_status ||
-                                ''
-                            ).toLowerCase();
-
-                        if (
-                            status === 'completed' ||
-                            status === 'success' ||
-                            status === 'successful' ||
-                            status === 'confirmed'
-                        ) {
-
-                            clearInterval(
-                                statusPollInterval
-                            );
-
-                            statusPollInterval =
-                                null;
-
-                            paymentData = {
-                                ...paymentData,
-                                ...data
-                            };
-
-                            showPaymentStatus(
-                                'completed',
-                                'Payment Successful!',
-                                'The payment has been confirmed.'
-                            );
-
-                            showToast(
-                                'success',
-                                'Payment completed successfully!'
-                            );
-
-                        } else if (
-                            status === 'failed' ||
-                            status === 'cancelled' ||
-                            status === 'canceled' ||
-                            status === 'rejected'
-                        ) {
-
-                            clearInterval(
-                                statusPollInterval
-                            );
-
-                            statusPollInterval =
-                                null;
-
-                            showPaymentStatus(
-                                'failed',
-                                'Payment Failed',
-                                'The payment was not completed. Please try again.'
-                            );
-
-                            showToast(
-                                'error',
-                                'Payment failed'
-                            );
-
-                        } else if (
-                            attempts >= maxAttempts
-                        ) {
-
-                            clearInterval(
-                                statusPollInterval
-                            );
-
-                            statusPollInterval =
-                                null;
-
-                            showPaymentStatus(
-                                'pending',
-                                'Payment Taking Longer',
-                                'Please check the member phone or use Check Status.'
-                            );
-
-                            document.getElementById(
-                                'retryBtn'
-                            ).style.display =
-                                'inline-flex';
-
-                            showToast(
-                                'warning',
-                                'Payment is taking longer than expected'
-                            );
-                        }
-
-                    } catch (error) {
-
-                        console.error(
-                            'Status check error:',
-                            error
-                        );
-
-                        if (
-                            attempts >= maxAttempts
-                        ) {
-
-                            clearInterval(
-                                statusPollInterval
-                            );
-
-                            statusPollInterval =
-                                null;
-
-                            showToast(
-                                'warning',
-                                'Unable to continue automatic status checks.'
-                            );
-                        }
-                    }
-
-                },
-                10000
-            );
-    }
-
-    // ============================================================
-    // CHECK PAYMENT STATUS
-    // ============================================================
-
-    async function checkPaymentStatus() {
-
-        if (!paymentCheckoutId) {
-
-            showToast(
-                'error',
-                'No payment to check'
-            );
-
-            return;
-        }
-
-        const {
-            data: { session }
-        } = await masikaSupabase.auth.getSession();
-
-        const token =
-            session?.access_token;
-
-        if (!token) {
-
-            showToast(
-                'error',
-                'Authentication required'
-            );
-
-            return;
-        }
-
-        const btn =
-            document.getElementById(
-                'checkStatusBtn'
-            );
-
-        btn.disabled = true;
-
-        btn.innerHTML = `
-            <i class="fas fa-spinner fa-spin"></i>
-            Checking...
-        `;
-
-        try {
-
-            const response =
-                await fetch(
-                    `${API_BASE_URL}/payments/mpesa/status/${encodeURIComponent(paymentCheckoutId)}`,
-                    {
-                        headers: {
-                            'Authorization':
-                                `Bearer ${token}`
-                        }
-                    }
-                );
-
-            let data = {};
-
-            try {
-                data = await response.json();
-            } catch (_) {
-                data = {};
-            }
-
-            if (!response.ok) {
-
-                throw new Error(
-                    data.detail ||
-                    data.message ||
-                    'Failed to check payment status'
-                );
-            }
-
-            const status =
-                String(
-                    data.status ||
-                    data.payment_status ||
-                    ''
-                ).toLowerCase();
-
-            if (
-                status === 'completed' ||
-                status === 'success' ||
-                status === 'successful' ||
-                status === 'confirmed'
-            ) {
-
-                clearInterval(
-                    statusPollInterval
-                );
-
-                statusPollInterval =
-                    null;
-
-                paymentData = {
-                    ...paymentData,
-                    ...data
-                };
-
-                showPaymentStatus(
-                    'completed',
-                    'Payment Successful!',
-                    'The payment has been confirmed.'
-                );
-
-                showToast(
-                    'success',
-                    'Payment completed successfully!'
-                );
-
-            } else if (
-                status === 'failed' ||
-                status === 'cancelled' ||
-                status === 'canceled' ||
-                status === 'rejected'
-            ) {
-
-                clearInterval(
-                    statusPollInterval
-                );
-
-                statusPollInterval =
-                    null;
-
-                showPaymentStatus(
-                    'failed',
-                    'Payment Failed',
-                    'The payment was not completed. Please try again.'
-                );
-
-                showToast(
-                    'error',
-                    'Payment failed'
-                );
-
-            } else {
-
-                showToast(
-                    'info',
-                    `Payment status: ${data.status || 'Pending'}`
-                );
-            }
-
-        } catch (error) {
-
-            console.error(
-                'Status check error:',
-                error
-            );
-
-            showToast(
-                'error',
-                error.message ||
-                'Failed to check payment status'
-            );
-
-        } finally {
-
-            btn.disabled = false;
-
-            btn.innerHTML = `
-                <i class="fas fa-sync"></i>
-                Check Status
-            `;
-        }
-    }
-
-    // ============================================================
-    // SHOW SUCCESS CARD
-    // ============================================================
-
-    function showSuccessCard() {
-
-        const card =
-            document.getElementById('successCard');
-
-        card.style.display = 'block';
-
-        const member =
-            selectedMember;
-
-        const amount =
-            Number(
-                paymentData?.amount || 0
-            );
-
-        const receipt =
-            paymentData?.mpesa_receipt_number ||
-            paymentData?.mpesa_receipt ||
-            paymentData?.receipt_number ||
-            paymentData?.transaction_id ||
-            paymentData?.checkout_request_id ||
-            'N/A';
-
-        document.getElementById(
-            'successName'
-        ).textContent =
-            `${member?.first_name || ''} ${member?.last_name || ''}`
-                .trim() || 'N/A';
-
-        document.getElementById(
-            'successNumber'
-        ).textContent =
-            member?.member_number ||
-            member?.membership_number ||
-            'N/A';
-
-        document.getElementById(
-            'successAmount'
-        ).textContent =
-            `KES ${amount.toLocaleString('en-KE')}`;
-
-        document.getElementById(
-            'successTransactionId'
-        ).textContent =
-            receipt;
-
-        document.getElementById(
-            'paymentCard'
-        ).style.display =
-            'none';
-    }
-
-    // ============================================================
-    // RESET PAYMENT
-    // ============================================================
-
-    function resetPayment() {
-
-        if (statusPollInterval) {
-
-            clearInterval(
-                statusPollInterval
-            );
-
-            statusPollInterval =
-                null;
-        }
-
-        paymentCheckoutId = null;
-        paymentData = null;
-        paymentRecordId = null;
-
-        document.getElementById(
-            'paymentStatus'
-        ).style.display =
-            'none';
-
-        document.getElementById(
-            'paymentForm'
-        ).style.display =
-            'block';
-
-        document.getElementById(
-            'selectedMember'
-        ).style.display =
-            'flex';
-
-        document.getElementById(
-            'payBtn'
-        ).disabled =
-            false;
-
-        document.getElementById(
-            'payBtn'
-        ).innerHTML = `
-            <i class="fas fa-mobile-screen-button"></i>
-            <span class="btn-label">
-                Send STK Push
-            </span>
-        `;
-    }
-
-    // ============================================================
-    // COLLECT ANOTHER PAYMENT
-    // ============================================================
-
-    function collectAnotherPayment() {
-
-        if (statusPollInterval) {
-
-            clearInterval(
-                statusPollInterval
-            );
-
-            statusPollInterval =
-                null;
-        }
-
-        document.getElementById(
-            'successCard'
-        ).style.display =
-            'none';
-
-        document.getElementById(
-            'paymentCard'
-        ).style.display =
-            'block';
-
-        document.getElementById(
-            'paymentStatus'
-        ).style.display =
-            'none';
-
-        document.getElementById(
-            'paymentForm'
-        ).style.display =
-            'block';
-
-        document.getElementById(
-            'selectedMember'
-        ).style.display =
-            'none';
-
-        paymentCheckoutId = null;
-        paymentData = null;
-        paymentRecordId = null;
-        selectedMember = null;
-
-        document.getElementById(
-            'phoneNumber'
-        ).value = '';
-
-        document.getElementById(
-            'phoneNumber'
-        ).disabled = true;
-
-        document.getElementById(
-            'amountInput'
-        ).value = '';
-
-        document.getElementById(
-            'amountInput'
-        ).disabled = true;
-
-        document.getElementById(
-            'paymentType'
-        ).value = 'monthly';
-
-        document.getElementById(
-            'paymentType'
-        ).disabled = true;
-
-        document.getElementById(
-            'payBtn'
-        ).disabled = true;
-
-        document.getElementById(
-            'payBtn'
-        ).innerHTML = `
-            <i class="fas fa-mobile-screen-button"></i>
-            <span class="btn-label">
-                Send STK Push
-            </span>
-        `;
-
-        document.getElementById(
-            'memberSearchInput'
-        ).value = '';
-
-        document.getElementById(
-            'searchResults'
-        ).innerHTML = '';
-
-        document.getElementById(
-            'memberSearchInput'
-        ).focus();
-
-        showToast(
-            'info',
-            'Ready to collect another payment'
-        );
-    }
-
-    // ============================================================
-    // DOWNLOAD RECEIPT
-    // ============================================================
-
-    function downloadReceipt() {
-
-        try {
-
-            if (
-                !window.jspdf ||
-                !window.jspdf.jsPDF
-            ) {
-
-                throw new Error(
-                    'PDF library is not loaded'
-                );
-            }
-
-            const {
-                jsPDF
-            } = window.jspdf;
-
-            const doc =
-                new jsPDF();
-
-            const member =
-                selectedMember;
-
-            const memberName =
-                `${member?.first_name || ''} ${member?.last_name || ''}`
-                    .trim() || 'N/A';
-
-            const memberNumber =
-                member?.member_number ||
-                member?.membership_number ||
-                'N/A';
-
-            const amount =
-                Number(
-                    paymentData?.amount || 0
-                );
-
-            const receiptNumber =
-                paymentData?.mpesa_receipt_number ||
-                paymentData?.mpesa_receipt ||
-                paymentData?.receipt_number ||
-                paymentData?.checkout_request_id ||
-                'N/A';
-
-            // Header
-            doc.setFillColor(
-                11,
-                93,
-                59
-            );
-
-            doc.rect(
-                0,
-                0,
-                210,
-                45,
-                'F'
-            );
-
-            doc.setTextColor(
-                255,
-                255,
-                255
-            );
-
-            doc.setFontSize(22);
-
-            doc.text(
-                'MASIKA BENEVOLENT',
-                20,
-                25
-            );
-
-            doc.setFontSize(10);
-
-            doc.text(
-                'Payment Receipt',
-                20,
-                35
-            );
-
-            // Payment details
-            doc.setTextColor(
-                0,
-                0,
-                0
-            );
-
-            doc.setFontSize(12);
-
-            const yStart = 55;
-
-            doc.text(
-                `Receipt #: ${receiptNumber}`,
-                20,
-                yStart
-            );
-
-            doc.text(
-                `Date: ${new Date().toLocaleDateString('en-KE')}`,
-                20,
-                yStart + 8
-            );
-
-            doc.text(
-                `Time: ${new Date().toLocaleTimeString('en-KE')}`,
-                20,
-                yStart + 16
-            );
-
-            // Member details
-            doc.setFontSize(14);
-
-            doc.setFont(
-                'helvetica',
-                'bold'
-            );
-
-            doc.text(
-                'Member Details',
-                20,
-                yStart + 30
-            );
-
-            doc.setFont(
-                'helvetica',
-                'normal'
-            );
-
-            doc.setFontSize(12);
-
-            doc.text(
-                `Name: ${memberName}`,
-                20,
-                yStart + 40
-            );
-
-            doc.text(
-                `Member #: ${memberNumber}`,
-                20,
-                yStart + 48
-            );
-
-            doc.text(
-                `Phone: ${member?.phone || paymentData?.phone_number || 'N/A'}`,
-                20,
-                yStart + 56
-            );
-
-            // Payment details
-            doc.setFontSize(14);
-
-            doc.setFont(
-                'helvetica',
-                'bold'
-            );
-
-            doc.text(
-                'Payment Details',
-                20,
-                yStart + 70
-            );
-
-            doc.setFont(
-                'helvetica',
-                'normal'
-            );
-
-            doc.setFontSize(12);
-
-            doc.text(
-                `Amount: KES ${amount.toLocaleString('en-KE')}`,
-                20,
-                yStart + 80
-            );
-
-            doc.text(
-                'Status: Completed',
-                20,
-                yStart + 88
-            );
-
-            doc.text(
-                `Payment Type: ${paymentData?.payment_type || 'Monthly Premium'}`,
-                20,
-                yStart + 96
-            );
-
-            doc.text(
-                `Transaction ID: ${receiptNumber}`,
-                20,
-                yStart + 104
-            );
-
-            // Footer
-            doc.setDrawColor(
-                200,
-                200,
-                200
-            );
-
-            doc.line(
-                20,
-                yStart + 116,
-                190,
-                yStart + 116
-            );
-
-            doc.setFontSize(10);
-
-            doc.setTextColor(
-                100,
-                100,
-                100
-            );
-
-            doc.text(
-                'Thank you for your payment.',
-                20,
-                yStart + 126
-            );
-
-            doc.text(
-                'This is a system-generated receipt.',
-                20,
-                yStart + 134
-            );
-
-            doc.save(
-                `payment_receipt_${memberNumber}.pdf`
-            );
-
-            showToast(
-                'success',
-                'Receipt downloaded successfully'
-            );
-
-        } catch (error) {
-
-            console.error(
-                'PDF generation error:',
-                error
-            );
-
-            showToast(
-                'error',
-                error.message ||
-                'Failed to generate receipt'
-            );
-        }
-    }
-
-    // ============================================================
-    // RESET FORM
-    // ============================================================
-
-    function resetForm() {
-
-        if (statusPollInterval) {
-
-            clearInterval(
-                statusPollInterval
-            );
-
-            statusPollInterval =
-                null;
-        }
-
-        paymentCheckoutId = null;
-        paymentData = null;
-        paymentRecordId = null;
-        selectedMember = null;
-
-        document.getElementById(
-            'paymentCard'
-        ).style.display =
-            'block';
-
-        document.getElementById(
-            'successCard'
-        ).style.display =
-            'none';
-
-        document.getElementById(
-            'paymentStatus'
-        ).style.display =
-            'none';
-
-        document.getElementById(
-            'paymentForm'
-        ).style.display =
-            'block';
-
-        document.getElementById(
-            'selectedMember'
-        ).style.display =
-            'none';
-
-        document.getElementById(
-            'phoneNumber'
-        ).value = '';
-
-        document.getElementById(
-            'phoneNumber'
-        ).disabled = true;
-
-        document.getElementById(
-            'amountInput'
-        ).value = '';
-
-        document.getElementById(
-            'amountInput'
-        ).disabled = true;
-
-        document.getElementById(
-            'paymentType'
-        ).value = 'monthly';
-
-        document.getElementById(
-            'paymentType'
-        ).disabled = true;
-
-        document.getElementById(
-            'payBtn'
-        ).disabled = true;
-
-        document.getElementById(
-            'memberSearchInput'
-        ).value = '';
-
-        document.getElementById(
-            'searchResults'
-        ).innerHTML = '';
-
-        document.getElementById(
-            'payBtn'
-        ).innerHTML = `
-            <i class="fas fa-mobile-screen-button"></i>
-            <span class="btn-label">
-                Send STK Push
-            </span>
-        `;
-
-        showToast(
-            'info',
-            'Form reset'
-        );
-    }
-
-    // ============================================================
-    // SIDEBAR TOGGLE
-    // ============================================================
-
-    function setupSidebarToggle() {
-
-        const sidebar =
-            document.getElementById('sidebar');
-
-        const backdrop =
-            document.getElementById(
-                'sidebarBackdrop'
-            );
-
-        const toggleBtn =
-            document.getElementById(
-                'sidebarToggle'
-            );
-
-        if (toggleBtn) {
-
-            toggleBtn.addEventListener(
-                'click',
-                function () {
-
-                    sidebar.classList.toggle(
-                        'open'
-                    );
-
-                    backdrop.classList.toggle(
-                        'show'
-                    );
-                }
-            );
-        }
-
-        if (backdrop) {
-
-            backdrop.addEventListener(
-                'click',
-                function () {
-
-                    sidebar.classList.remove(
-                        'open'
-                    );
-
-                    backdrop.classList.remove(
-                        'show'
-                    );
-                }
-            );
-        }
-
-        document
-            .querySelectorAll('.sidebar-nav a')
-            .forEach(function (link) {
-
-                link.addEventListener(
-                    'click',
-                    function () {
-
-                        sidebar.classList.remove(
-                            'open'
-                        );
-
-                        backdrop.classList.remove(
-                            'show'
-                        );
-                    }
-                );
-            });
-    }
-
-    // ============================================================
-    // CLOCK
-    // ============================================================
-
-    function updateClock() {
-
-        const clockEl =
-            document.getElementById(
-                'currentDateTime'
-            );
-
-        if (clockEl) {
-
-            const now =
-                new Date();
-
-            clockEl.textContent =
-                now.toLocaleString(
-                    'en-KE',
-                    {
-                        weekday: 'short',
-                        day: '2-digit',
-                        month: 'short',
-                        year: 'numeric',
-                        hour: '2-digit',
-                        minute: '2-digit'
-                    }
-                );
-        }
-
-        setTimeout(
-            updateClock,
-            30000
-        );
-    }
-
-    // ============================================================
-    // TOAST NOTIFICATIONS
-    // ============================================================
-
-    function showToast(
-        type,
-        message
-    ) {
-
-        const container =
-            document.getElementById(
-                'toastContainer'
-            );
-
-        const icons = {
-            success: 'fa-check-circle',
-            error: 'fa-exclamation-circle',
-            warning: 'fa-triangle-exclamation',
-            info: 'fa-info-circle'
+        const line = (text) => {
+            doc.text(text, 20, y);
+            y += 8;
         };
 
-        const toast =
-            document.createElement(
-                'div'
-            );
+        doc.setTextColor(0, 0, 0);
+        doc.setFontSize(12);
 
-        toast.className =
-            `toast ${type}`;
+        line(`Receipt #: ${receiptNumber}`);
+        line(`Date: ${now.toLocaleDateString('en-KE')}`);
+        line(`Time: ${now.toLocaleTimeString('en-KE')}`);
 
-        toast.innerHTML = `
-            <i class="fas ${icons[type] || icons.info}"></i>
+        heading('Member Details');
+        line(`Name: ${fullName(selectedMember)}`);
+        line(`Member #: ${memberNumber}`);
+        line(`Phone: ${selectedMember?.phone || paymentData?.phone_number || 'N/A'}`);
 
-            <span>
-                ${escapeHtml(message)}
-            </span>
+        heading('Payment Details');
+        line(`Amount: KES ${amount.toLocaleString('en-KE')}`);
+        line('Status: Completed');
+        line(`Payment Type: ${PAYMENT_TYPE_LABELS[typeKey] || typeKey || 'Monthly Premium'}`);
+        line(`Transaction ID: ${receiptNumber}`);
 
-            <button class="toast-close"
-                    type="button"
-                    aria-label="Close"
-                    onclick="this.parentElement.remove()">
-                &times;
-            </button>
-        `;
+        // Footer
+        y += 4;
+        doc.setDrawColor(200, 200, 200);
+        doc.line(20, y, 190, y);
+        y += 10;
+        doc.setFontSize(10);
+        doc.setTextColor(100, 100, 100);
+        line('Thank you for your payment.');
+        line('This is a system-generated receipt.');
 
-        container.appendChild(
-            toast
-        );
+        doc.save(`payment_receipt_${memberNumber}.pdf`);
+        showToast('success', 'Receipt downloaded successfully');
 
-        setTimeout(
-            () => {
-
-                if (!toast.parentElement) {
-                    return;
-                }
-
-                toast.style.opacity =
-                    '0';
-
-                toast.style.transform =
-                    'translateX(100px)';
-
-                toast.style.transition =
-                    'all 0.4s ease';
-
-                setTimeout(
-                    () => {
-
-                        if (
-                            toast.parentElement
-                        ) {
-                            toast.remove();
-                        }
-
-                    },
-                    400
-                );
-
-            },
-            4000
-        );
+    } catch (error) {
+        console.error('PDF generation error:', error);
+        showToast('error', error.message || 'Failed to generate receipt');
     }
+}
 
-    // ============================================================
-    // LOGOUT
-    // ============================================================
+/* ==================================================================
+   RESET FLOWS
+   ================================================================== */
 
-    async function handleLogout() {
+// "Try Again" after a failed / slow payment (keeps the selected member)
+function resetPayment() {
+    stopPolling();
+    paymentCheckoutId = null;
+    paymentData = null;
 
-        try {
+    resetPayButton();
+    setView('form');
+}
 
-            await masikaSupabase.auth.signOut();
+// Start over completely (Reset button / Collect Another)
+function resetAll(toastMessage) {
+    stopPolling();
 
-            sessionStorage.clear();
+    paymentCheckoutId = null;
+    paymentData = null;
+    selectedMember = null;
+    searchRequestId++;
 
-            window.location.href =
-                'admin-login.html';
+    setFormEnabled(false);
+    $('phoneNumber').value = '';
+    $('amountInput').value = '';
+    $('paymentType').value = 'monthly';
+    $('memberSearchInput').value = '';
+    $('searchResults').innerHTML = '';
+    resetPayButton();
 
-        } catch (error) {
+    setView('form');
+    $('memberSearchInput').focus();
 
-            console.error(
-                'Logout error:',
-                error
-            );
+    if (toastMessage) showToast('info', toastMessage);
+}
 
-            showToast(
-                'error',
-                'Failed to logout'
-            );
+/* ==================================================================
+   UI SETUP
+   ================================================================== */
+
+function setupEventListeners() {
+    const searchInput = $('memberSearchInput');
+    let searchTimeout;
+
+    $('memberSearchBtn').addEventListener('click', searchMembers);
+
+    searchInput.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            clearTimeout(searchTimeout);
+            searchMembers();
         }
-    }
+    });
 
-    // ============================================================
-    // EXPOSE FUNCTIONS
-    // ============================================================
+    searchInput.addEventListener('input', () => {
+        clearTimeout(searchTimeout);
 
-    window.selectMember =
-        selectMember;
+        searchTimeout = setTimeout(() => {
+            const length = searchInput.value.trim().length;
 
-    window.clearSelectedMember =
-        clearSelectedMember;
+            if (length >= 2) {
+                searchMembers();
+            } else if (length === 0) {
+                searchRequestId++;
+                $('searchResults').innerHTML = '';
+            }
+        }, 300);
+    });
 
-    window.initiatePayment =
-        initiatePayment;
+    $('searchResults').addEventListener('click', (e) => {
+        const row = e.target.closest('.search-result-row');
+        if (row) selectMember(row.dataset.id);
+    });
 
-    window.checkPaymentStatus =
-        checkPaymentStatus;
+    $('paymentForm').addEventListener('submit', initiatePayment);
+    $('changeMemberBtn').addEventListener('click', clearSelectedMember);
+    $('checkStatusBtn').addEventListener('click', checkPaymentStatus);
+    $('retryBtn').addEventListener('click', resetPayment);
+    $('downloadReceiptBtn').addEventListener('click', downloadReceipt);
+    $('collectAnotherBtn').addEventListener('click', () => resetAll('Ready to collect another payment'));
+    $('resetBtn').addEventListener('click', () => resetAll('Form reset'));
+    $('logoutBtn').addEventListener('click', handleLogout);
+}
 
-    window.resetPayment =
-        resetPayment;
+function setupSidebarToggle() {
+    const sidebar = $('sidebar');
+    const backdrop = $('sidebarBackdrop');
 
-    window.collectAnotherPayment =
-        collectAnotherPayment;
+    const closeSidebar = () => {
+        sidebar.classList.remove('open');
+        backdrop.classList.remove('show');
+    };
 
-    window.downloadReceipt =
-        downloadReceipt;
+    $('sidebarToggle').addEventListener('click', () => {
+        sidebar.classList.toggle('open');
+        backdrop.classList.toggle('show');
+    });
 
-    window.resetForm =
-        resetForm;
+    backdrop.addEventListener('click', closeSidebar);
 
-    window.handleLogout =
-        handleLogout;
+    document.querySelectorAll('.sidebar-nav a').forEach((link) => {
+        link.addEventListener('click', closeSidebar);
+    });
+}
 
-    window.showToast =
-        showToast;
+function updateClock() {
+    $('currentDateTime').textContent = new Date().toLocaleString('en-KE', {
+        weekday: 'short',
+        day: '2-digit',
+        month: 'short',
+        year: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit'
+    });
+}
 
+/* ==================================================================
+   INIT
+   ================================================================== */
+
+document.addEventListener('DOMContentLoaded', async () => {
+
+    const authenticated = await checkAuth();
+    if (!authenticated) return;
+
+    $('payBtn').innerHTML = PAY_BTN_HTML;
+    $('checkStatusBtn').innerHTML = CHECK_BTN_HTML;
+
+    setupEventListeners();
+    setupSidebarToggle();
+    updateClock();
+    setInterval(updateClock, 30000);
+
+    // If the user logs out in another tab, leave this page too
+    masikaSupabase.auth.onAuthStateChange((event) => {
+        if (event === 'SIGNED_OUT') window.location.replace(LOGIN_PAGE);
+    });
+});
 </script>
 
 </body>
 </html>
-```
-
-### What was fixed
-
-The critical change is that this file **no longer declares**:
-
-```js
-const supabase = ...
-```
-
-It now declares:
-
-```js
-const masikaSupabase = ...
-```
-
-and all Supabase calls use:
-
-```js
-masikaSupabase.auth.getSession()
-masikaSupabase.auth.signOut()
-masikaSupabase.from('admins')
-masikaSupabase.from('members')
-```
-
-So the browser should no longer produce:
-
-```text
-Uncaught SyntaxError: Identifier 'supabase' has already been declared
-```
-
-I also fixed two related issues in the file:
-
-* Added proper handling for the `<select>` payment type.
-* Normalized Kenyan phone numbers such as `0712345678` to `254712345678` before sending the STK request.
-* Made the payment-status handling accept `completed`, `success`, `successful`, and `confirmed`.
-* Escaped member/search values before inserting them into HTML.
-* Kept your existing backend endpoint: `https://masika-backend.onrender.com/api/v1`.
-
-**Important:** keep the Supabase anon key exactly as it was in your original file when deploying.
