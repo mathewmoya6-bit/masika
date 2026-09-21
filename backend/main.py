@@ -2,6 +2,21 @@
 # MAIN ENTRY POINT - backend/main.py
 # Complete Production-Ready FastAPI Application
 # Render runs: uvicorn main:app
+#
+# CHANGES IN THIS VERSION
+#   1. NEW  /api/admin/payments/collect  and  /api/admin/payments/status/{id}
+#           Staff-initiated STK push, protected by the Supabase login token
+#           + staff/role check (see "ADMIN PAYMENT COLLECTION" section).
+#   2. FIX  activate_registration() only activates a member/chama for
+#           REGISTRATION payments (monthly/top-up/add-on no longer flip
+#           registration_fee_paid / member_status).
+#   3. FIX  get_payment_status() now returns the M-Pesa receipt for
+#           payments that were already confirmed by the callback.
+#
+# NEW ENV VARS (Render -> Environment)
+#   ALLOWED_ORIGINS         = https://masika-murex.vercel.app,https://www.masikabbs.com,https://masikabbs.com
+#   PAYMENT_COLLECTOR_ROLES = SUPER_ADMIN        (comma-separated role_codes)
+#   ADMIN_MAX_COLLECT_AMOUNT = 250000            (optional)
 # ============================================================
 
 import os
@@ -131,6 +146,17 @@ RECONCILE_SECRET = os.getenv("RECONCILE_SECRET", "")
 MPESA_CALLBACK_IP_WHITELIST = [
     ip.strip() for ip in os.getenv("MPESA_CALLBACK_IP_WHITELIST", "").split(",") if ip.strip()
 ]
+
+# Roles (roles.role_code, upper case) allowed to collect payments from the
+# admin panel. Comma-separated in the env var.
+PAYMENT_COLLECTOR_ROLES = {
+    r.strip().upper()
+    for r in os.getenv("PAYMENT_COLLECTOR_ROLES", "SUPER_ADMIN").split(",")
+    if r.strip()
+}
+
+# Safaricom's per-transaction ceiling is KES 250,000.
+ADMIN_MAX_COLLECT_AMOUNT = float(os.getenv("ADMIN_MAX_COLLECT_AMOUNT", "250000"))
 
 # M-Pesa URLs
 if MPESA_ENVIRONMENT == "production":
@@ -817,10 +843,12 @@ app = FastAPI(
 # CORS
 # ============================================================
 
-# Reads ALLOWED_ORIGINS from env (comma-separated) — set on Render to
-# https://www.masikabbs.com,https://masikabbs.com. Falls back to "*" only
-# when unset (e.g. local dev), since "*" combined with allow_credentials=True
-# means any site can make authenticated requests using a visitor's token.
+# Reads ALLOWED_ORIGINS from env (comma-separated). It MUST include every
+# site that calls this API, e.g. on Render:
+#   https://masika-murex.vercel.app,https://www.masikabbs.com,https://masikabbs.com
+# Falls back to "*" only when unset (e.g. local dev), since "*" combined with
+# allow_credentials=True means any site can make authenticated requests using
+# a visitor's token.
 _allowed_origins_env = os.getenv("ALLOWED_ORIGINS", "").strip()
 ALLOWED_ORIGINS = [o.strip() for o in _allowed_origins_env.split(",") if o.strip()] or ["*"]
 
@@ -1482,9 +1510,12 @@ async def get_payment_status(checkout_request_id: str):
             except Exception as e:
                 logger.error(f"Status query failed: {e}")
 
+        # FIX: include the stored M-Pesa receipt so payments already
+        # confirmed by the callback still show their receipt number.
         return PaymentStatusResponse(
             status=payment.get("status", "pending"),
             amount=payment.get("amount"),
+            receipt=payment.get("mpesa_receipt"),
             transaction_id=payment.get("transaction_reference")
         )
 
@@ -1757,9 +1788,25 @@ async def reconcile_pending_payments(request: Request, older_than_minutes: int =
 # ------------------------------------------------------------
 
 async def activate_registration(payment: dict):
-    """Activate member or chama registration after successful payment."""
+    """
+    Activate member or chama registration after a successful REGISTRATION payment.
+
+    FIX: this used to run for EVERY completed member payment, so a monthly
+    contribution also set registration_fee_paid = True and member_status =
+    ACTIVE. It now only acts on registration payments; other payment types
+    (monthly / topup / addon) are simply recorded.
+    """
     try:
+        payment_type = (payment.get("payment_type") or "").lower()
+
         if payment.get("member_id"):
+            if payment_type != "registration":
+                logger.info(
+                    f"Payment {payment.get('id')} is '{payment_type}', not registration "
+                    f"- member activation skipped"
+                )
+                return
+
             supabase.table("members").update({
                 "registration_fee_paid": True,
                 "member_status": "ACTIVE",
@@ -1784,6 +1831,212 @@ async def activate_registration(payment: dict):
 
     except Exception as e:
         logger.error(f"Activation failed: {e}")
+
+
+# ============================================================
+# ADMIN PAYMENT COLLECTION  (NEW)
+# ============================================================
+# Staff-initiated STK push for an EXISTING member (monthly, top-up, add-on
+# or registration), used by admin-collectpayments.html.
+#
+# Auth: the admin page sends the SUPABASE access token from its login. It is
+# validated with Supabase, then the user must be an ACTIVE row in `staff`
+# (linked by staff.auth_user_id) whose role (roles.role_code) is listed in
+# PAYMENT_COLLECTOR_ROLES.
+
+def _resolve_payment_collector_sync(token: str) -> dict:
+    """Validate a Supabase access token and confirm the staff member may collect payments."""
+    if not supabase:
+        raise HTTPException(status_code=500, detail="Database not available")
+
+    try:
+        auth_response = supabase.auth.get_user(token)
+        auth_user = getattr(auth_response, "user", None)
+    except Exception as e:
+        logger.warning(f"Supabase token validation failed: {e}")
+        auth_user = None
+
+    if not auth_user:
+        raise HTTPException(status_code=401, detail="Invalid or expired session. Please log in again.")
+
+    staff_result = (
+        supabase.table("staff")
+        .select("id, full_name, status, role_id")
+        .eq("auth_user_id", str(auth_user.id))
+        .limit(1)
+        .execute()
+    )
+
+    if not staff_result.data:
+        raise HTTPException(status_code=403, detail="This account is not a staff account.")
+
+    staff = staff_result.data[0]
+
+    if str(staff.get("status") or "").upper() != "ACTIVE":
+        raise HTTPException(status_code=403, detail="Staff account is not active.")
+
+    role_code = ""
+    if staff.get("role_id"):
+        role_result = (
+            supabase.table("roles")
+            .select("role_code")
+            .eq("id", staff["role_id"])
+            .limit(1)
+            .execute()
+        )
+        if role_result.data:
+            role_code = str(role_result.data[0].get("role_code") or "").upper()
+
+    if role_code not in PAYMENT_COLLECTOR_ROLES:
+        raise HTTPException(status_code=403, detail="Your role is not allowed to collect payments.")
+
+    return {
+        "staff_id": staff["id"],
+        "full_name": staff.get("full_name"),
+        "role_code": role_code,
+    }
+
+
+async def get_payment_collector(
+    credentials: HTTPAuthorizationCredentials = Depends(security),
+) -> dict:
+    # supabase-py is synchronous, so keep it off the event loop
+    return await asyncio.to_thread(_resolve_payment_collector_sync, credentials.credentials)
+
+
+class AdminCollectPaymentRequest(BaseModel):
+    member_id: Optional[str] = None
+    membership_number: Optional[str] = None
+    phone_number: str
+    amount: float
+    payment_type: PaymentTypeEnum = PaymentTypeEnum.MONTHLY
+
+
+admin_payments_router = APIRouter(prefix="/api/admin/payments", tags=["Admin Payments"])
+
+
+@admin_payments_router.post("/collect")
+async def admin_collect_payment(
+    payload: AdminCollectPaymentRequest,
+    collector: dict = Depends(get_payment_collector),
+):
+    """
+    Send an STK push on behalf of a member. Requires a valid Supabase login
+    token belonging to an active staff member with an allowed role.
+    """
+    if not supabase:
+        raise HTTPException(status_code=500, detail="Database not available")
+
+    if not (MPESA_CONSUMER_KEY and MPESA_CONSUMER_SECRET):
+        raise HTTPException(status_code=503, detail="M-Pesa is not configured on the server.")
+
+    phone = format_phone_number(payload.phone_number)
+    if not re.match(r"^254[17]\d{8}$", phone):
+        raise HTTPException(status_code=400, detail="Invalid phone number format")
+
+    amount = float(round(payload.amount))
+    if amount != payload.amount:
+        raise HTTPException(status_code=400, detail="Amount must be a whole number of shillings")
+    if amount < 1 or amount > ADMIN_MAX_COLLECT_AMOUNT:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Amount must be between 1 and {int(ADMIN_MAX_COLLECT_AMOUNT)}",
+        )
+
+    # ---- find the member ----
+    member_query = supabase.table("members").select("id, member_number, first_name, last_name")
+
+    if payload.member_id:
+        member_query = member_query.eq("id", payload.member_id)
+    elif payload.membership_number:
+        member_query = member_query.eq("member_number", payload.membership_number)
+    else:
+        raise HTTPException(status_code=400, detail="member_id or membership_number is required")
+
+    member_result = member_query.limit(1).execute()
+    if not member_result.data:
+        raise HTTPException(status_code=404, detail="Member not found")
+
+    member = member_result.data[0]
+    payment_type = payload.payment_type.value
+    transaction_ref = f"TXN-{datetime.now().strftime('%Y%m%d')}-{secrets.token_hex(4).upper()}"
+
+    # ---- create the pending payment row ----
+    try:
+        inserted = supabase.table("payments").insert({
+            "member_id": member["id"],
+            "amount": amount,
+            "payment_type": payment_type,
+            "payment_method": "mpesa",
+            "status": "pending",
+            "payment_date": datetime.now().date().isoformat(),
+            "phone": phone,
+            "transaction_reference": transaction_ref,
+            "created_at": datetime.now().isoformat(),
+            "updated_at": datetime.now().isoformat(),
+        }).execute()
+    except Exception as e:
+        logger.error(f"Admin collect: could not create payment row: {e}")
+        raise HTTPException(status_code=400, detail=f"Could not create payment record: {str(e)}")
+
+    payment_id = inserted.data[0]["id"] if inserted.data else None
+
+    # ---- send the STK push (member number shows as the account reference) ----
+    stk_result = await initiate_mpesa_stk_push(
+        phone,
+        amount,
+        member.get("member_number") or transaction_ref,
+        f"Masika {payment_type}",
+    )
+
+    if not stk_result.get("success"):
+        supabase.table("payments").update({
+            "status": "failed",
+            "updated_at": datetime.now().isoformat(),
+        }).eq("transaction_reference", transaction_ref).execute()
+
+        raise HTTPException(
+            status_code=502,
+            detail=stk_result.get("message") or "M-Pesa STK push failed",
+        )
+
+    checkout_request_id = stk_result.get("checkout_request_id")
+    merchant_request_id = stk_result.get("merchant_request_id")
+
+    supabase.table("payments").update({
+        "checkout_request_id": checkout_request_id,
+        "merchant_request_id": merchant_request_id,
+        "updated_at": datetime.now().isoformat(),
+    }).eq("transaction_reference", transaction_ref).execute()
+
+    logger.info(
+        f"Admin STK push: staff={collector['staff_id']} ({collector.get('full_name')}) "
+        f"member={member.get('member_number')} amount={amount} type={payment_type} "
+        f"checkout={checkout_request_id}"
+    )
+
+    return {
+        "success": True,
+        "message": "STK push sent. Waiting for the member to enter their M-Pesa PIN.",
+        "payment_id": payment_id,
+        "checkout_request_id": checkout_request_id,
+        "merchant_request_id": merchant_request_id,
+        "amount": amount,
+        "phone_number": phone,
+        "payment_type": payment_type,
+    }
+
+
+@admin_payments_router.get("/status/{checkout_request_id}", response_model=PaymentStatusResponse)
+async def admin_payment_status(
+    checkout_request_id: str,
+    collector: dict = Depends(get_payment_collector),
+):
+    # Reuses the public status logic (polls M-Pesa and resolves the payment)
+    return await get_payment_status(checkout_request_id)
+
+
+app.include_router(admin_payments_router)
 
 
 # ============================================================
