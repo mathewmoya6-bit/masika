@@ -1,3 +1,4 @@
+```html
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -11,15 +12,17 @@
          ========================================================= -->
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+    <link rel="stylesheet"
+          href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap"
+          rel="stylesheet">
 
     <style>
-        /* ============================================================
-           COLLECT PAYMENT STYLES
-           ============================================================ */
-
-        * { margin: 0; padding: 0; box-sizing: border-box; }
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
 
         :root {
             --primary: #0b5d3b;
@@ -58,12 +61,29 @@
             min-height: 100vh;
         }
 
-        ::-webkit-scrollbar { width: 6px; height: 6px; }
-        ::-webkit-scrollbar-track { background: var(--gray-100); border-radius: 10px; }
-        ::-webkit-scrollbar-thumb { background: var(--gray-300); border-radius: 10px; }
-        ::-webkit-scrollbar-thumb:hover { background: var(--gray-400); }
+        ::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
 
-        .admin-layout { display: flex; min-height: 100vh; }
+        ::-webkit-scrollbar-track {
+            background: var(--gray-100);
+            border-radius: 10px;
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: var(--gray-300);
+            border-radius: 10px;
+        }
+
+        ::-webkit-scrollbar-thumb:hover {
+            background: var(--gray-400);
+        }
+
+        .admin-layout {
+            display: flex;
+            min-height: 100vh;
+        }
 
         /* ============================================================
            SIDEBAR
@@ -83,9 +103,18 @@
             flex-direction: column;
         }
 
-        .sidebar::-webkit-scrollbar { width: 4px; }
-        .sidebar::-webkit-scrollbar-track { background: rgba(255,255,255,0.05); }
-        .sidebar::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.2); border-radius: 10px; }
+        .sidebar::-webkit-scrollbar {
+            width: 4px;
+        }
+
+        .sidebar::-webkit-scrollbar-track {
+            background: rgba(255,255,255,0.05);
+        }
+
+        .sidebar::-webkit-scrollbar-thumb {
+            background: rgba(255,255,255,0.2);
+            border-radius: 10px;
+        }
 
         .sidebar-brand {
             padding: 0 24px 24px;
@@ -136,7 +165,9 @@
             flex: 1;
         }
 
-        .sidebar-nav li { margin-bottom: 2px; }
+        .sidebar-nav li {
+            margin-bottom: 2px;
+        }
 
         .sidebar-nav .nav-label {
             font-size: 10px;
@@ -272,7 +303,9 @@
             z-index: 99;
         }
 
-        .sidebar-backdrop.show { display: block; }
+        .sidebar-backdrop.show {
+            display: block;
+        }
 
         /* ============================================================
            MAIN CONTENT
@@ -355,6 +388,7 @@
             background: var(--primary);
             color: white;
         }
+
         .btn-primary:hover {
             background: var(--primary-dark);
             transform: translateY(-2px);
@@ -365,6 +399,7 @@
             background: var(--gold);
             color: white;
         }
+
         .btn-gold:hover {
             background: #c49a3a;
             transform: translateY(-2px);
@@ -375,6 +410,7 @@
             background: var(--success);
             color: white;
         }
+
         .btn-success:hover {
             background: #157347;
             transform: translateY(-2px);
@@ -385,6 +421,7 @@
             background: var(--danger);
             color: white;
         }
+
         .btn-danger:hover {
             background: #c82333;
             transform: translateY(-2px);
@@ -396,6 +433,7 @@
             border: 2px solid var(--gray-200);
             color: var(--text-light);
         }
+
         .btn-outline:hover {
             border-color: var(--primary);
             color: var(--primary);
@@ -408,8 +446,16 @@
             border-radius: 6px;
         }
 
-        .btn-block { width: 100%; justify-content: center; }
-        .btn:disabled { opacity: 0.6; cursor: not-allowed; transform: none !important; }
+        .btn-block {
+            width: 100%;
+            justify-content: center;
+        }
+
+        .btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none !important;
+        }
 
         /* ============================================================
            CARDS
@@ -424,7 +470,9 @@
             transition: var(--transition);
         }
 
-        .card:hover { box-shadow: var(--shadow-hover); }
+        .card:hover {
+            box-shadow: var(--shadow-hover);
+        }
 
         .card-header {
             display: flex;
@@ -449,7 +497,9 @@
            FORM ELEMENTS
            ============================================================ */
 
-        .form-group { margin-bottom: 16px; }
+        .form-group {
+            margin-bottom: 16px;
+        }
 
         .form-group label {
             display: block;
@@ -459,7 +509,8 @@
             margin-bottom: 6px;
         }
 
-        .form-group input {
+        .form-group input,
+        .form-group select {
             width: 100%;
             padding: 11px 14px;
             border: 2px solid var(--gray-200);
@@ -467,17 +518,24 @@
             font-family: inherit;
             font-size: 15px;
             transition: var(--transition);
+            background: #fff;
         }
 
-        .form-group input:focus {
+        .form-group input:focus,
+        .form-group select:focus {
             outline: none;
             border-color: var(--primary);
             box-shadow: 0 0 0 4px rgba(11, 93, 59, 0.1);
         }
 
-        .form-group input:disabled {
+        .form-group input:disabled,
+        .form-group select:disabled {
             background: var(--gray-100);
             cursor: not-allowed;
+        }
+
+        .required {
+            color: var(--danger);
         }
 
         /* ============================================================
@@ -524,11 +582,23 @@
             transition: var(--transition);
         }
 
-        .search-result-row:last-child { border-bottom: none; }
-        .search-result-row:hover { background: var(--gray-100); }
+        .search-result-row:last-child {
+            border-bottom: none;
+        }
 
-        .search-result-row .name { font-weight: 600; font-size: 14px; }
-        .search-result-row .meta { font-size: 12px; color: var(--text-light); }
+        .search-result-row:hover {
+            background: var(--gray-100);
+        }
+
+        .search-result-row .name {
+            font-weight: 600;
+            font-size: 14px;
+        }
+
+        .search-result-row .meta {
+            font-size: 12px;
+            color: var(--text-light);
+        }
 
         .search-empty {
             padding: 14px;
@@ -551,10 +621,18 @@
             margin-bottom: 20px;
         }
 
-        #selectedMember.show { display: flex; }
+        #selectedMember.show {
+            display: flex;
+        }
 
-        #selectedMember .name { font-weight: 700; }
-        #selectedMember .num { font-size: 12px; color: var(--text-light); }
+        #selectedMember .name {
+            font-weight: 700;
+        }
+
+        #selectedMember .num {
+            font-size: 12px;
+            color: var(--text-light);
+        }
 
         /* ============================================================
            STATUS BADGES
@@ -569,13 +647,36 @@
             white-space: nowrap;
         }
 
-        .status-badge.active { background: var(--success-light); color: var(--success); }
-        .status-badge.inactive { background: var(--danger-light); color: var(--danger); }
-        .status-badge.pending { background: var(--warning-light); color: #856404; }
-        .status-badge.completed { background: var(--success-light); color: var(--success); }
-        .status-badge.confirmed { background: var(--success-light); color: var(--success); }
-        .status-badge.failed { background: var(--danger-light); color: var(--danger); }
-        .status-badge.unassigned { background: var(--warning-light); color: #856404; }
+        .status-badge.active {
+            background: var(--success-light);
+            color: var(--success);
+        }
+
+        .status-badge.inactive {
+            background: var(--danger-light);
+            color: var(--danger);
+        }
+
+        .status-badge.pending {
+            background: var(--warning-light);
+            color: #856404;
+        }
+
+        .status-badge.completed,
+        .status-badge.confirmed {
+            background: var(--success-light);
+            color: var(--success);
+        }
+
+        .status-badge.failed {
+            background: var(--danger-light);
+            color: var(--danger);
+        }
+
+        .status-badge.unassigned {
+            background: var(--warning-light);
+            color: #856404;
+        }
 
         /* ============================================================
            PAYMENT STATUS
@@ -587,9 +688,22 @@
             padding: 20px 0;
         }
 
-        .status-icon { font-size: 48px; margin-bottom: 12px; }
-        #statusTitle { font-size: 18px; font-weight: 700; margin-bottom: 6px; }
-        #statusMessage { color: var(--text-light); font-size: 14px; margin-bottom: 16px; }
+        .status-icon {
+            font-size: 48px;
+            margin-bottom: 12px;
+        }
+
+        #statusTitle {
+            font-size: 18px;
+            font-weight: 700;
+            margin-bottom: 6px;
+        }
+
+        #statusMessage {
+            color: var(--text-light);
+            font-size: 14px;
+            margin-bottom: 16px;
+        }
 
         .status-actions {
             display: flex;
@@ -614,7 +728,10 @@
             margin-bottom: 8px;
         }
 
-        #successCard h3 { text-align: center; margin-bottom: 20px; }
+        #successCard h3 {
+            text-align: center;
+            margin-bottom: 20px;
+        }
 
         .row {
             display: flex;
@@ -622,10 +739,18 @@
             padding: 8px 0;
             border-bottom: 1px solid var(--gray-200);
             font-size: 14px;
+            gap: 20px;
         }
 
-        .row .label { color: var(--text-light); }
-        .row .value.highlight { font-weight: 700; color: var(--primary); }
+        .row .label {
+            color: var(--text-light);
+        }
+
+        .row .value.highlight {
+            font-weight: 700;
+            color: var(--primary);
+            text-align: right;
+        }
 
         .success-actions {
             display: flex;
@@ -645,11 +770,29 @@
             margin-bottom: 20px;
         }
 
-        .alert.show { display: block; }
-        .alert.error { background: var(--danger-light); color: var(--danger); }
-        .alert.info { background: var(--info-light); color: #055160; }
-        .alert.success { background: var(--success-light); color: var(--success); }
-        .alert.warning { background: var(--warning-light); color: #856404; }
+        .alert.show {
+            display: block;
+        }
+
+        .alert.error {
+            background: var(--danger-light);
+            color: var(--danger);
+        }
+
+        .alert.info {
+            background: var(--info-light);
+            color: #055160;
+        }
+
+        .alert.success {
+            background: var(--success-light);
+            color: var(--success);
+        }
+
+        .alert.warning {
+            background: var(--warning-light);
+            color: #856404;
+        }
 
         /* ============================================================
            TOAST NOTIFICATIONS
@@ -681,11 +824,27 @@
             transition: all 0.3s ease;
         }
 
-        .toast:hover { transform: scale(1.02); }
-        .toast.success { background: var(--success); }
-        .toast.error { background: var(--danger); }
-        .toast.info { background: var(--info); color: var(--text); }
-        .toast.warning { background: var(--warning); color: var(--text); }
+        .toast:hover {
+            transform: scale(1.02);
+        }
+
+        .toast.success {
+            background: var(--success);
+        }
+
+        .toast.error {
+            background: var(--danger);
+        }
+
+        .toast.info {
+            background: var(--info);
+            color: var(--text);
+        }
+
+        .toast.warning {
+            background: var(--warning);
+            color: var(--text);
+        }
 
         .toast .toast-close {
             background: none;
@@ -697,11 +856,20 @@
             padding: 0 4px;
         }
 
-        .toast .toast-close:hover { color: white; }
+        .toast .toast-close:hover {
+            color: white;
+        }
 
         @keyframes slideIn {
-            from { transform: translateX(100px); opacity: 0; }
-            to { transform: translateX(0); opacity: 1; }
+            from {
+                transform: translateX(100px);
+                opacity: 0;
+            }
+
+            to {
+                transform: translateX(0);
+                opacity: 1;
+            }
         }
 
         /* ============================================================
@@ -724,7 +892,9 @@
         }
 
         @keyframes spin {
-            to { transform: rotate(360deg); }
+            to {
+                transform: rotate(360deg);
+            }
         }
 
         /* ============================================================
@@ -743,7 +913,9 @@
             transition: var(--transition);
         }
 
-        .sidebar-toggle:hover { background: var(--primary-dark); }
+        .sidebar-toggle:hover {
+            background: var(--primary-dark);
+        }
 
         @media (max-width: 768px) {
             .sidebar {
@@ -795,957 +967,2494 @@
             .topbar .actions {
                 justify-content: flex-start;
             }
+
+            .card {
+                padding: 18px;
+            }
+
+            .toast-container {
+                left: 15px;
+                right: 15px;
+                bottom: 15px;
+                max-width: none;
+            }
         }
     </style>
 </head>
+
 <body>
 
-    <div class="admin-layout">
+<div class="admin-layout">
 
-        <!-- ============================================================
-        SIDEBAR BACKDROP
-        ============================================================ -->
-        <div class="sidebar-backdrop" id="sidebarBackdrop"></div>
+    <!-- ============================================================
+         SIDEBAR BACKDROP
+         ============================================================ -->
+    <div class="sidebar-backdrop" id="sidebarBackdrop"></div>
 
-        <!-- ============================================================
-        SIDEBAR
-        ============================================================ -->
+    <!-- ============================================================
+         SIDEBAR
+         ============================================================ -->
 
-        <aside class="sidebar" id="sidebar">
-            <div class="sidebar-brand">
-                <a href="admin-dashboard.html" class="logo">
-                    <div class="logo-icon">MB</div>
-                    <div>
-                        <span class="logo-text">Masika</span>
-                        <span class="logo-sub">Admin Panel</span>
-                    </div>
+    <aside class="sidebar" id="sidebar">
+
+        <div class="sidebar-brand">
+            <a href="admin-dashboard.html" class="logo">
+                <div class="logo-icon">MB</div>
+
+                <div>
+                    <span class="logo-text">Masika</span>
+                    <span class="logo-sub">Admin Panel</span>
+                </div>
+            </a>
+        </div>
+
+        <ul class="sidebar-nav">
+
+            <li class="nav-label">Main</li>
+
+            <li>
+                <a href="admin-dashboard.html">
+                    <i class="fas fa-chart-pie"></i>
+                    Dashboard
                 </a>
+            </li>
+
+            <li>
+                <a href="admin-members.html">
+                    <i class="fas fa-users"></i>
+                    Members
+                </a>
+            </li>
+
+            <li>
+                <a href="admin-agents.html">
+                    <i class="fas fa-user-tie"></i>
+                    Agents
+                </a>
+            </li>
+
+            <li class="nav-label">Finance</li>
+
+            <li>
+                <a href="admin-collectpayments.html" class="active">
+                    <i class="fas fa-credit-card"></i>
+                    Payments
+                </a>
+            </li>
+
+            <li>
+                <a href="admin-revenue.html">
+                    <i class="fas fa-chart-line"></i>
+                    Revenue
+                </a>
+            </li>
+
+            <li class="nav-label">Settings</li>
+
+            <li>
+                <a href="admin-pricing.html">
+                    <i class="fas fa-tags"></i>
+                    Pricing
+                </a>
+            </li>
+
+            <li>
+                <a href="admin-reports.html">
+                    <i class="fas fa-file-alt"></i>
+                    Reports
+                </a>
+            </li>
+
+            <li>
+                <a href="admin-settings.html">
+                    <i class="fas fa-cog"></i>
+                    Settings
+                </a>
+            </li>
+
+        </ul>
+
+        <div class="sidebar-footer">
+
+            <div class="user-info">
+
+                <div class="user-avatar" id="adminAvatar">A</div>
+
+                <div>
+                    <div class="user-name" id="adminName">Admin</div>
+                    <div class="user-role" id="adminRole">Administrator</div>
+                </div>
+
             </div>
 
-            <ul class="sidebar-nav">
-                <li class="nav-label">Main</li>
-                <li><a href="admin-dashboard.html"><i class="fas fa-chart-pie"></i> Dashboard</a></li>
-                <li><a href="admin-members.html"><i class="fas fa-users"></i> Members</a></li>
-                <li><a href="admin-agents.html"><i class="fas fa-user-tie"></i> Agents</a></li>
+            <button class="logout-btn" onclick="handleLogout()">
+                <i class="fas fa-sign-out-alt"></i>
+                Logout
+            </button>
 
-                <li class="nav-label">Finance</li>
-                <li><a href="admin-collectpayments.html" class="active"><i class="fas fa-credit-card"></i> Payments</a></li>
-                <li><a href="admin-revenue.html"><i class="fas fa-chart-line"></i> Revenue</a></li>
+        </div>
 
-                <li class="nav-label">Settings</li>
-                <li><a href="admin-pricing.html"><i class="fas fa-tags"></i> Pricing</a></li>
-                <li><a href="admin-reports.html"><i class="fas fa-file-alt"></i> Reports</a></li>
-                <li><a href="admin-settings.html"><i class="fas fa-cog"></i> Settings</a></li>
-            </ul>
+    </aside>
 
-            <div class="sidebar-footer">
-                <div class="user-info">
-                    <div class="user-avatar" id="adminAvatar">A</div>
-                    <div>
-                        <div class="user-name" id="adminName">Admin</div>
-                        <div class="user-role" id="adminRole">Administrator</div>
-                    </div>
-                </div>
-                <button class="logout-btn" onclick="handleLogout()">
-                    <i class="fas fa-sign-out-alt"></i> Logout
+    <!-- ============================================================
+         MAIN CONTENT
+         ============================================================ -->
+
+    <main class="main-content">
+
+        <!-- Topbar -->
+        <div class="topbar">
+
+            <div class="topbar-left">
+
+                <button class="sidebar-toggle"
+                        id="sidebarToggle"
+                        aria-label="Toggle menu">
+                    <i class="fas fa-bars"></i>
                 </button>
-            </div>
-        </aside>
 
-        <!-- ============================================================
-        MAIN CONTENT
-        ============================================================ -->
+                <h1>
+                    Collect Payment
+                    <small>
+                        Search a member and send an M-Pesa STK push on their behalf
+                    </small>
+                </h1>
 
-        <main class="main-content">
-
-            <!-- Topbar -->
-            <div class="topbar">
-                <div class="topbar-left">
-                    <button class="sidebar-toggle" id="sidebarToggle" aria-label="Toggle menu">
-                        <i class="fas fa-bars"></i>
-                    </button>
-                    <h1>
-                        Collect Payment
-                        <small>Search a member and send an M-Pesa STK push on their behalf</small>
-                    </h1>
-                </div>
-                <div class="actions">
-                    <span class="date-time" id="currentDateTime"></span>
-                    <button onclick="resetForm()" class="btn btn-outline btn-sm">
-                        <i class="fas fa-undo"></i> Reset
-                    </button>
-                </div>
             </div>
 
-            <!-- Alert -->
-            <div class="alert" id="alertBox"></div>
+            <div class="actions">
 
-            <!-- Payment Card -->
-            <div class="card" id="paymentCard">
-                <div class="card-header">
-                    <h3><i class="fas fa-magnifying-glass" style="color:var(--gold);"></i> Find Member</h3>
-                </div>
+                <span class="date-time" id="currentDateTime"></span>
 
-                <!-- Search -->
-                <div class="search-row">
-                    <input type="text" id="memberSearchInput" placeholder="Search by name, member #, phone, or ID number...">
-                    <button class="btn btn-primary btn-sm" id="memberSearchBtn" type="button">
-                        <i class="fas fa-search"></i> Search
-                    </button>
-                </div>
+                <button onclick="resetForm()"
+                        class="btn btn-outline btn-sm">
+                    <i class="fas fa-undo"></i>
+                    Reset
+                </button>
 
-                <div id="searchResults"></div>
-
-                <!-- Selected Member -->
-                <div id="selectedMember">
-                    <div>
-                        <div class="name" id="selectedMemberName">—</div>
-                        <div class="num">#<span id="selectedMemberNumber">—</span> · <span id="selectedMemberStatus"></span></div>
-                    </div>
-                    <button class="btn btn-outline btn-sm" type="button" onclick="clearSelectedMember()">
-                        <i class="fas fa-times"></i> Change
-                    </button>
-                </div>
-
-                <!-- Payment Form -->
-                <form id="paymentForm" onsubmit="initiatePayment(event)">
-                    <div class="form-group">
-                        <label for="phoneNumber">M-Pesa Phone Number <span class="required">*</span></label>
-                        <input type="tel" id="phoneNumber" placeholder="07XXXXXXXX" disabled required>
-                    </div>
-                    <div class="form-group">
-                        <label for="amountInput">Amount (KES) <span class="required">*</span></label>
-                        <input type="number" id="amountInput" placeholder="Enter amount" min="1" disabled required>
-                    </div>
-                    <div class="form-group">
-                        <label for="paymentType">Payment Type <span class="required">*</span></label>
-                        <select id="paymentType" disabled required>
-                            <option value="monthly">Monthly Premium</option>
-                            <option value="registration">Registration Fee</option>
-                            <option value="addon">Add-on</option>
-                            <option value="topup">Top-up</option>
-                        </select>
-                    </div>
-                    <button type="submit" class="btn btn-gold btn-block" id="payBtn" disabled>
-                        <i class="fas fa-mobile-screen-button"></i>
-                        <span class="btn-label">Send STK Push</span>
-                    </button>
-                </form>
-
-                <!-- Payment Status -->
-                <div id="paymentStatus">
-                    <div class="status-icon" id="statusIcon">⏳</div>
-                    <div id="statusTitle">Payment Sent to Phone</div>
-                    <div id="statusMessage">Waiting for the member to enter their M-Pesa PIN.</div>
-                    <span class="status-badge pending" id="statusBadge">Pending</span>
-                    <div class="status-actions">
-                        <button class="btn btn-primary btn-sm" id="checkStatusBtn" type="button" onclick="checkPaymentStatus()">
-                            <i class="fas fa-sync"></i> Check Status
-                        </button>
-                        <button class="btn btn-outline btn-sm" id="retryBtn" type="button" style="display:none;" onclick="resetPayment()">
-                            <i class="fas fa-rotate-left"></i> Try Again
-                        </button>
-                    </div>
-                </div>
             </div>
 
-            <!-- Success Card -->
-            <div class="card" id="successCard">
-                <div class="check"><i class="fas fa-circle-check"></i></div>
-                <h3>Payment Confirmed!</h3>
-                <div id="successDetails">
-                    <div class="row">
-                        <span class="label">Member Name</span>
-                        <span class="value highlight" id="successName">—</span>
-                    </div>
-                    <div class="row">
-                        <span class="label">Member Number</span>
-                        <span class="value highlight" id="successNumber">—</span>
-                    </div>
-                    <div class="row">
-                        <span class="label">Amount Paid</span>
-                        <span class="value highlight" id="successAmount">KES 0</span>
-                    </div>
-                    <div class="row">
-                        <span class="label">Transaction ID</span>
-                        <span class="value" id="successTransactionId">—</span>
-                    </div>
-                </div>
-                <div class="success-actions">
-                    <button class="btn btn-success btn-sm" type="button" onclick="downloadReceipt()">
-                        <i class="fas fa-file-pdf"></i> Download Receipt
-                    </button>
-                    <button class="btn btn-primary btn-sm" type="button" onclick="collectAnotherPayment()">
-                        <i class="fas fa-plus"></i> Collect Another
-                    </button>
-                </div>
+        </div>
+
+        <!-- Alert -->
+        <div class="alert" id="alertBox"></div>
+
+        <!-- ========================================================
+             PAYMENT CARD
+             ======================================================== -->
+
+        <div class="card" id="paymentCard">
+
+            <div class="card-header">
+                <h3>
+                    <i class="fas fa-magnifying-glass"
+                       style="color:var(--gold);"></i>
+                    Find Member
+                </h3>
             </div>
 
-        </main>
+            <!-- Search -->
+            <div class="search-row">
 
-    </div>
+                <input type="text"
+                       id="memberSearchInput"
+                       placeholder="Search by name, member #, phone, or ID number..."
+                       autocomplete="off">
 
-    <!-- ============================================================
-    TOAST CONTAINER
-    ============================================================ -->
-    <div class="toast-container" id="toastContainer"></div>
+                <button class="btn btn-primary btn-sm"
+                        id="memberSearchBtn"
+                        type="button">
+                    <i class="fas fa-search"></i>
+                    Search
+                </button>
 
-    <!-- ============================================================
-    JAVASCRIPT - ALIGNED WITH BACKEND API
-    ============================================================ -->
-    <script>
-        // ============================================================
-        // SUPABASE CONFIG
-        // ============================================================
+            </div>
 
-        const SUPABASE_URL = 'https://wpxzlcdrirlcyvfiquld.supabase.co';
-        const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6IndweHpsY2RyaXJsY3l2ZmlxdWxkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODc5Mjc4MDcsImV4cCI6MjEwMzUwMzgwN30.OUP9pmPbrML_egpHflZtDfLv1_UDM37_BYjtb842xjg';
+            <div id="searchResults"></div>
 
-        const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+            <!-- Selected Member -->
+            <div id="selectedMember">
 
-        // ============================================================
-        // BACKEND API CONFIG
-        // ============================================================
+                <div>
 
-        const API_BASE_URL = 'https://masika-backend.onrender.com/api/v1';
-        // For local development: 'http://localhost:8000/api/v1'
+                    <div class="name"
+                         id="selectedMemberName">
+                        —
+                    </div>
 
-        // ============================================================
-        // STATE
-        // ============================================================
+                    <div class="num">
+                        #<span id="selectedMemberNumber">—</span>
+                        ·
+                        <span id="selectedMemberStatus"></span>
+                    </div>
 
-        let currentUser = null;
-        let selectedMember = null;
-        let paymentCheckoutId = null;
-        let paymentData = null;
-        let statusPollInterval = null;
-        let paymentRecordId = null;
+                </div>
 
-        // ============================================================
-        // INITIALIZATION
-        // ============================================================
+                <button class="btn btn-outline btn-sm"
+                        type="button"
+                        onclick="clearSelectedMember()">
+                    <i class="fas fa-times"></i>
+                    Change
+                </button>
 
-        document.addEventListener('DOMContentLoaded', async function() {
-            await checkAuth();
-            setupEventListeners();
-            setupSidebarToggle();
-            updateClock();
-        });
+            </div>
 
-        // ============================================================
-        // AUTH CHECK
-        // ============================================================
+            <!-- Payment Form -->
+            <form id="paymentForm"
+                  onsubmit="initiatePayment(event)">
 
-        async function checkAuth() {
-            try {
-                const { data: { session }, error } = await supabase.auth.getSession();
+                <div class="form-group">
 
-                if (error || !session) {
-                    window.location.href = 'admin-login.html';
-                    return;
-                }
+                    <label for="phoneNumber">
+                        M-Pesa Phone Number
+                        <span class="required">*</span>
+                    </label>
 
-                const { data: admin, error: adminError } = await supabase
-                    .from('admins')
-                    .select('*')
-                    .eq('id', session.user.id)
-                    .single();
+                    <input type="tel"
+                           id="phoneNumber"
+                           placeholder="07XXXXXXXX"
+                           disabled
+                           required>
 
-                if (adminError || !admin) {
-                    window.location.href = 'admin-login.html';
-                    return;
-                }
+                </div>
 
-                currentUser = admin;
-                document.getElementById('adminName').textContent = admin.full_name || 'Admin';
-                document.getElementById('adminRole').textContent = admin.role || 'Administrator';
-                document.getElementById('adminAvatar').textContent = (admin.full_name || 'A').charAt(0).toUpperCase();
+                <div class="form-group">
 
-            } catch (error) {
-                console.error('Auth check error:', error);
-                showToast('error', 'Authentication error');
-            }
-        }
+                    <label for="amountInput">
+                        Amount (KES)
+                        <span class="required">*</span>
+                    </label>
 
-        // ============================================================
-        // SETUP EVENT LISTENERS
-        // ============================================================
+                    <input type="number"
+                           id="amountInput"
+                           placeholder="Enter amount"
+                           min="1"
+                           step="1"
+                           disabled
+                           required>
 
-        function setupEventListeners() {
-            // Search button
-            document.getElementById('memberSearchBtn').addEventListener('click', searchMembers);
+                </div>
 
-            // Enter key on search input
-            document.getElementById('memberSearchInput').addEventListener('keypress', function(e) {
-                if (e.key === 'Enter') {
-                    e.preventDefault();
-                    searchMembers();
-                }
-            });
+                <div class="form-group">
 
-            // Input debounce for search
-            let searchTimeout;
-            document.getElementById('memberSearchInput').addEventListener('input', function() {
-                clearTimeout(searchTimeout);
-                searchTimeout = setTimeout(() => {
-                    if (this.value.length >= 2) {
-                        searchMembers();
-                    } else if (this.value.length === 0) {
-                        document.getElementById('searchResults').innerHTML = '';
-                    }
-                }, 300);
-            });
-        }
+                    <label for="paymentType">
+                        Payment Type
+                        <span class="required">*</span>
+                    </label>
 
-        // ============================================================
-        // SEARCH MEMBERS
-        // ============================================================
+                    <select id="paymentType"
+                            disabled
+                            required>
 
-        async function searchMembers() {
-            const query = document.getElementById('memberSearchInput').value.trim();
-            const resultsContainer = document.getElementById('searchResults');
+                        <option value="monthly">
+                            Monthly Premium
+                        </option>
 
-            if (!query || query.length < 2) {
-                resultsContainer.innerHTML = `<div class="search-empty">Type at least 2 characters to search</div>`;
+                        <option value="registration">
+                            Registration Fee
+                        </option>
+
+                        <option value="addon">
+                            Add-on
+                        </option>
+
+                        <option value="topup">
+                            Top-up
+                        </option>
+
+                    </select>
+
+                </div>
+
+                <button type="submit"
+                        class="btn btn-gold btn-block"
+                        id="payBtn"
+                        disabled>
+
+                    <i class="fas fa-mobile-screen-button"></i>
+
+                    <span class="btn-label">
+                        Send STK Push
+                    </span>
+
+                </button>
+
+            </form>
+
+            <!-- Payment Status -->
+            <div id="paymentStatus">
+
+                <div class="status-icon"
+                     id="statusIcon">
+                    ⏳
+                </div>
+
+                <div id="statusTitle">
+                    Payment Sent to Phone
+                </div>
+
+                <div id="statusMessage">
+                    Waiting for the member to enter their M-Pesa PIN.
+                </div>
+
+                <span class="status-badge pending"
+                      id="statusBadge">
+                    Pending
+                </span>
+
+                <div class="status-actions">
+
+                    <button class="btn btn-primary btn-sm"
+                            id="checkStatusBtn"
+                            type="button"
+                            onclick="checkPaymentStatus()">
+                        <i class="fas fa-sync"></i>
+                        Check Status
+                    </button>
+
+                    <button class="btn btn-outline btn-sm"
+                            id="retryBtn"
+                            type="button"
+                            style="display:none;"
+                            onclick="resetPayment()">
+                        <i class="fas fa-rotate-left"></i>
+                        Try Again
+                    </button>
+
+                </div>
+
+            </div>
+
+        </div>
+
+        <!-- ========================================================
+             SUCCESS CARD
+             ======================================================== -->
+
+        <div class="card" id="successCard">
+
+            <div class="check">
+                <i class="fas fa-circle-check"></i>
+            </div>
+
+            <h3>
+                Payment Confirmed!
+            </h3>
+
+            <div id="successDetails">
+
+                <div class="row">
+                    <span class="label">
+                        Member Name
+                    </span>
+
+                    <span class="value highlight"
+                          id="successName">
+                        —
+                    </span>
+                </div>
+
+                <div class="row">
+                    <span class="label">
+                        Member Number
+                    </span>
+
+                    <span class="value highlight"
+                          id="successNumber">
+                        —
+                    </span>
+                </div>
+
+                <div class="row">
+                    <span class="label">
+                        Amount Paid
+                    </span>
+
+                    <span class="value highlight"
+                          id="successAmount">
+                        KES 0
+                    </span>
+                </div>
+
+                <div class="row">
+                    <span class="label">
+                        Transaction ID
+                    </span>
+
+                    <span class="value"
+                          id="successTransactionId">
+                        —
+                    </span>
+                </div>
+
+            </div>
+
+            <div class="success-actions">
+
+                <button class="btn btn-success btn-sm"
+                        type="button"
+                        onclick="downloadReceipt()">
+                    <i class="fas fa-file-pdf"></i>
+                    Download Receipt
+                </button>
+
+                <button class="btn btn-primary btn-sm"
+                        type="button"
+                        onclick="collectAnotherPayment()">
+                    <i class="fas fa-plus"></i>
+                    Collect Another
+                </button>
+
+            </div>
+
+        </div>
+
+    </main>
+
+</div>
+
+<!-- ============================================================
+     TOAST CONTAINER
+     ============================================================ -->
+
+<div class="toast-container"
+     id="toastContainer"></div>
+
+<!-- ============================================================
+     JAVASCRIPT
+     ============================================================ -->
+
+<script>
+    'use strict';
+
+    // ============================================================
+    // SUPABASE CONFIG
+    // ============================================================
+    //
+    // IMPORTANT:
+    // This page deliberately uses "masikaSupabase" instead of
+    // "supabase" so it cannot collide with another script that
+    // declares:
+    //
+    //     const supabase = ...
+    //
+    // ============================================================
+
+    const MASIKA_SUPABASE_URL =
+        'https://wpxzlcdrirlcyvfiquld.supabase.co';
+
+    const MASIKA_SUPABASE_ANON_KEY =
+        'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6IndweHpsY2RyaXJsY3l2ZmlxdWxkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODc5Mjc4MDcsImV4cCI6MjEwMzUwMzgwN30.OUP9pmPbrML_egpHflZtDfLv1_UDM37_BYjtb842xjg';
+
+    if (!window.supabase || typeof window.supabase.createClient !== 'function') {
+        console.error('Supabase JS library failed to load.');
+    }
+
+    const masikaSupabase =
+        window.supabase.createClient(
+            MASIKA_SUPABASE_URL,
+            MASIKA_SUPABASE_ANON_KEY
+        );
+
+    // ============================================================
+    // BACKEND API CONFIG
+    // ============================================================
+
+    const API_BASE_URL =
+        'https://masika-backend.onrender.com/api/v1';
+
+    // Local development:
+    // const API_BASE_URL = 'http://localhost:8000/api/v1';
+
+    // ============================================================
+    // STATE
+    // ============================================================
+
+    let currentUser = null;
+    let selectedMember = null;
+    let paymentCheckoutId = null;
+    let paymentData = null;
+    let statusPollInterval = null;
+    let paymentRecordId = null;
+
+    // ============================================================
+    // INITIALIZATION
+    // ============================================================
+
+    document.addEventListener('DOMContentLoaded', async function () {
+
+        await checkAuth();
+
+        setupEventListeners();
+
+        setupSidebarToggle();
+
+        updateClock();
+
+    });
+
+    // ============================================================
+    // AUTH CHECK
+    // ============================================================
+
+    async function checkAuth() {
+
+        try {
+
+            const {
+                data: { session },
+                error
+            } = await masikaSupabase.auth.getSession();
+
+            if (error || !session) {
+                window.location.href = 'admin-login.html';
                 return;
             }
+
+            const {
+                data: admin,
+                error: adminError
+            } = await masikaSupabase
+                .from('admins')
+                .select('*')
+                .eq('id', session.user.id)
+                .single();
+
+            if (adminError || !admin) {
+
+                console.error(
+                    'Admin lookup error:',
+                    adminError
+                );
+
+                window.location.href = 'admin-login.html';
+                return;
+            }
+
+            currentUser = admin;
+
+            document.getElementById('adminName').textContent =
+                admin.full_name || 'Admin';
+
+            document.getElementById('adminRole').textContent =
+                admin.role || 'Administrator';
+
+            document.getElementById('adminAvatar').textContent =
+                (admin.full_name || 'A')
+                    .charAt(0)
+                    .toUpperCase();
+
+        } catch (error) {
+
+            console.error(
+                'Auth check error:',
+                error
+            );
+
+            showToast(
+                'error',
+                'Authentication error'
+            );
+        }
+    }
+
+    // ============================================================
+    // SETUP EVENT LISTENERS
+    // ============================================================
+
+    function setupEventListeners() {
+
+        const searchButton =
+            document.getElementById('memberSearchBtn');
+
+        const searchInput =
+            document.getElementById('memberSearchInput');
+
+        if (searchButton) {
+            searchButton.addEventListener(
+                'click',
+                searchMembers
+            );
+        }
+
+        if (searchInput) {
+
+            searchInput.addEventListener(
+                'keypress',
+                function (e) {
+
+                    if (e.key === 'Enter') {
+
+                        e.preventDefault();
+
+                        searchMembers();
+                    }
+                }
+            );
+
+            let searchTimeout;
+
+            searchInput.addEventListener(
+                'input',
+                function () {
+
+                    clearTimeout(searchTimeout);
+
+                    searchTimeout = setTimeout(
+                        () => {
+
+                            if (this.value.trim().length >= 2) {
+
+                                searchMembers();
+
+                            } else if (
+                                this.value.trim().length === 0
+                            ) {
+
+                                document.getElementById(
+                                    'searchResults'
+                                ).innerHTML = '';
+                            }
+
+                        },
+                        300
+                    );
+                }
+            );
+        }
+    }
+
+    // ============================================================
+    // ESCAPE HTML
+    // ============================================================
+
+    function escapeHtml(value) {
+
+        if (value === null || value === undefined) {
+            return '';
+        }
+
+        return String(value)
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;')
+            .replace(/'/g, '&#039;');
+    }
+
+    // ============================================================
+    // SEARCH MEMBERS
+    // ============================================================
+
+    async function searchMembers() {
+
+        const query =
+            document
+                .getElementById('memberSearchInput')
+                .value
+                .trim();
+
+        const resultsContainer =
+            document.getElementById('searchResults');
+
+        if (!query || query.length < 2) {
 
             resultsContainer.innerHTML = `
-                <div class="loading-spinner">
-                    <div class="spinner"></div>
+                <div class="search-empty">
+                    Type at least 2 characters to search
                 </div>
             `;
 
-            try {
-                // Search in members table
-                const { data, error } = await supabase
-                    .from('members')
-                    .select('*')
-                    .or(
-                        `first_name.ilike.%${query}%,` +
-                        `last_name.ilike.%${query}%,` +
-                        `member_number.ilike.%${query}%,` +
-                        `phone.ilike.%${query}%,` +
-                        `id_number.ilike.%${query}%`
-                    )
-                    .limit(10);
+            return;
+        }
 
-                if (error) throw error;
+        resultsContainer.innerHTML = `
+            <div class="loading-spinner">
+                <div class="spinner"></div>
+            </div>
+        `;
 
-                if (!data || data.length === 0) {
-                    resultsContainer.innerHTML = `
-                        <div class="search-empty">
-                            <i class="fas fa-user-slash" style="display:block;font-size:24px;margin-bottom:8px;"></i>
-                            No members found matching "<strong>${query}</strong>"
+        try {
+
+            const safeQuery = query
+                .replace(/[%_,()]/g, ' ')
+                .trim();
+
+            const {
+                data,
+                error
+            } = await masikaSupabase
+                .from('members')
+                .select('*')
+                .or(
+                    `first_name.ilike.%${safeQuery}%,` +
+                    `last_name.ilike.%${safeQuery}%,` +
+                    `member_number.ilike.%${safeQuery}%,` +
+                    `phone.ilike.%${safeQuery}%,` +
+                    `id_number.ilike.%${safeQuery}%`
+                )
+                .limit(10);
+
+            if (error) {
+                throw error;
+            }
+
+            if (!data || data.length === 0) {
+
+                resultsContainer.innerHTML = `
+                    <div class="search-empty">
+                        <i class="fas fa-user-slash"
+                           style="display:block;font-size:24px;margin-bottom:8px;"></i>
+
+                        No members found matching
+                        "<strong>${escapeHtml(query)}</strong>"
+                    </div>
+                `;
+
+                return;
+            }
+
+            resultsContainer.innerHTML =
+                data.map(member => {
+
+                    const memberName =
+                        `${member.first_name || ''} ${member.last_name || ''}`
+                            .trim() || 'N/A';
+
+                    const memberNumber =
+                        member.member_number ||
+                        member.membership_number ||
+                        'N/A';
+
+                    const phone =
+                        member.phone || 'N/A';
+
+                    const isActive =
+                        member.is_active === true ||
+                        String(member.status || '').toLowerCase() === 'active';
+
+                    return `
+                        <div class="search-result-row"
+                             onclick="selectMember('${member.id}')">
+
+                            <div>
+
+                                <div class="name">
+                                    ${escapeHtml(memberName)}
+                                </div>
+
+                                <div class="meta">
+                                    #${escapeHtml(memberNumber)}
+                                    ·
+                                    ${escapeHtml(phone)}
+                                </div>
+
+                            </div>
+
+                            <span class="status-badge ${isActive ? 'active' : 'inactive'}">
+                                ${isActive ? 'Active' : 'Inactive'}
+                            </span>
+
                         </div>
                     `;
+
+                }).join('');
+
+        } catch (error) {
+
+            console.error(
+                'Search error:',
+                error
+            );
+
+            resultsContainer.innerHTML = `
+                <div class="search-empty"
+                     style="color:var(--danger);">
+
+                    <i class="fas fa-exclamation-triangle"
+                       style="display:block;font-size:24px;margin-bottom:8px;"></i>
+
+                    Failed to search members.
+
+                    <div style="font-size:11px;margin-top:6px;">
+                        ${escapeHtml(error.message || '')}
+                    </div>
+
+                </div>
+            `;
+        }
+    }
+
+    // ============================================================
+    // SELECT MEMBER
+    // ============================================================
+
+    async function selectMember(memberId) {
+
+        try {
+
+            const {
+                data: member,
+                error
+            } = await masikaSupabase
+                .from('members')
+                .select('*')
+                .eq('id', memberId)
+                .single();
+
+            if (error) {
+                throw error;
+            }
+
+            if (!member) {
+                throw new Error('Member not found');
+            }
+
+            selectedMember = member;
+
+            document.getElementById(
+                'searchResults'
+            ).innerHTML = '';
+
+            const selectedDiv =
+                document.getElementById('selectedMember');
+
+            selectedDiv.classList.add('show');
+
+            document.getElementById(
+                'selectedMemberName'
+            ).textContent =
+                `${member.first_name || ''} ${member.last_name || ''}`
+                    .trim() || 'N/A';
+
+            document.getElementById(
+                'selectedMemberNumber'
+            ).textContent =
+                member.member_number ||
+                member.membership_number ||
+                'N/A';
+
+            const isActive =
+                member.is_active === true ||
+                String(member.status || '').toLowerCase() === 'active';
+
+            document.getElementById(
+                'selectedMemberStatus'
+            ).innerHTML = `
+                <span class="status-badge ${isActive ? 'active' : 'inactive'}">
+                    ${isActive ? 'Active' : 'Inactive'}
+                </span>
+            `;
+
+            // Enable payment fields
+            document.getElementById(
+                'phoneNumber'
+            ).disabled = false;
+
+            document.getElementById(
+                'phoneNumber'
+            ).value = member.phone || '';
+
+            document.getElementById(
+                'amountInput'
+            ).disabled = false;
+
+            document.getElementById(
+                'amountInput'
+            ).focus();
+
+            document.getElementById(
+                'paymentType'
+            ).disabled = false;
+
+            document.getElementById(
+                'payBtn'
+            ).disabled = false;
+
+            showToast(
+                'success',
+                `Member ${member.first_name || ''} ${member.last_name || ''} selected`
+            );
+
+        } catch (error) {
+
+            console.error(
+                'Select member error:',
+                error
+            );
+
+            showToast(
+                'error',
+                error.message || 'Failed to select member'
+            );
+        }
+    }
+
+    // ============================================================
+    // CLEAR SELECTED MEMBER
+    // ============================================================
+
+    function clearSelectedMember() {
+
+        selectedMember = null;
+
+        document.getElementById(
+            'selectedMember'
+        ).classList.remove('show');
+
+        document.getElementById(
+            'phoneNumber'
+        ).disabled = true;
+
+        document.getElementById(
+            'phoneNumber'
+        ).value = '';
+
+        document.getElementById(
+            'amountInput'
+        ).disabled = true;
+
+        document.getElementById(
+            'amountInput'
+        ).value = '';
+
+        document.getElementById(
+            'paymentType'
+        ).disabled = true;
+
+        document.getElementById(
+            'payBtn'
+        ).disabled = true;
+
+        document.getElementById(
+            'searchResults'
+        ).innerHTML = '';
+
+        document.getElementById(
+            'memberSearchInput'
+        ).value = '';
+
+        document.getElementById(
+            'memberSearchInput'
+        ).focus();
+    }
+
+    // ============================================================
+    // NORMALIZE PHONE
+    // ============================================================
+
+    function normalizePhone(phone) {
+
+        let value =
+            String(phone || '')
+                .replace(/\s+/g, '')
+                .replace(/-/g, '');
+
+        if (value.startsWith('+254')) {
+            value = '254' + value.substring(4);
+        } else if (value.startsWith('07')) {
+            value = '254' + value.substring(1);
+        } else if (value.startsWith('01')) {
+            value = '254' + value.substring(1);
+        }
+
+        return value;
+    }
+
+    // ============================================================
+    // INITIATE PAYMENT
+    // ============================================================
+
+    async function initiatePayment(event) {
+
+        event.preventDefault();
+
+        if (!selectedMember) {
+
+            showToast(
+                'error',
+                'Please select a member first'
+            );
+
+            return;
+        }
+
+        const phone =
+            document
+                .getElementById('phoneNumber')
+                .value
+                .trim();
+
+        const amount =
+            parseFloat(
+                document.getElementById('amountInput').value
+            );
+
+        const paymentType =
+            document.getElementById('paymentType').value;
+
+        if (!phone || phone.length < 10) {
+
+            showToast(
+                'error',
+                'Please enter a valid phone number'
+            );
+
+            return;
+        }
+
+        if (!amount || amount < 1) {
+
+            showToast(
+                'error',
+                'Please enter a valid amount'
+            );
+
+            return;
+        }
+
+        const normalizedPhone =
+            normalizePhone(phone);
+
+        if (
+            !/^254(7|1)\d{8}$/.test(
+                normalizedPhone
+            )
+        ) {
+
+            showToast(
+                'error',
+                'Enter a valid Kenyan M-Pesa number'
+            );
+
+            return;
+        }
+
+        // Get authentication token
+        const {
+            data: { session }
+        } = await masikaSupabase.auth.getSession();
+
+        const token =
+            session?.access_token;
+
+        if (!token) {
+
+            showToast(
+                'error',
+                'Authentication required'
+            );
+
+            return;
+        }
+
+        const payBtn =
+            document.getElementById('payBtn');
+
+        const originalText =
+            payBtn.innerHTML;
+
+        payBtn.disabled = true;
+
+        payBtn.innerHTML = `
+            <i class="fas fa-spinner fa-spin"></i>
+            Sending...
+        `;
+
+        try {
+
+            const membershipNumber =
+                selectedMember.member_number ||
+                selectedMember.membership_number;
+
+            if (!membershipNumber) {
+                throw new Error(
+                    'Selected member does not have a membership number'
+                );
+            }
+
+            const response =
+                await fetch(
+                    `${API_BASE_URL}/payments/mpesa/initiate`,
+                    {
+                        method: 'POST',
+
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'Authorization': `Bearer ${token}`
+                        },
+
+                        body: JSON.stringify({
+
+                            membership_number:
+                                membershipNumber,
+
+                            phone_number:
+                                normalizedPhone,
+
+                            amount:
+                                amount,
+
+                            payment_type:
+                                paymentType || 'monthly'
+
+                        })
+                    }
+                );
+
+            let data = {};
+
+            try {
+                data = await response.json();
+            } catch (_) {
+                data = {};
+            }
+
+            if (!response.ok) {
+
+                throw new Error(
+                    data.detail ||
+                    data.message ||
+                    'Payment initiation failed'
+                );
+            }
+
+            paymentCheckoutId =
+                data.checkout_request_id ||
+                data.checkoutRequestID ||
+                data.CheckoutRequestID ||
+                null;
+
+            paymentRecordId =
+                data.payment_id ||
+                data.id ||
+                null;
+
+            paymentData = {
+                ...data,
+                amount: data.amount ?? amount,
+                phone_number:
+                    data.phone_number || normalizedPhone,
+                payment_type:
+                    data.payment_type ||
+                    paymentType ||
+                    'monthly'
+            };
+
+            if (!paymentCheckoutId) {
+
+                console.warn(
+                    'Payment initiated without checkout_request_id:',
+                    data
+                );
+            }
+
+            showPaymentStatus(
+                'pending',
+                'Payment Sent to Phone',
+                'Waiting for the member to enter their M-Pesa PIN...'
+            );
+
+            if (paymentCheckoutId) {
+
+                startStatusPolling(
+                    paymentCheckoutId,
+                    token
+                );
+
+            } else {
+
+                showToast(
+                    'warning',
+                    'Payment request sent, but no checkout ID was returned.'
+                );
+            }
+
+            showToast(
+                'success',
+                'STK Push sent successfully!'
+            );
+
+        } catch (error) {
+
+            console.error(
+                'Payment initiation error:',
+                error
+            );
+
+            showToast(
+                'error',
+                error.message ||
+                'Failed to initiate payment'
+            );
+
+            payBtn.disabled = false;
+
+            payBtn.innerHTML =
+                originalText;
+        }
+    }
+
+    // ============================================================
+    // SHOW PAYMENT STATUS
+    // ============================================================
+
+    function showPaymentStatus(
+        status,
+        title,
+        message
+    ) {
+
+        const statusDiv =
+            document.getElementById('paymentStatus');
+
+        statusDiv.style.display = 'block';
+
+        const icons = {
+            pending: '⏳',
+            completed: '✅',
+            failed: '❌'
+        };
+
+        document.getElementById(
+            'statusIcon'
+        ).textContent =
+            icons[status] || '⏳';
+
+        document.getElementById(
+            'statusTitle'
+        ).textContent =
+            title;
+
+        document.getElementById(
+            'statusMessage'
+        ).textContent =
+            message;
+
+        const badge =
+            document.getElementById('statusBadge');
+
+        badge.className =
+            `status-badge ${status}`;
+
+        badge.textContent =
+            status.charAt(0).toUpperCase() +
+            status.slice(1);
+
+        document.getElementById(
+            'retryBtn'
+        ).style.display =
+            status === 'failed'
+                ? 'inline-flex'
+                : 'none';
+
+        document.getElementById(
+            'paymentForm'
+        ).style.display =
+            'none';
+
+        document.getElementById(
+            'selectedMember'
+        ).style.display =
+            'none';
+
+        if (status === 'completed') {
+            showSuccessCard();
+        }
+    }
+
+    // ============================================================
+    // START STATUS POLLING
+    // ============================================================
+
+    function startStatusPolling(
+        checkoutId,
+        token
+    ) {
+
+        let attempts = 0;
+
+        const maxAttempts = 12;
+
+        if (statusPollInterval) {
+
+            clearInterval(
+                statusPollInterval
+            );
+        }
+
+        statusPollInterval =
+            setInterval(
+                async () => {
+
+                    attempts++;
+
+                    try {
+
+                        const response =
+                            await fetch(
+                                `${API_BASE_URL}/payments/mpesa/status/${encodeURIComponent(checkoutId)}`,
+                                {
+                                    headers: {
+                                        'Authorization':
+                                            `Bearer ${token}`
+                                    }
+                                }
+                            );
+
+                        let data = {};
+
+                        try {
+                            data = await response.json();
+                        } catch (_) {
+                            data = {};
+                        }
+
+                        const status =
+                            String(
+                                data.status ||
+                                data.payment_status ||
+                                ''
+                            ).toLowerCase();
+
+                        if (
+                            status === 'completed' ||
+                            status === 'success' ||
+                            status === 'successful' ||
+                            status === 'confirmed'
+                        ) {
+
+                            clearInterval(
+                                statusPollInterval
+                            );
+
+                            statusPollInterval =
+                                null;
+
+                            paymentData = {
+                                ...paymentData,
+                                ...data
+                            };
+
+                            showPaymentStatus(
+                                'completed',
+                                'Payment Successful!',
+                                'The payment has been confirmed.'
+                            );
+
+                            showToast(
+                                'success',
+                                'Payment completed successfully!'
+                            );
+
+                        } else if (
+                            status === 'failed' ||
+                            status === 'cancelled' ||
+                            status === 'canceled' ||
+                            status === 'rejected'
+                        ) {
+
+                            clearInterval(
+                                statusPollInterval
+                            );
+
+                            statusPollInterval =
+                                null;
+
+                            showPaymentStatus(
+                                'failed',
+                                'Payment Failed',
+                                'The payment was not completed. Please try again.'
+                            );
+
+                            showToast(
+                                'error',
+                                'Payment failed'
+                            );
+
+                        } else if (
+                            attempts >= maxAttempts
+                        ) {
+
+                            clearInterval(
+                                statusPollInterval
+                            );
+
+                            statusPollInterval =
+                                null;
+
+                            showPaymentStatus(
+                                'pending',
+                                'Payment Taking Longer',
+                                'Please check the member phone or use Check Status.'
+                            );
+
+                            document.getElementById(
+                                'retryBtn'
+                            ).style.display =
+                                'inline-flex';
+
+                            showToast(
+                                'warning',
+                                'Payment is taking longer than expected'
+                            );
+                        }
+
+                    } catch (error) {
+
+                        console.error(
+                            'Status check error:',
+                            error
+                        );
+
+                        if (
+                            attempts >= maxAttempts
+                        ) {
+
+                            clearInterval(
+                                statusPollInterval
+                            );
+
+                            statusPollInterval =
+                                null;
+
+                            showToast(
+                                'warning',
+                                'Unable to continue automatic status checks.'
+                            );
+                        }
+                    }
+
+                },
+                10000
+            );
+    }
+
+    // ============================================================
+    // CHECK PAYMENT STATUS
+    // ============================================================
+
+    async function checkPaymentStatus() {
+
+        if (!paymentCheckoutId) {
+
+            showToast(
+                'error',
+                'No payment to check'
+            );
+
+            return;
+        }
+
+        const {
+            data: { session }
+        } = await masikaSupabase.auth.getSession();
+
+        const token =
+            session?.access_token;
+
+        if (!token) {
+
+            showToast(
+                'error',
+                'Authentication required'
+            );
+
+            return;
+        }
+
+        const btn =
+            document.getElementById(
+                'checkStatusBtn'
+            );
+
+        btn.disabled = true;
+
+        btn.innerHTML = `
+            <i class="fas fa-spinner fa-spin"></i>
+            Checking...
+        `;
+
+        try {
+
+            const response =
+                await fetch(
+                    `${API_BASE_URL}/payments/mpesa/status/${encodeURIComponent(paymentCheckoutId)}`,
+                    {
+                        headers: {
+                            'Authorization':
+                                `Bearer ${token}`
+                        }
+                    }
+                );
+
+            let data = {};
+
+            try {
+                data = await response.json();
+            } catch (_) {
+                data = {};
+            }
+
+            if (!response.ok) {
+
+                throw new Error(
+                    data.detail ||
+                    data.message ||
+                    'Failed to check payment status'
+                );
+            }
+
+            const status =
+                String(
+                    data.status ||
+                    data.payment_status ||
+                    ''
+                ).toLowerCase();
+
+            if (
+                status === 'completed' ||
+                status === 'success' ||
+                status === 'successful' ||
+                status === 'confirmed'
+            ) {
+
+                clearInterval(
+                    statusPollInterval
+                );
+
+                statusPollInterval =
+                    null;
+
+                paymentData = {
+                    ...paymentData,
+                    ...data
+                };
+
+                showPaymentStatus(
+                    'completed',
+                    'Payment Successful!',
+                    'The payment has been confirmed.'
+                );
+
+                showToast(
+                    'success',
+                    'Payment completed successfully!'
+                );
+
+            } else if (
+                status === 'failed' ||
+                status === 'cancelled' ||
+                status === 'canceled' ||
+                status === 'rejected'
+            ) {
+
+                clearInterval(
+                    statusPollInterval
+                );
+
+                statusPollInterval =
+                    null;
+
+                showPaymentStatus(
+                    'failed',
+                    'Payment Failed',
+                    'The payment was not completed. Please try again.'
+                );
+
+                showToast(
+                    'error',
+                    'Payment failed'
+                );
+
+            } else {
+
+                showToast(
+                    'info',
+                    `Payment status: ${data.status || 'Pending'}`
+                );
+            }
+
+        } catch (error) {
+
+            console.error(
+                'Status check error:',
+                error
+            );
+
+            showToast(
+                'error',
+                error.message ||
+                'Failed to check payment status'
+            );
+
+        } finally {
+
+            btn.disabled = false;
+
+            btn.innerHTML = `
+                <i class="fas fa-sync"></i>
+                Check Status
+            `;
+        }
+    }
+
+    // ============================================================
+    // SHOW SUCCESS CARD
+    // ============================================================
+
+    function showSuccessCard() {
+
+        const card =
+            document.getElementById('successCard');
+
+        card.style.display = 'block';
+
+        const member =
+            selectedMember;
+
+        const amount =
+            Number(
+                paymentData?.amount || 0
+            );
+
+        const receipt =
+            paymentData?.mpesa_receipt_number ||
+            paymentData?.mpesa_receipt ||
+            paymentData?.receipt_number ||
+            paymentData?.transaction_id ||
+            paymentData?.checkout_request_id ||
+            'N/A';
+
+        document.getElementById(
+            'successName'
+        ).textContent =
+            `${member?.first_name || ''} ${member?.last_name || ''}`
+                .trim() || 'N/A';
+
+        document.getElementById(
+            'successNumber'
+        ).textContent =
+            member?.member_number ||
+            member?.membership_number ||
+            'N/A';
+
+        document.getElementById(
+            'successAmount'
+        ).textContent =
+            `KES ${amount.toLocaleString('en-KE')}`;
+
+        document.getElementById(
+            'successTransactionId'
+        ).textContent =
+            receipt;
+
+        document.getElementById(
+            'paymentCard'
+        ).style.display =
+            'none';
+    }
+
+    // ============================================================
+    // RESET PAYMENT
+    // ============================================================
+
+    function resetPayment() {
+
+        if (statusPollInterval) {
+
+            clearInterval(
+                statusPollInterval
+            );
+
+            statusPollInterval =
+                null;
+        }
+
+        paymentCheckoutId = null;
+        paymentData = null;
+        paymentRecordId = null;
+
+        document.getElementById(
+            'paymentStatus'
+        ).style.display =
+            'none';
+
+        document.getElementById(
+            'paymentForm'
+        ).style.display =
+            'block';
+
+        document.getElementById(
+            'selectedMember'
+        ).style.display =
+            'flex';
+
+        document.getElementById(
+            'payBtn'
+        ).disabled =
+            false;
+
+        document.getElementById(
+            'payBtn'
+        ).innerHTML = `
+            <i class="fas fa-mobile-screen-button"></i>
+            <span class="btn-label">
+                Send STK Push
+            </span>
+        `;
+    }
+
+    // ============================================================
+    // COLLECT ANOTHER PAYMENT
+    // ============================================================
+
+    function collectAnotherPayment() {
+
+        if (statusPollInterval) {
+
+            clearInterval(
+                statusPollInterval
+            );
+
+            statusPollInterval =
+                null;
+        }
+
+        document.getElementById(
+            'successCard'
+        ).style.display =
+            'none';
+
+        document.getElementById(
+            'paymentCard'
+        ).style.display =
+            'block';
+
+        document.getElementById(
+            'paymentStatus'
+        ).style.display =
+            'none';
+
+        document.getElementById(
+            'paymentForm'
+        ).style.display =
+            'block';
+
+        document.getElementById(
+            'selectedMember'
+        ).style.display =
+            'none';
+
+        paymentCheckoutId = null;
+        paymentData = null;
+        paymentRecordId = null;
+        selectedMember = null;
+
+        document.getElementById(
+            'phoneNumber'
+        ).value = '';
+
+        document.getElementById(
+            'phoneNumber'
+        ).disabled = true;
+
+        document.getElementById(
+            'amountInput'
+        ).value = '';
+
+        document.getElementById(
+            'amountInput'
+        ).disabled = true;
+
+        document.getElementById(
+            'paymentType'
+        ).value = 'monthly';
+
+        document.getElementById(
+            'paymentType'
+        ).disabled = true;
+
+        document.getElementById(
+            'payBtn'
+        ).disabled = true;
+
+        document.getElementById(
+            'payBtn'
+        ).innerHTML = `
+            <i class="fas fa-mobile-screen-button"></i>
+            <span class="btn-label">
+                Send STK Push
+            </span>
+        `;
+
+        document.getElementById(
+            'memberSearchInput'
+        ).value = '';
+
+        document.getElementById(
+            'searchResults'
+        ).innerHTML = '';
+
+        document.getElementById(
+            'memberSearchInput'
+        ).focus();
+
+        showToast(
+            'info',
+            'Ready to collect another payment'
+        );
+    }
+
+    // ============================================================
+    // DOWNLOAD RECEIPT
+    // ============================================================
+
+    function downloadReceipt() {
+
+        try {
+
+            if (
+                !window.jspdf ||
+                !window.jspdf.jsPDF
+            ) {
+
+                throw new Error(
+                    'PDF library is not loaded'
+                );
+            }
+
+            const {
+                jsPDF
+            } = window.jspdf;
+
+            const doc =
+                new jsPDF();
+
+            const member =
+                selectedMember;
+
+            const memberName =
+                `${member?.first_name || ''} ${member?.last_name || ''}`
+                    .trim() || 'N/A';
+
+            const memberNumber =
+                member?.member_number ||
+                member?.membership_number ||
+                'N/A';
+
+            const amount =
+                Number(
+                    paymentData?.amount || 0
+                );
+
+            const receiptNumber =
+                paymentData?.mpesa_receipt_number ||
+                paymentData?.mpesa_receipt ||
+                paymentData?.receipt_number ||
+                paymentData?.checkout_request_id ||
+                'N/A';
+
+            // Header
+            doc.setFillColor(
+                11,
+                93,
+                59
+            );
+
+            doc.rect(
+                0,
+                0,
+                210,
+                45,
+                'F'
+            );
+
+            doc.setTextColor(
+                255,
+                255,
+                255
+            );
+
+            doc.setFontSize(22);
+
+            doc.text(
+                'MASIKA BENEVOLENT',
+                20,
+                25
+            );
+
+            doc.setFontSize(10);
+
+            doc.text(
+                'Payment Receipt',
+                20,
+                35
+            );
+
+            // Payment details
+            doc.setTextColor(
+                0,
+                0,
+                0
+            );
+
+            doc.setFontSize(12);
+
+            const yStart = 55;
+
+            doc.text(
+                `Receipt #: ${receiptNumber}`,
+                20,
+                yStart
+            );
+
+            doc.text(
+                `Date: ${new Date().toLocaleDateString('en-KE')}`,
+                20,
+                yStart + 8
+            );
+
+            doc.text(
+                `Time: ${new Date().toLocaleTimeString('en-KE')}`,
+                20,
+                yStart + 16
+            );
+
+            // Member details
+            doc.setFontSize(14);
+
+            doc.setFont(
+                'helvetica',
+                'bold'
+            );
+
+            doc.text(
+                'Member Details',
+                20,
+                yStart + 30
+            );
+
+            doc.setFont(
+                'helvetica',
+                'normal'
+            );
+
+            doc.setFontSize(12);
+
+            doc.text(
+                `Name: ${memberName}`,
+                20,
+                yStart + 40
+            );
+
+            doc.text(
+                `Member #: ${memberNumber}`,
+                20,
+                yStart + 48
+            );
+
+            doc.text(
+                `Phone: ${member?.phone || paymentData?.phone_number || 'N/A'}`,
+                20,
+                yStart + 56
+            );
+
+            // Payment details
+            doc.setFontSize(14);
+
+            doc.setFont(
+                'helvetica',
+                'bold'
+            );
+
+            doc.text(
+                'Payment Details',
+                20,
+                yStart + 70
+            );
+
+            doc.setFont(
+                'helvetica',
+                'normal'
+            );
+
+            doc.setFontSize(12);
+
+            doc.text(
+                `Amount: KES ${amount.toLocaleString('en-KE')}`,
+                20,
+                yStart + 80
+            );
+
+            doc.text(
+                'Status: Completed',
+                20,
+                yStart + 88
+            );
+
+            doc.text(
+                `Payment Type: ${paymentData?.payment_type || 'Monthly Premium'}`,
+                20,
+                yStart + 96
+            );
+
+            doc.text(
+                `Transaction ID: ${receiptNumber}`,
+                20,
+                yStart + 104
+            );
+
+            // Footer
+            doc.setDrawColor(
+                200,
+                200,
+                200
+            );
+
+            doc.line(
+                20,
+                yStart + 116,
+                190,
+                yStart + 116
+            );
+
+            doc.setFontSize(10);
+
+            doc.setTextColor(
+                100,
+                100,
+                100
+            );
+
+            doc.text(
+                'Thank you for your payment.',
+                20,
+                yStart + 126
+            );
+
+            doc.text(
+                'This is a system-generated receipt.',
+                20,
+                yStart + 134
+            );
+
+            doc.save(
+                `payment_receipt_${memberNumber}.pdf`
+            );
+
+            showToast(
+                'success',
+                'Receipt downloaded successfully'
+            );
+
+        } catch (error) {
+
+            console.error(
+                'PDF generation error:',
+                error
+            );
+
+            showToast(
+                'error',
+                error.message ||
+                'Failed to generate receipt'
+            );
+        }
+    }
+
+    // ============================================================
+    // RESET FORM
+    // ============================================================
+
+    function resetForm() {
+
+        if (statusPollInterval) {
+
+            clearInterval(
+                statusPollInterval
+            );
+
+            statusPollInterval =
+                null;
+        }
+
+        paymentCheckoutId = null;
+        paymentData = null;
+        paymentRecordId = null;
+        selectedMember = null;
+
+        document.getElementById(
+            'paymentCard'
+        ).style.display =
+            'block';
+
+        document.getElementById(
+            'successCard'
+        ).style.display =
+            'none';
+
+        document.getElementById(
+            'paymentStatus'
+        ).style.display =
+            'none';
+
+        document.getElementById(
+            'paymentForm'
+        ).style.display =
+            'block';
+
+        document.getElementById(
+            'selectedMember'
+        ).style.display =
+            'none';
+
+        document.getElementById(
+            'phoneNumber'
+        ).value = '';
+
+        document.getElementById(
+            'phoneNumber'
+        ).disabled = true;
+
+        document.getElementById(
+            'amountInput'
+        ).value = '';
+
+        document.getElementById(
+            'amountInput'
+        ).disabled = true;
+
+        document.getElementById(
+            'paymentType'
+        ).value = 'monthly';
+
+        document.getElementById(
+            'paymentType'
+        ).disabled = true;
+
+        document.getElementById(
+            'payBtn'
+        ).disabled = true;
+
+        document.getElementById(
+            'memberSearchInput'
+        ).value = '';
+
+        document.getElementById(
+            'searchResults'
+        ).innerHTML = '';
+
+        document.getElementById(
+            'payBtn'
+        ).innerHTML = `
+            <i class="fas fa-mobile-screen-button"></i>
+            <span class="btn-label">
+                Send STK Push
+            </span>
+        `;
+
+        showToast(
+            'info',
+            'Form reset'
+        );
+    }
+
+    // ============================================================
+    // SIDEBAR TOGGLE
+    // ============================================================
+
+    function setupSidebarToggle() {
+
+        const sidebar =
+            document.getElementById('sidebar');
+
+        const backdrop =
+            document.getElementById(
+                'sidebarBackdrop'
+            );
+
+        const toggleBtn =
+            document.getElementById(
+                'sidebarToggle'
+            );
+
+        if (toggleBtn) {
+
+            toggleBtn.addEventListener(
+                'click',
+                function () {
+
+                    sidebar.classList.toggle(
+                        'open'
+                    );
+
+                    backdrop.classList.toggle(
+                        'show'
+                    );
+                }
+            );
+        }
+
+        if (backdrop) {
+
+            backdrop.addEventListener(
+                'click',
+                function () {
+
+                    sidebar.classList.remove(
+                        'open'
+                    );
+
+                    backdrop.classList.remove(
+                        'show'
+                    );
+                }
+            );
+        }
+
+        document
+            .querySelectorAll('.sidebar-nav a')
+            .forEach(function (link) {
+
+                link.addEventListener(
+                    'click',
+                    function () {
+
+                        sidebar.classList.remove(
+                            'open'
+                        );
+
+                        backdrop.classList.remove(
+                            'show'
+                        );
+                    }
+                );
+            });
+    }
+
+    // ============================================================
+    // CLOCK
+    // ============================================================
+
+    function updateClock() {
+
+        const clockEl =
+            document.getElementById(
+                'currentDateTime'
+            );
+
+        if (clockEl) {
+
+            const now =
+                new Date();
+
+            clockEl.textContent =
+                now.toLocaleString(
+                    'en-KE',
+                    {
+                        weekday: 'short',
+                        day: '2-digit',
+                        month: 'short',
+                        year: 'numeric',
+                        hour: '2-digit',
+                        minute: '2-digit'
+                    }
+                );
+        }
+
+        setTimeout(
+            updateClock,
+            30000
+        );
+    }
+
+    // ============================================================
+    // TOAST NOTIFICATIONS
+    // ============================================================
+
+    function showToast(
+        type,
+        message
+    ) {
+
+        const container =
+            document.getElementById(
+                'toastContainer'
+            );
+
+        const icons = {
+            success: 'fa-check-circle',
+            error: 'fa-exclamation-circle',
+            warning: 'fa-triangle-exclamation',
+            info: 'fa-info-circle'
+        };
+
+        const toast =
+            document.createElement(
+                'div'
+            );
+
+        toast.className =
+            `toast ${type}`;
+
+        toast.innerHTML = `
+            <i class="fas ${icons[type] || icons.info}"></i>
+
+            <span>
+                ${escapeHtml(message)}
+            </span>
+
+            <button class="toast-close"
+                    type="button"
+                    aria-label="Close"
+                    onclick="this.parentElement.remove()">
+                &times;
+            </button>
+        `;
+
+        container.appendChild(
+            toast
+        );
+
+        setTimeout(
+            () => {
+
+                if (!toast.parentElement) {
                     return;
                 }
 
-                resultsContainer.innerHTML = data.map(member => `
-                    <div class="search-result-row" onclick="selectMember('${member.id}')">
-                        <div>
-                            <div class="name">${member.first_name || ''} ${member.last_name || ''}</div>
-                            <div class="meta">#${member.member_number || member.membership_number || 'N/A'} · ${member.phone || 'N/A'}</div>
-                        </div>
-                        <span class="status-badge ${member.is_active ? 'active' : 'inactive'}">
-                            ${member.is_active ? 'Active' : 'Inactive'}
-                        </span>
-                    </div>
-                `).join('');
+                toast.style.opacity =
+                    '0';
 
-            } catch (error) {
-                console.error('Search error:', error);
-                resultsContainer.innerHTML = `
-                    <div class="search-empty" style="color:var(--danger);">
-                        <i class="fas fa-exclamation-triangle" style="display:block;font-size:24px;margin-bottom:8px;"></i>
-                        Failed to search members
-                    </div>
-                `;
-            }
-        }
+                toast.style.transform =
+                    'translateX(100px)';
 
-        // ============================================================
-        // SELECT MEMBER
-        // ============================================================
+                toast.style.transition =
+                    'all 0.4s ease';
 
-        async function selectMember(memberId) {
-            try {
-                const { data: member, error } = await supabase
-                    .from('members')
-                    .select('*')
-                    .eq('id', memberId)
-                    .single();
+                setTimeout(
+                    () => {
 
-                if (error) throw error;
-
-                selectedMember = member;
-                document.getElementById('searchResults').innerHTML = '';
-
-                // Show selected member
-                const selectedDiv = document.getElementById('selectedMember');
-                selectedDiv.classList.add('show');
-                document.getElementById('selectedMemberName').textContent =
-                    `${member.first_name || ''} ${member.last_name || ''}`.trim() || 'N/A';
-                document.getElementById('selectedMemberNumber').textContent = member.member_number || member.membership_number || 'N/A';
-                document.getElementById('selectedMemberStatus').innerHTML =
-                    `<span class="status-badge ${member.is_active ? 'active' : 'inactive'}">${member.is_active ? 'Active' : 'Inactive'}</span>`;
-
-                // Enable form fields
-                document.getElementById('phoneNumber').disabled = false;
-                document.getElementById('phoneNumber').value = member.phone || '';
-                document.getElementById('amountInput').disabled = false;
-                document.getElementById('amountInput').focus();
-                document.getElementById('paymentType').disabled = false;
-                document.getElementById('payBtn').disabled = false;
-
-                showToast('success', `Member ${member.first_name || ''} ${member.last_name || ''} selected`);
-
-            } catch (error) {
-                console.error('Select member error:', error);
-                showToast('error', 'Failed to select member');
-            }
-        }
-
-        // ============================================================
-        // CLEAR SELECTED MEMBER
-        // ============================================================
-
-        function clearSelectedMember() {
-            selectedMember = null;
-            document.getElementById('selectedMember').classList.remove('show');
-            document.getElementById('phoneNumber').disabled = true;
-            document.getElementById('phoneNumber').value = '';
-            document.getElementById('amountInput').disabled = true;
-            document.getElementById('amountInput').value = '';
-            document.getElementById('paymentType').disabled = true;
-            document.getElementById('payBtn').disabled = true;
-            document.getElementById('searchResults').innerHTML = '';
-            document.getElementById('memberSearchInput').value = '';
-            document.getElementById('memberSearchInput').focus();
-        }
-
-        // ============================================================
-        // INITIATE PAYMENT - Uses Backend API
-        // ============================================================
-
-        async function initiatePayment(event) {
-            event.preventDefault();
-
-            if (!selectedMember) {
-                showToast('error', 'Please select a member first');
-                return;
-            }
-
-            const phone = document.getElementById('phoneNumber').value.trim();
-            const amount = parseFloat(document.getElementById('amountInput').value);
-            const paymentType = document.getElementById('paymentType').value;
-
-            if (!phone || phone.length < 10) {
-                showToast('error', 'Please enter a valid phone number');
-                return;
-            }
-
-            if (!amount || amount < 1) {
-                showToast('error', 'Please enter a valid amount');
-                return;
-            }
-
-            // Get auth token
-            const { data: { session } } = await supabase.auth.getSession();
-            const token = session?.access_token;
-
-            if (!token) {
-                showToast('error', 'Authentication required');
-                return;
-            }
-
-            const payBtn = document.getElementById('payBtn');
-            const originalText = payBtn.innerHTML;
-            payBtn.disabled = true;
-            payBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Sending...';
-
-            try {
-                // Call backend API to initiate payment
-                const response = await fetch(`${API_BASE_URL}/payments/mpesa/initiate`, {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'Authorization': `Bearer ${token}`
-                    },
-                    body: JSON.stringify({
-                        membership_number: selectedMember.member_number || selectedMember.membership_number,
-                        phone_number: phone,
-                        amount: amount,
-                        payment_type: paymentType || 'monthly'
-                    })
-                });
-
-                const data = await response.json();
-
-                if (!response.ok) {
-                    throw new Error(data.detail || data.message || 'Payment initiation failed');
-                }
-
-                paymentCheckoutId = data.checkout_request_id;
-                paymentRecordId = data.payment_id;
-                paymentData = data;
-
-                // Show payment status
-                showPaymentStatus('pending', 'Payment Sent to Phone', 'Waiting for member to enter M-Pesa PIN...');
-
-                // Start polling for status
-                startStatusPolling(data.checkout_request_id, token);
-
-                showToast('success', 'STK Push sent successfully!');
-
-            } catch (error) {
-                console.error('Payment initiation error:', error);
-                showToast('error', error.message || 'Failed to initiate payment');
-                payBtn.disabled = false;
-                payBtn.innerHTML = originalText;
-            }
-        }
-
-        // ============================================================
-        // SHOW PAYMENT STATUS
-        // ============================================================
-
-        function showPaymentStatus(status, title, message) {
-            const statusDiv = document.getElementById('paymentStatus');
-            statusDiv.style.display = 'block';
-
-            const icons = {
-                pending: '⏳',
-                completed: '✅',
-                failed: '❌'
-            };
-
-            document.getElementById('statusIcon').textContent = icons[status] || '⏳';
-            document.getElementById('statusTitle').textContent = title;
-            document.getElementById('statusMessage').textContent = message;
-
-            const badge = document.getElementById('statusBadge');
-            badge.className = `status-badge ${status}`;
-            badge.textContent = status.charAt(0).toUpperCase() + status.slice(1);
-
-            document.getElementById('retryBtn').style.display = status === 'failed' ? 'inline-flex' : 'none';
-
-            // Hide form
-            document.getElementById('paymentForm').style.display = 'none';
-            document.getElementById('selectedMember').style.display = 'none';
-
-            if (status === 'completed') {
-                showSuccessCard();
-            }
-        }
-
-        // ============================================================
-        // START STATUS POLLING - Uses Backend API
-        // ============================================================
-
-        function startStatusPolling(checkoutId, token) {
-            let attempts = 0;
-            const maxAttempts = 12; // 2 minutes
-
-            if (statusPollInterval) {
-                clearInterval(statusPollInterval);
-            }
-
-            statusPollInterval = setInterval(async () => {
-                attempts++;
-
-                try {
-                    const response = await fetch(`${API_BASE_URL}/payments/mpesa/status/${checkoutId}`, {
-                        headers: {
-                            'Authorization': `Bearer ${token}`
+                        if (
+                            toast.parentElement
+                        ) {
+                            toast.remove();
                         }
-                    });
 
-                    const data = await response.json();
+                    },
+                    400
+                );
 
-                    if (data.status === 'completed') {
-                        clearInterval(statusPollInterval);
-                        statusPollInterval = null;
-                        paymentData = { ...paymentData, ...data };
-                        showPaymentStatus('completed', 'Payment Successful!', 'The payment has been confirmed.');
-                        showToast('success', 'Payment completed successfully!');
-                    } else if (data.status === 'failed') {
-                        clearInterval(statusPollInterval);
-                        statusPollInterval = null;
-                        showPaymentStatus('failed', 'Payment Failed', 'The payment was not completed. Please try again.');
-                        showToast('error', 'Payment failed');
-                    } else if (attempts >= maxAttempts) {
-                        clearInterval(statusPollInterval);
-                        statusPollInterval = null;
-                        showPaymentStatus('pending', 'Payment Taking Longer', 'Please check your phone or try again.');
-                        document.getElementById('retryBtn').style.display = 'inline-flex';
-                        showToast('warning', 'Payment is taking longer than expected');
-                    }
+            },
+            4000
+        );
+    }
 
-                } catch (error) {
-                    console.error('Status check error:', error);
-                    if (attempts >= maxAttempts) {
-                        clearInterval(statusPollInterval);
-                        statusPollInterval = null;
-                    }
-                }
-            }, 10000); // Check every 10 seconds
+    // ============================================================
+    // LOGOUT
+    // ============================================================
+
+    async function handleLogout() {
+
+        try {
+
+            await masikaSupabase.auth.signOut();
+
+            sessionStorage.clear();
+
+            window.location.href =
+                'admin-login.html';
+
+        } catch (error) {
+
+            console.error(
+                'Logout error:',
+                error
+            );
+
+            showToast(
+                'error',
+                'Failed to logout'
+            );
         }
+    }
 
-        // ============================================================
-        // CHECK PAYMENT STATUS - Uses Backend API
-        // ============================================================
+    // ============================================================
+    // EXPOSE FUNCTIONS
+    // ============================================================
 
-        async function checkPaymentStatus() {
-            if (!paymentCheckoutId) {
-                showToast('error', 'No payment to check');
-                return;
-            }
+    window.selectMember =
+        selectMember;
 
-            const { data: { session } } = await supabase.auth.getSession();
-            const token = session?.access_token;
+    window.clearSelectedMember =
+        clearSelectedMember;
 
-            if (!token) {
-                showToast('error', 'Authentication required');
-                return;
-            }
+    window.initiatePayment =
+        initiatePayment;
 
-            const btn = document.getElementById('checkStatusBtn');
-            btn.disabled = true;
-            btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Checking...';
+    window.checkPaymentStatus =
+        checkPaymentStatus;
 
-            try {
-                const response = await fetch(`${API_BASE_URL}/payments/mpesa/status/${paymentCheckoutId}`, {
-                    headers: {
-                        'Authorization': `Bearer ${token}`
-                    }
-                });
+    window.resetPayment =
+        resetPayment;
 
-                const data = await response.json();
+    window.collectAnotherPayment =
+        collectAnotherPayment;
 
-                if (data.status === 'completed') {
-                    clearInterval(statusPollInterval);
-                    statusPollInterval = null;
-                    paymentData = { ...paymentData, ...data };
-                    showPaymentStatus('completed', 'Payment Successful!', 'The payment has been confirmed.');
-                    showToast('success', 'Payment completed successfully!');
-                } else if (data.status === 'failed') {
-                    clearInterval(statusPollInterval);
-                    statusPollInterval = null;
-                    showPaymentStatus('failed', 'Payment Failed', 'The payment was not completed. Please try again.');
-                    showToast('error', 'Payment failed');
-                } else {
-                    showToast('info', `Payment status: ${data.status || 'Pending'}`);
-                }
+    window.downloadReceipt =
+        downloadReceipt;
 
-            } catch (error) {
-                console.error('Status check error:', error);
-                showToast('error', 'Failed to check payment status');
-            } finally {
-                btn.disabled = false;
-                btn.innerHTML = '<i class="fas fa-sync"></i> Check Status';
-            }
-        }
+    window.resetForm =
+        resetForm;
 
-        // ============================================================
-        // SHOW SUCCESS CARD
-        // ============================================================
+    window.handleLogout =
+        handleLogout;
 
-        function showSuccessCard() {
-            const card = document.getElementById('successCard');
-            card.style.display = 'block';
+    window.showToast =
+        showToast;
 
-            const member = selectedMember;
-            document.getElementById('successName').textContent =
-                `${member?.first_name || ''} ${member?.last_name || ''}`.trim() || 'N/A';
-            document.getElementById('successNumber').textContent = member?.member_number || member?.membership_number || 'N/A';
-            document.getElementById('successAmount').textContent =
-                `KES ${(paymentData?.amount || 0).toLocaleString()}`;
-            document.getElementById('successTransactionId').textContent =
-                paymentData?.mpesa_receipt_number || paymentData?.checkout_request_id || 'N/A';
-
-            // Hide payment card
-            document.getElementById('paymentCard').style.display = 'none';
-        }
-
-        // ============================================================
-        // RESET PAYMENT
-        // ============================================================
-
-        function resetPayment() {
-            if (statusPollInterval) {
-                clearInterval(statusPollInterval);
-                statusPollInterval = null;
-            }
-
-            paymentCheckoutId = null;
-            paymentData = null;
-            paymentRecordId = null;
-
-            document.getElementById('paymentStatus').style.display = 'none';
-            document.getElementById('paymentForm').style.display = 'block';
-            document.getElementById('selectedMember').style.display = 'flex';
-
-            document.getElementById('payBtn').disabled = false;
-            document.getElementById('payBtn').innerHTML = `
-                <i class="fas fa-mobile-screen-button"></i>
-                <span class="btn-label">Send STK Push</span>
-            `;
-        }
-
-        // ============================================================
-        // COLLECT ANOTHER PAYMENT
-        // ============================================================
-
-        function collectAnotherPayment() {
-            document.getElementById('successCard').style.display = 'none';
-            document.getElementById('paymentCard').style.display = 'block';
-            document.getElementById('paymentStatus').style.display = 'none';
-            document.getElementById('paymentForm').style.display = 'block';
-            document.getElementById('selectedMember').style.display = 'none';
-
-            paymentCheckoutId = null;
-            paymentData = null;
-            paymentRecordId = null;
-            selectedMember = null;
-
-            document.getElementById('phoneNumber').value = '';
-            document.getElementById('phoneNumber').disabled = true;
-            document.getElementById('amountInput').value = '';
-            document.getElementById('amountInput').disabled = true;
-            document.getElementById('paymentType').disabled = true;
-            document.getElementById('payBtn').disabled = true;
-            document.getElementById('memberSearchInput').value = '';
-            document.getElementById('searchResults').innerHTML = '';
-
-            if (statusPollInterval) {
-                clearInterval(statusPollInterval);
-                statusPollInterval = null;
-            }
-
-            document.getElementById('memberSearchInput').focus();
-            showToast('info', 'Ready to collect another payment');
-        }
-
-        // ============================================================
-        // DOWNLOAD RECEIPT (PDF)
-        // ============================================================
-
-        function downloadReceipt() {
-            try {
-                const { jsPDF } = window.jspdf;
-                const doc = new jsPDF();
-
-                const member = selectedMember;
-
-                // Header
-                doc.setFillColor(11, 93, 59);
-                doc.rect(0, 0, 210, 45, 'F');
-                doc.setTextColor(255, 255, 255);
-                doc.setFontSize(22);
-                doc.text('MASIKA BENEVOLENT', 20, 25);
-                doc.setFontSize(10);
-                doc.text('Payment Receipt', 20, 35);
-
-                // Payment details
-                doc.setTextColor(0, 0, 0);
-                doc.setFontSize(12);
-                const yStart = 55;
-
-                doc.text(`Receipt #: ${paymentData?.checkout_request_id || 'N/A'}`, 20, yStart);
-                doc.text(`Date: ${new Date().toLocaleDateString('en-KE')}`, 20, yStart + 8);
-                doc.text(`Time: ${new Date().toLocaleTimeString('en-KE')}`, 20, yStart + 16);
-
-                // Member details
-                doc.setFontSize(14);
-                doc.setFont('helvetica', 'bold');
-                doc.text('Member Details', 20, yStart + 30);
-                doc.setFont('helvetica', 'normal');
-                doc.setFontSize(12);
-
-                doc.text(`Name: ${member?.first_name || ''} ${member?.last_name || ''}`, 20, yStart + 40);
-                doc.text(`Member #: ${member?.member_number || member?.membership_number || 'N/A'}`, 20, yStart + 48);
-                doc.text(`Phone: ${member?.phone || 'N/A'}`, 20, yStart + 56);
-
-                // Payment details
-                doc.setFontSize(14);
-                doc.setFont('helvetica', 'bold');
-                doc.text('Payment Details', 20, yStart + 70);
-                doc.setFont('helvetica', 'normal');
-                doc.setFontSize(12);
-
-                doc.text(`Amount: KES ${(paymentData?.amount || 0).toLocaleString()}`, 20, yStart + 80);
-                doc.text(`Status: Completed`, 20, yStart + 88);
-                doc.text(`Transaction ID: ${paymentData?.mpesa_receipt_number || paymentData?.checkout_request_id || 'N/A'}`, 20, yStart + 96);
-
-                // Footer
-                doc.setDrawColor(200, 200, 200);
-                doc.line(20, yStart + 110, 190, yStart + 110);
-                doc.setFontSize(10);
-                doc.setTextColor(100, 100, 100);
-                doc.text('Thank you for your payment. This is a system-generated receipt.', 20, yStart + 120);
-
-                doc.save(`payment_receipt_${member?.member_number || member?.membership_number || 'unknown'}.pdf`);
-                showToast('success', 'Receipt downloaded successfully');
-
-            } catch (error) {
-                console.error('PDF generation error:', error);
-                showToast('error', 'Failed to generate receipt');
-            }
-        }
-
-        // ============================================================
-        // RESET FORM
-        // ============================================================
-
-        function resetForm() {
-            if (statusPollInterval) {
-                clearInterval(statusPollInterval);
-                statusPollInterval = null;
-            }
-
-            paymentCheckoutId = null;
-            paymentData = null;
-            paymentRecordId = null;
-            selectedMember = null;
-
-            document.getElementById('paymentCard').style.display = 'block';
-            document.getElementById('successCard').style.display = 'none';
-            document.getElementById('paymentStatus').style.display = 'none';
-            document.getElementById('paymentForm').style.display = 'block';
-            document.getElementById('selectedMember').style.display = 'none';
-
-            document.getElementById('phoneNumber').value = '';
-            document.getElementById('phoneNumber').disabled = true;
-            document.getElementById('amountInput').value = '';
-            document.getElementById('amountInput').disabled = true;
-            document.getElementById('paymentType').disabled = true;
-            document.getElementById('payBtn').disabled = true;
-            document.getElementById('memberSearchInput').value = '';
-            document.getElementById('searchResults').innerHTML = '';
-
-            document.getElementById('payBtn').innerHTML = `
-                <i class="fas fa-mobile-screen-button"></i>
-                <span class="btn-label">Send STK Push</span>
-            `;
-
-            showToast('info', 'Form reset');
-        }
-
-        // ============================================================
-        // SIDEBAR TOGGLE
-        // ============================================================
-
-        function setupSidebarToggle() {
-            const sidebar = document.getElementById('sidebar');
-            const backdrop = document.getElementById('sidebarBackdrop');
-            const toggleBtn = document.getElementById('sidebarToggle');
-
-            if (toggleBtn) {
-                toggleBtn.addEventListener('click', function() {
-                    sidebar.classList.toggle('open');
-                    backdrop.classList.toggle('show');
-                });
-            }
-
-            if (backdrop) {
-                backdrop.addEventListener('click', function() {
-                    sidebar.classList.remove('open');
-                    backdrop.classList.remove('show');
-                });
-            }
-
-            document.querySelectorAll('.sidebar-nav a').forEach(function(link) {
-                link.addEventListener('click', function() {
-                    sidebar.classList.remove('open');
-                    backdrop.classList.remove('show');
-                });
-            });
-        }
-
-        // ============================================================
-        // CLOCK
-        // ============================================================
-
-        function updateClock() {
-            const clockEl = document.getElementById('currentDateTime');
-            if (clockEl) {
-                const now = new Date();
-                clockEl.textContent = now.toLocaleString('en-KE', {
-                    weekday: 'short',
-                    day: '2-digit',
-                    month: 'short',
-                    year: 'numeric',
-                    hour: '2-digit',
-                    minute: '2-digit'
-                });
-            }
-            setTimeout(updateClock, 30000);
-        }
-
-        // ============================================================
-        // TOAST NOTIFICATIONS
-        // ============================================================
-
-        function showToast(type, message) {
-            const container = document.getElementById('toastContainer');
-
-            const icons = {
-                success: 'fa-check-circle',
-                error: 'fa-exclamation-circle',
-                warning: 'fa-triangle-exclamation',
-                info: 'fa-info-circle'
-            };
-
-            const toast = document.createElement('div');
-            toast.className = `toast ${type}`;
-            toast.innerHTML = `
-                <i class="fas ${icons[type] || icons.info}"></i>
-                <span>${message}</span>
-                <button class="toast-close" onclick="this.parentElement.remove()">&times;</button>
-            `;
-
-            container.appendChild(toast);
-
-            setTimeout(() => {
-                toast.style.opacity = '0';
-                toast.style.transform = 'translateX(100px)';
-                toast.style.transition = 'all 0.4s ease';
-                setTimeout(() => toast.remove(), 400);
-            }, 4000);
-        }
-
-        // ============================================================
-        // LOGOUT
-        // ============================================================
-
-        async function handleLogout() {
-            try {
-                await supabase.auth.signOut();
-                sessionStorage.clear();
-                window.location.href = 'admin-login.html';
-            } catch (error) {
-                console.error('Logout error:', error);
-                showToast('error', 'Failed to logout');
-            }
-        }
-
-        // ============================================================
-        // EXPOSE FUNCTIONS
-        // ============================================================
-
-        window.selectMember = selectMember;
-        window.clearSelectedMember = clearSelectedMember;
-        window.initiatePayment = initiatePayment;
-        window.checkPaymentStatus = checkPaymentStatus;
-        window.resetPayment = resetPayment;
-        window.collectAnotherPayment = collectAnotherPayment;
-        window.downloadReceipt = downloadReceipt;
-        window.resetForm = resetForm;
-        window.handleLogout = handleLogout;
-        window.showToast = showToast;
-    </script>
+</script>
 
 </body>
 </html>
+```
+
+### What was fixed
+
+The critical change is that this file **no longer declares**:
+
+```js
+const supabase = ...
+```
+
+It now declares:
+
+```js
+const masikaSupabase = ...
+```
+
+and all Supabase calls use:
+
+```js
+masikaSupabase.auth.getSession()
+masikaSupabase.auth.signOut()
+masikaSupabase.from('admins')
+masikaSupabase.from('members')
+```
+
+So the browser should no longer produce:
+
+```text
+Uncaught SyntaxError: Identifier 'supabase' has already been declared
+```
+
+I also fixed two related issues in the file:
+
+* Added proper handling for the `<select>` payment type.
+* Normalized Kenyan phone numbers such as `0712345678` to `254712345678` before sending the STK request.
+* Made the payment-status handling accept `completed`, `success`, `successful`, and `confirmed`.
+* Escaped member/search values before inserting them into HTML.
+* Kept your existing backend endpoint: `https://masika-backend.onrender.com/api/v1`.
+
+**Important:** keep the Supabase anon key exactly as it was in your original file when deploying.
