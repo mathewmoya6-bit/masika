@@ -12,11 +12,24 @@
 #           registration_fee_paid / member_status).
 #   3. FIX  get_payment_status() now returns the M-Pesa receipt for
 #           payments that were already confirmed by the callback.
+#   4. FIX  admin_collect_payment() now maps PaymentTypeEnum's lowercase
+#           values (registration/monthly/topup/addon) onto the payments
+#           table's actual `payment_type` Postgres enum labels, which are
+#           uppercase (REGISTRATION/MONTHLY/TOPUP/ADDON) and historically
+#           inconsistent elsewhere in the table (registration/
+#           chama_registration also exist lowercase). Without this, admin
+#           STK pushes for anything but a registration fee failed with
+#           "invalid input value for enum payment_type" since the enum
+#           has no lowercase 'monthly'/'topup'/'addon' at all.
 #
 # NEW ENV VARS (Render -> Environment)
 #   ALLOWED_ORIGINS         = https://masika-murex.vercel.app,https://www.masikabbs.com,https://masikabbs.com
 #   PAYMENT_COLLECTOR_ROLES = SUPER_ADMIN        (comma-separated role_codes)
 #   ADMIN_MAX_COLLECT_AMOUNT = 250000            (optional)
+#
+# DB MIGRATION REQUIRED FOR THIS VERSION
+#   ALTER TYPE payment_type ADD VALUE IF NOT EXISTS 'TOPUP';
+#   ALTER TYPE payment_type ADD VALUE IF NOT EXISTS 'ADDON';
 # ============================================================
 
 import os
@@ -1912,6 +1925,28 @@ class AdminCollectPaymentRequest(BaseModel):
     payment_type: PaymentTypeEnum = PaymentTypeEnum.MONTHLY
 
 
+# The `payments.payment_type` Postgres enum was built up ad hoc over time
+# and is genuinely inconsistent in case ('REGISTRATION'/'MONTHLY' uppercase,
+# but 'registration'/'chama_registration' also exist lowercase from other
+# insert paths in this file — see /api/public/register and
+# /api/public/payment/stk-push above). It has NO lowercase 'monthly',
+# 'topup', or 'addon' value at all.
+#
+# Rather than touch every other write path in this file (which already
+# works and is depended on), this endpoint is the only one that maps
+# PaymentTypeEnum's lowercase values onto the DB's actual uppercase labels
+# before insert. Requires this one-time migration on the `payment_type`
+# enum (values TOPUP/ADDON don't exist yet as of this comment):
+#   ALTER TYPE payment_type ADD VALUE IF NOT EXISTS 'TOPUP';
+#   ALTER TYPE payment_type ADD VALUE IF NOT EXISTS 'ADDON';
+PAYMENT_TYPE_DB_LABELS = {
+    "registration": "REGISTRATION",
+    "monthly": "MONTHLY",
+    "topup": "TOPUP",
+    "addon": "ADDON",
+}
+
+
 admin_payments_router = APIRouter(prefix="/api/admin/payments", tags=["Admin Payments"])
 
 
@@ -1959,6 +1994,15 @@ async def admin_collect_payment(
 
     member = member_result.data[0]
     payment_type = payload.payment_type.value
+
+    # The `payment_type` Postgres enum uses inconsistent casing historically
+    # (REGISTRATION/MONTHLY uppercase, "registration"/"chama_registration"
+    # lowercase — see payments table). This endpoint always writes the
+    # uppercase labels so admin-collected rows are internally consistent,
+    # even though PaymentTypeEnum itself stays lowercase for every other
+    # caller of this file.
+    db_payment_type = PAYMENT_TYPE_DB_LABELS[payment_type]
+
     transaction_ref = f"TXN-{datetime.now().strftime('%Y%m%d')}-{secrets.token_hex(4).upper()}"
 
     # ---- create the pending payment row ----
@@ -1966,7 +2010,7 @@ async def admin_collect_payment(
         inserted = supabase.table("payments").insert({
             "member_id": member["id"],
             "amount": amount,
-            "payment_type": payment_type,
+            "payment_type": db_payment_type,
             "payment_method": "mpesa",
             "status": "pending",
             "payment_date": datetime.now().date().isoformat(),
