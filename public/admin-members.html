@@ -423,10 +423,13 @@
         .btn-icon:hover { transform: translateY(-2px); }
         .btn-icon.view { background: var(--info-light); color: #055160; }
         .btn-icon.view:hover { background: #0dcaf0; color: white; }
+        .btn-icon.edit { background: var(--gray-200); color: var(--text); }
+        .btn-icon.edit:hover { background: var(--primary); color: white; }
         .btn-icon.idcard { background: var(--gold-light); color: #8a6d1d; }
         .btn-icon.idcard:hover { background: var(--gold); color: white; }
         .btn-icon.stk { background: var(--success-light); color: var(--success); }
         .btn-icon.stk:hover { background: var(--success); color: white; }
+        .btn-icon:disabled { opacity: 0.5; cursor: not-allowed; transform: none !important; }
 
         .status-badge {
             display: inline-block;
@@ -683,6 +686,27 @@
             letter-spacing: 0.03em;
         }
 
+        .stk-status {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 12px 14px;
+            border-radius: 8px;
+            background: var(--gray-50);
+            font-size: 13px;
+            margin-top: 10px;
+        }
+        .stk-status .dot {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            flex-shrink: 0;
+        }
+        .stk-status.pending .dot { background: var(--warning); animation: pulse 1.2s infinite; }
+        .stk-status.success .dot { background: var(--success); }
+        .stk-status.failed .dot { background: var(--danger); }
+        @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.3; } }
+
         .toast-container {
             position: fixed;
             right: 20px;
@@ -913,6 +937,39 @@
         </div>
     </div>
 
+    <div class="modal-overlay" id="stkModal">
+        <div class="modal modal-sm">
+            <h3>
+                <span><i class="fas fa-mobile-alt" style="color:var(--success);"></i> Send STK Push</span>
+                <button class="btn btn-secondary btn-sm" onclick="closeStkModal()"><i class="fas fa-times"></i></button>
+            </h3>
+
+            <p style="font-size:13px;color:var(--text-light);margin-bottom:14px;" id="stkMemberLabel"></p>
+
+            <div class="form-group">
+                <label>Phone Number <span class="req">*</span></label>
+                <input type="tel" id="stkPhone" placeholder="2547XXXXXXXX">
+                <span class="hint">M-Pesa registered number, format 2547XXXXXXXX or 2541XXXXXXXX.</span>
+            </div>
+            <div class="form-group">
+                <label>Amount (KES) <span class="req">*</span></label>
+                <input type="number" id="stkAmount" min="1" step="1">
+                <span class="hint">Defaults to this member's monthly premium.</span>
+            </div>
+
+            <div id="stkStatusBox"></div>
+
+            <div class="form-error" id="stkModalError"></div>
+
+            <div class="modal-actions">
+                <button type="button" class="btn btn-secondary" onclick="closeStkModal()">Cancel</button>
+                <button type="button" class="btn btn-success" id="stkSendBtn" onclick="sendStkPush()">
+                    <i class="fas fa-paper-plane"></i> Send Request
+                </button>
+            </div>
+        </div>
+    </div>
+
     <div class="toast-container" id="toastContainer"></div>
 
     <script>
@@ -922,6 +979,29 @@
         console.log('🚀 Members script loaded');
 
         const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+        // ============================================================
+        // INTEGRATION POINTS — rename these to match your backend
+        // ------------------------------------------------------------
+        // STK_PUSH_FUNCTION: called via supabaseClient.functions.invoke()
+        //   Expected request body:  { member_id, phone, amount }
+        //   Expected response JSON: { success: true, checkout_request_id, message }
+        //   or { success: false, message }
+        //
+        // STK_STATUS_FUNCTION: polled via supabaseClient.functions.invoke()
+        //   Expected request body:  { checkout_request_id }
+        //   Expected response JSON: { status: 'PENDING' | 'SUCCESS' | 'FAILED', message }
+        //
+        // ID_CARD_FUNCTION: called via supabaseClient.functions.invoke()
+        //   Expected request body:  { member_id }
+        //   Expected response JSON: { url: 'https://.../id-card.pdf' }
+        //   (a signed Supabase Storage URL, or any direct link to the PDF)
+        // ============================================================
+        const STK_PUSH_FUNCTION = 'initiate-stk-push';
+        const STK_STATUS_FUNCTION = 'stk-push-status';
+        const ID_CARD_FUNCTION = 'generate-member-id-card';
+        const STK_POLL_INTERVAL_MS = 4000;
+        const STK_POLL_TIMEOUT_MS = 90000;
 
         // ============================================================
         // VIEW: single source of truth for status + missed months
@@ -956,6 +1036,11 @@
         let currentMemberRecord = null;
         let memberEditMode = false;
 
+        let stkMemberId = null;
+        let stkPollTimer = null;
+        let stkPollDeadline = null;
+        let idCardBusyId = null;
+
         const membersList = document.getElementById('membersList');
         const pagination = document.getElementById('membersPagination');
         const paginationInfo = document.getElementById('paginationInfo');
@@ -979,8 +1064,9 @@
             });
 
             document.addEventListener('keydown', e => {
-                if (e.key === 'Escape' && document.getElementById('memberModal').classList.contains('open')) {
-                    closeMemberModal();
+                if (e.key === 'Escape') {
+                    if (document.getElementById('memberModal').classList.contains('open')) closeMemberModal();
+                    if (document.getElementById('stkModal').classList.contains('open')) closeStkModal();
                 }
             });
         });
@@ -1205,6 +1291,15 @@
                                 <button class="btn-icon view" title="View member" onclick="openMemberModal('${member.id}')">
                                     <i class="fas fa-eye"></i>
                                 </button>
+                                <button class="btn-icon edit" title="Edit member" onclick="openMemberModal('${member.id}', true)">
+                                    <i class="fas fa-pen"></i>
+                                </button>
+                                <button class="btn-icon stk" title="Send STK push" onclick="openStkModal('${member.id}')">
+                                    <i class="fas fa-mobile-alt"></i>
+                                </button>
+                                <button class="btn-icon idcard" title="Member ID card" id="idcard-btn-${member.id}" onclick="generateIdCard('${member.id}')">
+                                    <i class="fas fa-id-card"></i>
+                                </button>
                             </div>
                         </td>
                     </tr>`;
@@ -1240,9 +1335,12 @@
         }
 
         // ============================================================
-        // VIEW MODAL (member detail)
+        // VIEW / EDIT MODAL (member detail)
+        // ------------------------------------------------------------
+        // openMemberModal(id) opens read-only.
+        // openMemberModal(id, true) opens straight into edit mode.
         // ============================================================
-        async function openMemberModal(memberId) {
+        async function openMemberModal(memberId, startInEdit = false) {
             selectedMemberId = memberId;
             memberEditMode = false;
 
@@ -1258,10 +1356,9 @@
                     `${member.first_name || ''} ${member.last_name || ''}`.trim() || 'Member';
                 document.getElementById('memberStatusSelect').value = member.status || 'PENDING';
 
-                setMemberEditMode(false);
                 document.getElementById('memberModal').classList.add('open');
                 clearModalMessages();
-                renderMemberViewFields(member);
+                setMemberEditMode(!!startInEdit);
 
             } catch (err) {
                 console.error('Open member error:', err);
@@ -1433,6 +1530,218 @@
         }
 
         // ============================================================
+        // STK PUSH
+        // ------------------------------------------------------------
+        // 1. Opens a small modal pre-filled with the member's phone
+        //    and their plan's monthly premium.
+        // 2. Calls STK_PUSH_FUNCTION (an Edge Function) which should
+        //    talk to Safaricom Daraja and return a checkout_request_id.
+        // 3. Polls STK_STATUS_FUNCTION until SUCCESS/FAILED or timeout.
+        // Rename the two function constants above once you tell me
+        // your actual Edge Function names.
+        // ============================================================
+        async function openStkModal(memberId) {
+            stkMemberId = memberId;
+            clearStkModal();
+
+            const cached = currentMembersCache.find(m => m.id === memberId);
+            document.getElementById('stkMemberLabel').textContent = cached
+                ? `${cached.full_name || 'Member'} — ${cached.member_number || ''}`
+                : 'Member';
+            document.getElementById('stkPhone').value = cached?.phone || '';
+            document.getElementById('stkAmount').value = '';
+
+            // Best-effort: pull the member's plan premium to pre-fill the amount.
+            try {
+                const { data: member } = await supabaseClient
+                    .from('members').select('phone, plan_type').eq('id', memberId).single();
+                if (member?.phone && !document.getElementById('stkPhone').value) {
+                    document.getElementById('stkPhone').value = member.phone;
+                }
+                if (member?.plan_type) {
+                    const { data: plan } = await supabaseClient
+                        .from('plans')
+                        .select('principal_monthly_premium')
+                        .eq('plan_code', member.plan_type)
+                        .maybeSingle();
+                    if (plan?.principal_monthly_premium) {
+                        document.getElementById('stkAmount').value = plan.principal_monthly_premium;
+                    }
+                }
+            } catch (err) {
+                console.warn('Could not prefill STK amount from plan:', err);
+            }
+
+            document.getElementById('stkModal').classList.add('open');
+        }
+
+        function closeStkModal() {
+            stopStkPolling();
+            document.getElementById('stkModal').classList.remove('open');
+            stkMemberId = null;
+        }
+
+        function clearStkModal() {
+            document.getElementById('stkModalError').style.display = 'none';
+            document.getElementById('stkStatusBox').innerHTML = '';
+            const btn = document.getElementById('stkSendBtn');
+            btn.disabled = false;
+            btn.innerHTML = '<i class="fas fa-paper-plane"></i> Send Request';
+        }
+
+        function normalizeKenyanPhone(raw) {
+            let p = String(raw || '').replace(/[^\d]/g, '');
+            if (p.startsWith('0')) p = '254' + p.slice(1);
+            if (p.startsWith('7') || p.startsWith('1')) p = '254' + p;
+            return p;
+        }
+
+        async function sendStkPush() {
+            if (!stkMemberId) return;
+
+            const errEl = document.getElementById('stkModalError');
+            errEl.style.display = 'none';
+
+            const phone = normalizeKenyanPhone(document.getElementById('stkPhone').value);
+            const amount = Number(document.getElementById('stkAmount').value);
+
+            if (!/^254(7|1)\d{8}$/.test(phone)) {
+                errEl.textContent = 'Enter a valid Safaricom number, e.g. 2547XXXXXXXX.';
+                errEl.style.display = 'block';
+                return;
+            }
+            if (!amount || amount <= 0) {
+                errEl.textContent = 'Enter an amount greater than 0.';
+                errEl.style.display = 'block';
+                return;
+            }
+
+            const sendBtn = document.getElementById('stkSendBtn');
+            sendBtn.disabled = true;
+            sendBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Sending...';
+            setStkStatus('pending', 'Sending payment request to phone...');
+
+            try {
+                const { data, error } = await supabaseClient.functions.invoke(STK_PUSH_FUNCTION, {
+                    body: { member_id: stkMemberId, phone, amount }
+                });
+                if (error) throw error;
+                if (data && data.success === false) throw new Error(data.message || 'STK push was rejected.');
+
+                setStkStatus('pending', 'Request sent. Waiting for the member to enter their M-Pesa PIN...');
+                showToast('STK push sent to ' + phone, 'success');
+
+                const checkoutId = data?.checkout_request_id || data?.CheckoutRequestID;
+                if (checkoutId) {
+                    startStkPolling(checkoutId);
+                } else {
+                    // No status endpoint / id returned — leave as pending, admin confirms via Payments page.
+                    sendBtn.disabled = false;
+                    sendBtn.innerHTML = '<i class="fas fa-paper-plane"></i> Send Request';
+                }
+
+            } catch (err) {
+                console.error('STK push error:', err);
+                setStkStatus('failed', err.message || 'Failed to send STK push.');
+                errEl.textContent = err.message || 'Failed to send STK push.';
+                errEl.style.display = 'block';
+                sendBtn.disabled = false;
+                sendBtn.innerHTML = '<i class="fas fa-paper-plane"></i> Send Request';
+            }
+        }
+
+        function startStkPolling(checkoutId) {
+            stopStkPolling();
+            stkPollDeadline = Date.now() + STK_POLL_TIMEOUT_MS;
+
+            stkPollTimer = setInterval(async () => {
+                if (Date.now() > stkPollDeadline) {
+                    stopStkPolling();
+                    setStkStatus('pending', 'Still waiting — check the Payments page for the final result.');
+                    resetStkSendBtn();
+                    return;
+                }
+                try {
+                    const { data, error } = await supabaseClient.functions.invoke(STK_STATUS_FUNCTION, {
+                        body: { checkout_request_id: checkoutId }
+                    });
+                    if (error) throw error;
+
+                    const status = String(data?.status || '').toUpperCase();
+                    if (status === 'SUCCESS') {
+                        stopStkPolling();
+                        setStkStatus('success', data.message || 'Payment received successfully.');
+                        showToast('Payment confirmed.', 'success');
+                        resetStkSendBtn();
+                        loadMembers(currentPage);
+                    } else if (status === 'FAILED') {
+                        stopStkPolling();
+                        setStkStatus('failed', data.message || 'Payment was not completed.');
+                        resetStkSendBtn();
+                    }
+                    // PENDING — keep polling silently.
+                } catch (err) {
+                    console.warn('STK status poll error:', err);
+                    // Don't hard-fail the UI on a single poll error; keep trying until timeout.
+                }
+            }, STK_POLL_INTERVAL_MS);
+        }
+
+        function stopStkPolling() {
+            if (stkPollTimer) clearInterval(stkPollTimer);
+            stkPollTimer = null;
+        }
+
+        function resetStkSendBtn() {
+            const btn = document.getElementById('stkSendBtn');
+            btn.disabled = false;
+            btn.innerHTML = '<i class="fas fa-paper-plane"></i> Send Request';
+        }
+
+        function setStkStatus(kind, message) {
+            document.getElementById('stkStatusBox').innerHTML = `
+                <div class="stk-status ${kind}">
+                    <span class="dot"></span>
+                    <span>${escapeHTML(message)}</span>
+                </div>`;
+        }
+
+        // ============================================================
+        // MEMBER ID CARD (PDF)
+        // ------------------------------------------------------------
+        // Calls ID_CARD_FUNCTION (Edge Function) expecting back a
+        // { url } pointing at a generated PDF (e.g. a signed Supabase
+        // Storage URL), then opens it in a new tab.
+        // ============================================================
+        async function generateIdCard(memberId) {
+            if (idCardBusyId) return;
+            idCardBusyId = memberId;
+
+            const btn = document.getElementById(`idcard-btn-${memberId}`);
+            const originalIcon = btn ? btn.innerHTML : '';
+            if (btn) { btn.disabled = true; btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i>'; }
+
+            try {
+                const { data, error } = await supabaseClient.functions.invoke(ID_CARD_FUNCTION, {
+                    body: { member_id: memberId }
+                });
+                if (error) throw error;
+
+                const url = data?.url || data?.signedUrl || data?.pdf_url;
+                if (!url) throw new Error('No card URL returned by the server.');
+
+                window.open(url, '_blank', 'noopener');
+                showToast('ID card ready.', 'success');
+            } catch (err) {
+                console.error('ID card error:', err);
+                showToast(`Failed to generate ID card: ${err.message || 'unknown error'}`, 'error');
+            } finally {
+                idCardBusyId = null;
+                if (btn) { btn.disabled = false; btn.innerHTML = originalIcon; }
+            }
+        }
+
+        // ============================================================
         // EXPORT
         // ============================================================
         async function exportMembers() {
@@ -1579,11 +1888,15 @@
         Object.assign(window, {
             loadMembers, applyFilters, resetFilters, changePage, refreshData,
             openMemberModal, closeMemberModal, toggleEditMember, saveMemberDetails,
-            saveMemberStatus, exportMembers, handleLogout, showToast
+            saveMemberStatus, exportMembers, handleLogout, showToast,
+            openStkModal, closeStkModal, sendStkPush, generateIdCard
         });
 
         document.getElementById('memberModal').addEventListener('click', function(e) {
             if (e.target === this) closeMemberModal();
+        });
+        document.getElementById('stkModal').addEventListener('click', function(e) {
+            if (e.target === this) closeStkModal();
         });
     </script>
 </body>
