@@ -743,9 +743,11 @@ const SUPABASE_URL = 'https://wpxzlcdrirlcyvfiquld.supabase.co';
 const SUPABASE_ANON_KEY =
     'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6IndweHpsY2RyaXJsY3l2ZmlxdWxkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODc5Mjc4MDcsImV4cCI6MjEwMzUwMzgwN30.OUP9pmPbrML_egpHflZtDfLv1_UDM37_BYjtb842xjg';
 
-const API_BASE_URL = 'https://masika-backend.onrender.com/api/v1';
+// Same public FastAPI backend and STK-push route the customer-facing
+// payment.html page uses — no auth required, no /v1 prefix.
+const API_BASE_URL = 'https://masika-c921.onrender.com/api';
 // Local development:
-// const API_BASE_URL = 'http://localhost:8000/api/v1';
+// const API_BASE_URL = 'http://localhost:8000/api';
 
 const LOGIN_PAGE = 'admin-login.html';
 
@@ -756,8 +758,8 @@ const STAFF_ACTIVE_STATUS = 'active';
 // An empty list means ANY active staff member is allowed in.
 // Example: ['ADMIN', 'SUPER_ADMIN', 'FINANCE']
 const ADMIN_ROLE_CODES = ['SUPER_ADMIN'];
-const POLL_INTERVAL_MS = 10000;
-const POLL_MAX_ATTEMPTS = 12;
+const POLL_INTERVAL_MS = 5000;
+const POLL_MAX_ATTEMPTS = 40;
 
 const SUCCESS_STATUSES = ['completed', 'success', 'successful', 'confirmed'];
 const FAILED_STATUSES = ['failed', 'cancelled', 'canceled', 'rejected'];
@@ -1172,6 +1174,8 @@ function clearSelectedMember() {
 
 /* ==================================================================
    PAYMENT: INITIATE
+   Calls the same PUBLIC, no-auth STK-push route the customer-facing
+   payment.html page uses: POST {API_BASE_URL}/public/payment/stk-push
    ================================================================== */
 
 async function initiatePayment(event) {
@@ -1204,42 +1208,49 @@ async function initiatePayment(event) {
         return;
     }
 
-    const token = await getToken();
-
-    if (!token) {
-        showToast('error', 'Authentication required. Please log in again.');
-        return;
-    }
-
     const payBtn = $('payBtn');
     payBtn.disabled = true;
     payBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i><span>Sending...</span>';
 
     try {
-        const response = await fetch(`${API_BASE_URL}/payments/mpesa/initiate`, {
+        const payload = {
+            phone: phone,
+            amount: amount,
+            registration_type: 'member',
+            registration_id: selectedMember.id,
+            member_id: selectedMember.id,
+            membership_number: membershipNumber,
+            payment_type: paymentType
+        };
+
+        console.log('📤 Initiating STK push:', payload);
+
+        const response = await fetch(`${API_BASE_URL}/public/payment/stk-push`, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
-                'Authorization': `Bearer ${token}`
+                'Accept': 'application/json'
             },
-            body: JSON.stringify({
-                membership_number: membershipNumber,
-                phone_number: phone,
-                amount: amount,
-                payment_type: paymentType
-            })
+            body: JSON.stringify(payload)
         });
 
-        const data = await parseJson(response);
+        let data = null;
+        try { data = await response.json(); } catch { data = null; }
 
-        if (!response.ok) {
-            throw new Error(data.detail || data.message || 'Payment initiation failed');
+        if (!response.ok || !data || data.success === false) {
+            const detail = Array.isArray(data?.detail)
+                ? data.detail.map((d) => d.msg).join(' | ')
+                : (data?.detail || data?.message || `Payment request failed (HTTP ${response.status}).`);
+            throw new Error(detail);
         }
+
+        console.log('✅ STK push sent:', data);
 
         paymentCheckoutId =
             data.checkout_request_id ||
             data.checkoutRequestID ||
             data.CheckoutRequestID ||
+            data.reference ||
             null;
 
         paymentData = {
@@ -1255,12 +1266,7 @@ async function initiatePayment(event) {
             'Waiting for the member to enter their M-Pesa PIN...'
         );
 
-        if (paymentCheckoutId) {
-            startStatusPolling();
-        } else {
-            console.warn('Payment initiated without checkout_request_id:', data);
-            showToast('warning', 'Payment request sent, but no checkout ID was returned.');
-        }
+        startStatusPolling();
 
         showToast('success', 'STK Push sent successfully!');
 
@@ -1273,6 +1279,9 @@ async function initiatePayment(event) {
 
 /* ==================================================================
    PAYMENT: STATUS
+   Reads the `payments` row straight from Supabase — the same source
+   payment.html polls — instead of the protected backend status route,
+   since the STK push above is written there by the M-Pesa callback.
    ================================================================== */
 
 function showPaymentStatus(status, title, message, allowRetry = false) {
@@ -1293,23 +1302,32 @@ function showPaymentStatus(status, title, message, allowRetry = false) {
     setView('status');
 }
 
-async function fetchStatus(checkoutId) {
-    const token = await getToken();
+async function fetchStatus() {
+    if (!selectedMember) throw new Error('No member selected');
 
-    if (!token) throw new Error('Authentication required. Please log in again.');
+    const { data, error } = await masikaSupabase
+        .from('payments')
+        .select('status, mpesa_receipt, checkout_request_id, phone, amount, created_at')
+        .eq('member_id', selectedMember.id)
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
 
-    const response = await fetch(
-        `${API_BASE_URL}/payments/mpesa/status/${encodeURIComponent(checkoutId)}`,
-        { headers: { 'Authorization': `Bearer ${token}` } }
-    );
-
-    const data = await parseJson(response);
-
-    if (!response.ok) {
-        throw new Error(data.detail || data.message || 'Failed to check payment status');
+    if (error) {
+        throw new Error(error.message || 'Failed to check payment status');
     }
 
-    return data;
+    if (!data) {
+        return { status: 'pending' };
+    }
+
+    return {
+        status: data.status,
+        mpesa_receipt_number: data.mpesa_receipt,
+        checkout_request_id: data.checkout_request_id,
+        phone_number: data.phone,
+        amount: data.amount
+    };
 }
 
 // Returns 'success' | 'failed' | 'pending'
@@ -1343,14 +1361,13 @@ function startStatusPolling() {
     stopPolling();
 
     let attempts = 0;
+    const checkoutId = paymentCheckoutId;
 
     statusPollTimer = setInterval(async () => {
         attempts++;
 
-        const checkoutId = paymentCheckoutId;
-
         try {
-            const data = await fetchStatus(checkoutId);
+            const data = await fetchStatus();
 
             // Payment was reset/replaced while the request was in flight
             if (checkoutId !== paymentCheckoutId) return;
@@ -1396,7 +1413,7 @@ async function checkPaymentStatus() {
     btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Checking...';
 
     try {
-        const data = await fetchStatus(checkoutId);
+        const data = await fetchStatus();
 
         if (checkoutId !== paymentCheckoutId) return;
 
