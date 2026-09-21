@@ -7,6 +7,7 @@
     <link rel="icon" type="image/png" sizes="32x32" href="assets/branding/favicon-32.png">
 
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
 
@@ -956,6 +957,15 @@
                 <input type="number" id="stkAmount" min="1" step="1">
                 <span class="hint">Defaults to this member's monthly premium.</span>
             </div>
+            <div class="form-group">
+                <label>Payment Type</label>
+                <select id="stkPaymentType">
+                    <option value="monthly">Monthly Premium</option>
+                    <option value="registration">Registration Fee</option>
+                    <option value="addon">Add-on</option>
+                    <option value="topup">Top-up</option>
+                </select>
+            </div>
 
             <div id="stkStatusBox"></div>
 
@@ -981,27 +991,16 @@
         const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
         // ============================================================
-        // INTEGRATION POINTS — rename these to match your backend
-        // ------------------------------------------------------------
-        // STK_PUSH_FUNCTION: called via supabaseClient.functions.invoke()
-        //   Expected request body:  { member_id, phone, amount }
-        //   Expected response JSON: { success: true, checkout_request_id, message }
-        //   or { success: false, message }
-        //
-        // STK_STATUS_FUNCTION: polled via supabaseClient.functions.invoke()
-        //   Expected request body:  { checkout_request_id }
-        //   Expected response JSON: { status: 'PENDING' | 'SUCCESS' | 'FAILED', message }
-        //
-        // ID_CARD_FUNCTION: called via supabaseClient.functions.invoke()
-        //   Expected request body:  { member_id }
-        //   Expected response JSON: { url: 'https://.../id-card.pdf' }
-        //   (a signed Supabase Storage URL, or any direct link to the PDF)
+        // BACKEND API CONFIG — same backend admin-collectpayments.html uses
         // ============================================================
-        const STK_PUSH_FUNCTION = 'initiate-stk-push';
-        const STK_STATUS_FUNCTION = 'stk-push-status';
-        const ID_CARD_FUNCTION = 'generate-member-id-card';
-        const STK_POLL_INTERVAL_MS = 4000;
-        const STK_POLL_TIMEOUT_MS = 90000;
+        const API_BASE_URL = 'https://masika-backend.onrender.com/api/v1';
+        const STK_POLL_INTERVAL_MS = 10000;
+        const STK_POLL_MAX_ATTEMPTS = 12; // 2 minutes, matches collectpayments.html
+
+        async function getAuthToken() {
+            const { data: { session } } = await supabaseClient.auth.getSession();
+            return session?.access_token || null;
+        }
 
         // ============================================================
         // VIEW: single source of truth for status + missed months
@@ -1037,8 +1036,10 @@
         let memberEditMode = false;
 
         let stkMemberId = null;
+        let stkMembershipNumber = null;
         let stkPollTimer = null;
-        let stkPollDeadline = null;
+        let stkPollAttempts = 0;
+        let stkCheckoutId = null;
         let idCardBusyId = null;
 
         const membersList = document.getElementById('membersList');
@@ -1532,16 +1533,16 @@
         // ============================================================
         // STK PUSH
         // ------------------------------------------------------------
-        // 1. Opens a small modal pre-filled with the member's phone
-        //    and their plan's monthly premium.
-        // 2. Calls STK_PUSH_FUNCTION (an Edge Function) which should
-        //    talk to Safaricom Daraja and return a checkout_request_id.
-        // 3. Polls STK_STATUS_FUNCTION until SUCCESS/FAILED or timeout.
-        // Rename the two function constants above once you tell me
-        // your actual Edge Function names.
+        // Same backend calls as admin-collectpayments.html:
+        //   POST {API_BASE_URL}/payments/mpesa/initiate
+        //     body: { membership_number, phone_number, amount, payment_type }
+        //     -> { checkout_request_id, payment_id, amount, ... }
+        //   GET  {API_BASE_URL}/payments/mpesa/status/{checkout_request_id}
+        //     -> { status: 'pending' | 'completed' | 'failed', mpesa_receipt_number, ... }
         // ============================================================
         async function openStkModal(memberId) {
             stkMemberId = memberId;
+            stkMembershipNumber = null;
             clearStkModal();
 
             const cached = currentMembersCache.find(m => m.id === memberId);
@@ -1550,49 +1551,57 @@
                 : 'Member';
             document.getElementById('stkPhone').value = cached?.phone || '';
             document.getElementById('stkAmount').value = '';
+            document.getElementById('stkPaymentType').value = 'monthly';
+            stkMembershipNumber = cached?.member_number || null;
 
-            // Best-effort: pull the member's plan premium to pre-fill the amount.
+            document.getElementById('stkModal').classList.add('open');
+
+            // Best-effort: pull the full member row for phone/membership number/plan premium.
             try {
                 const { data: member } = await supabaseClient
-                    .from('members').select('phone, plan_type').eq('id', memberId).single();
-                if (member?.phone && !document.getElementById('stkPhone').value) {
-                    document.getElementById('stkPhone').value = member.phone;
-                }
-                if (member?.plan_type) {
-                    const { data: plan } = await supabaseClient
-                        .from('plans')
-                        .select('principal_monthly_premium')
-                        .eq('plan_code', member.plan_type)
-                        .maybeSingle();
-                    if (plan?.principal_monthly_premium) {
-                        document.getElementById('stkAmount').value = plan.principal_monthly_premium;
+                    .from('members').select('phone, plan_type, member_number, membership_number')
+                    .eq('id', memberId).single();
+
+                if (member) {
+                    if (member.phone && !document.getElementById('stkPhone').value) {
+                        document.getElementById('stkPhone').value = member.phone;
+                    }
+                    stkMembershipNumber = member.member_number || member.membership_number || stkMembershipNumber;
+
+                    if (member.plan_type) {
+                        const { data: plan } = await supabaseClient
+                            .from('plans')
+                            .select('principal_monthly_premium')
+                            .eq('plan_code', member.plan_type)
+                            .maybeSingle();
+                        if (plan?.principal_monthly_premium) {
+                            document.getElementById('stkAmount').value = plan.principal_monthly_premium;
+                        }
                     }
                 }
             } catch (err) {
-                console.warn('Could not prefill STK amount from plan:', err);
+                console.warn('Could not prefill STK details:', err);
             }
-
-            document.getElementById('stkModal').classList.add('open');
         }
 
         function closeStkModal() {
             stopStkPolling();
             document.getElementById('stkModal').classList.remove('open');
             stkMemberId = null;
+            stkMembershipNumber = null;
+            stkCheckoutId = null;
         }
 
         function clearStkModal() {
             document.getElementById('stkModalError').style.display = 'none';
             document.getElementById('stkStatusBox').innerHTML = '';
-            const btn = document.getElementById('stkSendBtn');
-            btn.disabled = false;
-            btn.innerHTML = '<i class="fas fa-paper-plane"></i> Send Request';
+            resetStkSendBtn();
         }
 
         function normalizeKenyanPhone(raw) {
             let p = String(raw || '').replace(/[^\d]/g, '');
             if (p.startsWith('0')) p = '254' + p.slice(1);
-            if (p.startsWith('7') || p.startsWith('1')) p = '254' + p;
+            else if (p.startsWith('7') || p.startsWith('1')) p = '254' + p;
             return p;
         }
 
@@ -1603,15 +1612,28 @@
             errEl.style.display = 'none';
 
             const phone = normalizeKenyanPhone(document.getElementById('stkPhone').value);
-            const amount = Number(document.getElementById('stkAmount').value);
+            const amount = parseFloat(document.getElementById('stkAmount').value);
+            const paymentType = document.getElementById('stkPaymentType').value || 'monthly';
 
-            if (!/^254(7|1)\d{8}$/.test(phone)) {
-                errEl.textContent = 'Enter a valid Safaricom number, e.g. 2547XXXXXXXX.';
+            if (!phone || phone.length < 10) {
+                errEl.textContent = 'Enter a valid M-Pesa phone number.';
                 errEl.style.display = 'block';
                 return;
             }
             if (!amount || amount <= 0) {
                 errEl.textContent = 'Enter an amount greater than 0.';
+                errEl.style.display = 'block';
+                return;
+            }
+            if (!stkMembershipNumber) {
+                errEl.textContent = 'Could not determine this member\'s membership number.';
+                errEl.style.display = 'block';
+                return;
+            }
+
+            const token = await getAuthToken();
+            if (!token) {
+                errEl.textContent = 'Authentication required — please log in again.';
                 errEl.style.display = 'block';
                 return;
             }
@@ -1622,22 +1644,31 @@
             setStkStatus('pending', 'Sending payment request to phone...');
 
             try {
-                const { data, error } = await supabaseClient.functions.invoke(STK_PUSH_FUNCTION, {
-                    body: { member_id: stkMemberId, phone, amount }
+                const response = await fetch(`${API_BASE_URL}/payments/mpesa/initiate`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${token}`
+                    },
+                    body: JSON.stringify({
+                        membership_number: stkMembershipNumber,
+                        phone_number: phone,
+                        amount: amount,
+                        payment_type: paymentType
+                    })
                 });
-                if (error) throw error;
-                if (data && data.success === false) throw new Error(data.message || 'STK push was rejected.');
 
+                const data = await response.json();
+                if (!response.ok) throw new Error(data.detail || data.message || 'Payment initiation failed');
+
+                stkCheckoutId = data.checkout_request_id;
                 setStkStatus('pending', 'Request sent. Waiting for the member to enter their M-Pesa PIN...');
                 showToast('STK push sent to ' + phone, 'success');
 
-                const checkoutId = data?.checkout_request_id || data?.CheckoutRequestID;
-                if (checkoutId) {
-                    startStkPolling(checkoutId);
+                if (stkCheckoutId) {
+                    startStkPolling(stkCheckoutId, token);
                 } else {
-                    // No status endpoint / id returned — leave as pending, admin confirms via Payments page.
-                    sendBtn.disabled = false;
-                    sendBtn.innerHTML = '<i class="fas fa-paper-plane"></i> Send Request';
+                    resetStkSendBtn();
                 }
 
             } catch (err) {
@@ -1645,44 +1676,42 @@
                 setStkStatus('failed', err.message || 'Failed to send STK push.');
                 errEl.textContent = err.message || 'Failed to send STK push.';
                 errEl.style.display = 'block';
-                sendBtn.disabled = false;
-                sendBtn.innerHTML = '<i class="fas fa-paper-plane"></i> Send Request';
+                resetStkSendBtn();
             }
         }
 
-        function startStkPolling(checkoutId) {
+        function startStkPolling(checkoutId, token) {
             stopStkPolling();
-            stkPollDeadline = Date.now() + STK_POLL_TIMEOUT_MS;
+            stkPollAttempts = 0;
 
             stkPollTimer = setInterval(async () => {
-                if (Date.now() > stkPollDeadline) {
-                    stopStkPolling();
-                    setStkStatus('pending', 'Still waiting — check the Payments page for the final result.');
-                    resetStkSendBtn();
-                    return;
-                }
+                stkPollAttempts++;
                 try {
-                    const { data, error } = await supabaseClient.functions.invoke(STK_STATUS_FUNCTION, {
-                        body: { checkout_request_id: checkoutId }
+                    const response = await fetch(`${API_BASE_URL}/payments/mpesa/status/${checkoutId}`, {
+                        headers: { 'Authorization': `Bearer ${token}` }
                     });
-                    if (error) throw error;
+                    const data = await response.json();
+                    const status = String(data?.status || '').toLowerCase();
 
-                    const status = String(data?.status || '').toUpperCase();
-                    if (status === 'SUCCESS') {
+                    if (status === 'completed') {
                         stopStkPolling();
-                        setStkStatus('success', data.message || 'Payment received successfully.');
-                        showToast('Payment confirmed.', 'success');
+                        setStkStatus('success', 'Payment confirmed' + (data.mpesa_receipt_number ? ` — receipt ${data.mpesa_receipt_number}.` : '.'));
+                        showToast('Payment completed successfully!', 'success');
                         resetStkSendBtn();
                         loadMembers(currentPage);
-                    } else if (status === 'FAILED') {
+                    } else if (status === 'failed') {
                         stopStkPolling();
-                        setStkStatus('failed', data.message || 'Payment was not completed.');
+                        setStkStatus('failed', 'Payment was not completed.');
+                        resetStkSendBtn();
+                    } else if (stkPollAttempts >= STK_POLL_MAX_ATTEMPTS) {
+                        stopStkPolling();
+                        setStkStatus('pending', 'Taking longer than expected — check the Payments page for the final result.');
                         resetStkSendBtn();
                     }
-                    // PENDING — keep polling silently.
+                    // pending — keep polling silently.
                 } catch (err) {
                     console.warn('STK status poll error:', err);
-                    // Don't hard-fail the UI on a single poll error; keep trying until timeout.
+                    if (stkPollAttempts >= STK_POLL_MAX_ATTEMPTS) stopStkPolling();
                 }
             }, STK_POLL_INTERVAL_MS);
         }
@@ -1709,9 +1738,10 @@
         // ============================================================
         // MEMBER ID CARD (PDF)
         // ------------------------------------------------------------
-        // Calls ID_CARD_FUNCTION (Edge Function) expecting back a
-        // { url } pointing at a generated PDF (e.g. a signed Supabase
-        // Storage URL), then opens it in a new tab.
+        // No backend ID-card endpoint exists yet, so this generates
+        // the card client-side with jsPDF — the same library
+        // admin-collectpayments.html already uses for receipts.
+        // Card is a standard ID-1 size (85.6mm x 54mm).
         // ============================================================
         async function generateIdCard(memberId) {
             if (idCardBusyId) return;
@@ -1722,16 +1752,52 @@
             if (btn) { btn.disabled = true; btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i>'; }
 
             try {
-                const { data, error } = await supabaseClient.functions.invoke(ID_CARD_FUNCTION, {
-                    body: { member_id: memberId }
-                });
+                const { data: member, error } = await supabaseClient
+                    .from('members').select('*').eq('id', memberId).single();
                 if (error) throw error;
 
-                const url = data?.url || data?.signedUrl || data?.pdf_url;
-                if (!url) throw new Error('No card URL returned by the server.');
+                const { jsPDF } = window.jspdf;
+                const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: [85.6, 54] });
 
-                window.open(url, '_blank', 'noopener');
-                showToast('ID card ready.', 'success');
+                const fullName = `${member.first_name || ''} ${member.last_name || ''}`.trim() || 'Member';
+                const memberNumber = member.member_number || member.membership_number || 'N/A';
+                const planLabel = (member.plan_type || '-').toString().toUpperCase();
+                const joined = member.created_at ? new Date(member.created_at).toLocaleDateString('en-KE') : '-';
+
+                // Header band
+                doc.setFillColor(11, 93, 59);
+                doc.rect(0, 0, 85.6, 15, 'F');
+                doc.setTextColor(255, 255, 255);
+                doc.setFontSize(9);
+                doc.setFont('helvetica', 'bold');
+                doc.text('MASIKA BENEVOLENT', 4, 6);
+                doc.setFontSize(6.5);
+                doc.setFont('helvetica', 'normal');
+                doc.text('Membership Identity Card', 4, 10.5);
+
+                // Body
+                doc.setTextColor(31, 41, 51);
+                doc.setFontSize(9);
+                doc.setFont('helvetica', 'bold');
+                doc.text(fullName, 4, 22);
+
+                doc.setFontSize(7);
+                doc.setFont('helvetica', 'normal');
+                doc.text(`Member #: ${memberNumber}`, 4, 28);
+                doc.text(`Plan: ${planLabel}`, 4, 33);
+                doc.text(`Phone: ${member.phone || '-'}`, 4, 38);
+                doc.text(`Joined: ${joined}`, 4, 43);
+
+                // Footer band
+                doc.setDrawColor(212, 168, 67);
+                doc.setLineWidth(0.8);
+                doc.line(4, 48, 81.6, 48);
+                doc.setFontSize(5.5);
+                doc.setTextColor(107, 114, 128);
+                doc.text('This card remains the property of Masika Benevolent.', 4, 51.5);
+
+                doc.save(`id_card_${memberNumber}.pdf`);
+                showToast('ID card generated.', 'success');
             } catch (err) {
                 console.error('ID card error:', err);
                 showToast(`Failed to generate ID card: ${err.message || 'unknown error'}`, 'error');
