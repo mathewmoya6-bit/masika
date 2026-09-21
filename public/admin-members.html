@@ -991,9 +991,14 @@
         const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
         // ============================================================
-        // BACKEND API CONFIG — same backend admin-collectpayments.html uses
+        // BACKEND API CONFIG
+        // Same FastAPI backend and staff-only admin routes that
+        // admin-collectpayments.html uses: /api/admin/payments/collect
+        // and /api/admin/payments/status/{checkout_request_id}, both
+        // requiring the Supabase Bearer token (PAYMENT_COLLECTOR_ROLES
+        // check on the backend). No /v1 prefix.
         // ============================================================
-        const API_BASE_URL = 'https://masika-backend.onrender.com/api/v1';
+        const API_BASE_URL = 'https://masika-c921.onrender.com/api';
         const STK_POLL_INTERVAL_MS = 10000;
         const STK_POLL_MAX_ATTEMPTS = 12; // 2 minutes, matches collectpayments.html
 
@@ -1534,11 +1539,14 @@
         // STK PUSH
         // ------------------------------------------------------------
         // Same backend calls as admin-collectpayments.html:
-        //   POST {API_BASE_URL}/payments/mpesa/initiate
-        //     body: { membership_number, phone_number, amount, payment_type }
-        //     -> { checkout_request_id, payment_id, amount, ... }
-        //   GET  {API_BASE_URL}/payments/mpesa/status/{checkout_request_id}
-        //     -> { status: 'pending' | 'completed' | 'failed', mpesa_receipt_number, ... }
+        //   POST {API_BASE_URL}/admin/payments/collect
+        //     body: { member_id, membership_number, phone_number, amount, payment_type }
+        //     -> { success, checkout_request_id, payment_id, amount, ... }
+        //   GET  {API_BASE_URL}/admin/payments/status/{checkout_request_id}
+        //     -> { status: 'pending' | 'completed' | 'failed', receipt, ... }
+        // Both require the staff's Supabase Bearer token; the backend
+        // checks PAYMENT_COLLECTOR_ROLES independently of this page's
+        // own SUPER_ADMIN/ADMIN gate.
         // ============================================================
         async function openStkModal(memberId) {
             stkMemberId = memberId;
@@ -1612,7 +1620,8 @@
             errEl.style.display = 'none';
 
             const phone = normalizeKenyanPhone(document.getElementById('stkPhone').value);
-            const amount = parseFloat(document.getElementById('stkAmount').value);
+            const rawAmount = parseFloat(document.getElementById('stkAmount').value);
+            const amount = Math.round(rawAmount);
             const paymentType = document.getElementById('stkPaymentType').value || 'monthly';
 
             if (!phone || phone.length < 10) {
@@ -1620,13 +1629,13 @@
                 errEl.style.display = 'block';
                 return;
             }
-            if (!amount || amount <= 0) {
+            if (!rawAmount || amount < 1) {
                 errEl.textContent = 'Enter an amount greater than 0.';
                 errEl.style.display = 'block';
                 return;
             }
-            if (!stkMembershipNumber) {
-                errEl.textContent = 'Could not determine this member\'s membership number.';
+            if (Math.abs(rawAmount - amount) > 0.001) {
+                errEl.textContent = 'Amount must be a whole number of shillings.';
                 errEl.style.display = 'block';
                 return;
             }
@@ -1644,24 +1653,34 @@
             setStkStatus('pending', 'Sending payment request to phone...');
 
             try {
-                const response = await fetch(`${API_BASE_URL}/payments/mpesa/initiate`, {
+                const payload = {
+                    member_id: stkMemberId,
+                    phone_number: phone,
+                    amount: amount,
+                    payment_type: paymentType
+                };
+                if (stkMembershipNumber) payload.membership_number = stkMembershipNumber;
+
+                const response = await fetch(`${API_BASE_URL}/admin/payments/collect`, {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
                         'Authorization': `Bearer ${token}`
                     },
-                    body: JSON.stringify({
-                        membership_number: stkMembershipNumber,
-                        phone_number: phone,
-                        amount: amount,
-                        payment_type: paymentType
-                    })
+                    body: JSON.stringify(payload)
                 });
 
-                const data = await response.json();
-                if (!response.ok) throw new Error(data.detail || data.message || 'Payment initiation failed');
+                let data = null;
+                try { data = await response.json(); } catch { data = null; }
 
-                stkCheckoutId = data.checkout_request_id;
+                if (!response.ok || !data || data.success === false) {
+                    const detail = Array.isArray(data?.detail)
+                        ? data.detail.map(d => d.msg).join(' | ')
+                        : (data?.detail || data?.message || `Payment request failed (HTTP ${response.status}).`);
+                    throw new Error(detail);
+                }
+
+                stkCheckoutId = data.checkout_request_id || null;
                 setStkStatus('pending', 'Request sent. Waiting for the member to enter their M-Pesa PIN...');
                 showToast('STK push sent to ' + phone, 'success');
 
@@ -1687,7 +1706,7 @@
             stkPollTimer = setInterval(async () => {
                 stkPollAttempts++;
                 try {
-                    const response = await fetch(`${API_BASE_URL}/payments/mpesa/status/${checkoutId}`, {
+                    const response = await fetch(`${API_BASE_URL}/admin/payments/status/${encodeURIComponent(checkoutId)}`, {
                         headers: { 'Authorization': `Bearer ${token}` }
                     });
                     const data = await response.json();
@@ -1695,7 +1714,8 @@
 
                     if (status === 'completed') {
                         stopStkPolling();
-                        setStkStatus('success', 'Payment confirmed' + (data.mpesa_receipt_number ? ` — receipt ${data.mpesa_receipt_number}.` : '.'));
+                        const receipt = data.receipt || data.mpesa_receipt_number || null;
+                        setStkStatus('success', 'Payment confirmed' + (receipt ? ` — receipt ${receipt}.` : '.'));
                         showToast('Payment completed successfully!', 'success');
                         resetStkSendBtn();
                         loadMembers(currentPage);
