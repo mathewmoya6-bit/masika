@@ -999,7 +999,7 @@
         // ============================================================
 
         const SUPABASE_URL = 'https://wpxzlcdrirlcyvfiquld.supabase.co';
-        const SUPABASE_ANON_KEY = 'YOUR_SUPABASE_ANON_KEY';
+        const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6IndweHpsY2RyaXJsY3l2ZmlxdWxkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODc5Mjc4MDcsImV4cCI6MjEwMzUwMzgwN30.OUP9pmPbrML_egpHflZtDfLv1_UDM37_BYjtb842xjg';
 
         const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
@@ -1124,7 +1124,7 @@
                     .or(
                         `first_name.ilike.%${query}%,` +
                         `last_name.ilike.%${query}%,` +
-                        `membership_number.ilike.%${query}%,` +
+                        `member_number.ilike.%${query}%,` +
                         `phone.ilike.%${query}%,` +
                         `id_number.ilike.%${query}%`
                     )
@@ -1146,7 +1146,7 @@
                     <div class="search-result-row" onclick="selectMember('${member.id}')">
                         <div>
                             <div class="name">${member.first_name || ''} ${member.last_name || ''}</div>
-                            <div class="meta">#${member.membership_number || 'N/A'} · ${member.phone || 'N/A'}</div>
+                            <div class="meta">#${member.member_number || member.membership_number || 'N/A'} · ${member.phone || 'N/A'}</div>
                         </div>
                         <span class="status-badge ${member.is_active ? 'active' : 'inactive'}">
                             ${member.is_active ? 'Active' : 'Inactive'}
@@ -1187,7 +1187,7 @@
                 selectedDiv.classList.add('show');
                 document.getElementById('selectedMemberName').textContent =
                     `${member.first_name || ''} ${member.last_name || ''}`.trim() || 'N/A';
-                document.getElementById('selectedMemberNumber').textContent = member.membership_number || 'N/A';
+                document.getElementById('selectedMemberNumber').textContent = member.member_number || member.membership_number || 'N/A';
                 document.getElementById('selectedMemberStatus').innerHTML =
                     `<span class="status-badge ${member.is_active ? 'active' : 'inactive'}">${member.is_active ? 'Active' : 'Inactive'}</span>`;
 
@@ -1274,7 +1274,7 @@
                         'Authorization': `Bearer ${token}`
                     },
                     body: JSON.stringify({
-                        membership_number: selectedMember.membership_number,
+                        membership_number: selectedMember.member_number || selectedMember.membership_number,
                         phone_number: phone,
                         amount: amount,
                         payment_type: paymentType || 'monthly'
@@ -1459,7 +1459,7 @@
             const member = selectedMember;
             document.getElementById('successName').textContent =
                 `${member?.first_name || ''} ${member?.last_name || ''}`.trim() || 'N/A';
-            document.getElementById('successNumber').textContent = member?.membership_number || 'N/A';
+            document.getElementById('successNumber').textContent = member?.member_number || member?.membership_number || 'N/A';
             document.getElementById('successAmount').textContent =
                 `KES ${(paymentData?.amount || 0).toLocaleString()}`;
             document.getElementById('successTransactionId').textContent =
@@ -1565,7 +1565,7 @@
                 doc.setFontSize(12);
 
                 doc.text(`Name: ${member?.first_name || ''} ${member?.last_name || ''}`, 20, yStart + 40);
-                doc.text(`Member #: ${member?.membership_number || 'N/A'}`, 20, yStart + 48);
+                doc.text(`Member #: ${member?.member_number || member?.membership_number || 'N/A'}`, 20, yStart + 48);
                 doc.text(`Phone: ${member?.phone || 'N/A'}`, 20, yStart + 56);
 
                 // Payment details
@@ -1586,7 +1586,7 @@
                 doc.setTextColor(100, 100, 100);
                 doc.text('Thank you for your payment. This is a system-generated receipt.', 20, yStart + 120);
 
-                doc.save(`payment_receipt_${member?.membership_number || 'unknown'}.pdf`);
+                doc.save(`payment_receipt_${member?.member_number || member?.membership_number || 'unknown'}.pdf`);
                 showToast('success', 'Receipt downloaded successfully');
 
             } catch (error) {
