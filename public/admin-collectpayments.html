@@ -748,6 +748,14 @@ const API_BASE_URL = 'https://masika-backend.onrender.com/api/v1';
 // const API_BASE_URL = 'http://localhost:8000/api/v1';
 
 const LOGIN_PAGE = 'admin-login.html';
+
+// Staff must have this status (compared in lower case) to use the page
+const STAFF_ACTIVE_STATUS = 'active';
+
+// Which roles.role_code values may use this page (UPPER CASE).
+// An empty list means ANY active staff member is allowed in.
+// Example: ['ADMIN', 'SUPER_ADMIN', 'FINANCE']
+const ADMIN_ROLE_CODES = ['SUPER_ADMIN'];
 const POLL_INTERVAL_MS = 10000;
 const POLL_MAX_ATTEMPTS = 12;
 
@@ -919,9 +927,9 @@ async function checkAuth() {
 
         for (let i = 0; i < 3; i++) {
             const { data, error } = await masikaSupabase
-                .from('admins')
+                .from('staff')
                 .select('*')
-                .eq('id', session.user.id)
+                .eq('auth_user_id', session.user.id)
                 .maybeSingle();
 
             if (!error) {
@@ -943,15 +951,47 @@ async function checkAuth() {
 
         if (!admin) {
             return goLogin(
-                'no row in "admins" for user ' + session.user.id +
-                ' (check the id column and the RLS policy)'
+                'no row in "staff" with auth_user_id = ' + session.user.id +
+                ' (row missing, or RLS policy blocks reading it)'
             );
         }
 
-        currentAdmin = admin;
+        if (String(admin.status || '').toLowerCase() !== STAFF_ACTIVE_STATUS) {
+            return goLogin('staff account status is "' + admin.status + '"');
+        }
+
+        // 3. Role (roles table is looked up separately, so no foreign key is required)
+        let role = null;
+
+        if (admin.role_id) {
+            const { data: roleRow, error: roleError } = await masikaSupabase
+                .from('roles')
+                .select('role_code, role_name')
+                .eq('id', admin.role_id)
+                .maybeSingle();
+
+            if (roleError) {
+                console.error('Role lookup failed:', roleError);
+                showToast('error', 'Could not verify role: ' + (roleError.message || 'error'));
+                document.body.classList.remove('auth-pending');
+                return false;
+            }
+
+            role = roleRow;
+        }
+
+        if (ADMIN_ROLE_CODES.length > 0) {
+            const code = String(role?.role_code || '').toUpperCase();
+
+            if (!ADMIN_ROLE_CODES.includes(code)) {
+                return goLogin('role "' + (role?.role_code || 'none') + '" is not allowed on this page');
+            }
+        }
+
+        currentAdmin = { ...admin, role };
 
         $('adminName').textContent = admin.full_name || 'Admin';
-        $('adminRole').textContent = admin.role || 'Administrator';
+        $('adminRole').textContent = role?.role_name || 'Staff';
         $('adminAvatar').textContent = (admin.full_name || 'A').charAt(0).toUpperCase();
 
         document.body.classList.remove('auth-pending');
