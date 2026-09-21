@@ -743,8 +743,9 @@ const SUPABASE_URL = 'https://wpxzlcdrirlcyvfiquld.supabase.co';
 const SUPABASE_ANON_KEY =
     'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6IndweHpsY2RyaXJsY3l2ZmlxdWxkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODc5Mjc4MDcsImV4cCI6MjEwMzUwMzgwN30.OUP9pmPbrML_egpHflZtDfLv1_UDM37_BYjtb842xjg';
 
-// Same public FastAPI backend and STK-push route the customer-facing
-// payment.html page uses — no auth required, no /v1 prefix.
+// Same FastAPI backend as payment.html, but this page calls the staff-only
+// /api/admin/payments/* routes (Bearer token + PAYMENT_COLLECTOR_ROLES check)
+// instead of the public registration routes. No /v1 prefix.
 const API_BASE_URL = 'https://masika-c921.onrender.com/api';
 // Local development:
 // const API_BASE_URL = 'http://localhost:8000/api';
@@ -758,8 +759,8 @@ const STAFF_ACTIVE_STATUS = 'active';
 // An empty list means ANY active staff member is allowed in.
 // Example: ['ADMIN', 'SUPER_ADMIN', 'FINANCE']
 const ADMIN_ROLE_CODES = ['SUPER_ADMIN'];
-const POLL_INTERVAL_MS = 5000;
-const POLL_MAX_ATTEMPTS = 40;
+const POLL_INTERVAL_MS = 10000;
+const POLL_MAX_ATTEMPTS = 12;
 
 const SUCCESS_STATUSES = ['completed', 'success', 'successful', 'confirmed'];
 const FAILED_STATUSES = ['failed', 'cancelled', 'canceled', 'rejected'];
@@ -860,6 +861,7 @@ function getReceiptNumber() {
     return (
         paymentData?.mpesa_receipt_number ||
         paymentData?.mpesa_receipt ||
+        paymentData?.receipt ||
         paymentData?.receipt_number ||
         paymentData?.transaction_id ||
         paymentData?.checkout_request_id ||
@@ -1174,8 +1176,9 @@ function clearSelectedMember() {
 
 /* ==================================================================
    PAYMENT: INITIATE
-   Calls the same PUBLIC, no-auth STK-push route the customer-facing
-   payment.html page uses: POST {API_BASE_URL}/public/payment/stk-push
+   Calls the real staff-only route defined in main.py:
+   POST {API_BASE_URL}/admin/payments/collect
+   (Bearer = Supabase session token; role must be in PAYMENT_COLLECTOR_ROLES)
    ================================================================== */
 
 async function initiatePayment(event) {
@@ -1186,7 +1189,8 @@ async function initiatePayment(event) {
         return;
     }
 
-    const amount = parseFloat($('amountInput').value);
+    const rawAmount = parseFloat($('amountInput').value);
+    const amount = Math.round(rawAmount);
     const paymentType = $('paymentType').value || 'monthly';
     const phone = normalizePhone($('phoneNumber').value.trim());
 
@@ -1195,8 +1199,13 @@ async function initiatePayment(event) {
         return;
     }
 
-    if (!amount || amount < 1) {
+    if (!rawAmount || amount < 1) {
         showToast('error', 'Please enter a valid amount');
+        return;
+    }
+
+    if (Math.abs(rawAmount - amount) > 0.001) {
+        showToast('error', 'Amount must be a whole number of shillings');
         return;
     }
 
@@ -1208,36 +1217,40 @@ async function initiatePayment(event) {
         return;
     }
 
+    const token = await getToken();
+
+    if (!token) {
+        showToast('error', 'Authentication required. Please log in again.');
+        return;
+    }
+
     const payBtn = $('payBtn');
     payBtn.disabled = true;
     payBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i><span>Sending...</span>';
 
     try {
         const payload = {
-            phone: phone,
-            amount: amount,
-            registration_type: 'member',
-            registration_id: selectedMember.id,
             member_id: selectedMember.id,
             membership_number: membershipNumber,
+            phone_number: phone,
+            amount: amount,
             payment_type: paymentType
         };
 
-        console.log('📤 Initiating STK push:', payload);
+        console.log('📤 Initiating admin STK push:', payload);
 
-        const response = await fetch(`${API_BASE_URL}/public/payment/stk-push`, {
+        const response = await fetch(`${API_BASE_URL}/admin/payments/collect`, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
-                'Accept': 'application/json'
+                'Authorization': `Bearer ${token}`
             },
             body: JSON.stringify(payload)
         });
 
-        let data = null;
-        try { data = await response.json(); } catch { data = null; }
+        const data = await parseJson(response);
 
-        if (!response.ok || !data || data.success === false) {
+        if (!response.ok || data.success === false) {
             const detail = Array.isArray(data?.detail)
                 ? data.detail.map((d) => d.msg).join(' | ')
                 : (data?.detail || data?.message || `Payment request failed (HTTP ${response.status}).`);
@@ -1246,12 +1259,7 @@ async function initiatePayment(event) {
 
         console.log('✅ STK push sent:', data);
 
-        paymentCheckoutId =
-            data.checkout_request_id ||
-            data.checkoutRequestID ||
-            data.CheckoutRequestID ||
-            data.reference ||
-            null;
+        paymentCheckoutId = data.checkout_request_id || null;
 
         paymentData = {
             ...data,
@@ -1266,7 +1274,12 @@ async function initiatePayment(event) {
             'Waiting for the member to enter their M-Pesa PIN...'
         );
 
-        startStatusPolling();
+        if (paymentCheckoutId) {
+            startStatusPolling();
+        } else {
+            console.warn('Payment initiated without checkout_request_id:', data);
+            showToast('warning', 'Payment request sent, but no checkout ID was returned.');
+        }
 
         showToast('success', 'STK Push sent successfully!');
 
@@ -1279,9 +1292,8 @@ async function initiatePayment(event) {
 
 /* ==================================================================
    PAYMENT: STATUS
-   Reads the `payments` row straight from Supabase — the same source
-   payment.html polls — instead of the protected backend status route,
-   since the STK push above is written there by the M-Pesa callback.
+   Calls the matching admin status route:
+   GET {API_BASE_URL}/admin/payments/status/{checkout_request_id}
    ================================================================== */
 
 function showPaymentStatus(status, title, message, allowRetry = false) {
@@ -1302,32 +1314,23 @@ function showPaymentStatus(status, title, message, allowRetry = false) {
     setView('status');
 }
 
-async function fetchStatus() {
-    if (!selectedMember) throw new Error('No member selected');
+async function fetchStatus(checkoutId) {
+    const token = await getToken();
 
-    const { data, error } = await masikaSupabase
-        .from('payments')
-        .select('status, mpesa_receipt, checkout_request_id, phone, amount, created_at')
-        .eq('member_id', selectedMember.id)
-        .order('created_at', { ascending: false })
-        .limit(1)
-        .maybeSingle();
+    if (!token) throw new Error('Authentication required. Please log in again.');
 
-    if (error) {
-        throw new Error(error.message || 'Failed to check payment status');
+    const response = await fetch(
+        `${API_BASE_URL}/admin/payments/status/${encodeURIComponent(checkoutId)}`,
+        { headers: { 'Authorization': `Bearer ${token}` } }
+    );
+
+    const data = await parseJson(response);
+
+    if (!response.ok) {
+        throw new Error(data.detail || data.message || 'Failed to check payment status');
     }
 
-    if (!data) {
-        return { status: 'pending' };
-    }
-
-    return {
-        status: data.status,
-        mpesa_receipt_number: data.mpesa_receipt,
-        checkout_request_id: data.checkout_request_id,
-        phone_number: data.phone,
-        amount: data.amount
-    };
+    return data;
 }
 
 // Returns 'success' | 'failed' | 'pending'
@@ -1367,7 +1370,7 @@ function startStatusPolling() {
         attempts++;
 
         try {
-            const data = await fetchStatus();
+            const data = await fetchStatus(checkoutId);
 
             // Payment was reset/replaced while the request was in flight
             if (checkoutId !== paymentCheckoutId) return;
@@ -1413,7 +1416,7 @@ async function checkPaymentStatus() {
     btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Checking...';
 
     try {
-        const data = await fetchStatus();
+        const data = await fetchStatus(checkoutId);
 
         if (checkoutId !== paymentCheckoutId) return;
 
