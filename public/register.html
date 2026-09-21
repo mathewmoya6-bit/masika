@@ -438,6 +438,21 @@
             opacity: .5;
             transition: opacity .25s ease;
         }
+
+        /* Required-parent (Wazazi) dependant card */
+        .required-badge {
+            display: inline-block;
+            margin-left: 8px;
+            padding: 2px 8px;
+            border-radius: 999px;
+            background: #fff7df;
+            color: var(--warning);
+            border: 1px solid #ead49a;
+            font-size: 11px;
+            font-weight: 700;
+        }
+        .required-badge[hidden], .remove-dependant[hidden] { display: none; }
+        select:disabled { background: #f1f4f2; cursor: not-allowed; }
     </style>
 </head>
 
@@ -536,6 +551,16 @@
                                     </select>
                                 </div>
                                 <div class="form-group">
+                                    <label for="maritalStatus">Marital Status <span class="required">*</span></label>
+                                    <select id="maritalStatus" name="marital_status" required>
+                                        <option value="">Select marital status</option>
+                                        <option value="SINGLE">Single</option>
+                                        <option value="MARRIED">Married</option>
+                                        <option value="DIVORCED">Divorced</option>
+                                        <option value="WIDOWED">Widowed</option>
+                                    </select>
+                                </div>
+                                <div class="form-group">
                                     <label for="phone">Phone Number <span class="required">*</span></label>
                                     <input type="tel" id="phone" name="phone" placeholder="07XXXXXXXX or 2547XXXXXXXX" autocomplete="tel" required />
                                 </div>
@@ -610,6 +635,12 @@
                                 <div class="form-group">
                                     <label for="town">Town</label>
                                     <input type="text" id="town" name="town" autocomplete="address-level2" />
+                                </div>
+                                <div class="form-group">
+                                    <label for="branch">Branch <span class="required">*</span></label>
+                                    <select id="branch" name="branch" required>
+                                        <option value="">Loading branches...</option>
+                                    </select>
                                 </div>
                                 <div class="form-group full">
                                     <label for="address">Physical / Postal Address</label>
@@ -772,6 +803,12 @@
                                         </select>
                                         <span class="help-text">Select how the applicable benevolent benefit is to be provided.</span>
                                     </div>
+                                    <div class="form-group">
+                                        <label for="chamaBranch">Branch <span class="required">*</span></label>
+                                        <select id="chamaBranch" name="branch" required>
+                                            <option value="">Loading branches...</option>
+                                        </select>
+                                    </div>
                                 </div>
                             </div>
 
@@ -859,6 +896,10 @@
         // There is NO hardcoded price fallback. If the plans table
         // cannot be reached, the form tells the user pricing is
         // unavailable instead of silently using stale numbers.
+        //
+        // BRANCHES: loaded from the Supabase `branches` table
+        // (branch_code, branch_name, status), same pattern as
+        // sales agents.
         // ============================================================
 
         const SUPABASE_URL = 'https://wpxzlcdrirlcyvfiquld.supabase.co';
@@ -899,6 +940,8 @@
             planHelp: $('planHelp'),
             salesCode: $('salesCode'),
             chamaSalesCode: $('chamaSalesCode'),
+            branch: $('branch'),
+            chamaBranch: $('chamaBranch'),
             chamaBenefitOption: $('chamaBenefitOption'),
             dependantsContainer: $('dependantsContainer'),
             addDependantBtn: $('addDependantBtn'),
@@ -943,6 +986,7 @@
             setupEventListeners();
             loadPlans();
             loadSalesAgents();
+            loadBranches();
             subscribeToPlanChanges();
             updateSummary();
         });
@@ -1148,6 +1192,60 @@
         }
 
         // ============================================================
+        // LOAD BRANCHES
+        // Fills BOTH the individual and the chama branch dropdowns
+        // from a single Supabase query (same pattern as sales agents).
+        // The submitted value is the branch_code.
+        // ============================================================
+        async function loadBranches() {
+            const selects = [elements.branch, elements.chamaBranch].filter(Boolean);
+            if (!selects.length) return;
+
+            const setAll = html => selects.forEach(s => { s.innerHTML = html; });
+            setAll('<option value="">Loading branches...</option>');
+
+            try {
+                if (!supabaseClient) {
+                    throw new Error('Supabase client is not available.');
+                }
+
+                const { data, error } = await supabaseClient
+                    .from('branches')
+                    .select('branch_code, branch_name, status')
+                    .ilike('status', 'active')
+                    .order('branch_name', { ascending: true });
+
+                if (error) throw error;
+
+                const branches = data || [];
+
+                if (!branches.length) {
+                    setAll('<option value="">No branches available</option>');
+                    return;
+                }
+
+                selects.forEach(select => {
+                    select.innerHTML = '<option value="">Select branch</option>';
+
+                    branches.forEach(branch => {
+                        if (!branch.branch_code) return;
+                        const option = document.createElement('option');
+                        option.value = String(branch.branch_code).trim();
+                        option.textContent = `${branch.branch_code} - ${branch.branch_name || 'Branch'}`;
+                        select.appendChild(option);
+                    });
+                });
+
+                console.log(`✅ Loaded ${branches.length} active branches`);
+
+            } catch (error) {
+                console.error('❌ Failed to load branches:', error);
+                setAll('<option value="">Unable to load branches</option>');
+                showAlert(`Failed to load branches: ${error.message}`, 'warning');
+            }
+        }
+
+        // ============================================================
         // EVENT LISTENERS
         // ============================================================
         function setupEventListeners() {
@@ -1169,7 +1267,7 @@
                 clearAlert();
             });
 
-            elements.addDependantBtn.addEventListener('click', addDependant);
+            elements.addDependantBtn.addEventListener('click', () => addDependant());
             elements.resetBtn.addEventListener('click', resetIndividualForm);
             elements.chamaResetBtn.addEventListener('click', resetChamaForm);
             elements.registrationForm.addEventListener('submit', handleRegistration);
@@ -1187,7 +1285,7 @@
         // ============================================================
         // DEPENDANTS
         // ============================================================
-        function addDependant() {
+        function addDependant(options = {}) {
             const container = elements.dependantsContainer;
             const count = container.querySelectorAll('.dependant-card').length + 1;
 
@@ -1196,14 +1294,20 @@
                 return;
             }
 
+            const locked = options.locked === true;
+
             const card = document.createElement('div');
             card.className = 'dependant-card';
             card.dataset.index = count;
+            if (locked) card.dataset.requiredParent = 'true';
 
             card.innerHTML = `
                 <div class="dependant-header">
-                    <strong>Dependant #${count}</strong>
-                    <button type="button" class="remove-dependant" onclick="removeDependant(this)">× Remove</button>
+                    <div>
+                        <strong>Dependant #${count}</strong>
+                        <span class="required-badge" ${locked ? '' : 'hidden'}>Required parent</span>
+                    </div>
+                    <button type="button" class="remove-dependant" ${locked ? 'hidden' : ''} onclick="removeDependant(this)">× Remove</button>
                 </div>
                 <div class="form-grid">
                     <div class="form-group">
@@ -1234,6 +1338,14 @@
                 </div>
             `;
 
+            if (options.relationship) {
+                card.querySelector('select[name^="dep_relationship_"]').value = options.relationship;
+            }
+            if (locked) {
+                // A disabled select still returns .value in JS, so getFormData() keeps working.
+                card.querySelector('select[name^="dep_relationship_"]').disabled = true;
+            }
+
             container.appendChild(card);
 
             card.querySelectorAll('input, select').forEach(element => {
@@ -1244,19 +1356,50 @@
             updateSummary();
         }
 
-        function removeDependant(button) {
-            const card = button.closest('.dependant-card');
-            if (!card) return;
-
-            card.remove();
-
+        function renumberDependants() {
             elements.dependantsContainer.querySelectorAll('.dependant-card').forEach((element, index) => {
                 const number = index + 1;
                 element.dataset.index = number;
                 const title = element.querySelector('.dependant-header strong');
                 if (title) title.textContent = `Dependant #${number}`;
             });
+        }
 
+        function removeDependant(button) {
+            const card = button.closest('.dependant-card');
+            if (!card) return;
+
+            card.remove();
+            renumberDependants();
+
+            // Wazazi always needs at least one parent.
+            if (getSelectedPlan()?.slug === 'wazazi') ensureRequiredParent();
+
+            updateSummary();
+        }
+
+        // Wazazi: guarantee one parent card exists (locked to PARENT, can't be removed).
+        function ensureRequiredParent() {
+            if (countParentDependants() > 0) return;
+            addDependant({ relationship: 'PARENT', locked: true });
+        }
+
+        // Switching away from Wazazi: drop the auto-added card if still blank,
+        // otherwise keep the typed data and unlock the card.
+        function relaxRequiredParent() {
+            document.querySelectorAll('.dependant-card[data-required-parent="true"]').forEach(card => {
+                const hasData = [...card.querySelectorAll('input')].some(i => i.value.trim() !== '');
+                if (!hasData) {
+                    card.remove();
+                    return;
+                }
+                delete card.dataset.requiredParent;
+                const select = card.querySelector('select[name^="dep_relationship_"]');
+                if (select) select.disabled = false;
+                card.querySelector('.required-badge')?.setAttribute('hidden', '');
+                card.querySelector('.remove-dependant')?.removeAttribute('hidden');
+            });
+            renumberDependants();
             updateSummary();
         }
 
@@ -1329,8 +1472,14 @@
 
         function updateDependantEligibility(planSlug) {
             if (planSlug === 'wazazi') {
-                elements.planHelp.textContent = 'Wazazi Plan: add up to 4 parents. Registration fee per parent is set in Pricing.';
-            } else if (planSlug === 'dignity') {
+                elements.planHelp.textContent = 'Wazazi Plan: at least one parent is required (up to 4 parents). Registration fee per parent is set in Pricing.';
+                ensureRequiredParent();
+                return;
+            }
+
+            relaxRequiredParent();
+
+            if (planSlug === 'dignity') {
                 elements.planHelp.textContent = 'Dignity Plan: covers spouse and children under 18, at no extra registration cost.';
             } else {
                 elements.planHelp.textContent = 'Comfort Plan: covers spouse and up to 4 children under 18, at no extra registration cost.';
@@ -1388,12 +1537,14 @@
                 id_number: $('idNumber').value.trim(),
                 date_of_birth: $('dateOfBirth').value,
                 gender: $('gender').value,
+                marital_status: $('maritalStatus').value,
                 phone: normalizePhone($('phone').value),
                 alternative_phone: normalizePhone($('alternativePhone').value) || null,
                 email: $('email').value.trim() || null,
                 county: $('county').value,
                 location: $('location').value.trim() || null,
                 town: $('town').value.trim() || null,
+                branch: $('branch').value,
                 address: $('address').value.trim() || null,
                 next_of_kin_name: $('nextOfKinName').value.trim(),
                 next_of_kin_id_number: $('nextOfKinId').value.trim(),
@@ -1409,7 +1560,7 @@
         // VALIDATE INDIVIDUAL REGISTRATION
         // ============================================================
         function validateFormData(data) {
-            const required = ['first_name', 'last_name', 'id_number', 'date_of_birth', 'gender', 'phone', 'county', 'benefit_option', 'next_of_kin_name', 'next_of_kin_id_number', 'next_of_kin_phone'];
+            const required = ['first_name', 'last_name', 'id_number', 'date_of_birth', 'gender', 'marital_status', 'phone', 'county', 'branch', 'benefit_option', 'next_of_kin_name', 'next_of_kin_id_number', 'next_of_kin_phone'];
 
             if (!data.plan) {
                 return { valid: false, error: 'Please select a membership plan.' };
@@ -1471,6 +1622,10 @@
 
             if (data.plan === 'wazazi' && parents.length > 4) {
                 return { valid: false, error: 'Wazazi allows a maximum of four parents.' };
+            }
+
+            if (data.plan === 'wazazi' && parents.length < 1) {
+                return { valid: false, error: 'The Wazazi plan requires at least one parent as a dependant.' };
             }
 
             for (let i = 0; i < data.dependants.length; i++) {
@@ -1676,13 +1831,19 @@
                 }
             }
 
-            // Registration Source (sales agent is optional, benefit option is required)
+            // Registration Source (sales agent is optional, benefit option and branch are required)
             const chamaBenefitOption = elements.chamaBenefitOption.value;
             if (!chamaBenefitOption) {
                 showAlert('Please select a benefit option.', 'error');
                 return;
             }
             const chamaSalesCode = elements.chamaSalesCode.value || null;
+
+            const chamaBranch = elements.chamaBranch.value;
+            if (!chamaBranch) {
+                showAlert('Please select a branch.', 'error');
+                return;
+            }
 
             if (parsedChamaMembers.length > 0 &&
                 declaredMembers !== parsedChamaMembers.length) {
@@ -1715,6 +1876,7 @@
                     secretary,
                     sales_code: chamaSalesCode,
                     benefit_option: chamaBenefitOption,
+                    branch: chamaBranch,
                     members: normalizedMembers
                 };
 
@@ -1955,7 +2117,7 @@
         function resetChamaForm() {
             if (!confirm('Reset this chama registration?')) return;
 
-            // reset() also clears the chama sales agent and benefit option selects
+            // reset() also clears the chama sales agent, branch and benefit option selects
             elements.chamaForm.reset();
             parsedChamaMembers = [];
             renderChamaPreview();
@@ -2013,6 +2175,7 @@
         window.clearAlert = clearAlert;
         window.loadPlans = loadPlans;
         window.loadSalesAgents = loadSalesAgents;
+        window.loadBranches = loadBranches;
         window.normalizePhone = normalizePhone;
         window.escapeHtml = escapeHtml;
 
@@ -2020,6 +2183,7 @@
         console.log('📌 Plans are loaded LIVE from Supabase `plans` table (admin-pricing writes here)');
         console.log('📌 Realtime subscription active — admin price edits push instantly');
         console.log('📌 Sales agents: public.sales_agents.sales_code');
+        console.log('📌 Branches: public.branches.branch_code');
         console.log('🆔 Payment identifier: member_id');
     </script>
 
