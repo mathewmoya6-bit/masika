@@ -410,10 +410,8 @@
 const SUPABASE_URL =
     'https://wpxzlcdrirlcyvfiquld.supabase.co';
 
-// TODO: replace with your real Supabase anon/publishable key
-// before deploying this page. Never put the service_role key here.
 const SUPABASE_ANON_KEY =
-    'YOUR_SUPABASE_ANON_KEY';
+    'sb_publishable_hJYI6DRcKp05YWD0Ivp1oA_5RDFsC7u';
 
 const supabaseClient =
     window.supabase.createClient(
@@ -893,7 +891,15 @@ async function checkAuth() {
     const user =
         session.user;
 
+    console.log(
+        '[checkAuth] session user id:',
+        user.id,
+        'email:',
+        user.email
+    );
+
     let staffRecord = null;
+    let staffLookupFailed = false;
 
     const {
         data: staffData,
@@ -904,7 +910,15 @@ async function checkAuth() {
         .eq('id', user.id)
         .maybeSingle();
 
-    if (!staffError && staffData) {
+    if (staffError) {
+        staffLookupFailed = true;
+        console.error(
+            '[checkAuth] staff table query failed ' +
+            '(often an RLS SELECT policy issue, not ' +
+            '"not an admin"):',
+            staffError
+        );
+    } else if (staffData) {
         staffRecord = staffData;
     }
 
@@ -912,6 +926,8 @@ async function checkAuth() {
     /* -----------------------------------------
        FALLBACK TO ADMINS TABLE
     ----------------------------------------- */
+
+    let adminLookupFailed = false;
 
     if (!staffRecord) {
 
@@ -924,13 +940,43 @@ async function checkAuth() {
             .eq('id', user.id)
             .maybeSingle();
 
-        if (!adminError && adminData) {
+        if (adminError) {
+            adminLookupFailed = true;
+            console.error(
+                '[checkAuth] admins table query failed ' +
+                '(often an RLS SELECT policy issue, not ' +
+                '"not an admin"):',
+                adminError
+            );
+        } else if (adminData) {
             staffRecord = adminData;
         }
     }
 
 
     if (!staffRecord) {
+
+        /*
+         * If BOTH lookups errored (rather than simply
+         * returning no row), this is very likely an RLS
+         * policy blocking the SELECT, not a "you aren't
+         * an admin" situation. Surface that distinction
+         * instead of signing the user out silently, since
+         * signing out hides the real problem.
+         */
+        if (staffLookupFailed && adminLookupFailed) {
+
+            showStatus(
+                'Could not verify admin access due to a ' +
+                'database error (check the browser console). ' +
+                'This usually means the "staff"/"admins" ' +
+                'tables are missing a SELECT policy that lets ' +
+                'a logged-in user read their own row.',
+                'error'
+            );
+
+            return false;
+        }
 
         showStatus(
             'You are authenticated but do not have admin access.',
