@@ -87,13 +87,6 @@
             font-size: 19px;
         }
 
-        .report-description {
-            margin: -8px 0 18px;
-            color: #6b7280;
-            font-size: 13px;
-            line-height: 1.5;
-        }
-
         .filters {
             display: grid;
             grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
@@ -142,6 +135,11 @@
             cursor: not-allowed;
         }
 
+        .btn-secondary {
+            background: #e5e7eb;
+            color: #111827;
+        }
+
         .status {
             display: none;
             margin-bottom: 20px;
@@ -166,6 +164,11 @@
             display: block;
             background: #dbeafe;
             color: #1e40af;
+        }
+
+        .loading {
+            opacity: .6;
+            pointer-events: none;
         }
 
         @media (max-width: 800px) {
@@ -216,19 +219,9 @@
 
     <div id="statusMessage" class="status"></div>
 
-
-    <!-- =====================================================
-         PAYMENTS REPORT
-    ====================================================== -->
-
+    <!-- PAYMENTS REPORT -->
     <div class="report-card">
-
         <h2>Payments Report</h2>
-
-        <div class="report-description">
-            Export payment transactions using the actual payment date.
-            Successful and legacy completed payments are supported.
-        </div>
 
         <div class="filters">
 
@@ -243,25 +236,15 @@
             </div>
 
             <div class="field">
-                <label for="paymentStatus">Payment Status</label>
+                <label for="paymentStatus">Status</label>
                 <select id="paymentStatus">
                     <option value="">All</option>
-                    <option value="SUCCESSFUL">Successful</option>
-                    <option value="COMPLETED">Completed</option>
-                    <option value="PENDING">Pending</option>
-                    <option value="FAILED">Failed</option>
-                    <option value="REVERSED">Reversed</option>
-                    <option value="PARTIAL">Partial</option>
-                </select>
-            </div>
-
-            <div class="field">
-                <label for="paymentType">Payment Type</label>
-                <select id="paymentType">
-                    <option value="">All Types</option>
-                    <option value="MONTHLY">Monthly</option>
-                    <option value="REGISTRATION">Registration</option>
-                    <option value="OTHER">Other</option>
+                    <option value="completed">Completed</option>
+                    <option value="success">Success</option>
+                    <option value="paid">Paid</option>
+                    <option value="pending">Pending</option>
+                    <option value="failed">Failed</option>
+                    <option value="cancelled">Cancelled</option>
                 </select>
             </div>
 
@@ -273,23 +256,12 @@
             </button>
 
         </div>
-
     </div>
 
 
-    <!-- =====================================================
-         MEMBERS REPORT
-    ====================================================== -->
-
+    <!-- MEMBERS REPORT -->
     <div class="report-card">
-
         <h2>Members Report</h2>
-
-        <div class="report-description">
-            Includes membership status, registration status,
-            monthly reconciliation, amounts paid and validation details.
-            Leave dates blank to export all members.
-        </div>
 
         <div class="filters">
 
@@ -334,22 +306,12 @@
             </button>
 
         </div>
-
     </div>
 
 
-    <!-- =====================================================
-         DEPENDANTS REPORT
-    ====================================================== -->
-
+    <!-- DEPENDANTS REPORT -->
     <div class="report-card">
-
         <h2>Dependants Report</h2>
-
-        <div class="report-description">
-            Reports dependants stored in the dependants table.
-            Wazazi parents are included separately in the combined report.
-        </div>
 
         <div class="filters">
 
@@ -385,22 +347,12 @@
             </button>
 
         </div>
-
     </div>
 
 
-    <!-- =====================================================
-         MEMBERS + DEPENDANTS REPORT
-    ====================================================== -->
-
+    <!-- MEMBERS + DEPENDANTS -->
     <div class="report-card">
-
         <h2>Members &amp; Dependants Report</h2>
-
-        <div class="report-description">
-            Includes principal members, dependants from the dependants
-            table, and Wazazi parents stored on the member record.
-        </div>
 
         <div class="filters">
 
@@ -445,14 +397,12 @@
             </button>
 
         </div>
-
     </div>
 
 </div>
 
 
 <script>
-
 /* =========================================================
    SUPABASE
 ========================================================= */
@@ -471,18 +421,14 @@ const supabaseClient =
 
 
 /* =========================================================
-   STATUS
+   STATUS / TOAST
 ========================================================= */
 
 function showStatus(message, type = 'info') {
-
-    const el =
-        document.getElementById('statusMessage');
+    const el = document.getElementById('statusMessage');
 
     el.textContent = message;
-
-    el.className =
-        'status ' + type;
+    el.className = 'status ' + type;
 
     window.scrollTo({
         top: 0,
@@ -490,14 +436,10 @@ function showStatus(message, type = 'info') {
     });
 }
 
-
 function clearStatus() {
-
-    const el =
-        document.getElementById('statusMessage');
+    const el = document.getElementById('statusMessage');
 
     el.textContent = '';
-
     el.className = 'status';
 }
 
@@ -507,13 +449,9 @@ function clearStatus() {
 ========================================================= */
 
 function pickField(obj, fields) {
-
-    if (!obj) {
-        return '';
-    }
+    if (!obj) return '';
 
     for (const field of fields) {
-
         if (
             obj[field] !== undefined &&
             obj[field] !== null &&
@@ -529,10 +467,12 @@ function pickField(obj, fields) {
 
 /* =========================================================
    MEMBER NUMBER
+   IMPORTANT:
+   PRIMARY DATABASE FIELD = member_number
+   OLD FIELD = membership_number
 ========================================================= */
 
 function memberNumber(member) {
-
     return pickField(member, [
         'member_number',
         'membership_number'
@@ -542,35 +482,30 @@ function memberNumber(member) {
 
 /* =========================================================
    MEMBER NAME
+   PRIMARY DATABASE FIELD = full_name
 ========================================================= */
 
 function memberName(member) {
 
-    const fullName =
-        pickField(member, [
-            'full_name'
-        ]);
+    const fullName = pickField(member, [
+        'full_name'
+    ]);
 
     if (fullName) {
         return fullName;
     }
 
-    const firstName =
-        pickField(member, [
-            'first_name',
-            'firstname'
-        ]);
+    const firstName = pickField(member, [
+        'first_name',
+        'firstname'
+    ]);
 
-    const lastName =
-        pickField(member, [
-            'last_name',
-            'lastname'
-        ]);
+    const lastName = pickField(member, [
+        'last_name',
+        'lastname'
+    ]);
 
-    return [
-        firstName,
-        lastName
-    ]
+    return [firstName, lastName]
         .filter(Boolean)
         .join(' ')
         .trim();
@@ -582,7 +517,6 @@ function memberName(member) {
 ========================================================= */
 
 function memberIdNumber(member) {
-
     return pickField(member, [
         'national_id',
         'id_number',
@@ -599,7 +533,6 @@ function memberIdNumber(member) {
 ========================================================= */
 
 function memberDob(member) {
-
     return pickField(member, [
         'date_of_birth',
         'dob',
@@ -613,7 +546,6 @@ function memberDob(member) {
 ========================================================= */
 
 function memberPhone(member) {
-
     return pickField(member, [
         'phone',
         'phone_number',
@@ -629,31 +561,25 @@ function memberPhone(member) {
 
 function dependantName(dependant) {
 
-    const fullName =
-        pickField(dependant, [
-            'full_name'
-        ]);
+    const fullName = pickField(dependant, [
+        'full_name'
+    ]);
 
     if (fullName) {
         return fullName;
     }
 
-    const firstName =
-        pickField(dependant, [
-            'first_name',
-            'firstname'
-        ]);
+    const firstName = pickField(dependant, [
+        'first_name',
+        'firstname'
+    ]);
 
-    const lastName =
-        pickField(dependant, [
-            'last_name',
-            'lastname'
-        ]);
+    const lastName = pickField(dependant, [
+        'last_name',
+        'lastname'
+    ]);
 
-    return [
-        firstName,
-        lastName
-    ]
+    return [firstName, lastName]
         .filter(Boolean)
         .join(' ')
         .trim();
@@ -665,7 +591,6 @@ function dependantName(dependant) {
 ========================================================= */
 
 function dependantDob(dependant) {
-
     return pickField(dependant, [
         'date_of_birth',
         'dob',
@@ -679,7 +604,6 @@ function dependantDob(dependant) {
 ========================================================= */
 
 function dependantIdNumber(dependant) {
-
     return pickField(dependant, [
         'national_id',
         'id_number',
@@ -696,7 +620,6 @@ function dependantIdNumber(dependant) {
 ========================================================= */
 
 function dependantPhone(dependant) {
-
     return pickField(dependant, [
         'phone',
         'phone_number',
@@ -711,7 +634,6 @@ function dependantPhone(dependant) {
 ========================================================= */
 
 function dependantRelationship(dependant) {
-
     return pickField(dependant, [
         'relationship',
         'relation',
@@ -726,12 +648,9 @@ function dependantRelationship(dependant) {
 
 function formatDateOnly(value) {
 
-    if (!value) {
-        return '';
-    }
+    if (!value) return '';
 
-    const text =
-        String(value);
+    const text = String(value);
 
     if (text.length >= 10) {
         return text.substring(0, 10);
@@ -754,8 +673,7 @@ function csvEscape(value) {
         return '';
     }
 
-    const text =
-        String(value);
+    const text = String(value);
 
     if (
         text.includes('"') ||
@@ -776,34 +694,21 @@ function csvEscape(value) {
    CSV DOWNLOAD
 ========================================================= */
 
-function downloadCsv(
-    filename,
-    headers,
-    rows
-) {
+function downloadCsv(filename, headers, rows) {
 
     const csv = [
-
-        headers
-            .map(csvEscape)
-            .join(','),
-
+        headers.map(csvEscape).join(','),
         ...rows.map(row =>
-            row
-                .map(csvEscape)
-                .join(',')
+            row.map(csvEscape).join(',')
         )
-
     ].join('\r\n');
 
-    const blob =
-        new Blob(
-            ['\uFEFF' + csv],
-            {
-                type:
-                    'text/csv;charset=utf-8;'
-            }
-        );
+    const blob = new Blob(
+        ['\uFEFF' + csv],
+        {
+            type: 'text/csv;charset=utf-8;'
+        }
+    );
 
     const url =
         URL.createObjectURL(blob);
@@ -812,9 +717,7 @@ function downloadCsv(
         document.createElement('a');
 
     link.href = url;
-
-    link.download =
-        filename;
+    link.download = filename;
 
     document.body.appendChild(link);
 
@@ -827,14 +730,14 @@ function downloadCsv(
 
 
 /* =========================================================
-   DATE RANGE
+   DATE RANGE HELPER
 ========================================================= */
 
 function applyDateRange(
     query,
     fromId,
     toId,
-    column
+    column = 'created_at'
 ) {
 
     const from =
@@ -844,21 +747,17 @@ function applyDateRange(
         document.getElementById(toId).value;
 
     if (from) {
-
-        query =
-            query.gte(
-                column,
-                from + 'T00:00:00'
-            );
+        query = query.gte(
+            column,
+            from + 'T00:00:00'
+        );
     }
 
     if (to) {
-
-        query =
-            query.lte(
-                column,
-                to + 'T23:59:59'
-            );
+        query = query.lte(
+            column,
+            to + 'T23:59:59'
+        );
     }
 
     return query;
@@ -866,58 +765,103 @@ function applyDateRange(
 
 
 /* =========================================================
-   PAGINATION
+   PAGINATION HELPER
+   Supabase/PostgREST caps a single request at 1000 rows by
+   default. For reports that can legitimately exceed that,
+   we page through with .range() until a page comes back
+   short of the page size.
 ========================================================= */
 
 const REPORT_PAGE_SIZE = 1000;
 
-
 async function fetchAllPages(buildQuery) {
 
     let allRows = [];
-
     let from = 0;
 
     while (true) {
 
-        const to =
-            from +
-            REPORT_PAGE_SIZE -
-            1;
+        const to = from + REPORT_PAGE_SIZE - 1;
 
-        const {
-            data,
-            error
-        } =
-            await buildQuery()
-                .range(from, to);
+        const { data, error } =
+            await buildQuery().range(from, to);
 
         if (error) {
             throw error;
         }
 
-        if (
-            !data ||
-            data.length === 0
-        ) {
+        if (!data || data.length === 0) {
             break;
         }
 
-        allRows =
-            allRows.concat(data);
+        allRows = allRows.concat(data);
 
-        if (
-            data.length <
-            REPORT_PAGE_SIZE
-        ) {
+        if (data.length < REPORT_PAGE_SIZE) {
             break;
         }
 
-        from +=
-            REPORT_PAGE_SIZE;
+        from += REPORT_PAGE_SIZE;
     }
 
     return allRows;
+}
+
+
+/* =========================================================
+   DEFAULT DATES
+========================================================= */
+
+function getLocalDateString(date = new Date()) {
+
+    const year = date.getFullYear();
+
+    const month =
+        String(date.getMonth() + 1)
+            .padStart(2, '0');
+
+    const day =
+        String(date.getDate())
+            .padStart(2, '0');
+
+    return `${year}-${month}-${day}`;
+}
+
+
+function setDefaultDates() {
+
+    const today =
+        getLocalDateString();
+
+    const date = new Date();
+
+    date.setDate(date.getDate() - 30);
+
+    const thirtyDaysAgo =
+        getLocalDateString(date);
+
+    const fields = [
+        ['paymentFrom', thirtyDaysAgo],
+        ['paymentTo', today],
+
+        ['memberFrom', thirtyDaysAgo],
+        ['memberTo', today],
+
+        ['dependantFrom', thirtyDaysAgo],
+        ['dependantTo', today],
+
+        ['combinedFrom', thirtyDaysAgo],
+        ['combinedTo', today]
+    ];
+
+    fields.forEach(([id, value]) => {
+
+        const element =
+            document.getElementById(id);
+
+        if (element) {
+            element.value = value;
+        }
+    });
 }
 
 
@@ -930,8 +874,7 @@ async function checkAuth() {
     const {
         data: sessionData,
         error: sessionError
-    } =
-        await supabaseClient.auth.getSession();
+    } = await supabaseClient.auth.getSession();
 
     if (sessionError) {
         throw sessionError;
@@ -941,10 +884,7 @@ async function checkAuth() {
         sessionData?.session;
 
     if (!session) {
-
-        window.location.href =
-            'admin-login.html';
-
+        window.location.href = 'admin-login.html';
         return false;
     }
 
@@ -958,43 +898,42 @@ async function checkAuth() {
         user.email
     );
 
-
-    /* -----------------------------------------
-       STAFF
-    ----------------------------------------- */
+    function logSupabaseError(label, error) {
+        console.error(
+            `[checkAuth] ${label}:`,
+            'message=' + (error?.message || '(none)'),
+            '| details=' + (error?.details || '(none)'),
+            '| hint=' + (error?.hint || '(none)'),
+            '| code=' + (error?.code || '(none)')
+        );
+    }
 
     let staffRecord = null;
-
     let staffLookupFailed = false;
 
     const {
         data: staffData,
         error: staffError
-    } =
-        await supabaseClient
-            .from('staff')
-            .select('*')
-            .eq('id', user.id)
-            .maybeSingle();
+    } = await supabaseClient
+        .from('staff')
+        .select('*')
+        .eq('id', user.id)
+        .maybeSingle();
 
     if (staffError) {
-
         staffLookupFailed = true;
-
-        console.error(
-            '[checkAuth] staff table query failed:',
+        logSupabaseError(
+            'staff table query failed (often an RLS ' +
+            'SELECT policy issue, not "not an admin")',
             staffError
         );
-
     } else if (staffData) {
-
-        staffRecord =
-            staffData;
+        staffRecord = staffData;
     }
 
 
     /* -----------------------------------------
-       ADMINS FALLBACK
+       FALLBACK TO ADMINS TABLE
     ----------------------------------------- */
 
     let adminLookupFailed = false;
@@ -1004,43 +943,45 @@ async function checkAuth() {
         const {
             data: adminData,
             error: adminError
-        } =
-            await supabaseClient
-                .from('admins')
-                .select('*')
-                .eq('id', user.id)
-                .maybeSingle();
+        } = await supabaseClient
+            .from('admins')
+            .select('*')
+            .eq('id', user.id)
+            .maybeSingle();
 
         if (adminError) {
-
             adminLookupFailed = true;
-
-            console.error(
-                '[checkAuth] admins table query failed:',
+            logSupabaseError(
+                'admins table query failed (often an RLS ' +
+                'SELECT policy issue, not "not an admin")',
                 adminError
             );
-
         } else if (adminData) {
-
-            staffRecord =
-                adminData;
+            staffRecord = adminData;
         }
     }
 
 
-    /* -----------------------------------------
-       NO ADMIN RECORD
-    ----------------------------------------- */
-
     if (!staffRecord) {
 
-        if (
-            staffLookupFailed &&
-            adminLookupFailed
-        ) {
+        /*
+         * If EITHER lookup errored (rather than simply
+         * returning no row), we cannot conclude the user
+         * genuinely lacks admin access — a query error
+         * (very often a missing RLS SELECT policy) looks
+         * identical to "no row found" unless we check for
+         * it explicitly. Surface that distinction instead
+         * of signing the user out on a DB error.
+         */
+        if (staffLookupFailed || adminLookupFailed) {
 
             showStatus(
-                'Could not verify admin access due to a database error. Check the browser console.',
+                'Could not verify admin access due to a ' +
+                'database error (see the browser console for ' +
+                'message/details/hint/code). This usually means ' +
+                'the "staff" or "admins" table is missing a ' +
+                'SELECT policy that lets a logged-in user read ' +
+                'their own row, e.g. USING (auth.uid() = id).',
                 'error'
             );
 
@@ -1055,31 +996,20 @@ async function checkAuth() {
         await supabaseClient.auth.signOut();
 
         setTimeout(() => {
-
-            window.location.href =
-                'admin-login.html';
-
+            window.location.href = 'admin-login.html';
         }, 1500);
 
         return false;
     }
 
 
-    /* -----------------------------------------
-       ROLE
-    ----------------------------------------- */
-
-    const role =
-        String(
-            pickField(
-                staffRecord,
-                [
-                    'role',
-                    'user_role',
-                    'staff_role'
-                ]
-            )
-        ).toUpperCase();
+    const role = String(
+        pickField(staffRecord, [
+            'role',
+            'user_role',
+            'staff_role'
+        ])
+    ).toUpperCase();
 
 
     if (
@@ -1095,31 +1025,19 @@ async function checkAuth() {
         await supabaseClient.auth.signOut();
 
         setTimeout(() => {
-
-            window.location.href =
-                'admin-login.html';
-
+            window.location.href = 'admin-login.html';
         }, 1500);
 
         return false;
     }
 
 
-    /* -----------------------------------------
-       DISPLAY USER
-    ----------------------------------------- */
-
     const displayName =
-        pickField(
-            staffRecord,
-            [
-                'full_name',
-                'name',
-                'email'
-            ]
-        ) ||
-        user.email ||
-        'Administrator';
+        pickField(staffRecord, [
+            'full_name',
+            'name',
+            'email'
+        ]) || user.email || 'Administrator';
 
     document.getElementById(
         'adminUserInfo'
@@ -1127,36 +1045,6 @@ async function checkAuth() {
         `${displayName} · ${role}`;
 
     return true;
-}
-
-
-/* =========================================================
-   PAYMENT STATUS NORMALIZATION
-========================================================= */
-
-function paymentIsSuccessful(payment) {
-
-    const status =
-        String(
-            pickField(
-                payment,
-                ['status']
-            )
-        ).toLowerCase();
-
-    const paymentStatus =
-        String(
-            pickField(
-                payment,
-                ['payment_status']
-            )
-        ).toLowerCase();
-
-    return (
-        status === 'successful' ||
-        status === 'completed' ||
-        paymentStatus === 'successful'
-    );
 }
 
 
@@ -1182,85 +1070,50 @@ async function exportPaymentsCsv(evt) {
             'info'
         );
 
-
-        const selectedStatus =
+        const status =
             document.getElementById(
                 'paymentStatus'
             ).value;
 
+        const data = await fetchAllPages(() => {
 
-        const selectedType =
-            document.getElementById(
-                'paymentType'
-            ).value;
+            let query =
+                supabaseClient
+                    .from('payments')
+                    .select(`
+                        *,
+                        members (
+                            member_number,
+                            membership_number,
+                            full_name,
+                            first_name,
+                            last_name,
+                            phone
+                        )
+                    `)
+                    .order('created_at', {
+                        ascending: true
+                    });
 
+            query = applyDateRange(
+                query,
+                'paymentFrom',
+                'paymentTo',
+                'created_at'
+            );
 
-        const data =
-            await fetchAllPages(() => {
+            if (status) {
+                query = query.eq(
+                    'status',
+                    status
+                );
+            }
 
-                let query =
-                    supabaseClient
-                        .from('payments')
-                        .select(`
-                            *,
-                            members (
-                                member_number,
-                                membership_number,
-                                full_name,
-                                first_name,
-                                last_name,
-                                phone
-                            )
-                        `)
-                        .order(
-                            'payment_date',
-                            {
-                                ascending: true
-                            }
-                        );
-
-
-                /*
-                 * Use payment_date as the financial
-                 * reporting date.
-                 */
-                query =
-                    applyDateRange(
-                        query,
-                        'paymentFrom',
-                        'paymentTo',
-                        'payment_date'
-                    );
+            return query;
+        });
 
 
-                if (selectedStatus) {
-
-                    query =
-                        query.eq(
-                            'status',
-                            selectedStatus.toUpperCase()
-                        );
-                }
-
-
-                if (selectedType) {
-
-                    query =
-                        query.eq(
-                            'payment_type',
-                            selectedType.toUpperCase()
-                        );
-                }
-
-
-                return query;
-            });
-
-
-        if (
-            !data ||
-            data.length === 0
-        ) {
+        if (!data || data.length === 0) {
 
             showStatus(
                 'No payments found for the selected filters.',
@@ -1272,220 +1125,100 @@ async function exportPaymentsCsv(evt) {
 
 
         const headers = [
-
-            'Payment Date',
+            'Date',
             'Membership #',
             'Member Name',
             'Phone',
             'Amount',
-            'Payment Type',
             'Status',
-            'Payment Status',
-            'Counts Toward Membership',
-            'Monthly Paid',
-            'Payment Period Start',
-            'Payment Period End',
             'Payment Reference',
             'Transaction ID',
-            'Payment Method',
-            'Created At'
+            'Month',
+            'Payment Method'
         ];
 
 
-        const rows =
-            data.map(payment => {
+        const rows = data.map(p => {
 
-                const member =
-                    payment.members ||
-                    {};
+            const member =
+                p.members || {};
 
+            const memberNumberValue =
+                memberNumber(p) ||
+                memberNumber(member);
 
-                const paymentDate =
-                    pickField(
-                        payment,
-                        [
-                            'payment_date',
-                            'created_at'
-                        ]
-                    );
+            const name =
+                pickField(p, [
+                    'member_name',
+                    'full_name',
+                    'name'
+                ]) ||
+                memberName(member);
 
+            const phone =
+                memberPhone(p) ||
+                memberPhone(member);
 
-                const memberNumberValue =
-                    memberNumber(payment) ||
-                    memberNumber(member);
+            const amount =
+                pickField(p, [
+                    'amount',
+                    'paid_amount',
+                    'payment_amount'
+                ]);
 
+            const statusValue =
+                pickField(p, [
+                    'status',
+                    'payment_status'
+                ]);
 
-                const name =
-                    pickField(
-                        payment,
-                        [
-                            'member_name',
-                            'full_name',
-                            'name'
-                        ]
-                    ) ||
-                    memberName(member);
+            const reference =
+                pickField(p, [
+                    'payment_reference',
+                    'reference',
+                    'invoice_number',
+                    'invoice',
+                    'mpesa_receipt',
+                    'receipt_number'
+                ]);
 
+            const transaction =
+                pickField(p, [
+                    'transaction_id',
+                    'transaction_code',
+                    'checkout_request_id',
+                    'merchant_request_id'
+                ]);
 
-                const phone =
-                    memberPhone(payment) ||
-                    memberPhone(member);
+            const month =
+                pickField(p, [
+                    'month',
+                    'payment_month',
+                    'paid_for_month'
+                ]);
 
+            const method =
+                pickField(p, [
+                    'payment_method',
+                    'method',
+                    'channel'
+                ]);
 
-                const amount =
-                    pickField(
-                        payment,
-                        [
-                            'amount',
-                            'paid_amount',
-                            'payment_amount'
-                        ]
-                    );
-
-
-                const paymentType =
-                    pickField(
-                        payment,
-                        [
-                            'payment_type'
-                        ]
-                    );
-
-
-                const status =
-                    pickField(
-                        payment,
-                        [
-                            'status'
-                        ]
-                    );
-
-
-                const paymentStatus =
-                    pickField(
-                        payment,
-                        [
-                            'payment_status'
-                        ]
-                    );
-
-
-                const counts =
-                    pickField(
-                        payment,
-                        [
-                            'counts_toward_membership'
-                        ]
-                    );
-
-
-                const monthlyPaid =
-                    pickField(
-                        payment,
-                        [
-                            'monthly_paid'
-                        ]
-                    );
-
-
-                const periodStart =
-                    pickField(
-                        payment,
-                        [
-                            'payment_period_start'
-                        ]
-                    );
-
-
-                const periodEnd =
-                    pickField(
-                        payment,
-                        [
-                            'payment_period_end'
-                        ]
-                    );
-
-
-                const reference =
-                    pickField(
-                        payment,
-                        [
-                            'payment_reference',
-                            'reference',
-                            'invoice_number',
-                            'invoice',
-                            'mpesa_receipt',
-                            'receipt_number'
-                        ]
-                    );
-
-
-                const transaction =
-                    pickField(
-                        payment,
-                        [
-                            'transaction_id',
-                            'transaction_code',
-                            'checkout_request_id',
-                            'merchant_request_id'
-                        ]
-                    );
-
-
-                const method =
-                    pickField(
-                        payment,
-                        [
-                            'payment_method',
-                            'method',
-                            'channel'
-                        ]
-                    );
-
-
-                return [
-
-                    formatDateOnly(
-                        paymentDate
-                    ),
-
-                    memberNumberValue,
-
-                    name,
-
-                    phone,
-
-                    amount,
-
-                    paymentType,
-
-                    status,
-
-                    paymentStatus,
-
-                    counts,
-
-                    monthlyPaid,
-
-                    formatDateOnly(
-                        periodStart
-                    ),
-
-                    formatDateOnly(
-                        periodEnd
-                    ),
-
-                    reference,
-
-                    transaction,
-
-                    method,
-
-                    formatDateOnly(
-                        payment.created_at
-                    )
-                ];
-            });
+            return [
+                formatDateOnly(
+                    p.created_at
+                ),
+                memberNumberValue,
+                name,
+                phone,
+                amount,
+                statusValue,
+                reference,
+                transaction,
+                month,
+                method
+            ];
+        });
 
 
         downloadCsv(
@@ -1544,71 +1277,52 @@ async function exportMembersCsv(evt) {
             'info'
         );
 
-
         const status =
             document.getElementById(
                 'memberStatus'
             ).value;
-
 
         const plan =
             document.getElementById(
                 'memberPlan'
             ).value;
 
+        const data = await fetchAllPages(() => {
 
-        const data =
-            await fetchAllPages(() => {
+            let query =
+                supabaseClient
+                    .from('members')
+                    .select('*')
+                    .order('created_at', {
+                        ascending: true
+                    });
 
-                let query =
-                    supabaseClient
-                        .from('members')
-                        .select('*')
-                        .order(
-                            'created_at',
-                            {
-                                ascending: true
-                            }
-                        );
+            query = applyDateRange(
+                query,
+                'memberFrom',
+                'memberTo',
+                'created_at'
+            );
 
+            if (status) {
+                query = query.eq(
+                    'status',
+                    status
+                );
+            }
 
-                query =
-                    applyDateRange(
-                        query,
-                        'memberFrom',
-                        'memberTo',
-                        'created_at'
-                    );
+            if (plan) {
+                query = query.eq(
+                    'plan_type',
+                    plan
+                );
+            }
 
-
-                if (status) {
-
-                    query =
-                        query.eq(
-                            'status',
-                            status
-                        );
-                }
-
-
-                if (plan) {
-
-                    query =
-                        query.eq(
-                            'plan_type',
-                            plan
-                        );
-                }
+            return query;
+        });
 
 
-                return query;
-            });
-
-
-        if (
-            !data ||
-            data.length === 0
-        ) {
+        if (!data || data.length === 0) {
 
             showStatus(
                 'No members found for the selected filters.',
@@ -1620,7 +1334,6 @@ async function exportMembersCsv(evt) {
 
 
         const headers = [
-
             'Date Joined',
             'Membership #',
             'Full Name',
@@ -1629,141 +1342,53 @@ async function exportMembersCsv(evt) {
             'Date of Birth',
             'Plan',
             'Status',
-            'Member Status',
             'Registration Fee',
-            'Registration Paid',
-            'Months Paid',
-            'Months Missing',
-            'Months Short',
-            'Amount Expected',
-            'Amount Paid',
-            'Payment Validation Status',
-            'Payment Validation Note',
             'Created At'
         ];
 
 
-        const rows =
-            data.map(member => {
+        const rows = data.map(m => {
 
-                const registrationFee =
-                    pickField(
-                        member,
-                        [
-                            'registration_fee',
-                            'registration_amount'
-                        ]
-                    );
+            const registrationFee =
+                pickField(m, [
+                    'registration_fee',
+                    'registration_amount'
+                ]);
 
+            return [
+                formatDateOnly(
+                    m.created_at
+                ),
 
-                const registrationPaid =
-                    pickField(
-                        member,
-                        [
-                            'registration_fee_paid'
-                        ]
-                    );
+                memberNumber(m),
 
+                memberName(m),
 
-                return [
+                memberPhone(m),
 
-                    formatDateOnly(
-                        member.created_at
-                    ),
+                memberIdNumber(m),
 
-                    memberNumber(member),
+                formatDateOnly(
+                    memberDob(m)
+                ),
 
-                    memberName(member),
+                pickField(m, [
+                    'plan_type',
+                    'plan'
+                ]),
 
-                    memberPhone(member),
+                pickField(m, [
+                    'status',
+                    'membership_status'
+                ]),
 
-                    memberIdNumber(member),
+                registrationFee,
 
-                    formatDateOnly(
-                        memberDob(member)
-                    ),
-
-                    pickField(
-                        member,
-                        [
-                            'plan_type',
-                            'plan'
-                        ]
-                    ),
-
-                    pickField(
-                        member,
-                        [
-                            'status',
-                            'membership_status'
-                        ]
-                    ),
-
-                    pickField(
-                        member,
-                        [
-                            'member_status'
-                        ]
-                    ),
-
-                    registrationFee,
-
-                    registrationPaid,
-
-                    pickField(
-                        member,
-                        [
-                            'months_paid'
-                        ]
-                    ),
-
-                    pickField(
-                        member,
-                        [
-                            'months_missing'
-                        ]
-                    ),
-
-                    pickField(
-                        member,
-                        [
-                            'months_short'
-                        ]
-                    ),
-
-                    pickField(
-                        member,
-                        [
-                            'amount_expected'
-                        ]
-                    ),
-
-                    pickField(
-                        member,
-                        [
-                            'amount_paid'
-                        ]
-                    ),
-
-                    pickField(
-                        member,
-                        [
-                            'payment_validation_status'
-                        ]
-                    ),
-
-                    pickField(
-                        member,
-                        [
-                            'payment_validation_note'
-                        ]
-                    ),
-
-                    formatDateOnly(
-                        member.created_at
-                    )
-                ];
-            });
+                formatDateOnly(
+                    m.created_at
+                )
+            ];
+        });
 
 
         downloadCsv(
@@ -1822,65 +1447,55 @@ async function exportDependantsCsv(evt) {
             'info'
         );
 
-
         const relationship =
             document.getElementById(
                 'dependantRelationship'
             ).value;
 
+        /*
+         * We request the dependant records together
+         * with their member where the FK relationship
+         * is available.
+         */
+        const data = await fetchAllPages(() => {
 
-        const data =
-            await fetchAllPages(() => {
+            let query =
+                supabaseClient
+                    .from('dependants')
+                    .select(`
+                        *,
+                        members (
+                            member_number,
+                            membership_number,
+                            full_name,
+                            first_name,
+                            last_name,
+                            phone
+                        )
+                    `)
+                    .order('created_at', {
+                        ascending: true
+                    });
 
-                let query =
-                    supabaseClient
-                        .from('dependants')
-                        .select(`
-                            *,
-                            members (
-                                member_number,
-                                membership_number,
-                                full_name,
-                                first_name,
-                                last_name,
-                                phone
-                            )
-                        `)
-                        .order(
-                            'created_at',
-                            {
-                                ascending: true
-                            }
-                        );
+            query = applyDateRange(
+                query,
+                'dependantFrom',
+                'dependantTo',
+                'created_at'
+            );
 
+            if (relationship) {
+                query = query.eq(
+                    'relationship',
+                    relationship
+                );
+            }
 
-                query =
-                    applyDateRange(
-                        query,
-                        'dependantFrom',
-                        'dependantTo',
-                        'created_at'
-                    );
-
-
-                if (relationship) {
-
-                    query =
-                        query.eq(
-                            'relationship',
-                            relationship
-                        );
-                }
+            return query;
+        });
 
 
-                return query;
-            });
-
-
-        if (
-            !data ||
-            data.length === 0
-        ) {
+        if (!data || data.length === 0) {
 
             showStatus(
                 'No dependants found for the selected filters.',
@@ -1892,7 +1507,6 @@ async function exportDependantsCsv(evt) {
 
 
         const headers = [
-
             'Date Added',
             'Membership #',
             'Principal Member Name',
@@ -1905,47 +1519,35 @@ async function exportDependantsCsv(evt) {
         ];
 
 
-        const rows =
-            data.map(dependant => {
+        const rows = data.map(d => {
 
-                const member =
-                    dependant.members ||
-                    {};
+            const member =
+                d.members || {};
 
+            return [
+                formatDateOnly(
+                    d.created_at
+                ),
 
-                return [
+                memberNumber(member),
 
-                    formatDateOnly(
-                        dependant.created_at
-                    ),
+                memberName(member),
 
-                    memberNumber(member),
+                memberPhone(member),
 
-                    memberName(member),
+                dependantName(d),
 
-                    memberPhone(member),
+                dependantRelationship(d),
 
-                    dependantName(dependant),
+                dependantPhone(d),
 
-                    dependantRelationship(
-                        dependant
-                    ),
+                formatDateOnly(
+                    dependantDob(d)
+                ),
 
-                    dependantPhone(
-                        dependant
-                    ),
-
-                    formatDateOnly(
-                        dependantDob(
-                            dependant
-                        )
-                    ),
-
-                    dependantIdNumber(
-                        dependant
-                    )
-                ];
-            });
+                dependantIdNumber(d)
+            ];
+        });
 
 
         downloadCsv(
@@ -1983,119 +1585,6 @@ async function exportDependantsCsv(evt) {
 
 
 /* =========================================================
-   WAZAZI PARENTS
-========================================================= */
-
-function extractWazaziParents(member) {
-
-    const parents = [];
-
-    const parentFields = [
-
-        {
-            number: 1,
-            name: 'parent_1_name',
-            dob: 'parent_1_dob',
-            phone: 'parent_1_phone',
-            id: 'parent_1_id',
-            relationship: 'parent_1_relationship'
-        },
-
-        {
-            number: 2,
-            name: 'parent_2_name',
-            dob: 'parent_2_dob',
-            phone: 'parent_2_phone',
-            id: 'parent_2_id',
-            relationship: 'parent_2_relationship'
-        },
-
-        {
-            number: 3,
-            name: 'parent_3_name',
-            dob: 'parent_3_dob',
-            phone: 'parent_3_phone',
-            id: 'parent_3_id',
-            relationship: 'parent_3_relationship'
-        },
-
-        {
-            number: 4,
-            name: 'parent_4_name',
-            dob: 'parent_4_dob',
-            phone: 'parent_4_phone',
-            id: 'parent_4_id',
-            relationship: 'parent_4_relationship'
-        }
-    ];
-
-
-    parentFields.forEach(field => {
-
-        const name =
-            pickField(
-                member,
-                [field.name]
-            );
-
-
-        if (!name) {
-            return;
-        }
-
-
-        const dob =
-            pickField(
-                member,
-                [field.dob]
-            );
-
-
-        const phone =
-            pickField(
-                member,
-                [field.phone]
-            );
-
-
-        const id =
-            pickField(
-                member,
-                [field.id]
-            );
-
-
-        const relationship =
-            pickField(
-                member,
-                [field.relationship]
-            ) ||
-            'Parent';
-
-
-        parents.push({
-
-            person_type: 'PARENT',
-
-            full_name: name,
-
-            relationship: relationship,
-
-            date_of_birth: dob,
-
-            national_id: id,
-
-            phone: phone
-        });
-
-    });
-
-
-    return parents;
-}
-
-
-/* =========================================================
    MEMBERS + DEPENDANTS REPORT
 ========================================================= */
 
@@ -2117,77 +1606,58 @@ async function exportMembersDependantsCsv(evt) {
             'info'
         );
 
-
         const status =
             document.getElementById(
                 'combinedStatus'
             ).value;
-
 
         const plan =
             document.getElementById(
                 'combinedPlan'
             ).value;
 
+        const data = await fetchAllPages(() => {
 
-        const data =
-            await fetchAllPages(() => {
+            let query =
+                supabaseClient
+                    .from('members')
+                    .select(`
+                        *,
+                        dependants (*)
+                    `)
+                    .order('created_at', {
+                        ascending: true
+                    });
 
-                let query =
-                    supabaseClient
-                        .from('members')
-                        .select(`
-                            *,
-                            dependants (*)
-                        `)
-                        .order(
-                            'created_at',
-                            {
-                                ascending: true
-                            }
-                        );
+            query = applyDateRange(
+                query,
+                'combinedFrom',
+                'combinedTo',
+                'created_at'
+            );
 
+            if (status) {
+                query = query.eq(
+                    'status',
+                    status
+                );
+            }
 
-                query =
-                    applyDateRange(
-                        query,
-                        'combinedFrom',
-                        'combinedTo',
-                        'created_at'
-                    );
+            if (plan) {
+                query = query.eq(
+                    'plan_type',
+                    plan
+                );
+            }
 
-
-                if (status) {
-
-                    query =
-                        query.eq(
-                            'status',
-                            status
-                        );
-                }
-
-
-                if (plan) {
-
-                    query =
-                        query.eq(
-                            'plan_type',
-                            plan
-                        );
-                }
+            return query;
+        });
 
 
-                return query;
-            });
-
-
-        if (
-            !data ||
-            data.length === 0
-        ) {
+        if (!data || data.length === 0) {
 
             showStatus(
-                'No members found for the selected filters.',
+                'No members or dependants found for the selected filters.',
                 'info'
             );
 
@@ -2196,7 +1666,6 @@ async function exportMembersDependantsCsv(evt) {
 
 
         const headers = [
-
             'Date Joined',
             'Membership #',
             'Principal Member Name',
@@ -2205,12 +1674,11 @@ async function exportMembersDependantsCsv(evt) {
             'Principal Phone',
             'Plan',
             'Member Status',
-            'Person Type',
-            'Person Name',
+            'Dependant Name',
             'Relationship',
-            'Date of Birth',
-            'ID Number',
-            'Phone'
+            'Dependant Date of Birth',
+            'Dependant ID Number',
+            'Dependant Phone'
         ];
 
 
@@ -2220,71 +1688,59 @@ async function exportMembersDependantsCsv(evt) {
         data.forEach(member => {
 
             const dependants =
-                Array.isArray(
-                    member.dependants
-                )
+                Array.isArray(member.dependants)
                     ? member.dependants
                     : [];
 
 
-            /* -----------------------------------------
-               PRINCIPAL MEMBER
-            ----------------------------------------- */
+            /*
+             * If there are no dependants,
+             * still export the principal member.
+             */
+            if (dependants.length === 0) {
 
-            rows.push([
+                rows.push([
 
-                formatDateOnly(
-                    member.created_at
-                ),
+                    formatDateOnly(
+                        member.created_at
+                    ),
 
-                memberNumber(member),
+                    memberNumber(member),
 
-                memberName(member),
+                    memberName(member),
 
-                memberIdNumber(member),
+                    memberIdNumber(member),
 
-                formatDateOnly(
-                    memberDob(member)
-                ),
+                    formatDateOnly(
+                        memberDob(member)
+                    ),
 
-                memberPhone(member),
+                    memberPhone(member),
 
-                pickField(
-                    member,
-                    [
+                    pickField(member, [
                         'plan_type',
                         'plan'
-                    ]
-                ),
+                    ]),
 
-                pickField(
-                    member,
-                    [
+                    pickField(member, [
                         'status',
-                        'member_status',
                         'membership_status'
-                    ]
-                ),
+                    ]),
 
-                'PRINCIPAL',
+                    '',
 
-                memberName(member),
+                    '',
 
-                'Principal',
+                    '',
 
-                formatDateOnly(
-                    memberDob(member)
-                ),
+                    '',
 
-                memberIdNumber(member),
+                    ''
+                ]);
 
-                memberPhone(member)
-            ]);
+                return;
+            }
 
-
-            /* -----------------------------------------
-               DEPENDANTS TABLE
-            ----------------------------------------- */
 
             dependants.forEach(dependant => {
 
@@ -2306,37 +1762,24 @@ async function exportMembersDependantsCsv(evt) {
 
                     memberPhone(member),
 
-                    pickField(
-                        member,
-                        [
-                            'plan_type',
-                            'plan'
-                        ]
-                    ),
+                    pickField(member, [
+                        'plan_type',
+                        'plan'
+                    ]),
 
-                    pickField(
-                        member,
-                        [
-                            'status',
-                            'member_status',
-                            'membership_status'
-                        ]
-                    ),
+                    pickField(member, [
+                        'status',
+                        'membership_status'
+                    ]),
 
-                    'DEPENDANT',
-
-                    dependantName(
-                        dependant
-                    ),
+                    dependantName(dependant),
 
                     dependantRelationship(
                         dependant
                     ),
 
                     formatDateOnly(
-                        dependantDob(
-                            dependant
-                        )
+                        dependantDob(dependant)
                     ),
 
                     dependantIdNumber(
@@ -2346,70 +1789,6 @@ async function exportMembersDependantsCsv(evt) {
                     dependantPhone(
                         dependant
                     )
-                ]);
-            });
-
-
-            /* -----------------------------------------
-               WAZAZI PARENTS
-            ----------------------------------------- */
-
-            const parents =
-                extractWazaziParents(
-                    member
-                );
-
-
-            parents.forEach(parent => {
-
-                rows.push([
-
-                    formatDateOnly(
-                        member.created_at
-                    ),
-
-                    memberNumber(member),
-
-                    memberName(member),
-
-                    memberIdNumber(member),
-
-                    formatDateOnly(
-                        memberDob(member)
-                    ),
-
-                    memberPhone(member),
-
-                    pickField(
-                        member,
-                        [
-                            'plan_type',
-                            'plan'
-                        ]
-                    ),
-
-                    pickField(
-                        member,
-                        [
-                            'status',
-                            'member_status',
-                            'membership_status'
-                        ]
-                    ),
-
-                    parent.person_type,
-
-                    parent.full_name,
-
-                    parent.relationship,
-
-                    formatDateOnly(
-                        parent.date_of_birth
-                    ),
-
-                    parent.national_id,
-
-                    parent.phone
                 ]);
             });
 
@@ -2451,31 +1830,6 @@ async function exportMembersDependantsCsv(evt) {
 
 
 /* =========================================================
-   LOCAL DATE
-========================================================= */
-
-function getLocalDateString(
-    date = new Date()
-) {
-
-    const year =
-        date.getFullYear();
-
-    const month =
-        String(
-            date.getMonth() + 1
-        ).padStart(2, '0');
-
-    const day =
-        String(
-            date.getDate()
-        ).padStart(2, '0');
-
-    return `${year}-${month}-${day}`;
-}
-
-
-/* =========================================================
    GLOBAL EXPORTS
 ========================================================= */
 
@@ -2502,10 +1856,7 @@ document.addEventListener(
 
         try {
 
-            /*
-             * Deliberately leave all report dates blank.
-             * Blank dates mean "all records".
-             */
+            setDefaultDates();
 
             const authorized =
                 await checkAuth();
@@ -2529,7 +1880,6 @@ document.addEventListener(
         }
     }
 );
-
 </script>
 
 </body>
