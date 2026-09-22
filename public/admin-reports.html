@@ -1221,8 +1221,8 @@
                 const headers = ['ID', 'Member Name', 'Membership #', 'Amount', 'Payment Type', 'Status', 'M-Pesa Code', 'Date'];
                 const rows = data.map(p => [
                     p.id || '',
-                    p.member_name || p.membership_number || '',
-                    p.membership_number || '',
+                    p.member_name || p.member_number || '',
+                    p.member_number || '',
                     p.amount || 0,
                     p.payment_type || '',
                     p.status || '',
@@ -1295,11 +1295,10 @@
                 }
 
                 // Generate CSV
-                const headers = ['Membership #', 'First Name', 'Last Name', 'Phone', 'Email', 'Plan', 'Status', 'County', 'Town', 'Joined'];
+                const headers = ['Membership #', 'Full Name', 'Phone', 'Email', 'Plan', 'Status', 'County', 'Town', 'Joined'];
                 const rows = data.map(m => [
-                    m.membership_number || '',
-                    m.first_name || '',
-                    m.last_name || '',
+                    m.member_number || '',
+                    m.full_name || '',
                     m.phone || '',
                     m.email || '',
                     m.plan_type || '',
@@ -1345,7 +1344,7 @@
                 const to = document.getElementById('dependantsTo').value;
                 const relationship = document.getElementById('dependantsRelationship').value;
 
-                let query = supabaseClient.from('dependants').select('*, members(first_name, last_name, membership_number)');
+                let query = supabaseClient.from('dependants').select('*, members(full_name, member_number)');
 
                 if (from) {
                     query = query.gte('created_at', `${from}T00:00:00`);
@@ -1372,8 +1371,8 @@
                 // Generate CSV
                 const headers = ['Member Name', 'Membership #', 'Dependant Name', 'Relationship', 'Date of Birth', 'Added'];
                 const rows = data.map(d => [
-                    d.members ? `${d.members.first_name || ''} ${d.members.last_name || ''}`.trim() : '',
-                    d.members ? d.members.membership_number || '' : '',
+                    d.members ? d.members.full_name || '' : '',
+                    d.members ? d.members.member_number || '' : '',
                     `${d.first_name || ''} ${d.last_name || ''}`.trim(),
                     d.relationship || '',
                     d.date_of_birth || '',
@@ -1465,7 +1464,7 @@
 
                 data.forEach(m => {
                     const dateJoined = formatDateOnly(m.created_at);
-                    const principalName = `${m.first_name || ''} ${m.last_name || ''}`.trim();
+                    const principalName = m.full_name || '';
                     const principalId = memberIdNumber(m);
                     const principalDob = formatDateOnly(memberDob(m));
                     const dependants = Array.isArray(m.dependants) ? m.dependants : [];
@@ -1473,7 +1472,7 @@
                     if (dependants.length === 0) {
                         rows.push([
                             dateJoined,
-                            m.membership_number || '',
+                            m.member_number || '',
                             principalName,
                             principalId,
                             principalDob,
