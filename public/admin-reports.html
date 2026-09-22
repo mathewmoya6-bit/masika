@@ -892,7 +892,7 @@
 
                     <div class="filter-row">
                         <div class="filter-group">
-                            <label>Registered From</label>
+                            <label>Registered From <span style="font-weight:400;color:var(--text-lighter)">(blank = all time)</span></label>
                             <input type="date" id="mdFrom">
                         </div>
                         <div class="filter-group">
@@ -1130,8 +1130,10 @@
             document.getElementById('membersTo').value = formatDate(today);
             document.getElementById('dependantsFrom').value = formatDate(thirtyDaysAgo);
             document.getElementById('dependantsTo').value = formatDate(today);
-            document.getElementById('mdFrom').value = formatDate(thirtyDaysAgo);
-            document.getElementById('mdTo').value = formatDate(today);
+            // Members & Dependants intentionally starts blank (all-time) —
+            // it's meant as a full membership+dependant listing, not a
+            // recent-activity report. Leaving these empty means no date
+            // filter is applied unless the admin sets one.
         }
 
         // ============================================================
