@@ -1234,12 +1234,23 @@
         document.addEventListener('DOMContentLoaded', async function() {
             console.log('📄 DOM loaded');
 
-            // Check localStorage first
+            // Check localStorage first, but always confirm the Supabase session
+            // is still valid before trusting the cached staff record.
             const storedStaff = localStorage.getItem('admin_user');
             if (storedStaff) {
                 try {
+                    const { data: { session }, error: sessionError } = await supabaseClient.auth.getSession();
+
+                    if (sessionError || !session) {
+                        console.warn('⚠️ Cached admin_user found but session is invalid/expired');
+                        localStorage.removeItem('admin_user');
+                        localStorage.removeItem('admin_session');
+                        window.location.href = 'admin-login.html';
+                        return;
+                    }
+
                     currentStaff = JSON.parse(storedStaff);
-                    console.log('✅ Staff loaded from localStorage:', currentStaff.full_name);
+                    console.log('✅ Staff loaded from localStorage, session verified:', currentStaff.full_name);
                     updateAdminUI(currentStaff);
                     await loadDashboardData();
                     setupRealtime();
@@ -1432,6 +1443,69 @@
                 .replace(/'/g, '&#039;');
         }
 
+        function normalizePaymentStatus(payment) {
+            const status = String(
+                payment?.status ||
+                payment?.payment_status ||
+                ''
+            ).trim().toLowerCase();
+
+            if (['completed', 'success', 'successful', 'confirmed'].includes(status)) {
+                return {
+                    value: 'completed',
+                    label: 'Completed',
+                    className: 'completed'
+                };
+            }
+
+            if (['failed', 'cancelled', 'canceled', 'rejected'].includes(status)) {
+                return {
+                    value: 'failed',
+                    label: 'Failed',
+                    className: 'failed'
+                };
+            }
+
+            if (status === 'pending') {
+                return {
+                    value: 'pending',
+                    label: 'Pending',
+                    className: 'pending'
+                };
+            }
+
+            return {
+                value: status || 'unknown',
+                label: status ? status.charAt(0).toUpperCase() + status.slice(1) : 'Unknown',
+                className: 'pending'
+            };
+        }
+
+        function getPaymentTransactionReference(payment) {
+            return (
+                payment?.transaction_reference ||
+                payment?.reference ||
+                payment?.account_reference ||
+                '—'
+            );
+        }
+
+        function getMpesaReceipt(payment) {
+            return (
+                payment?.mpesa_receipt_number ||
+                payment?.mpesa_receipt ||
+                '—'
+            );
+        }
+
+        function getPaymentPhone(payment) {
+            return (
+                payment?.phone ||
+                payment?.phone_number ||
+                '—'
+            );
+        }
+
         function setLiveStatus(status) {
             const indicator = document.getElementById('liveIndicator');
             const label = document.getElementById('liveIndicatorLabel');
@@ -1522,11 +1596,16 @@
                 // ============================================
                 // 6. REVENUE CALCULATIONS
                 // ============================================
-                const completedPayments = payments.filter(p =>
-                    p.payment_status === 'SUCCESSFUL' ||
-                    p.status === 'completed' ||
-                    p.status === 'confirmed'
-                );
+                const completedPayments = payments.filter(p => {
+                    const status = String(
+                        p.status ||
+                        p.payment_status ||
+                        ''
+                    ).trim().toLowerCase();
+
+                    return ['completed', 'success', 'successful', 'confirmed']
+                        .includes(status);
+                });
                 const totalRevenue = completedPayments.reduce((sum, p) => sum + (p.amount || 0), 0);
 
                 // Today
@@ -1545,16 +1624,30 @@
                 const monthRevenue = monthPayments.reduce((sum, p) => sum + (p.amount || 0), 0);
 
                 // Unassigned
-                const unassignedPayments = payments.filter(p =>
-                    (p.payment_status === 'SUCCESSFUL' || p.status === 'completed') &&
-                    !p.member_id
-                );
+                const unassignedPayments = payments.filter(p => {
+                    const status = String(
+                        p.status ||
+                        p.payment_status ||
+                        ''
+                    ).trim().toLowerCase();
+
+                    return (
+                        ['completed', 'success', 'successful', 'confirmed'].includes(status) &&
+                        !p.member_id
+                    );
+                });
                 const unassignedTotal = unassignedPayments.reduce((sum, p) => sum + (p.amount || 0), 0);
 
                 // Pending
-                const pendingPayments = payments.filter(p =>
-                    p.payment_status === 'PENDING' || p.status === 'pending'
-                );
+                const pendingPayments = payments.filter(p => {
+                    const status = String(
+                        p.status ||
+                        p.payment_status ||
+                        ''
+                    ).trim().toLowerCase();
+
+                    return status === 'pending';
+                });
                 const pendingTotal = pendingPayments.reduce((sum, p) => sum + (p.amount || 0), 0);
 
                 console.log('💰 Revenue - Today:', todayRevenue, 'Month:', monthRevenue, 'Total:', totalRevenue);
@@ -1736,14 +1829,18 @@
                         account_reference,
                         status,
                         reference,
-                        created_at
+                        failure_reason,
+                        checkout_request_id,
+                        merchant_request_id,
+                        created_at,
+                        updated_at
                     `)
                     .order('created_at', { ascending: false })
                     .limit(10);
 
                 if (error) {
                     console.error('❌ Recent payments error:', error);
-                    return;
+                    throw error;
                 }
 
                 console.log('📋 Recent payments:', data?.length || 0);
@@ -1770,43 +1867,97 @@
                         <table>
                             <thead>
                                 <tr>
-                                    <th>Account / Reference</th>
+                                    <th>Transaction Reference</th>
+                                    <th>Phone</th>
                                     <th>Amount</th>
                                     <th>Status</th>
+                                    <th>M-Pesa Receipt</th>
                                     <th>Date</th>
                                 </tr>
                             </thead>
+
                             <tbody>
                                 ${data.map(payment => {
-                                    const paymentStatus = String(payment.payment_status || payment.status || '').toUpperCase();
-                                    let badgeClass = 'pending';
 
-                                    if (paymentStatus === 'SUCCESSFUL' || paymentStatus === 'COMPLETED' || paymentStatus === 'CONFIRMED') {
-                                        badgeClass = 'successful';
-                                    } else if (paymentStatus === 'FAILED') {
-                                        badgeClass = 'failed';
-                                    }
+                                    const status = normalizePaymentStatus(payment);
+                                    const transactionReference =
+                                        getPaymentTransactionReference(payment);
 
-                                    const receipt = payment.mpesa_receipt_number || payment.mpesa_receipt || payment.transaction_reference || payment.reference || '—';
-                                    const phone = payment.phone_number || payment.phone || '—';
-                                    const account = payment.account_number || payment.account_reference || 'Payment';
+                                    const receipt =
+                                        getMpesaReceipt(payment);
+
+                                    const phone =
+                                        getPaymentPhone(payment);
+
+                                    const failureReason =
+                                        payment.failure_reason || '';
 
                                     return `
                                         <tr>
                                             <td>
-                                                <strong>${escapeHtml(account)}</strong>
-                                                <small style="display:block;font-size:12px;color:var(--text-light);">${escapeHtml(phone)}</small>
+                                                <strong>
+                                                    ${escapeHtml(transactionReference)}
+                                                </strong>
+
+                                                ${
+                                                    payment.checkout_request_id
+                                                    ? `
+                                                        <small style="
+                                                            display:block;
+                                                            font-size:11px;
+                                                            color:var(--text-light);
+                                                            margin-top:3px;
+                                                        ">
+                                                            ${escapeHtml(payment.checkout_request_id)}
+                                                        </small>
+                                                    `
+                                                    : ''
+                                                }
                                             </td>
+
                                             <td>
-                                                <strong>${formatKES(payment.amount)}</strong>
-                                                <small style="display:block;font-size:12px;color:var(--text-light);">${escapeHtml(receipt)}</small>
+                                                ${escapeHtml(phone)}
                                             </td>
+
                                             <td>
-                                                <span class="status-badge ${badgeClass}">
-                                                    ${escapeHtml(payment.payment_status || payment.status || 'UNKNOWN')}
+                                                <strong>
+                                                    ${formatKES(payment.amount)}
+                                                </strong>
+                                            </td>
+
+                                            <td>
+                                                <span class="status-badge ${status.className}">
+                                                    ${escapeHtml(status.label)}
                                                 </span>
+
+                                                ${
+                                                    failureReason
+                                                    ? `
+                                                        <small style="
+                                                            display:block;
+                                                            font-size:11px;
+                                                            color:var(--danger);
+                                                            margin-top:4px;
+                                                        ">
+                                                            ${escapeHtml(failureReason)}
+                                                        </small>
+                                                    `
+                                                    : ''
+                                                }
                                             </td>
-                                            <td>${formatDate(payment.payment_date || payment.created_at)}</td>
+
+                                            <td>
+                                                <strong>
+                                                    ${escapeHtml(receipt)}
+                                                </strong>
+                                            </td>
+
+                                            <td>
+                                                ${formatDate(
+                                                    payment.payment_date ||
+                                                    payment.created_at
+                                                )}
+                                            </td>
                                         </tr>
                                     `;
                                 }).join('')}
@@ -1817,12 +1968,23 @@
 
             } catch (error) {
                 console.error('❌ Load recent payments error:', error);
-                document.getElementById('recentPayments').innerHTML = `
-                    <div class="error-state">
-                        <i class="fas fa-exclamation-triangle"></i>
-                        <p>Failed to load payments</p>
-                    </div>
-                `;
+
+                const container = document.getElementById('recentPayments');
+
+                if (container) {
+                    container.innerHTML = `
+                        <div class="error-state">
+                            <i class="fas fa-exclamation-triangle"></i>
+                            <p>Failed to load payments</p>
+                            <button
+                                class="btn btn-primary btn-sm mt-3"
+                                onclick="loadRecentPayments()"
+                            >
+                                <i class="fas fa-sync"></i> Try Again
+                            </button>
+                        </div>
+                    `;
+                }
             }
         }
 
@@ -1833,7 +1995,7 @@
             console.log('📋 Loading unassigned payments...');
 
             try {
-                const { data, error } = await supabaseClient
+                const { data: allData, error } = await supabaseClient
                     .from('payments')
                     .select(`
                         id,
@@ -1849,16 +2011,30 @@
                         mpesa_receipt,
                         mpesa_receipt_number,
                         transaction_reference,
+                        status,
+                        reference,
                         created_at
                     `)
-                    .eq('payment_status', 'SUCCESSFUL')
-                    .is('member_id', null)
-                    .order('created_at', { ascending: false });
+                    .order('created_at', { ascending: false })
+                    .limit(100);
 
                 if (error) {
                     console.error('❌ Unassigned payments error:', error);
                     return;
                 }
+
+                const data = (allData || []).filter(payment => {
+                    const status = String(
+                        payment.status ||
+                        payment.payment_status ||
+                        ''
+                    ).trim().toLowerCase();
+
+                    return (
+                        ['completed', 'success', 'successful', 'confirmed'].includes(status) &&
+                        !payment.member_id
+                    );
+                });
 
                 console.log('📋 Unassigned payments:', data?.length || 0);
 
@@ -2021,7 +2197,7 @@
         // ============================================================
         window.assignPayment = async function(paymentId) {
             if (!paymentId) {
-                showToast('Payment ID is required.', 'error');
+                showToast('error', 'Payment ID is required.');
                 return;
             }
 
@@ -2036,7 +2212,7 @@
                     .single();
 
                 if (memberError || !member) {
-                    showToast('Member not found. Please check the membership number.', 'error');
+                    showToast('error', 'Member not found. Please check the membership number.');
                     return;
                 }
 
@@ -2053,17 +2229,17 @@
 
                 if (updateError) {
                     console.error('Assign payment error:', updateError);
-                    showToast(`Unable to assign payment: ${updateError.message}`, 'error');
+                    showToast('error', `Unable to assign payment: ${updateError.message}`);
                     return;
                 }
 
                 console.log('✅ Payment assigned:', data);
-                showToast(`Payment assigned to ${member.membership_number} successfully.`, 'success');
+                showToast('success', `Payment assigned to ${member.membership_number} successfully.`);
                 await loadDashboardData();
 
             } catch (error) {
                 console.error('❌ Assign payment error:', error);
-                showToast('Failed to assign payment: ' + error.message, 'error');
+                showToast('error', 'Failed to assign payment: ' + error.message);
             }
         };
 
