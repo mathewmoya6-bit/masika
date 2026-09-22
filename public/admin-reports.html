@@ -34,6 +34,8 @@
             --warning-light: #fff3cd;
             --info: #0dcaf0;
             --info-light: #d1f0f9;
+            --purple: #6f42c1;
+            --purple-light: #ece3fb;
             --text: #1f2933;
             --text-light: #6b7280;
             --text-lighter: #9ca3af;
@@ -400,6 +402,16 @@
             box-shadow: 0 4px 16px rgba(13, 202, 240, 0.3);
         }
 
+        .btn-purple {
+            background: var(--purple);
+            color: white;
+        }
+        .btn-purple:hover {
+            background: #5a34a0;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 16px rgba(111, 66, 193, 0.3);
+        }
+
         .btn-outline {
             background: transparent;
             border: 2px solid var(--gray-200);
@@ -474,6 +486,7 @@
         .card-header i.payments-icon { background: var(--success); }
         .card-header i.members-icon { background: var(--gold); }
         .card-header i.dependants-icon { background: var(--info); }
+        .card-header i.memberdep-icon { background: var(--purple); }
 
         /* ============================================================
            FILTERS
@@ -870,6 +883,52 @@
                     <div class="report-status" id="dependantsStatusMsg"></div>
                 </div>
 
+                <!-- Members & Dependants (combined) Report -->
+                <div class="card">
+                    <div class="card-header">
+                        <i class="fas fa-address-card memberdep-icon"></i>
+                        <h3>Members & Dependants</h3>
+                    </div>
+
+                    <div class="filter-row">
+                        <div class="filter-group">
+                            <label>Registered From</label>
+                            <input type="date" id="mdFrom">
+                        </div>
+                        <div class="filter-group">
+                            <label>Registered To</label>
+                            <input type="date" id="mdTo">
+                        </div>
+                    </div>
+
+                    <div class="filter-group">
+                        <label>Member Status</label>
+                        <select id="mdStatus">
+                            <option value="">All statuses</option>
+                            <option value="ACTIVE">Active</option>
+                            <option value="DORMANT">Dormant</option>
+                            <option value="SUSPENDED">Suspended</option>
+                            <option value="CANCELLED">Cancelled</option>
+                            <option value="PENDING">Pending</option>
+                        </select>
+                    </div>
+
+                    <div class="filter-group">
+                        <label>Plan Type</label>
+                        <select id="mdPlan">
+                            <option value="">All Plans</option>
+                            <option value="comfort">Comfort</option>
+                            <option value="dignity">Dignity</option>
+                            <option value="wazazi">Wazazi</option>
+                        </select>
+                    </div>
+
+                    <button class="btn btn-purple btn-block" onclick="exportMembersDependantsCsv()" id="exportMembersDependantsBtn">
+                        <i class="fas fa-download"></i> Export Members & Dependants CSV
+                    </button>
+                    <div class="report-status" id="membersDependantsStatusMsg"></div>
+                </div>
+
             </div>
 
         </main>
@@ -1071,6 +1130,47 @@
             document.getElementById('membersTo').value = formatDate(today);
             document.getElementById('dependantsFrom').value = formatDate(thirtyDaysAgo);
             document.getElementById('dependantsTo').value = formatDate(today);
+            document.getElementById('mdFrom').value = formatDate(thirtyDaysAgo);
+            document.getElementById('mdTo').value = formatDate(today);
+        }
+
+        // ============================================================
+        // FIELD FALLBACK HELPERS
+        // Different installs may name these columns differently, so
+        // try the common variants instead of hard failing on one name.
+        // ============================================================
+
+        function pickField(obj, candidates) {
+            if (!obj) return '';
+            for (const key of candidates) {
+                if (obj[key] !== undefined && obj[key] !== null && obj[key] !== '') {
+                    return obj[key];
+                }
+            }
+            return '';
+        }
+
+        function memberIdNumber(m) {
+            return pickField(m, ['national_id', 'id_number', 'national_id_number', 'id_no', 'nid']);
+        }
+
+        function memberDob(m) {
+            return pickField(m, ['date_of_birth', 'dob', 'birth_date']);
+        }
+
+        function dependantIdNumber(d) {
+            return pickField(d, ['national_id', 'id_number', 'national_id_number', 'id_no', 'nid']);
+        }
+
+        function dependantDob(d) {
+            return pickField(d, ['date_of_birth', 'dob', 'birth_date']);
+        }
+
+        function formatDateOnly(value) {
+            if (!value) return '';
+            const d = new Date(value);
+            if (isNaN(d.getTime())) return String(value);
+            return d.toLocaleDateString('en-KE');
         }
 
         // ============================================================
@@ -1297,6 +1397,127 @@
         };
 
         // ============================================================
+        // EXPORT MEMBERS & DEPENDANTS CSV (combined)
+        // One row per dependant, joined to their principal member.
+        // Members with no dependants still get one row (dependant
+        // columns blank) so every member is represented.
+        // ============================================================
+
+        window.exportMembersDependantsCsv = async function() {
+            const btn = document.getElementById('exportMembersDependantsBtn');
+            const statusMsg = document.getElementById('membersDependantsStatusMsg');
+
+            btn.disabled = true;
+            btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Exporting...';
+            statusMsg.className = 'report-status info';
+            statusMsg.textContent = 'Fetching member and dependant data...';
+
+            try {
+                const from = document.getElementById('mdFrom').value;
+                const to = document.getElementById('mdTo').value;
+                const status = document.getElementById('mdStatus').value;
+                const plan = document.getElementById('mdPlan').value;
+
+                // Pull each member together with their embedded dependants
+                // via the members -> dependants relationship.
+                let query = supabaseClient.from('members').select('*, dependants(*)');
+
+                if (from) {
+                    query = query.gte('created_at', `${from}T00:00:00`);
+                }
+                if (to) {
+                    query = query.lte('created_at', `${to}T23:59:59`);
+                }
+                if (status) {
+                    query = query.eq('status', status);
+                }
+                if (plan) {
+                    query = query.eq('plan_type', plan);
+                }
+
+                const { data, error } = await query.order('created_at', { ascending: false });
+
+                if (error) throw error;
+
+                if (!data || data.length === 0) {
+                    statusMsg.className = 'report-status warning';
+                    statusMsg.textContent = 'No members found for the selected filters.';
+                    btn.disabled = false;
+                    btn.innerHTML = '<i class="fas fa-download"></i> Export Members & Dependants CSV';
+                    return;
+                }
+
+                const headers = [
+                    'Date Joined',
+                    'Membership #',
+                    'Principal Member Name',
+                    'Principal ID Number',
+                    'Principal Date of Birth',
+                    'Dependant Name',
+                    'Relationship',
+                    'Dependant Date of Birth',
+                    'Dependant ID Number'
+                ];
+
+                const rows = [];
+
+                data.forEach(m => {
+                    const dateJoined = formatDateOnly(m.created_at);
+                    const principalName = `${m.first_name || ''} ${m.last_name || ''}`.trim();
+                    const principalId = memberIdNumber(m);
+                    const principalDob = formatDateOnly(memberDob(m));
+                    const dependants = Array.isArray(m.dependants) ? m.dependants : [];
+
+                    if (dependants.length === 0) {
+                        rows.push([
+                            dateJoined,
+                            m.membership_number || '',
+                            principalName,
+                            principalId,
+                            principalDob,
+                            '',
+                            '',
+                            '',
+                            ''
+                        ]);
+                        return;
+                    }
+
+                    dependants.forEach(d => {
+                        const dependantName = `${d.first_name || ''} ${d.last_name || ''}`.trim();
+                        rows.push([
+                            dateJoined,
+                            m.membership_number || '',
+                            principalName,
+                            principalId,
+                            principalDob,
+                            dependantName,
+                            d.relationship || '',
+                            formatDateOnly(dependantDob(d)),
+                            dependantIdNumber(d)
+                        ]);
+                    });
+                });
+
+                downloadCSV(headers, rows, `members_dependants_${new Date().toISOString().split('T')[0]}`);
+
+                statusMsg.className = 'report-status success';
+                statusMsg.textContent = `✅ ${data.length} members (${rows.length} rows) exported successfully!`;
+
+                showToast('success', `${rows.length} rows exported`);
+
+            } catch (error) {
+                console.error('Export members & dependants error:', error);
+                statusMsg.className = 'report-status error';
+                statusMsg.textContent = '❌ Failed to export. Check that the members ↔ dependants relationship is set up in Supabase.';
+                showToast('error', 'Failed to export members & dependants');
+            } finally {
+                btn.disabled = false;
+                btn.innerHTML = '<i class="fas fa-download"></i> Export Members & Dependants CSV';
+            }
+        };
+
+        // ============================================================
         // DOWNLOAD CSV HELPER
         // ============================================================
 
@@ -1439,6 +1660,7 @@
         window.exportPaymentsCsv = exportPaymentsCsv;
         window.exportMembersCsv = exportMembersCsv;
         window.exportDependantsCsv = exportDependantsCsv;
+        window.exportMembersDependantsCsv = exportMembersDependantsCsv;
         window.handleLogout = handleLogout;
         window.showToast = showToast;
         window.setDefaultDates = setDefaultDates;
