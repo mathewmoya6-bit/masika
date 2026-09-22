@@ -1,1886 +1,1672 @@
-<!DOCTYPE html>
+ <!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Reports | Masika Benevolent</title>
+    <link rel="icon" type="image/png" sizes="32x32" href="assets/branding/favicon-32.png">
 
+    <!-- =========================================================
+         SUPABASE & EXTERNAL JS
+         ========================================================= -->
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
 
     <style>
-        * {
-            box-sizing: border-box;
+        /* ============================================================
+           REPORTS STYLES
+           ============================================================ */
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        :root {
+            --primary: #0b5d3b;
+            --primary-dark: #06452c;
+            --primary-light: #e8f5ee;
+            --gold: #d4a843;
+            --gold-light: #f5e6b8;
+            --danger: #dc3545;
+            --danger-light: #fce4e8;
+            --success: #198754;
+            --success-light: #d4edda;
+            --warning: #ffc107;
+            --warning-light: #fff3cd;
+            --info: #0dcaf0;
+            --info-light: #d1f0f9;
+            --purple: #6f42c1;
+            --purple-light: #ece3fb;
+            --text: #1f2933;
+            --text-light: #6b7280;
+            --text-lighter: #9ca3af;
+            --white: #ffffff;
+            --gray-50: #f9fafb;
+            --gray-100: #f3f4f6;
+            --gray-200: #e5e7eb;
+            --gray-300: #d1d5db;
+            --gray-400: #9ca3af;
+            --shadow: 0 2px 12px rgba(0,0,0,0.08);
+            --shadow-hover: 0 4px 24px rgba(0,0,0,0.12);
+            --radius: 12px;
+            --radius-lg: 16px;
+            --transition: all 0.3s ease;
         }
 
         body {
-            margin: 0;
-            font-family: Arial, Helvetica, sans-serif;
-            background: #f4f6f8;
-            color: #222;
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif;
+            background: #f0f4f2;
+            color: var(--text);
+            min-height: 100vh;
         }
+
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        ::-webkit-scrollbar-track { background: var(--gray-100); border-radius: 10px; }
+        ::-webkit-scrollbar-thumb { background: var(--gray-300); border-radius: 10px; }
+        ::-webkit-scrollbar-thumb:hover { background: var(--gray-400); }
+
+        .admin-layout { display: flex; min-height: 100vh; }
+
+        /* ============================================================
+           SIDEBAR
+           ============================================================ */
 
         .sidebar {
+            width: 280px;
+            background: var(--primary);
+            color: white;
+            padding: 24px 0;
             position: fixed;
-            left: 0;
-            top: 0;
-            bottom: 0;
-            width: 240px;
-            background: #111827;
-            color: #fff;
-            padding: 20px 0;
+            height: 100vh;
             overflow-y: auto;
+            transition: var(--transition);
+            z-index: 100;
+            display: flex;
+            flex-direction: column;
         }
 
-        .sidebar .brand {
-            padding: 0 20px 25px;
+        .sidebar::-webkit-scrollbar { width: 4px; }
+        .sidebar::-webkit-scrollbar-track { background: rgba(255,255,255,0.05); }
+        .sidebar::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.2); border-radius: 10px; }
+
+        .sidebar-brand {
+            padding: 0 24px 24px;
+            border-bottom: 1px solid rgba(255,255,255,0.08);
+            margin-bottom: 20px;
+            flex-shrink: 0;
+        }
+
+        .sidebar-brand .logo {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            text-decoration: none;
+            color: white;
+        }
+
+        .sidebar-brand .logo-icon {
+            width: 44px;
+            height: 44px;
+            background: var(--gold);
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 900;
+            color: var(--white);
             font-size: 20px;
+        }
+
+        .sidebar-brand .logo-text {
+            font-weight: 800;
+            font-size: 20px;
+            letter-spacing: -0.5px;
+        }
+
+        .sidebar-brand .logo-sub {
+            font-size: 11px;
+            opacity: 0.6;
+            display: block;
+            font-weight: 400;
+            letter-spacing: 0.5px;
+            text-transform: uppercase;
+        }
+
+        .sidebar-nav {
+            list-style: none;
+            padding: 0 12px;
+            flex: 1;
+        }
+
+        .sidebar-nav li { margin-bottom: 2px; }
+
+        .sidebar-nav .nav-label {
+            font-size: 10px;
+            text-transform: uppercase;
+            letter-spacing: 0.8px;
+            color: rgba(255,255,255,0.3);
+            padding: 12px 16px 6px;
             font-weight: 700;
         }
 
-        .sidebar a {
-            display: block;
-            padding: 13px 20px;
-            color: #d1d5db;
+        .sidebar-nav a {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 11px 16px;
+            border-radius: 10px;
+            color: rgba(255,255,255,0.65);
             text-decoration: none;
+            transition: var(--transition);
+            font-size: 14px;
+            font-weight: 500;
+            position: relative;
+        }
+
+        .sidebar-nav a:hover {
+            background: rgba(255,255,255,0.08);
+            color: white;
+        }
+
+        .sidebar-nav a.active {
+            background: rgba(255,255,255,0.12);
+            color: white;
+        }
+
+        .sidebar-nav a.active::before {
+            content: '';
+            position: absolute;
+            left: 0;
+            top: 20%;
+            height: 60%;
+            width: 3px;
+            background: var(--gold);
+            border-radius: 0 3px 3px 0;
+        }
+
+        .sidebar-nav a i {
+            width: 20px;
+            text-align: center;
+            font-size: 16px;
+        }
+
+        .sidebar-nav .badge {
+            margin-left: auto;
+            background: var(--gold);
+            color: white;
+            padding: 1px 10px;
+            border-radius: 12px;
+            font-size: 11px;
+            font-weight: 700;
+            min-width: 20px;
+            text-align: center;
+        }
+
+        .sidebar-footer {
+            padding: 16px 24px;
+            border-top: 1px solid rgba(255,255,255,0.08);
+            margin-top: auto;
+            flex-shrink: 0;
+        }
+
+        .sidebar-footer .user-info {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .sidebar-footer .user-avatar {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            background: var(--gold);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 700;
+            font-size: 16px;
+            color: white;
+            flex-shrink: 0;
+        }
+
+        .sidebar-footer .user-name {
+            font-weight: 600;
             font-size: 14px;
         }
 
-        .sidebar a:hover,
-        .sidebar a.active {
-            background: #1f2937;
-            color: #fff;
+        .sidebar-footer .user-role {
+            font-size: 12px;
+            opacity: 0.5;
         }
 
-        .main {
-            margin-left: 240px;
-            padding: 25px;
+        .sidebar-footer .logout-btn {
+            display: block;
+            width: 100%;
+            margin-top: 12px;
+            padding: 10px;
+            border: 1px solid rgba(255,255,255,0.15);
+            border-radius: 10px;
+            background: transparent;
+            color: rgba(255,255,255,0.6);
+            cursor: pointer;
+            transition: var(--transition);
+            font-family: inherit;
+            font-size: 14px;
+            font-weight: 500;
         }
+
+        .sidebar-footer .logout-btn:hover {
+            background: rgba(255,255,255,0.08);
+            color: white;
+            border-color: rgba(255,255,255,0.3);
+        }
+
+        /* ============================================================
+           SIDEBAR BACKDROP
+           ============================================================ */
+
+        .sidebar-backdrop {
+            display: none;
+            position: fixed;
+            inset: 0;
+            background: rgba(0,0,0,0.5);
+            backdrop-filter: blur(4px);
+            z-index: 99;
+        }
+
+        .sidebar-backdrop.show { display: block; }
+
+        /* ============================================================
+           MAIN CONTENT
+           ============================================================ */
+
+        .main-content {
+            margin-left: 280px;
+            padding: 24px 32px 40px;
+            flex: 1;
+            width: calc(100% - 280px);
+            min-height: 100vh;
+        }
+
+        /* ============================================================
+           TOPBAR
+           ============================================================ */
 
         .topbar {
             display: flex;
             justify-content: space-between;
             align-items: center;
-            margin-bottom: 25px;
-            gap: 15px;
+            margin-bottom: 28px;
+            flex-wrap: wrap;
+            gap: 12px;
+        }
+
+        .topbar-left {
+            display: flex;
+            align-items: center;
+            gap: 16px;
         }
 
         .topbar h1 {
-            margin: 0;
-            font-size: 26px;
+            font-size: 28px;
+            font-weight: 800;
+            letter-spacing: -0.5px;
         }
 
-        .user-info {
-            font-size: 13px;
-            color: #555;
-        }
-
-        .report-card {
-            background: #fff;
-            border-radius: 10px;
-            padding: 22px;
-            margin-bottom: 22px;
-            box-shadow: 0 2px 8px rgba(0,0,0,.06);
-        }
-
-        .report-card h2 {
-            margin: 0 0 18px;
-            font-size: 19px;
-        }
-
-        .filters {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
-            gap: 14px;
-            align-items: end;
-        }
-
-        .field label {
+        .topbar h1 small {
+            font-size: 14px;
+            font-weight: 400;
+            color: var(--text-light);
             display: block;
-            font-size: 12px;
-            font-weight: 600;
-            margin-bottom: 6px;
-            color: #4b5563;
+            margin-top: 2px;
         }
 
-        .field input,
-        .field select {
-            width: 100%;
-            padding: 10px 11px;
-            border: 1px solid #d1d5db;
-            border-radius: 6px;
-            background: #fff;
+        .topbar .actions {
+            display: flex;
+            gap: 12px;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+
+        .topbar .actions .date-time {
             font-size: 14px;
+            color: var(--text-light);
+            font-weight: 500;
         }
 
-        button {
-            border: 0;
-            border-radius: 6px;
-            padding: 10px 16px;
+        /* ============================================================
+           BUTTONS
+           ============================================================ */
+
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 10px 20px;
+            border: none;
+            border-radius: 8px;
+            font-weight: 600;
+            font-size: 14px;
             cursor: pointer;
-            font-size: 14px;
-            font-weight: 600;
+            transition: var(--transition);
+            font-family: inherit;
+            text-decoration: none;
         }
 
         .btn-primary {
-            background: #111827;
-            color: #fff;
+            background: var(--primary);
+            color: white;
         }
-
         .btn-primary:hover {
-            background: #1f2937;
+            background: var(--primary-dark);
+            transform: translateY(-2px);
+            box-shadow: 0 4px 16px rgba(11, 93, 59, 0.3);
         }
 
-        .btn-primary:disabled {
-            opacity: .6;
-            cursor: not-allowed;
+        .btn-gold {
+            background: var(--gold);
+            color: white;
+        }
+        .btn-gold:hover {
+            background: #c49a3a;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 16px rgba(212, 168, 67, 0.3);
         }
 
-        .btn-secondary {
-            background: #e5e7eb;
-            color: #111827;
+        .btn-success {
+            background: var(--success);
+            color: white;
+        }
+        .btn-success:hover {
+            background: #157347;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 16px rgba(25, 135, 84, 0.3);
         }
 
-        .status {
-            display: none;
-            margin-bottom: 20px;
-            padding: 12px 15px;
-            border-radius: 7px;
+        .btn-danger {
+            background: var(--danger);
+            color: white;
+        }
+        .btn-danger:hover {
+            background: #c82333;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 16px rgba(220, 53, 69, 0.3);
+        }
+
+        .btn-info {
+            background: var(--info);
+            color: white;
+        }
+        .btn-info:hover {
+            background: #0bb5d8;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 16px rgba(13, 202, 240, 0.3);
+        }
+
+        .btn-purple {
+            background: var(--purple);
+            color: white;
+        }
+        .btn-purple:hover {
+            background: #5a34a0;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 16px rgba(111, 66, 193, 0.3);
+        }
+
+        .btn-outline {
+            background: transparent;
+            border: 2px solid var(--gray-200);
+            color: var(--text-light);
+        }
+        .btn-outline:hover {
+            border-color: var(--primary);
+            color: var(--primary);
+            transform: translateY(-2px);
+        }
+
+        .btn-sm {
+            padding: 8px 16px;
+            font-size: 13px;
+            border-radius: 6px;
+        }
+
+        .btn-block { width: 100%; justify-content: center; }
+        .btn:disabled { opacity: 0.6; cursor: not-allowed; transform: none !important; }
+
+        /* ============================================================
+           REPORT GRID
+           ============================================================ */
+
+        .report-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(340px, 1fr));
+            gap: 24px;
+        }
+
+        /* ============================================================
+           CARDS
+           ============================================================ */
+
+        .card {
+            background: white;
+            border-radius: var(--radius-lg);
+            padding: 24px;
+            box-shadow: var(--shadow);
+            transition: var(--transition);
+        }
+
+        .card:hover {
+            box-shadow: var(--shadow-hover);
+        }
+
+        .card-header {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 16px;
+            padding-bottom: 12px;
+            border-bottom: 1px solid var(--gray-200);
+        }
+
+        .card-header h3 {
+            font-size: 17px;
+            font-weight: 700;
+        }
+
+        .card-header i {
+            font-size: 20px;
+            width: 36px;
+            height: 36px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+        }
+
+        .card-header i.payments-icon { background: var(--success); }
+        .card-header i.members-icon { background: var(--gold); }
+        .card-header i.dependants-icon { background: var(--info); }
+        .card-header i.memberdep-icon { background: var(--purple); }
+
+        /* ============================================================
+           FILTERS
+           ============================================================ */
+
+        .filter-group {
+            margin-bottom: 14px;
+        }
+
+        .filter-group label {
+            display: block;
+            font-size: 13px;
+            font-weight: 600;
+            margin-bottom: 6px;
+            color: var(--text-light);
+        }
+
+        .filter-group input,
+        .filter-group select {
+            width: 100%;
+            padding: 9px 12px;
+            border: 2px solid var(--gray-200);
+            border-radius: 8px;
+            font-family: inherit;
             font-size: 14px;
+            transition: var(--transition);
+            background: white;
         }
 
-        .status.success {
-            display: block;
-            background: #dcfce7;
-            color: #166534;
+        .filter-group input:focus,
+        .filter-group select:focus {
+            outline: none;
+            border-color: var(--primary);
+            box-shadow: 0 0 0 4px rgba(11, 93, 59, 0.1);
         }
 
-        .status.error {
-            display: block;
-            background: #fee2e2;
-            color: #991b1b;
+        .filter-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 12px;
         }
 
-        .status.info {
-            display: block;
-            background: #dbeafe;
-            color: #1e40af;
+        /* ============================================================
+           STATUS MESSAGE
+           ============================================================ */
+
+        .report-status {
+            font-size: 13px;
+            margin-top: 10px;
+            min-height: 20px;
+            padding: 8px 12px;
+            border-radius: 6px;
         }
 
-        .loading {
-            opacity: .6;
-            pointer-events: none;
+        .report-status.error {
+            color: var(--danger);
+            background: var(--danger-light);
         }
 
-        @media (max-width: 800px) {
+        .report-status.success {
+            color: var(--success);
+            background: var(--success-light);
+        }
+
+        .report-status.info {
+            color: #055160;
+            background: var(--info-light);
+        }
+
+        .report-status.warning {
+            color: #856404;
+            background: var(--warning-light);
+        }
+
+        /* ============================================================
+           TOAST NOTIFICATIONS
+           ============================================================ */
+
+        .toast-container {
+            position: fixed;
+            bottom: 30px;
+            right: 30px;
+            z-index: 9999;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            max-width: 420px;
+        }
+
+        .toast {
+            padding: 14px 20px;
+            border-radius: 12px;
+            color: white;
+            font-weight: 600;
+            font-size: 14px;
+            animation: slideIn 0.4s ease;
+            box-shadow: 0 12px 48px rgba(0,0,0,0.15);
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .toast:hover { transform: scale(1.02); }
+        .toast.success { background: var(--success); }
+        .toast.error { background: var(--danger); }
+        .toast.info { background: var(--info); color: var(--text); }
+        .toast.warning { background: var(--warning); color: var(--text); }
+
+        .toast .toast-close {
+            background: none;
+            border: none;
+            color: rgba(255,255,255,0.7);
+            cursor: pointer;
+            font-size: 18px;
+            margin-left: auto;
+            padding: 0 4px;
+        }
+
+        .toast .toast-close:hover { color: white; }
+
+        @keyframes slideIn {
+            from { transform: translateX(100px); opacity: 0; }
+            to { transform: translateX(0); opacity: 1; }
+        }
+
+        /* ============================================================
+           RESPONSIVE
+           ============================================================ */
+
+        .sidebar-toggle {
+            display: none;
+            background: var(--primary);
+            color: white;
+            border: none;
+            padding: 8px 14px;
+            border-radius: 10px;
+            font-size: 20px;
+            cursor: pointer;
+            transition: var(--transition);
+        }
+
+        .sidebar-toggle:hover { background: var(--primary-dark); }
+
+        @media (max-width: 1024px) {
+            .report-grid {
+                grid-template-columns: 1fr 1fr;
+            }
+        }
+
+        @media (max-width: 768px) {
             .sidebar {
-                position: static;
-                width: 100%;
+                transform: translateX(-100%);
+                width: 280px;
             }
 
-            .main {
+            .sidebar.open {
+                transform: translateX(0);
+            }
+
+            .main-content {
                 margin-left: 0;
-                padding: 15px;
+                width: 100%;
+                padding: 16px;
             }
 
+            .sidebar-toggle {
+                display: block;
+            }
+
+            .topbar .actions .date-time {
+                display: none;
+            }
+
+            .topbar h1 {
+                font-size: 22px;
+            }
+
+            .report-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .filter-row {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        @media (max-width: 480px) {
             .topbar {
                 flex-direction: column;
-                align-items: flex-start;
+                align-items: stretch;
+            }
+
+            .topbar .actions {
+                justify-content: flex-start;
             }
         }
     </style>
 </head>
-
 <body>
 
-<div class="sidebar">
-    <div class="brand">Masika Benevolent</div>
+    <div class="admin-layout">
 
-    <a href="admin-dashboard.html">Dashboard</a>
-    <a href="admin-members.html">Members</a>
-    <a href="admin-agents.html">Agents</a>
-    <a href="admin-collectpayments.html">Collect Payments</a>
-    <a href="admin-revenue.html">Revenue</a>
-    <a href="admin-reports.html" class="active">Reports</a>
-    <a href="admin-pricing.html">Pricing</a>
-    <a href="admin-settings.html">Settings</a>
-</div>
+        <!-- ============================================================
+        SIDEBAR BACKDROP
+        ============================================================ -->
+        <div class="sidebar-backdrop" id="sidebarBackdrop"></div>
 
-<div class="main">
+        <!-- ============================================================
+        SIDEBAR
+        ============================================================ -->
 
-    <div class="topbar">
-        <div>
-            <h1>Reports</h1>
-        </div>
+        <aside class="sidebar" id="sidebar">
+            <div class="sidebar-brand">
+                <a href="admin-dashboard.html" class="logo">
+                    <div class="logo-icon">MB</div>
+                    <div>
+                        <span class="logo-text">Masika</span>
+                        <span class="logo-sub">Admin Panel</span>
+                    </div>
+                </a>
+            </div>
 
-        <div class="user-info" id="adminUserInfo">
-            Checking access...
-        </div>
+            <ul class="sidebar-nav">
+                <li class="nav-label">Main</li>
+                <li><a href="admin-dashboard.html"><i class="fas fa-chart-pie"></i> Dashboard</a></li>
+                <li><a href="admin-members.html"><i class="fas fa-users"></i> Members</a></li>
+                <li><a href="admin-agents.html"><i class="fas fa-user-tie"></i> Agents</a></li>
+
+                <li class="nav-label">Finance</li>
+                <li><a href="admin-collectpayments.html"><i class="fas fa-credit-card"></i> Payments</a></li>
+                <li><a href="admin-revenue.html"><i class="fas fa-chart-line"></i> Revenue</a></li>
+
+                <li class="nav-label">Settings</li>
+                <li><a href="admin-reports.html" class="active"><i class="fas fa-file-alt"></i> Reports</a></li>
+                <li><a href="admin-pricing.html"><i class="fas fa-tags"></i> Pricing</a></li>
+                <li><a href="admin-settings.html"><i class="fas fa-cog"></i> Settings</a></li>
+            </ul>
+
+            <div class="sidebar-footer">
+                <div class="user-info">
+                    <div class="user-avatar" id="adminAvatar">A</div>
+                    <div>
+                        <div class="user-name" id="adminName">Admin</div>
+                        <div class="user-role" id="adminRole">Administrator</div>
+                    </div>
+                </div>
+                <button class="logout-btn" onclick="handleLogout()">
+                    <i class="fas fa-sign-out-alt"></i> Logout
+                </button>
+            </div>
+        </aside>
+
+        <!-- ============================================================
+        MAIN CONTENT
+        ============================================================ -->
+
+        <main class="main-content">
+
+            <!-- Topbar -->
+            <div class="topbar">
+                <div class="topbar-left">
+                    <button class="sidebar-toggle" id="sidebarToggle" aria-label="Toggle menu">
+                        <i class="fas fa-bars"></i>
+                    </button>
+                    <h1>
+                        Reports
+                        <small>Export data as CSV for analysis</small>
+                    </h1>
+                </div>
+                <div class="actions">
+                    <span class="date-time" id="currentDateTime"></span>
+                </div>
+            </div>
+
+            <!-- Report Grid -->
+            <div class="report-grid">
+
+                <!-- Payments Report -->
+                <div class="card">
+                    <div class="card-header">
+                        <i class="fas fa-credit-card payments-icon"></i>
+                        <h3>Payments</h3>
+                    </div>
+
+                    <div class="filter-row">
+                        <div class="filter-group">
+                            <label>From</label>
+                            <input type="date" id="paymentsFrom">
+                        </div>
+                        <div class="filter-group">
+                            <label>To</label>
+                            <input type="date" id="paymentsTo">
+                        </div>
+                    </div>
+
+                    <div class="filter-group">
+                        <label>Status</label>
+                        <select id="paymentsStatus">
+                            <option value="">All statuses</option>
+                            <option value="completed">Completed</option>
+                            <option value="pending">Pending</option>
+                            <option value="failed">Failed</option>
+                            <option value="refunded">Refunded</option>
+                            <option value="unassigned">Unassigned</option>
+                        </select>
+                    </div>
+
+                    <button class="btn btn-success btn-block" onclick="exportPaymentsCsv()" id="exportPaymentsBtn">
+                        <i class="fas fa-download"></i> Export Payments CSV
+                    </button>
+                    <div class="report-status" id="paymentsStatusMsg"></div>
+                </div>
+
+                <!-- Members Report -->
+                <div class="card">
+                    <div class="card-header">
+                        <i class="fas fa-users members-icon"></i>
+                        <h3>Members</h3>
+                    </div>
+
+                    <div class="filter-row">
+                        <div class="filter-group">
+                            <label>Registered From</label>
+                            <input type="date" id="membersFrom">
+                        </div>
+                        <div class="filter-group">
+                            <label>Registered To</label>
+                            <input type="date" id="membersTo">
+                        </div>
+                    </div>
+
+                    <div class="filter-group">
+                        <label>Status</label>
+                        <select id="membersStatus">
+                            <option value="">All statuses</option>
+                            <option value="ACTIVE">Active</option>
+                            <option value="DORMANT">Dormant</option>
+                            <option value="SUSPENDED">Suspended</option>
+                            <option value="CANCELLED">Cancelled</option>
+                            <option value="PENDING">Pending</option>
+                        </select>
+                    </div>
+
+                    <div class="filter-group">
+                        <label>Plan Type</label>
+                        <select id="membersPlan">
+                            <option value="">All Plans</option>
+                            <option value="comfort">Comfort</option>
+                            <option value="dignity">Dignity</option>
+                            <option value="wazazi">Wazazi</option>
+                        </select>
+                    </div>
+
+                    <button class="btn btn-gold btn-block" onclick="exportMembersCsv()" id="exportMembersBtn">
+                        <i class="fas fa-download"></i> Export Members CSV
+                    </button>
+                    <div class="report-status" id="membersStatusMsg"></div>
+                </div>
+
+                <!-- Dependants Report -->
+                <div class="card">
+                    <div class="card-header">
+                        <i class="fas fa-people-roof dependants-icon"></i>
+                        <h3>Dependants</h3>
+                    </div>
+
+                    <div class="filter-row">
+                        <div class="filter-group">
+                            <label>From</label>
+                            <input type="date" id="dependantsFrom">
+                        </div>
+                        <div class="filter-group">
+                            <label>To</label>
+                            <input type="date" id="dependantsTo">
+                        </div>
+                    </div>
+
+                    <div class="filter-group">
+                        <label>Relationship</label>
+                        <select id="dependantsRelationship">
+                            <option value="">All Relationships</option>
+                            <option value="spouse">Spouse</option>
+                            <option value="child">Child</option>
+                            <option value="parent">Parent</option>
+                            <option value="in_law">In-Law</option>
+                        </select>
+                    </div>
+
+                    <button class="btn btn-info btn-block" onclick="exportDependantsCsv()" id="exportDependantsBtn">
+                        <i class="fas fa-download"></i> Export Dependants CSV
+                    </button>
+                    <div class="report-status" id="dependantsStatusMsg"></div>
+                </div>
+
+                <!-- Members & Dependants (combined) Report -->
+                <div class="card">
+                    <div class="card-header">
+                        <i class="fas fa-address-card memberdep-icon"></i>
+                        <h3>Members & Dependants</h3>
+                    </div>
+
+                    <div class="filter-row">
+                        <div class="filter-group">
+                            <label>Registered From <span style="font-weight:400;color:var(--text-lighter)">(blank = all time)</span></label>
+                            <input type="date" id="mdFrom">
+                        </div>
+                        <div class="filter-group">
+                            <label>Registered To</label>
+                            <input type="date" id="mdTo">
+                        </div>
+                    </div>
+
+                    <div class="filter-group">
+                        <label>Member Status</label>
+                        <select id="mdStatus">
+                            <option value="">All statuses</option>
+                            <option value="ACTIVE">Active</option>
+                            <option value="DORMANT">Dormant</option>
+                            <option value="SUSPENDED">Suspended</option>
+                            <option value="CANCELLED">Cancelled</option>
+                            <option value="PENDING">Pending</option>
+                        </select>
+                    </div>
+
+                    <div class="filter-group">
+                        <label>Plan Type</label>
+                        <select id="mdPlan">
+                            <option value="">All Plans</option>
+                            <option value="comfort">Comfort</option>
+                            <option value="dignity">Dignity</option>
+                            <option value="wazazi">Wazazi</option>
+                        </select>
+                    </div>
+
+                    <button class="btn btn-purple btn-block" onclick="exportMembersDependantsCsv()" id="exportMembersDependantsBtn">
+                        <i class="fas fa-download"></i> Export Members & Dependants CSV
+                    </button>
+                    <div class="report-status" id="membersDependantsStatusMsg"></div>
+                </div>
+
+            </div>
+
+        </main>
+
     </div>
 
-    <div id="statusMessage" class="status"></div>
-
-    <!-- PAYMENTS REPORT -->
-    <div class="report-card">
-        <h2>Payments Report</h2>
-
-        <div class="filters">
-
-            <div class="field">
-                <label for="paymentFrom">From</label>
-                <input type="date" id="paymentFrom">
-            </div>
-
-            <div class="field">
-                <label for="paymentTo">To</label>
-                <input type="date" id="paymentTo">
-            </div>
-
-            <div class="field">
-                <label for="paymentStatus">Status</label>
-                <select id="paymentStatus">
-                    <option value="">All</option>
-                    <option value="completed">Completed</option>
-                    <option value="success">Success</option>
-                    <option value="paid">Paid</option>
-                    <option value="pending">Pending</option>
-                    <option value="failed">Failed</option>
-                    <option value="cancelled">Cancelled</option>
-                </select>
-            </div>
-
-            <button
-                type="button"
-                class="btn-primary"
-                onclick="exportPaymentsCsv(event)">
-                Export Payments CSV
-            </button>
-
-        </div>
-    </div>
-
-
-    <!-- MEMBERS REPORT -->
-    <div class="report-card">
-        <h2>Members Report</h2>
-
-        <div class="filters">
-
-            <div class="field">
-                <label for="memberFrom">From</label>
-                <input type="date" id="memberFrom">
-            </div>
-
-            <div class="field">
-                <label for="memberTo">To</label>
-                <input type="date" id="memberTo">
-            </div>
-
-            <div class="field">
-                <label for="memberStatus">Status</label>
-                <select id="memberStatus">
-                    <option value="">All</option>
-                    <option value="ACTIVE">ACTIVE</option>
-                    <option value="DORMANT">DORMANT</option>
-                    <option value="PENDING">PENDING</option>
-                    <option value="INACTIVE">INACTIVE</option>
-                    <option value="SUSPENDED">SUSPENDED</option>
-                </select>
-            </div>
-
-            <div class="field">
-                <label for="memberPlan">Plan</label>
-                <select id="memberPlan">
-                    <option value="">All Plans</option>
-                    <option value="comfort">Comfort</option>
-                    <option value="dignity">Dignity</option>
-                    <option value="wazazi">Wazazi</option>
-                    <option value="chama">Chama</option>
-                </select>
-            </div>
-
-            <button
-                type="button"
-                class="btn-primary"
-                onclick="exportMembersCsv(event)">
-                Export Members CSV
-            </button>
-
-        </div>
-    </div>
-
-
-    <!-- DEPENDANTS REPORT -->
-    <div class="report-card">
-        <h2>Dependants Report</h2>
-
-        <div class="filters">
-
-            <div class="field">
-                <label for="dependantFrom">From</label>
-                <input type="date" id="dependantFrom">
-            </div>
-
-            <div class="field">
-                <label for="dependantTo">To</label>
-                <input type="date" id="dependantTo">
-            </div>
-
-            <div class="field">
-                <label for="dependantRelationship">Relationship</label>
-                <select id="dependantRelationship">
-                    <option value="">All Relationships</option>
-                    <option value="spouse">Spouse</option>
-                    <option value="child">Child</option>
-                    <option value="son">Son</option>
-                    <option value="daughter">Daughter</option>
-                    <option value="parent">Parent</option>
-                    <option value="sibling">Sibling</option>
-                    <option value="other">Other</option>
-                </select>
-            </div>
-
-            <button
-                type="button"
-                class="btn-primary"
-                onclick="exportDependantsCsv(event)">
-                Export Dependants CSV
-            </button>
-
-        </div>
-    </div>
-
-
-    <!-- MEMBERS + DEPENDANTS -->
-    <div class="report-card">
-        <h2>Members &amp; Dependants Report</h2>
-
-        <div class="filters">
-
-            <div class="field">
-                <label for="combinedFrom">From</label>
-                <input type="date" id="combinedFrom">
-            </div>
-
-            <div class="field">
-                <label for="combinedTo">To</label>
-                <input type="date" id="combinedTo">
-            </div>
-
-            <div class="field">
-                <label for="combinedStatus">Member Status</label>
-                <select id="combinedStatus">
-                    <option value="">All</option>
-                    <option value="ACTIVE">ACTIVE</option>
-                    <option value="DORMANT">DORMANT</option>
-                    <option value="PENDING">PENDING</option>
-                    <option value="INACTIVE">INACTIVE</option>
-                    <option value="SUSPENDED">SUSPENDED</option>
-                </select>
-            </div>
-
-            <div class="field">
-                <label for="combinedPlan">Plan</label>
-                <select id="combinedPlan">
-                    <option value="">All Plans</option>
-                    <option value="comfort">Comfort</option>
-                    <option value="dignity">Dignity</option>
-                    <option value="wazazi">Wazazi</option>
-                    <option value="chama">Chama</option>
-                </select>
-            </div>
-
-            <button
-                type="button"
-                class="btn-primary"
-                onclick="exportMembersDependantsCsv(event)">
-                Export Combined CSV
-            </button>
-
-        </div>
-    </div>
-
-</div>
-
-
-<script>
-/* =========================================================
-   SUPABASE
-========================================================= */
-
-const SUPABASE_URL =
-    'https://wpxzlcdrirlcyvfiquld.supabase.co';
-
-const SUPABASE_ANON_KEY =
-    'sb_publishable_hJYI6DRcKp05YWD0Ivp1oA_5RDFsC7u';
-
-const supabaseClient =
-    window.supabase.createClient(
-        SUPABASE_URL,
-        SUPABASE_ANON_KEY
-    );
-
-
-/* =========================================================
-   STATUS / TOAST
-========================================================= */
-
-function showStatus(message, type = 'info') {
-    const el = document.getElementById('statusMessage');
-
-    el.textContent = message;
-    el.className = 'status ' + type;
-
-    window.scrollTo({
-        top: 0,
-        behavior: 'smooth'
-    });
-}
-
-function clearStatus() {
-    const el = document.getElementById('statusMessage');
-
-    el.textContent = '';
-    el.className = 'status';
-}
-
-
-/* =========================================================
-   FIELD HELPERS
-========================================================= */
-
-function pickField(obj, fields) {
-    if (!obj) return '';
-
-    for (const field of fields) {
-        if (
-            obj[field] !== undefined &&
-            obj[field] !== null &&
-            String(obj[field]).trim() !== ''
-        ) {
-            return obj[field];
-        }
-    }
-
-    return '';
-}
-
-
-/* =========================================================
-   MEMBER NUMBER
-   IMPORTANT:
-   PRIMARY DATABASE FIELD = member_number
-   OLD FIELD = membership_number
-========================================================= */
-
-function memberNumber(member) {
-    return pickField(member, [
-        'member_number',
-        'membership_number'
-    ]);
-}
-
-
-/* =========================================================
-   MEMBER NAME
-   PRIMARY DATABASE FIELD = full_name
-========================================================= */
-
-function memberName(member) {
-
-    const fullName = pickField(member, [
-        'full_name'
-    ]);
-
-    if (fullName) {
-        return fullName;
-    }
-
-    const firstName = pickField(member, [
-        'first_name',
-        'firstname'
-    ]);
-
-    const lastName = pickField(member, [
-        'last_name',
-        'lastname'
-    ]);
-
-    return [firstName, lastName]
-        .filter(Boolean)
-        .join(' ')
-        .trim();
-}
-
-
-/* =========================================================
-   MEMBER ID
-========================================================= */
-
-function memberIdNumber(member) {
-    return pickField(member, [
-        'national_id',
-        'id_number',
-        'national_id_number',
-        'id_no',
-        'nid',
-        'identification_number'
-    ]);
-}
-
-
-/* =========================================================
-   MEMBER DOB
-========================================================= */
-
-function memberDob(member) {
-    return pickField(member, [
-        'date_of_birth',
-        'dob',
-        'birth_date'
-    ]);
-}
-
-
-/* =========================================================
-   MEMBER PHONE
-========================================================= */
-
-function memberPhone(member) {
-    return pickField(member, [
-        'phone',
-        'phone_number',
-        'mobile',
-        'mobile_number'
-    ]);
-}
-
-
-/* =========================================================
-   DEPENDANT NAME
-========================================================= */
-
-function dependantName(dependant) {
-
-    const fullName = pickField(dependant, [
-        'full_name'
-    ]);
-
-    if (fullName) {
-        return fullName;
-    }
-
-    const firstName = pickField(dependant, [
-        'first_name',
-        'firstname'
-    ]);
-
-    const lastName = pickField(dependant, [
-        'last_name',
-        'lastname'
-    ]);
-
-    return [firstName, lastName]
-        .filter(Boolean)
-        .join(' ')
-        .trim();
-}
-
-
-/* =========================================================
-   DEPENDANT DOB
-========================================================= */
-
-function dependantDob(dependant) {
-    return pickField(dependant, [
-        'date_of_birth',
-        'dob',
-        'birth_date'
-    ]);
-}
-
-
-/* =========================================================
-   DEPENDANT ID
-========================================================= */
-
-function dependantIdNumber(dependant) {
-    return pickField(dependant, [
-        'national_id',
-        'id_number',
-        'national_id_number',
-        'id_no',
-        'nid',
-        'identification_number'
-    ]);
-}
-
-
-/* =========================================================
-   DEPENDANT PHONE
-========================================================= */
-
-function dependantPhone(dependant) {
-    return pickField(dependant, [
-        'phone',
-        'phone_number',
-        'mobile',
-        'mobile_number'
-    ]);
-}
-
-
-/* =========================================================
-   DEPENDANT RELATIONSHIP
-========================================================= */
-
-function dependantRelationship(dependant) {
-    return pickField(dependant, [
-        'relationship',
-        'relation',
-        'relationship_type'
-    ]);
-}
-
-
-/* =========================================================
-   DATE FORMAT
-========================================================= */
-
-function formatDateOnly(value) {
-
-    if (!value) return '';
-
-    const text = String(value);
-
-    if (text.length >= 10) {
-        return text.substring(0, 10);
-    }
-
-    return text;
-}
-
-
-/* =========================================================
-   CSV ESCAPE
-========================================================= */
-
-function csvEscape(value) {
-
-    if (
-        value === null ||
-        value === undefined
-    ) {
-        return '';
-    }
-
-    const text = String(value);
-
-    if (
-        text.includes('"') ||
-        text.includes(',') ||
-        text.includes('\n') ||
-        text.includes('\r')
-    ) {
-        return '"' +
-            text.replace(/"/g, '""') +
-            '"';
-    }
-
-    return text;
-}
-
-
-/* =========================================================
-   CSV DOWNLOAD
-========================================================= */
-
-function downloadCsv(filename, headers, rows) {
-
-    const csv = [
-        headers.map(csvEscape).join(','),
-        ...rows.map(row =>
-            row.map(csvEscape).join(',')
-        )
-    ].join('\r\n');
-
-    const blob = new Blob(
-        ['\uFEFF' + csv],
-        {
-            type: 'text/csv;charset=utf-8;'
-        }
-    );
-
-    const url =
-        URL.createObjectURL(blob);
-
-    const link =
-        document.createElement('a');
-
-    link.href = url;
-    link.download = filename;
-
-    document.body.appendChild(link);
-
-    link.click();
-
-    document.body.removeChild(link);
-
-    URL.revokeObjectURL(url);
-}
-
-
-/* =========================================================
-   DATE RANGE HELPER
-========================================================= */
-
-function applyDateRange(
-    query,
-    fromId,
-    toId,
-    column = 'created_at'
-) {
-
-    const from =
-        document.getElementById(fromId).value;
-
-    const to =
-        document.getElementById(toId).value;
-
-    if (from) {
-        query = query.gte(
-            column,
-            from + 'T00:00:00'
-        );
-    }
-
-    if (to) {
-        query = query.lte(
-            column,
-            to + 'T23:59:59'
-        );
-    }
-
-    return query;
-}
-
-
-/* =========================================================
-   PAGINATION HELPER
-   Supabase/PostgREST caps a single request at 1000 rows by
-   default. For reports that can legitimately exceed that,
-   we page through with .range() until a page comes back
-   short of the page size.
-========================================================= */
-
-const REPORT_PAGE_SIZE = 1000;
-
-async function fetchAllPages(buildQuery) {
-
-    let allRows = [];
-    let from = 0;
-
-    while (true) {
-
-        const to = from + REPORT_PAGE_SIZE - 1;
-
-        const { data, error } =
-            await buildQuery().range(from, to);
-
-        if (error) {
-            throw error;
-        }
-
-        if (!data || data.length === 0) {
-            break;
-        }
-
-        allRows = allRows.concat(data);
-
-        if (data.length < REPORT_PAGE_SIZE) {
-            break;
-        }
-
-        from += REPORT_PAGE_SIZE;
-    }
-
-    return allRows;
-}
-
-
-/* =========================================================
-   DEFAULT DATES
-========================================================= */
-
-function getLocalDateString(date = new Date()) {
-
-    const year = date.getFullYear();
-
-    const month =
-        String(date.getMonth() + 1)
-            .padStart(2, '0');
-
-    const day =
-        String(date.getDate())
-            .padStart(2, '0');
-
-    return `${year}-${month}-${day}`;
-}
-
-
-function setDefaultDates() {
-
-    const today =
-        getLocalDateString();
-
-    const date = new Date();
-
-    date.setDate(date.getDate() - 30);
-
-    const thirtyDaysAgo =
-        getLocalDateString(date);
-
-    const fields = [
-        ['paymentFrom', thirtyDaysAgo],
-        ['paymentTo', today],
-
-        ['memberFrom', thirtyDaysAgo],
-        ['memberTo', today],
-
-        ['dependantFrom', thirtyDaysAgo],
-        ['dependantTo', today],
-
-        ['combinedFrom', thirtyDaysAgo],
-        ['combinedTo', today]
-    ];
-
-    fields.forEach(([id, value]) => {
-
-        const element =
-            document.getElementById(id);
-
-        if (element) {
-            element.value = value;
-        }
-    });
-}
-
-
-/* =========================================================
-   AUTHENTICATION
-========================================================= */
-
-async function checkAuth() {
-
-    const {
-        data: sessionData,
-        error: sessionError
-    } = await supabaseClient.auth.getSession();
-
-    if (sessionError) {
-        throw sessionError;
-    }
-
-    const session =
-        sessionData?.session;
-
-    if (!session) {
-        window.location.href = 'admin-login.html';
-        return false;
-    }
-
-    const user =
-        session.user;
-
-    console.log(
-        '[checkAuth] session user id:',
-        user.id,
-        'email:',
-        user.email
-    );
-
-    function logSupabaseError(label, error) {
-        console.error(
-            `[checkAuth] ${label}:`,
-            'message=' + (error?.message || '(none)'),
-            '| details=' + (error?.details || '(none)'),
-            '| hint=' + (error?.hint || '(none)'),
-            '| code=' + (error?.code || '(none)')
-        );
-    }
-
-    let staffRecord = null;
-    let staffLookupFailed = false;
-
-    const {
-        data: staffData,
-        error: staffError
-    } = await supabaseClient
-        .from('staff')
-        .select('*')
-        .eq('id', user.id)
-        .maybeSingle();
-
-    if (staffError) {
-        staffLookupFailed = true;
-        logSupabaseError(
-            'staff table query failed (often an RLS ' +
-            'SELECT policy issue, not "not an admin")',
-            staffError
-        );
-    } else if (staffData) {
-        staffRecord = staffData;
-    }
-
-
-    /* -----------------------------------------
-       FALLBACK TO ADMINS TABLE
-    ----------------------------------------- */
-
-    let adminLookupFailed = false;
-
-    if (!staffRecord) {
-
-        const {
-            data: adminData,
-            error: adminError
-        } = await supabaseClient
-            .from('admins')
-            .select('*')
-            .eq('id', user.id)
-            .maybeSingle();
-
-        if (adminError) {
-            adminLookupFailed = true;
-            logSupabaseError(
-                'admins table query failed (often an RLS ' +
-                'SELECT policy issue, not "not an admin")',
-                adminError
-            );
-        } else if (adminData) {
-            staffRecord = adminData;
-        }
-    }
-
-
-    if (!staffRecord) {
-
-        /*
-         * If EITHER lookup errored (rather than simply
-         * returning no row), we cannot conclude the user
-         * genuinely lacks admin access — a query error
-         * (very often a missing RLS SELECT policy) looks
-         * identical to "no row found" unless we check for
-         * it explicitly. Surface that distinction instead
-         * of signing the user out on a DB error.
-         */
-        if (staffLookupFailed || adminLookupFailed) {
-
-            showStatus(
-                'Could not verify admin access due to a ' +
-                'database error (see the browser console for ' +
-                'message/details/hint/code). This usually means ' +
-                'the "staff" or "admins" table is missing a ' +
-                'SELECT policy that lets a logged-in user read ' +
-                'their own row, e.g. USING (auth.uid() = id).',
-                'error'
-            );
-
-            return false;
-        }
-
-        showStatus(
-            'You are authenticated but do not have admin access.',
-            'error'
-        );
-
-        await supabaseClient.auth.signOut();
-
-        setTimeout(() => {
-            window.location.href = 'admin-login.html';
-        }, 1500);
-
-        return false;
-    }
-
-
-    const role = String(
-        pickField(staffRecord, [
-            'role',
-            'user_role',
-            'staff_role'
-        ])
-    ).toUpperCase();
-
-
-    if (
-        role !== 'SUPER_ADMIN' &&
-        role !== 'ADMIN'
-    ) {
-
-        showStatus(
-            'Admin access is required to view reports.',
-            'error'
-        );
-
-        await supabaseClient.auth.signOut();
-
-        setTimeout(() => {
-            window.location.href = 'admin-login.html';
-        }, 1500);
-
-        return false;
-    }
-
-
-    const displayName =
-        pickField(staffRecord, [
-            'full_name',
-            'name',
-            'email'
-        ]) || user.email || 'Administrator';
-
-    document.getElementById(
-        'adminUserInfo'
-    ).textContent =
-        `${displayName} · ${role}`;
-
-    return true;
-}
-
-
-/* =========================================================
-   PAYMENTS REPORT
-========================================================= */
-
-async function exportPaymentsCsv(evt) {
-
-    clearStatus();
-
-    const button =
-        evt?.currentTarget;
-
-    if (button) {
-        button.disabled = true;
-    }
-
-    try {
-
-        showStatus(
-            'Preparing payments report...',
-            'info'
-        );
-
-        const status =
-            document.getElementById(
-                'paymentStatus'
-            ).value;
-
-        const data = await fetchAllPages(() => {
-
-            let query =
-                supabaseClient
-                    .from('payments')
-                    .select(`
-                        *,
-                        members (
-                            member_number,
-                            membership_number,
-                            full_name,
-                            first_name,
-                            last_name,
-                            phone
+    <!-- ============================================================
+    TOAST CONTAINER
+    ============================================================ -->
+    <div class="toast-container" id="toastContainer"></div>
+
+    <!-- ============================================================
+    JAVASCRIPT - COMPLETE FIXED VERSION
+    ============================================================ -->
+    <script>
+        // ============================================================
+        // SUPABASE CONFIG - CORRECT ANON KEY
+        // ============================================================
+
+        const SUPABASE_URL = 'https://wpxzlcdrirlcyvfiquld.supabase.co';
+        const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6IndweHpsY2RyaXJsY3l2ZmlxdWxkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODc5Mjc4MDcsImV4cCI6MjEwMzUwMzgwN30.OUP9pmPbrML_egpHflZtDfLv1_UDM37_BYjtb842xjg';
+
+        console.log('🚀 Reports script loaded');
+        console.log('📡 Supabase URL:', SUPABASE_URL);
+
+        // Use unique variable name
+        const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+        // ============================================================
+        // STATE
+        // ============================================================
+
+        let currentStaff = null;
+
+        // ============================================================
+        // INITIALIZATION
+        // ============================================================
+
+        document.addEventListener('DOMContentLoaded', async function() {
+            console.log('📄 DOM loaded');
+
+            // Check localStorage first
+            const storedStaff = localStorage.getItem('admin_user');
+            if (storedStaff) {
+                try {
+                    currentStaff = JSON.parse(storedStaff);
+                    console.log('✅ Staff loaded from localStorage:', currentStaff.full_name);
+                    updateAdminUI(currentStaff);
+                    setupSidebarToggle();
+                    updateClock();
+                    setDefaultDates();
+                    return;
+                } catch (e) {
+                    console.warn('⚠️ Invalid stored staff data');
+                }
+            }
+
+            const authResult = await checkAuth();
+            console.log('✅ Auth result:', authResult);
+
+            if (authResult) {
+                setupSidebarToggle();
+                updateClock();
+                setDefaultDates();
+            }
+        });
+
+        // ============================================================
+        // AUTH CHECK - Using Staff Table
+        // ============================================================
+
+        async function checkAuth() {
+            console.log('🔐 Checking authentication...');
+
+            try {
+                const { data: { session }, error } = await supabaseClient.auth.getSession();
+
+                if (error) {
+                    console.error('❌ Session error:', error);
+                    window.location.href = 'admin-login.html';
+                    return false;
+                }
+
+                if (!session) {
+                    console.log('⚠️ No session found');
+                    window.location.href = 'admin-login.html';
+                    return false;
+                }
+
+                console.log('✅ User authenticated:', session.user.email);
+
+                // Look up staff record with role
+                const { data: staff, error: staffError } = await supabaseClient
+                    .from('staff')
+                    .select(
+                        id,
+                        auth_user_id,
+                        full_name,
+                        email,
+                        phone,
+                        role_id,
+                        branch_id,
+                        status,
+                        sales_code,
+                        roles:role_id (
+                            id,
+                            role_code,
+                            role_name,
+                            is_active
                         )
-                    `)
-                    .order('created_at', {
-                        ascending: true
-                    });
-
-            query = applyDateRange(
-                query,
-                'paymentFrom',
-                'paymentTo',
-                'created_at'
-            );
-
-            if (status) {
-                query = query.eq(
-                    'status',
-                    status
-                );
-            }
-
-            return query;
-        });
-
-
-        if (!data || data.length === 0) {
-
-            showStatus(
-                'No payments found for the selected filters.',
-                'info'
-            );
-
-            return;
-        }
-
-
-        const headers = [
-            'Date',
-            'Membership #',
-            'Member Name',
-            'Phone',
-            'Amount',
-            'Status',
-            'Payment Reference',
-            'Transaction ID',
-            'Month',
-            'Payment Method'
-        ];
-
-
-        const rows = data.map(p => {
-
-            const member =
-                p.members || {};
-
-            const memberNumberValue =
-                memberNumber(p) ||
-                memberNumber(member);
-
-            const name =
-                pickField(p, [
-                    'member_name',
-                    'full_name',
-                    'name'
-                ]) ||
-                memberName(member);
-
-            const phone =
-                memberPhone(p) ||
-                memberPhone(member);
-
-            const amount =
-                pickField(p, [
-                    'amount',
-                    'paid_amount',
-                    'payment_amount'
-                ]);
-
-            const statusValue =
-                pickField(p, [
-                    'status',
-                    'payment_status'
-                ]);
-
-            const reference =
-                pickField(p, [
-                    'payment_reference',
-                    'reference',
-                    'invoice_number',
-                    'invoice',
-                    'mpesa_receipt',
-                    'receipt_number'
-                ]);
-
-            const transaction =
-                pickField(p, [
-                    'transaction_id',
-                    'transaction_code',
-                    'checkout_request_id',
-                    'merchant_request_id'
-                ]);
-
-            const month =
-                pickField(p, [
-                    'month',
-                    'payment_month',
-                    'paid_for_month'
-                ]);
-
-            const method =
-                pickField(p, [
-                    'payment_method',
-                    'method',
-                    'channel'
-                ]);
-
-            return [
-                formatDateOnly(
-                    p.created_at
-                ),
-                memberNumberValue,
-                name,
-                phone,
-                amount,
-                statusValue,
-                reference,
-                transaction,
-                month,
-                method
-            ];
-        });
-
-
-        downloadCsv(
-            `masika-payments-${getLocalDateString()}.csv`,
-            headers,
-            rows
-        );
-
-
-        showStatus(
-            `${rows.length} payment record(s) exported successfully.`,
-            'success'
-        );
-
-    } catch (error) {
-
-        console.error(
-            'Payments export error:',
-            error
-        );
-
-        showStatus(
-            'Failed to export payments: ' +
-            (error.message || error),
-            'error'
-        );
-
-    } finally {
-
-        if (button) {
-            button.disabled = false;
-        }
-    }
-}
-
-
-/* =========================================================
-   MEMBERS REPORT
-========================================================= */
-
-async function exportMembersCsv(evt) {
-
-    clearStatus();
-
-    const button =
-        evt?.currentTarget;
-
-    if (button) {
-        button.disabled = true;
-    }
-
-    try {
-
-        showStatus(
-            'Preparing members report...',
-            'info'
-        );
-
-        const status =
-            document.getElementById(
-                'memberStatus'
-            ).value;
-
-        const plan =
-            document.getElementById(
-                'memberPlan'
-            ).value;
-
-        const data = await fetchAllPages(() => {
-
-            let query =
-                supabaseClient
-                    .from('members')
-                    .select('*')
-                    .order('created_at', {
-                        ascending: true
-                    });
-
-            query = applyDateRange(
-                query,
-                'memberFrom',
-                'memberTo',
-                'created_at'
-            );
-
-            if (status) {
-                query = query.eq(
-                    'status',
-                    status
-                );
-            }
-
-            if (plan) {
-                query = query.eq(
-                    'plan_type',
-                    plan
-                );
-            }
-
-            return query;
-        });
-
-
-        if (!data || data.length === 0) {
-
-            showStatus(
-                'No members found for the selected filters.',
-                'info'
-            );
-
-            return;
-        }
-
-
-        const headers = [
-            'Date Joined',
-            'Membership #',
-            'Full Name',
-            'Phone',
-            'National ID',
-            'Date of Birth',
-            'Plan',
-            'Status',
-            'Registration Fee',
-            'Created At'
-        ];
-
-
-        const rows = data.map(m => {
-
-            const registrationFee =
-                pickField(m, [
-                    'registration_fee',
-                    'registration_amount'
-                ]);
-
-            return [
-                formatDateOnly(
-                    m.created_at
-                ),
-
-                memberNumber(m),
-
-                memberName(m),
-
-                memberPhone(m),
-
-                memberIdNumber(m),
-
-                formatDateOnly(
-                    memberDob(m)
-                ),
-
-                pickField(m, [
-                    'plan_type',
-                    'plan'
-                ]),
-
-                pickField(m, [
-                    'status',
-                    'membership_status'
-                ]),
-
-                registrationFee,
-
-                formatDateOnly(
-                    m.created_at
-                )
-            ];
-        });
-
-
-        downloadCsv(
-            `masika-members-${getLocalDateString()}.csv`,
-            headers,
-            rows
-        );
-
-
-        showStatus(
-            `${rows.length} member record(s) exported successfully.`,
-            'success'
-        );
-
-    } catch (error) {
-
-        console.error(
-            'Members export error:',
-            error
-        );
-
-        showStatus(
-            'Failed to export members: ' +
-            (error.message || error),
-            'error'
-        );
-
-    } finally {
-
-        if (button) {
-            button.disabled = false;
-        }
-    }
-}
-
-
-/* =========================================================
-   DEPENDANTS REPORT
-========================================================= */
-
-async function exportDependantsCsv(evt) {
-
-    clearStatus();
-
-    const button =
-        evt?.currentTarget;
-
-    if (button) {
-        button.disabled = true;
-    }
-
-    try {
-
-        showStatus(
-            'Preparing dependants report...',
-            'info'
-        );
-
-        const relationship =
-            document.getElementById(
-                'dependantRelationship'
-            ).value;
-
-        /*
-         * We request the dependant records together
-         * with their member where the FK relationship
-         * is available.
-         */
-        const data = await fetchAllPages(() => {
-
-            let query =
-                supabaseClient
-                    .from('dependants')
-                    .select(`
-                        *,
-                        members (
-                            member_number,
-                            membership_number,
-                            full_name,
-                            first_name,
-                            last_name,
-                            phone
-                        )
-                    `)
-                    .order('created_at', {
-                        ascending: true
-                    });
-
-            query = applyDateRange(
-                query,
-                'dependantFrom',
-                'dependantTo',
-                'created_at'
-            );
-
-            if (relationship) {
-                query = query.eq(
-                    'relationship',
-                    relationship
-                );
-            }
-
-            return query;
-        });
-
-
-        if (!data || data.length === 0) {
-
-            showStatus(
-                'No dependants found for the selected filters.',
-                'info'
-            );
-
-            return;
-        }
-
-
-        const headers = [
-            'Date Added',
-            'Membership #',
-            'Principal Member Name',
-            'Principal Phone',
-            'Dependant Name',
-            'Relationship',
-            'Dependant Phone',
-            'Dependant Date of Birth',
-            'Dependant ID Number'
-        ];
-
-
-        const rows = data.map(d => {
-
-            const member =
-                d.members || {};
-
-            return [
-                formatDateOnly(
-                    d.created_at
-                ),
-
-                memberNumber(member),
-
-                memberName(member),
-
-                memberPhone(member),
-
-                dependantName(d),
-
-                dependantRelationship(d),
-
-                dependantPhone(d),
-
-                formatDateOnly(
-                    dependantDob(d)
-                ),
-
-                dependantIdNumber(d)
-            ];
-        });
-
-
-        downloadCsv(
-            `masika-dependants-${getLocalDateString()}.csv`,
-            headers,
-            rows
-        );
-
-
-        showStatus(
-            `${rows.length} dependant record(s) exported successfully.`,
-            'success'
-        );
-
-    } catch (error) {
-
-        console.error(
-            'Dependants export error:',
-            error
-        );
-
-        showStatus(
-            'Failed to export dependants: ' +
-            (error.message || error),
-            'error'
-        );
-
-    } finally {
-
-        if (button) {
-            button.disabled = false;
-        }
-    }
-}
-
-
-/* =========================================================
-   MEMBERS + DEPENDANTS REPORT
-========================================================= */
-
-async function exportMembersDependantsCsv(evt) {
-
-    clearStatus();
-
-    const button =
-        evt?.currentTarget;
-
-    if (button) {
-        button.disabled = true;
-    }
-
-    try {
-
-        showStatus(
-            'Preparing members and dependants report...',
-            'info'
-        );
-
-        const status =
-            document.getElementById(
-                'combinedStatus'
-            ).value;
-
-        const plan =
-            document.getElementById(
-                'combinedPlan'
-            ).value;
-
-        const data = await fetchAllPages(() => {
-
-            let query =
-                supabaseClient
-                    .from('members')
-                    .select(`
-                        *,
-                        dependants (*)
-                    `)
-                    .order('created_at', {
-                        ascending: true
-                    });
-
-            query = applyDateRange(
-                query,
-                'combinedFrom',
-                'combinedTo',
-                'created_at'
-            );
-
-            if (status) {
-                query = query.eq(
-                    'status',
-                    status
-                );
-            }
-
-            if (plan) {
-                query = query.eq(
-                    'plan_type',
-                    plan
-                );
-            }
-
-            return query;
-        });
-
-
-        if (!data || data.length === 0) {
-
-            showStatus(
-                'No members or dependants found for the selected filters.',
-                'info'
-            );
-
-            return;
-        }
-
-
-        const headers = [
-            'Date Joined',
-            'Membership #',
-            'Principal Member Name',
-            'Principal ID Number',
-            'Principal Date of Birth',
-            'Principal Phone',
-            'Plan',
-            'Member Status',
-            'Dependant Name',
-            'Relationship',
-            'Dependant Date of Birth',
-            'Dependant ID Number',
-            'Dependant Phone'
-        ];
-
-
-        const rows = [];
-
-
-        data.forEach(member => {
-
-            const dependants =
-                Array.isArray(member.dependants)
-                    ? member.dependants
-                    : [];
-
-
-            /*
-             * If there are no dependants,
-             * still export the principal member.
-             */
-            if (dependants.length === 0) {
-
-                rows.push([
-
-                    formatDateOnly(
-                        member.created_at
-                    ),
-
-                    memberNumber(member),
-
-                    memberName(member),
-
-                    memberIdNumber(member),
-
-                    formatDateOnly(
-                        memberDob(member)
-                    ),
-
-                    memberPhone(member),
-
-                    pickField(member, [
-                        'plan_type',
-                        'plan'
-                    ]),
-
-                    pickField(member, [
-                        'status',
-                        'membership_status'
-                    ]),
-
-                    '',
-
-                    '',
-
-                    '',
-
-                    '',
-
-                    ''
-                ]);
-
-                return;
-            }
-
-
-            dependants.forEach(dependant => {
-
-                rows.push([
-
-                    formatDateOnly(
-                        member.created_at
-                    ),
-
-                    memberNumber(member),
-
-                    memberName(member),
-
-                    memberIdNumber(member),
-
-                    formatDateOnly(
-                        memberDob(member)
-                    ),
-
-                    memberPhone(member),
-
-                    pickField(member, [
-                        'plan_type',
-                        'plan'
-                    ]),
-
-                    pickField(member, [
-                        'status',
-                        'membership_status'
-                    ]),
-
-                    dependantName(dependant),
-
-                    dependantRelationship(
-                        dependant
-                    ),
-
-                    formatDateOnly(
-                        dependantDob(dependant)
-                    ),
-
-                    dependantIdNumber(
-                        dependant
-                    ),
-
-                    dependantPhone(
-                        dependant
                     )
+                    .eq('auth_user_id', session.user.id)
+                    .maybeSingle();
+
+                if (staffError) {
+                    console.error('❌ Staff lookup error:', staffError);
+                    // Check admins table as fallback
+                    const { data: admin, error: adminError } = await supabaseClient
+                        .from('admins')
+                        .select('*')
+                        .eq('id', session.user.id)
+                        .single();
+
+                    if (admin) {
+                        console.log('✅ Found in admins table (legacy)');
+                        currentStaff = admin;
+                        localStorage.setItem('admin_user', JSON.stringify(admin));
+                        updateAdminUI(admin);
+                        return true;
+                    }
+
+                    window.location.href = 'admin-login.html';
+                    return false;
+                }
+
+                if (!staff) {
+                    console.log('⚠️ No staff record found');
+                    window.location.href = 'admin-login.html';
+                    return false;
+                }
+
+                // Check if Super Admin
+                const roleCode = staff.roles?.role_code;
+                const roleActive = staff.roles?.is_active === true;
+                const staffActive = staff.status === 'ACTIVE';
+
+                const isAdmin = roleCode === 'SUPER_ADMIN' || roleCode === 'ADMIN';
+
+                if (!isAdmin || !roleActive || !staffActive) {
+                    console.warn('⚠️ Not authorized:', { roleCode, roleActive, staffActive });
+                    await supabaseClient.auth.signOut();
+                    window.location.href = 'admin-login.html';
+                    return false;
+                }
+
+                console.log('✅ Admin verified:', staff.full_name);
+                currentStaff = staff;
+
+                localStorage.setItem('admin_user', JSON.stringify(staff));
+                localStorage.setItem('admin_session', JSON.stringify(session));
+
+                updateAdminUI(staff);
+                return true;
+
+            } catch (error) {
+                console.error('❌ Auth check error:', error);
+                showToast('error', 'Authentication error');
+                return false;
+            }
+        }
+
+        // ============================================================
+        // UPDATE ADMIN UI
+        // ============================================================
+
+        function updateAdminUI(staff) {
+            const name = staff.full_name || staff.name || 'Admin';
+            const role = staff.roles?.role_name || staff.role || 'Administrator';
+
+            document.getElementById('adminName').textContent = name;
+            document.getElementById('adminRole').textContent = role;
+            document.getElementById('adminAvatar').textContent = name.charAt(0).toUpperCase();
+        }
+
+        // ============================================================
+        // SET DEFAULT DATES
+        // ============================================================
+
+        function setDefaultDates() {
+            const today = new Date();
+            const thirtyDaysAgo = new Date(today);
+            thirtyDaysAgo.setDate(today.getDate() - 30);
+
+            const formatDate = (date) => date.toISOString().split('T')[0];
+
+            document.getElementById('paymentsFrom').value = formatDate(thirtyDaysAgo);
+            document.getElementById('paymentsTo').value = formatDate(today);
+            document.getElementById('membersFrom').value = formatDate(thirtyDaysAgo);
+            document.getElementById('membersTo').value = formatDate(today);
+            document.getElementById('dependantsFrom').value = formatDate(thirtyDaysAgo);
+            document.getElementById('dependantsTo').value = formatDate(today);
+            // Members & Dependants intentionally starts blank (all-time) —
+            // it's meant as a full membership+dependant listing, not a
+            // recent-activity report. Leaving these empty means no date
+            // filter is applied unless the admin sets one.
+        }
+
+        // ============================================================
+        // FIELD FALLBACK HELPERS
+        // Different installs may name these columns differently, so
+        // try the common variants instead of hard failing on one name.
+        // ============================================================
+
+        function pickField(obj, candidates) {
+            if (!obj) return '';
+            for (const key of candidates) {
+                if (obj[key] !== undefined && obj[key] !== null && obj[key] !== '') {
+                    return obj[key];
+                }
+            }
+            return '';
+        }
+
+        function memberIdNumber(m) {
+            return pickField(m, ['national_id', 'id_number', 'national_id_number', 'id_no', 'nid']);
+        }
+
+        function memberDob(m) {
+            return pickField(m, ['date_of_birth', 'dob', 'birth_date']);
+        }
+
+        function dependantIdNumber(d) {
+            return pickField(d, ['national_id', 'id_number', 'national_id_number', 'id_no', 'nid']);
+        }
+
+        function dependantDob(d) {
+            return pickField(d, ['date_of_birth', 'dob', 'birth_date']);
+        }
+
+        function formatDateOnly(value) {
+            if (!value) return '';
+            const d = new Date(value);
+            if (isNaN(d.getTime())) return String(value);
+            return d.toLocaleDateString('en-KE');
+        }
+
+        // ============================================================
+        // EXPORT PAYMENTS CSV
+        // ============================================================
+
+        window.exportPaymentsCsv = async function() {
+            const btn = document.getElementById('exportPaymentsBtn');
+            const statusMsg = document.getElementById('paymentsStatusMsg');
+
+            btn.disabled = true;
+            btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Exporting...';
+            statusMsg.className = 'report-status info';
+            statusMsg.textContent = 'Fetching payment data...';
+
+            try {
+                const from = document.getElementById('paymentsFrom').value;
+                const to = document.getElementById('paymentsTo').value;
+                const status = document.getElementById('paymentsStatus').value;
+
+                let query = supabaseClient.from('payments').select('*');
+
+                if (from) {
+                    query = query.gte('created_at', ${from}T00:00:00);
+                }
+                if (to) {
+                    query = query.lte('created_at', ${to}T23:59:59);
+                }
+                if (status) {
+                    query = query.eq('status', status);
+                }
+
+                const { data, error } = await query.order('created_at', { ascending: false });
+
+                if (error) throw error;
+
+                if (!data || data.length === 0) {
+                    statusMsg.className = 'report-status warning';
+                    statusMsg.textContent = 'No payments found for the selected filters.';
+                    btn.disabled = false;
+                    btn.innerHTML = '<i class="fas fa-download"></i> Export Payments CSV';
+                    return;
+                }
+
+                // Generate CSV
+                const headers = ['ID', 'Member Name', 'Membership #', 'Amount', 'Payment Type', 'Status', 'M-Pesa Code', 'Date'];
+                const rows = data.map(p => [
+                    p.id || '',
+                    p.member_name || p.membership_number || '',
+                    p.membership_number || '',
+                    p.amount || 0,
+                    p.payment_type || '',
+                    p.status || '',
+                    p.mpesa_code || p.mpesa_receipt || '',
+                    p.created_at ? new Date(p.created_at).toLocaleString('en-KE') : ''
                 ]);
+
+                downloadCSV(headers, rows, payments_${new Date().toISOString().split('T')[0]});
+
+                statusMsg.className = 'report-status success';
+                statusMsg.textContent = ✅ ${data.length} payments exported successfully!;
+
+                showToast('success', ${data.length} payments exported);
+
+            } catch (error) {
+                console.error('Export payments error:', error);
+                statusMsg.className = 'report-status error';
+                statusMsg.textContent = '❌ Failed to export payments. Please try again.';
+                showToast('error', 'Failed to export payments');
+            } finally {
+                btn.disabled = false;
+                btn.innerHTML = '<i class="fas fa-download"></i> Export Payments CSV';
+            }
+        };
+
+        // ============================================================
+        // EXPORT MEMBERS CSV
+        // ============================================================
+
+        window.exportMembersCsv = async function() {
+            const btn = document.getElementById('exportMembersBtn');
+            const statusMsg = document.getElementById('membersStatusMsg');
+
+            btn.disabled = true;
+            btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Exporting...';
+            statusMsg.className = 'report-status info';
+            statusMsg.textContent = 'Fetching member data...';
+
+            try {
+                const from = document.getElementById('membersFrom').value;
+                const to = document.getElementById('membersTo').value;
+                const status = document.getElementById('membersStatus').value;
+                const plan = document.getElementById('membersPlan').value;
+
+                let query = supabaseClient.from('members').select('*');
+
+                if (from) {
+                    query = query.gte('created_at', ${from}T00:00:00);
+                }
+                if (to) {
+                    query = query.lte('created_at', ${to}T23:59:59);
+                }
+                if (status) {
+                    query = query.eq('status', status);
+                }
+                if (plan) {
+                    query = query.eq('plan_type', plan);
+                }
+
+                const { data, error } = await query.order('created_at', { ascending: false });
+
+                if (error) throw error;
+
+                if (!data || data.length === 0) {
+                    statusMsg.className = 'report-status warning';
+                    statusMsg.textContent = 'No members found for the selected filters.';
+                    btn.disabled = false;
+                    btn.innerHTML = '<i class="fas fa-download"></i> Export Members CSV';
+                    return;
+                }
+
+                // Generate CSV
+                const headers = ['Membership #', 'First Name', 'Last Name', 'Phone', 'Email', 'Plan', 'Status', 'County', 'Town', 'Joined'];
+                const rows = data.map(m => [
+                    m.membership_number || '',
+                    m.first_name || '',
+                    m.last_name || '',
+                    m.phone || '',
+                    m.email || '',
+                    m.plan_type || '',
+                    m.status || '',
+                    m.county || '',
+                    m.town || '',
+                    m.created_at ? new Date(m.created_at).toLocaleDateString('en-KE') : ''
+                ]);
+
+                downloadCSV(headers, rows, members_${new Date().toISOString().split('T')[0]});
+
+                statusMsg.className = 'report-status success';
+                statusMsg.textContent = ✅ ${data.length} members exported successfully!;
+
+                showToast('success', ${data.length} members exported);
+
+            } catch (error) {
+                console.error('Export members error:', error);
+                statusMsg.className = 'report-status error';
+                statusMsg.textContent = '❌ Failed to export members. Please try again.';
+                showToast('error', 'Failed to export members');
+            } finally {
+                btn.disabled = false;
+                btn.innerHTML = '<i class="fas fa-download"></i> Export Members CSV';
+            }
+        };
+
+        // ============================================================
+        // EXPORT DEPENDANTS CSV
+        // ============================================================
+
+        window.exportDependantsCsv = async function() {
+            const btn = document.getElementById('exportDependantsBtn');
+            const statusMsg = document.getElementById('dependantsStatusMsg');
+
+            btn.disabled = true;
+            btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Exporting...';
+            statusMsg.className = 'report-status info';
+            statusMsg.textContent = 'Fetching dependant data...';
+
+            try {
+                const from = document.getElementById('dependantsFrom').value;
+                const to = document.getElementById('dependantsTo').value;
+                const relationship = document.getElementById('dependantsRelationship').value;
+
+                let query = supabaseClient.from('dependants').select('*, members(first_name, last_name, membership_number)');
+
+                if (from) {
+                    query = query.gte('created_at', ${from}T00:00:00);
+                }
+                if (to) {
+                    query = query.lte('created_at', ${to}T23:59:59);
+                }
+                if (relationship) {
+                    query = query.eq('relationship', relationship);
+                }
+
+                const { data, error } = await query.order('created_at', { ascending: false });
+
+                if (error) throw error;
+
+                if (!data || data.length === 0) {
+                    statusMsg.className = 'report-status warning';
+                    statusMsg.textContent = 'No dependants found for the selected filters.';
+                    btn.disabled = false;
+                    btn.innerHTML = '<i class="fas fa-download"></i> Export Dependants CSV';
+                    return;
+                }
+
+                // Generate CSV
+                const headers = ['Member Name', 'Membership #', 'Dependant Name', 'Relationship', 'Date of Birth', 'Added'];
+                const rows = data.map(d => [
+                    d.members ? ${d.members.first_name || ''} ${d.members.last_name || ''}.trim() : '',
+                    d.members ? d.members.membership_number || '' : '',
+                    ${d.first_name || ''} ${d.last_name || ''}.trim(),
+                    d.relationship || '',
+                    d.date_of_birth || '',
+                    d.created_at ? new Date(d.created_at).toLocaleDateString('en-KE') : ''
+                ]);
+
+                downloadCSV(headers, rows, dependants_${new Date().toISOString().split('T')[0]});
+
+                statusMsg.className = 'report-status success';
+                statusMsg.textContent = ✅ ${data.length} dependants exported successfully!;
+
+                showToast('success', ${data.length} dependants exported);
+
+            } catch (error) {
+                console.error('Export dependants error:', error);
+                statusMsg.className = 'report-status error';
+                statusMsg.textContent = '❌ Failed to export dependants. Please try again.';
+                showToast('error', 'Failed to export dependants');
+            } finally {
+                btn.disabled = false;
+                btn.innerHTML = '<i class="fas fa-download"></i> Export Dependants CSV';
+            }
+        };
+
+        // ============================================================
+        // EXPORT MEMBERS & DEPENDANTS CSV (combined)
+        // One row per dependant, joined to their principal member.
+        // Members with no dependants still get one row (dependant
+        // columns blank) so every member is represented.
+        // ============================================================
+
+        window.exportMembersDependantsCsv = async function() {
+            const btn = document.getElementById('exportMembersDependantsBtn');
+            const statusMsg = document.getElementById('membersDependantsStatusMsg');
+
+            btn.disabled = true;
+            btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Exporting...';
+            statusMsg.className = 'report-status info';
+            statusMsg.textContent = 'Fetching member and dependant data...';
+
+            try {
+                const from = document.getElementById('mdFrom').value;
+                const to = document.getElementById('mdTo').value;
+                const status = document.getElementById('mdStatus').value;
+                const plan = document.getElementById('mdPlan').value;
+
+                // Pull each member together with their embedded dependants
+                // via the members -> dependants relationship.
+                let query = supabaseClient.from('members').select('*, dependants(*)');
+
+                if (from) {
+                    query = query.gte('created_at', ${from}T00:00:00);
+                }
+                if (to) {
+                    query = query.lte('created_at', ${to}T23:59:59);
+                }
+                if (status) {
+                    query = query.eq('status', status);
+                }
+                if (plan) {
+                    query = query.eq('plan_type', plan);
+                }
+
+                const { data, error } = await query.order('created_at', { ascending: false });
+
+                if (error) throw error;
+
+                if (!data || data.length === 0) {
+                    statusMsg.className = 'report-status warning';
+                    statusMsg.textContent = 'No members found for the selected filters.';
+                    btn.disabled = false;
+                    btn.innerHTML = '<i class="fas fa-download"></i> Export Members & Dependants CSV';
+                    return;
+                }
+
+                const headers = [
+                    'Date Joined',
+                    'Membership #',
+                    'Principal Member Name',
+                    'Principal ID Number',
+                    'Principal Date of Birth',
+                    'Dependant Name',
+                    'Relationship',
+                    'Dependant Date of Birth',
+                    'Dependant ID Number'
+                ];
+
+                const rows = [];
+
+                data.forEach(m => {
+                    const dateJoined = formatDateOnly(m.created_at);
+                    const principalName = ${m.first_name || ''} ${m.last_name || ''}.trim();
+                    const principalId = memberIdNumber(m);
+                    const principalDob = formatDateOnly(memberDob(m));
+                    const dependants = Array.isArray(m.dependants) ? m.dependants : [];
+
+                    if (dependants.length === 0) {
+                        rows.push([
+                            dateJoined,
+                            m.membership_number || '',
+                            principalName,
+                            principalId,
+                            principalDob,
+                            '',
+                            '',
+                            '',
+                            ''
+                        ]);
+                        return;
+                    }
+
+                    dependants.forEach(d => {
+                        const dependantName = ${d.first_name || ''} ${d.last_name || ''}.trim();
+                        rows.push([
+                            dateJoined,
+                            m.membership_number || '',
+                            principalName,
+                            principalId,
+                            principalDob,
+                            dependantName,
+                            d.relationship || '',
+                            formatDateOnly(dependantDob(d)),
+                            dependantIdNumber(d)
+                        ]);
+                    });
+                });
+
+                downloadCSV(headers, rows, members_dependants_${new Date().toISOString().split('T')[0]});
+
+                statusMsg.className = 'report-status success';
+                statusMsg.textContent = ✅ ${data.length} members (${rows.length} rows) exported successfully!;
+
+                showToast('success', ${rows.length} rows exported);
+
+            } catch (error) {
+                console.error('Export members & dependants error:', error);
+                statusMsg.className = 'report-status error';
+                statusMsg.textContent = '❌ Failed to export. Check that the members ↔ dependants relationship is set up in Supabase.';
+                showToast('error', 'Failed to export members & dependants');
+            } finally {
+                btn.disabled = false;
+                btn.innerHTML = '<i class="fas fa-download"></i> Export Members & Dependants CSV';
+            }
+        };
+
+        // ============================================================
+        // DOWNLOAD CSV HELPER
+        // ============================================================
+
+        function downloadCSV(headers, rows, filename) {
+            let csv = headers.join(',') + '\n';
+
+            rows.forEach(row => {
+                csv += row.map(cell => "${String(cell).replace(/"/g, '""')}").join(',') + '\n';
             });
 
-        });
-
-
-        downloadCsv(
-            `masika-members-dependants-${getLocalDateString()}.csv`,
-            headers,
-            rows
-        );
-
-
-        showStatus(
-            `${rows.length} report row(s) exported successfully.`,
-            'success'
-        );
-
-    } catch (error) {
-
-        console.error(
-            'Combined export error:',
-            error
-        );
-
-        showStatus(
-            'Failed to export combined report: ' +
-            (error.message || error),
-            'error'
-        );
-
-    } finally {
-
-        if (button) {
-            button.disabled = false;
+            const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = ${filename}.csv;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
         }
-    }
-}
 
+        // ============================================================
+        // SIDEBAR TOGGLE
+        // ============================================================
 
-/* =========================================================
-   GLOBAL EXPORTS
-========================================================= */
+        function setupSidebarToggle() {
+            const sidebar = document.getElementById('sidebar');
+            const backdrop = document.getElementById('sidebarBackdrop');
+            const toggleBtn = document.getElementById('sidebarToggle');
 
-window.exportPaymentsCsv =
-    exportPaymentsCsv;
-
-window.exportMembersCsv =
-    exportMembersCsv;
-
-window.exportDependantsCsv =
-    exportDependantsCsv;
-
-window.exportMembersDependantsCsv =
-    exportMembersDependantsCsv;
-
-
-/* =========================================================
-   INITIALIZE
-========================================================= */
-
-document.addEventListener(
-    'DOMContentLoaded',
-    async () => {
-
-        try {
-
-            setDefaultDates();
-
-            const authorized =
-                await checkAuth();
-
-            if (!authorized) {
-                return;
+            if (toggleBtn) {
+                toggleBtn.addEventListener('click', function() {
+                    sidebar.classList.toggle('open');
+                    backdrop.classList.toggle('show');
+                });
             }
 
-        } catch (error) {
+            if (backdrop) {
+                backdrop.addEventListener('click', function() {
+                    sidebar.classList.remove('open');
+                    backdrop.classList.remove('show');
+                });
+            }
 
-            console.error(
-                'Initialization error:',
-                error
-            );
-
-            showStatus(
-                'Unable to verify administrator access: ' +
-                (error.message || error),
-                'error'
-            );
+            document.querySelectorAll('.sidebar-nav a').forEach(function(link) {
+                link.addEventListener('click', function() {
+                    sidebar.classList.remove('open');
+                    backdrop.classList.remove('show');
+                });
+            });
         }
-    }
-);
-</script>
+
+        // ============================================================
+        // CLOCK
+        // ============================================================
+
+        function updateClock() {
+            const clockEl = document.getElementById('currentDateTime');
+            if (clockEl) {
+                const now = new Date();
+                clockEl.textContent = now.toLocaleString('en-KE', {
+                    weekday: 'short',
+                    day: '2-digit',
+                    month: 'short',
+                    year: 'numeric',
+                    hour: '2-digit',
+                    minute: '2-digit'
+                });
+            }
+            setTimeout(updateClock, 30000);
+        }
+
+        // ============================================================
+        // TOAST NOTIFICATIONS
+        // ============================================================
+
+        function showToast(type, message) {
+            const container = document.getElementById('toastContainer');
+
+            const icons = {
+                success: 'fa-check-circle',
+                error: 'fa-exclamation-circle',
+                warning: 'fa-triangle-exclamation',
+                info: 'fa-info-circle'
+            };
+
+            const toast = document.createElement('div');
+            toast.className = toast ${type};
+            toast.innerHTML = 
+                <i class="fas ${icons[type] || icons.info}"></i>
+                <span>${message}</span>
+                <button class="toast-close" onclick="this.parentElement.remove()">&times;</button>
+            ;
+
+            container.appendChild(toast);
+
+            setTimeout(() => {
+                toast.style.opacity = '0';
+                toast.style.transform = 'translateX(100px)';
+                toast.style.transition = 'all 0.4s ease';
+                setTimeout(() => toast.remove(), 400);
+            }, 4000);
+        }
+
+        // ============================================================
+        // LOGOUT
+        // ============================================================
+
+        window.handleLogout = async function() {
+            try {
+                await supabaseClient.auth.signOut();
+                localStorage.removeItem('admin_user');
+                localStorage.removeItem('admin_session');
+                sessionStorage.clear();
+                window.location.href = 'admin-login.html';
+            } catch (error) {
+                console.error('Logout error:', error);
+                showToast('error', 'Failed to logout');
+            }
+        };
+
+        // ============================================================
+        // ESCAPE HTML
+        // ============================================================
+
+        function escapeHtml(value) {
+            if (!value) return '';
+            return String(value)
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;')
+                .replace(/'/g, '&#039;');
+        }
+
+        // ============================================================
+        // EXPOSE FUNCTIONS
+        // ============================================================
+
+        window.exportPaymentsCsv = exportPaymentsCsv;
+        window.exportMembersCsv = exportMembersCsv;
+        window.exportDependantsCsv = exportDependantsCsv;
+        window.exportMembersDependantsCsv = exportMembersDependantsCsv;
+        window.handleLogout = handleLogout;
+        window.showToast = showToast;
+        window.setDefaultDates = setDefaultDates;
+    </script>
 
 </body>
 </html>
