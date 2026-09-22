@@ -130,6 +130,11 @@
             background: #1f2937;
         }
 
+        .btn-primary:disabled {
+            opacity: .6;
+            cursor: not-allowed;
+        }
+
         .btn-secondary {
             background: #e5e7eb;
             color: #111827;
@@ -246,7 +251,7 @@
             <button
                 type="button"
                 class="btn-primary"
-                onclick="exportPaymentsCsv()">
+                onclick="exportPaymentsCsv(event)">
                 Export Payments CSV
             </button>
 
@@ -296,7 +301,7 @@
             <button
                 type="button"
                 class="btn-primary"
-                onclick="exportMembersCsv()">
+                onclick="exportMembersCsv(event)">
                 Export Members CSV
             </button>
 
@@ -337,7 +342,7 @@
             <button
                 type="button"
                 class="btn-primary"
-                onclick="exportDependantsCsv()">
+                onclick="exportDependantsCsv(event)">
                 Export Dependants CSV
             </button>
 
@@ -387,7 +392,7 @@
             <button
                 type="button"
                 class="btn-primary"
-                onclick="exportMembersDependantsCsv()">
+                onclick="exportMembersDependantsCsv(event)">
                 Export Combined CSV
             </button>
 
@@ -405,6 +410,8 @@
 const SUPABASE_URL =
     'https://wpxzlcdrirlcyvfiquld.supabase.co';
 
+// TODO: replace with your real Supabase anon/publishable key
+// before deploying this page. Never put the service_role key here.
 const SUPABASE_ANON_KEY =
     'YOUR_SUPABASE_ANON_KEY';
 
@@ -760,6 +767,49 @@ function applyDateRange(
 
 
 /* =========================================================
+   PAGINATION HELPER
+   Supabase/PostgREST caps a single request at 1000 rows by
+   default. For reports that can legitimately exceed that,
+   we page through with .range() until a page comes back
+   short of the page size.
+========================================================= */
+
+const REPORT_PAGE_SIZE = 1000;
+
+async function fetchAllPages(buildQuery) {
+
+    let allRows = [];
+    let from = 0;
+
+    while (true) {
+
+        const to = from + REPORT_PAGE_SIZE - 1;
+
+        const { data, error } =
+            await buildQuery().range(from, to);
+
+        if (error) {
+            throw error;
+        }
+
+        if (!data || data.length === 0) {
+            break;
+        }
+
+        allRows = allRows.concat(data);
+
+        if (data.length < REPORT_PAGE_SIZE) {
+            break;
+        }
+
+        from += REPORT_PAGE_SIZE;
+    }
+
+    return allRows;
+}
+
+
+/* =========================================================
    DEFAULT DATES
 ========================================================= */
 
@@ -946,12 +996,12 @@ async function checkAuth() {
    PAYMENTS REPORT
 ========================================================= */
 
-async function exportPaymentsCsv() {
+async function exportPaymentsCsv(evt) {
 
     clearStatus();
 
     const button =
-        event?.currentTarget;
+        evt?.currentTarget;
 
     if (button) {
         button.disabled = true;
@@ -964,46 +1014,47 @@ async function exportPaymentsCsv() {
             'info'
         );
 
-        let query =
-            supabaseClient
-                .from('payments')
-                .select('*')
-                .order('created_at', {
-                    ascending: true
-                });
-
-
-        query = applyDateRange(
-            query,
-            'paymentFrom',
-            'paymentTo',
-            'created_at'
-        );
-
-
         const status =
             document.getElementById(
                 'paymentStatus'
             ).value;
 
+        const data = await fetchAllPages(() => {
 
-        if (status) {
-            query = query.eq(
-                'status',
-                status
+            let query =
+                supabaseClient
+                    .from('payments')
+                    .select(`
+                        *,
+                        members (
+                            member_number,
+                            membership_number,
+                            full_name,
+                            first_name,
+                            last_name,
+                            phone
+                        )
+                    `)
+                    .order('created_at', {
+                        ascending: true
+                    });
+
+            query = applyDateRange(
+                query,
+                'paymentFrom',
+                'paymentTo',
+                'created_at'
             );
-        }
 
+            if (status) {
+                query = query.eq(
+                    'status',
+                    status
+                );
+            }
 
-        const {
-            data,
-            error
-        } = await query;
-
-
-        if (error) {
-            throw error;
-        }
+            return query;
+        });
 
 
         if (!data || data.length === 0) {
@@ -1152,12 +1203,12 @@ async function exportPaymentsCsv() {
    MEMBERS REPORT
 ========================================================= */
 
-async function exportMembersCsv() {
+async function exportMembersCsv(evt) {
 
     clearStatus();
 
     const button =
-        event?.currentTarget;
+        evt?.currentTarget;
 
     if (button) {
         button.disabled = true;
@@ -1170,62 +1221,49 @@ async function exportMembersCsv() {
             'info'
         );
 
-
-        let query =
-            supabaseClient
-                .from('members')
-                .select('*')
-                .order('created_at', {
-                    ascending: true
-                });
-
-
-        query = applyDateRange(
-            query,
-            'memberFrom',
-            'memberTo',
-            'created_at'
-        );
-
-
         const status =
             document.getElementById(
                 'memberStatus'
             ).value;
-
-
-        if (status) {
-            query = query.eq(
-                'status',
-                status
-            );
-        }
-
 
         const plan =
             document.getElementById(
                 'memberPlan'
             ).value;
 
+        const data = await fetchAllPages(() => {
 
-        if (plan) {
+            let query =
+                supabaseClient
+                    .from('members')
+                    .select('*')
+                    .order('created_at', {
+                        ascending: true
+                    });
 
-            query = query.eq(
-                'plan_type',
-                plan
+            query = applyDateRange(
+                query,
+                'memberFrom',
+                'memberTo',
+                'created_at'
             );
-        }
 
+            if (status) {
+                query = query.eq(
+                    'status',
+                    status
+                );
+            }
 
-        const {
-            data,
-            error
-        } = await query;
+            if (plan) {
+                query = query.eq(
+                    'plan_type',
+                    plan
+                );
+            }
 
-
-        if (error) {
-            throw error;
-        }
+            return query;
+        });
 
 
         if (!data || data.length === 0) {
@@ -1335,12 +1373,12 @@ async function exportMembersCsv() {
    DEPENDANTS REPORT
 ========================================================= */
 
-async function exportDependantsCsv() {
+async function exportDependantsCsv(evt) {
 
     clearStatus();
 
     const button =
-        event?.currentTarget;
+        evt?.currentTarget;
 
     if (button) {
         button.disabled = true;
@@ -1353,63 +1391,52 @@ async function exportDependantsCsv() {
             'info'
         );
 
+        const relationship =
+            document.getElementById(
+                'dependantRelationship'
+            ).value;
 
         /*
          * We request the dependant records together
          * with their member where the FK relationship
          * is available.
          */
-        let query =
-            supabaseClient
-                .from('dependants')
-                .select(`
-                    *,
-                    members (
-                        member_number,
-                        membership_number,
-                        full_name,
-                        first_name,
-                        last_name,
-                        phone
-                    )
-                `)
-                .order('created_at', {
-                    ascending: true
-                });
+        const data = await fetchAllPages(() => {
 
+            let query =
+                supabaseClient
+                    .from('dependants')
+                    .select(`
+                        *,
+                        members (
+                            member_number,
+                            membership_number,
+                            full_name,
+                            first_name,
+                            last_name,
+                            phone
+                        )
+                    `)
+                    .order('created_at', {
+                        ascending: true
+                    });
 
-        query = applyDateRange(
-            query,
-            'dependantFrom',
-            'dependantTo',
-            'created_at'
-        );
-
-
-        const relationship =
-            document.getElementById(
-                'dependantRelationship'
-            ).value;
-
-
-        if (relationship) {
-
-            query = query.eq(
-                'relationship',
-                relationship
+            query = applyDateRange(
+                query,
+                'dependantFrom',
+                'dependantTo',
+                'created_at'
             );
-        }
 
+            if (relationship) {
+                query = query.eq(
+                    'relationship',
+                    relationship
+                );
+            }
 
-        const {
-            data,
-            error
-        } = await query;
-
-
-        if (error) {
-            throw error;
-        }
+            return query;
+        });
 
 
         if (!data || data.length === 0) {
@@ -1505,12 +1532,12 @@ async function exportDependantsCsv() {
    MEMBERS + DEPENDANTS REPORT
 ========================================================= */
 
-async function exportMembersDependantsCsv() {
+async function exportMembersDependantsCsv(evt) {
 
     clearStatus();
 
     const button =
-        event?.currentTarget;
+        evt?.currentTarget;
 
     if (button) {
         button.disabled = true;
@@ -1523,66 +1550,52 @@ async function exportMembersDependantsCsv() {
             'info'
         );
 
-
-        let query =
-            supabaseClient
-                .from('members')
-                .select(`
-                    *,
-                    dependants (*)
-                `)
-                .order('created_at', {
-                    ascending: true
-                });
-
-
-        query = applyDateRange(
-            query,
-            'combinedFrom',
-            'combinedTo',
-            'created_at'
-        );
-
-
         const status =
             document.getElementById(
                 'combinedStatus'
             ).value;
-
-
-        if (status) {
-
-            query = query.eq(
-                'status',
-                status
-            );
-        }
-
 
         const plan =
             document.getElementById(
                 'combinedPlan'
             ).value;
 
+        const data = await fetchAllPages(() => {
 
-        if (plan) {
+            let query =
+                supabaseClient
+                    .from('members')
+                    .select(`
+                        *,
+                        dependants (*)
+                    `)
+                    .order('created_at', {
+                        ascending: true
+                    });
 
-            query = query.eq(
-                'plan_type',
-                plan
+            query = applyDateRange(
+                query,
+                'combinedFrom',
+                'combinedTo',
+                'created_at'
             );
-        }
 
+            if (status) {
+                query = query.eq(
+                    'status',
+                    status
+                );
+            }
 
-        const {
-            data,
-            error
-        } = await query;
+            if (plan) {
+                query = query.eq(
+                    'plan_type',
+                    plan
+                );
+            }
 
-
-        if (error) {
-            throw error;
-        }
+            return query;
+        });
 
 
         if (!data || data.length === 0) {
