@@ -3,393 +3,243 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Reports | Masika Benevolent</title>
-    <link rel="icon" type="image/png" sizes="32x32" href="assets/branding/favicon-32.png">
 
-    <!-- =========================================================
-         SUPABASE & EXTERNAL JS
-         ========================================================= -->
+    <title>Masika BBS - Reports</title>
+
+    <link rel="icon" href="/assets/favicon.svg">
+
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+
+    <link rel="stylesheet"
+          href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
+
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-    <link
-        rel="stylesheet"
-        href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"
-    >
-    <link
-        href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap"
-        rel="stylesheet"
-    >
 
     <style>
         * {
-            margin: 0;
-            padding: 0;
             box-sizing: border-box;
         }
 
         :root {
-            --primary: #0b5d3b;
-            --primary-dark: #06452c;
-            --primary-light: #e8f5ee;
-            --gold: #d4a843;
-            --gold-light: #f5e6b8;
-
-            --danger: #dc3545;
-            --danger-light: #fce4e8;
-
-            --success: #198754;
-            --success-light: #d4edda;
-
-            --warning: #ffc107;
-            --warning-light: #fff3cd;
-
-            --info: #0dcaf0;
-            --info-light: #d1f0f9;
-
-            --purple: #6f42c1;
-            --purple-light: #ece3fb;
-
-            --text: #1f2933;
-            --text-light: #6b7280;
-            --text-lighter: #9ca3af;
-
-            --white: #ffffff;
-
-            --gray-50: #f9fafb;
-            --gray-100: #f3f4f6;
-            --gray-200: #e5e7eb;
-            --gray-300: #d1d5db;
-            --gray-400: #9ca3af;
-
-            --shadow: 0 2px 12px rgba(0, 0, 0, 0.08);
-            --shadow-hover: 0 4px 24px rgba(0, 0, 0, 0.12);
-
-            --radius: 12px;
-            --radius-lg: 16px;
-            --transition: all 0.3s ease;
+            --primary: #0f172a;
+            --primary-2: #1e293b;
+            --accent: #eab308;
+            --accent-dark: #ca8a04;
+            --bg: #f8fafc;
+            --card: #ffffff;
+            --border: #e2e8f0;
+            --text: #0f172a;
+            --muted: #64748b;
+            --success: #16a34a;
+            --danger: #dc2626;
+            --warning: #d97706;
+            --info: #2563eb;
         }
 
         body {
-            font-family:
-                'Inter',
-                -apple-system,
-                BlinkMacSystemFont,
-                'Segoe UI',
-                Arial,
-                sans-serif;
-            background: #f0f4f2;
+            margin: 0;
+            font-family: "Inter", sans-serif;
+            background: var(--bg);
             color: var(--text);
-            min-height: 100vh;
         }
 
-        ::-webkit-scrollbar {
-            width: 6px;
-            height: 6px;
-        }
-
-        ::-webkit-scrollbar-track {
-            background: var(--gray-100);
-            border-radius: 10px;
-        }
-
-        ::-webkit-scrollbar-thumb {
-            background: var(--gray-300);
-            border-radius: 10px;
-        }
-
-        ::-webkit-scrollbar-thumb:hover {
-            background: var(--gray-400);
-        }
-
-        .admin-layout {
+        .app {
             display: flex;
             min-height: 100vh;
         }
 
-        /* =========================================================
-           SIDEBAR
-           ========================================================= */
-
+        /* SIDEBAR */
         .sidebar {
-            width: 280px;
+            width: 250px;
             background: var(--primary);
             color: white;
-            padding: 24px 0;
-            position: fixed;
-            height: 100vh;
-            overflow-y: auto;
-            transition: var(--transition);
-            z-index: 100;
-            display: flex;
-            flex-direction: column;
-        }
-
-        .sidebar::-webkit-scrollbar {
-            width: 4px;
-        }
-
-        .sidebar::-webkit-scrollbar-track {
-            background: rgba(255, 255, 255, 0.05);
-        }
-
-        .sidebar::-webkit-scrollbar-thumb {
-            background: rgba(255, 255, 255, 0.2);
-            border-radius: 10px;
-        }
-
-        .sidebar-brand {
-            padding: 0 24px 24px;
-            border-bottom: 1px solid rgba(255, 255, 255, 0.08);
-            margin-bottom: 20px;
-            flex-shrink: 0;
-        }
-
-        .sidebar-brand .logo {
-            display: flex;
-            align-items: center;
-            gap: 12px;
-            text-decoration: none;
-            color: white;
-        }
-
-        .sidebar-brand .logo-icon {
-            width: 44px;
-            height: 44px;
-            background: var(--gold);
-            border-radius: 12px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-weight: 900;
-            color: var(--white);
-            font-size: 20px;
-        }
-
-        .sidebar-brand .logo-text {
-            font-weight: 800;
-            font-size: 20px;
-            letter-spacing: -0.5px;
-        }
-
-        .sidebar-brand .logo-sub {
-            font-size: 11px;
-            opacity: 0.6;
-            display: block;
-            font-weight: 400;
-            letter-spacing: 0.5px;
-            text-transform: uppercase;
-        }
-
-        .sidebar-nav {
-            list-style: none;
-            padding: 0 12px;
-            flex: 1;
-        }
-
-        .sidebar-nav li {
-            margin-bottom: 2px;
-        }
-
-        .sidebar-nav .nav-label {
-            font-size: 10px;
-            text-transform: uppercase;
-            letter-spacing: 0.8px;
-            color: rgba(255, 255, 255, 0.3);
-            padding: 12px 16px 6px;
-            font-weight: 700;
-        }
-
-        .sidebar-nav a {
-            display: flex;
-            align-items: center;
-            gap: 12px;
-            padding: 11px 16px;
-            border-radius: 10px;
-            color: rgba(255, 255, 255, 0.65);
-            text-decoration: none;
-            transition: var(--transition);
-            font-size: 14px;
-            font-weight: 500;
-            position: relative;
-        }
-
-        .sidebar-nav a:hover {
-            background: rgba(255, 255, 255, 0.08);
-            color: white;
-        }
-
-        .sidebar-nav a.active {
-            background: rgba(255, 255, 255, 0.12);
-            color: white;
-        }
-
-        .sidebar-nav a.active::before {
-            content: '';
-            position: absolute;
-            left: 0;
-            top: 20%;
-            height: 60%;
-            width: 3px;
-            background: var(--gold);
-            border-radius: 0 3px 3px 0;
-        }
-
-        .sidebar-nav a i {
-            width: 20px;
-            text-align: center;
-            font-size: 16px;
-        }
-
-        .sidebar-footer {
-            padding: 16px 24px;
-            border-top: 1px solid rgba(255, 255, 255, 0.08);
-            margin-top: auto;
-            flex-shrink: 0;
-        }
-
-        .sidebar-footer .user-info {
-            display: flex;
-            align-items: center;
-            gap: 12px;
-        }
-
-        .sidebar-footer .user-avatar {
-            width: 40px;
-            height: 40px;
-            border-radius: 50%;
-            background: var(--gold);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-weight: 700;
-            font-size: 16px;
-            color: white;
-            flex-shrink: 0;
-        }
-
-        .sidebar-footer .user-name {
-            font-weight: 600;
-            font-size: 14px;
-        }
-
-        .sidebar-footer .user-role {
-            font-size: 12px;
-            opacity: 0.5;
-        }
-
-        .sidebar-footer .logout-btn {
-            display: block;
-            width: 100%;
-            margin-top: 12px;
-            padding: 10px;
-            border: 1px solid rgba(255, 255, 255, 0.15);
-            border-radius: 10px;
-            background: transparent;
-            color: rgba(255, 255, 255, 0.6);
-            cursor: pointer;
-            transition: var(--transition);
-            font-family: inherit;
-            font-size: 14px;
-            font-weight: 500;
-        }
-
-        .sidebar-footer .logout-btn:hover {
-            background: rgba(255, 255, 255, 0.08);
-            color: white;
-            border-color: rgba(255, 255, 255, 0.3);
-        }
-
-        /* =========================================================
-           SIDEBAR BACKDROP
-           ========================================================= */
-
-        .sidebar-backdrop {
-            display: none;
-            position: fixed;
-            inset: 0;
-            background: rgba(0, 0, 0, 0.5);
-            backdrop-filter: blur(4px);
-            z-index: 99;
-        }
-
-        .sidebar-backdrop.show {
-            display: block;
-        }
-
-        /* =========================================================
-           MAIN CONTENT
-           ========================================================= */
-
-        .main-content {
-            margin-left: 280px;
-            padding: 24px 32px 40px;
-            flex: 1;
-            width: calc(100% - 280px);
             min-height: 100vh;
+            position: fixed;
+            left: 0;
+            top: 0;
+            bottom: 0;
+            overflow-y: auto;
+            z-index: 1000;
         }
 
-        /* =========================================================
-           TOPBAR
-           ========================================================= */
-
-        .topbar {
+        .brand {
+            padding: 22px 20px;
+            border-bottom: 1px solid rgba(255,255,255,.08);
             display: flex;
-            justify-content: space-between;
             align-items: center;
-            margin-bottom: 28px;
-            flex-wrap: wrap;
             gap: 12px;
         }
 
-        .topbar-left {
-            display: flex;
-            align-items: center;
-            gap: 16px;
+        .brand img {
+            width: 42px;
+            height: 42px;
+            object-fit: contain;
         }
 
-        .topbar h1 {
-            font-size: 28px;
+        .brand-text {
+            font-size: 18px;
             font-weight: 800;
-            letter-spacing: -0.5px;
         }
 
-        .topbar h1 small {
-            font-size: 14px;
-            font-weight: 400;
-            color: var(--text-light);
-            display: block;
+        .brand-sub {
+            font-size: 10px;
+            color: #94a3b8;
             margin-top: 2px;
         }
 
-        .topbar .actions {
+        .nav {
+            padding: 16px 10px;
+        }
+
+        .nav a {
             display: flex;
-            gap: 12px;
             align-items: center;
+            gap: 13px;
+            color: #cbd5e1;
+            text-decoration: none;
+            padding: 12px 14px;
+            border-radius: 9px;
+            margin-bottom: 4px;
+            font-size: 14px;
+            transition: .2s;
+        }
+
+        .nav a:hover,
+        .nav a.active {
+            background: #1e293b;
+            color: white;
+        }
+
+        .nav a.active {
+            border-left: 3px solid var(--accent);
+        }
+
+        .nav i {
+            width: 20px;
+            text-align: center;
+        }
+
+        /* MAIN */
+        .main {
+            margin-left: 250px;
+            width: calc(100% - 250px);
+            min-height: 100vh;
+        }
+
+        .topbar {
+            height: 72px;
+            background: white;
+            border-bottom: 1px solid var(--border);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0 28px;
+            position: sticky;
+            top: 0;
+            z-index: 100;
+        }
+
+        .topbar h1 {
+            margin: 0;
+            font-size: 22px;
+        }
+
+        .topbar-right {
+            display: flex;
+            align-items: center;
+            gap: 14px;
+        }
+
+        .admin-name {
+            font-size: 13px;
+            color: var(--muted);
+        }
+
+        .logout-btn {
+            border: 1px solid var(--border);
+            background: white;
+            padding: 9px 13px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 13px;
+        }
+
+        .logout-btn:hover {
+            background: #f1f5f9;
+        }
+
+        .content {
+            padding: 28px;
+        }
+
+        .page-intro {
+            margin-bottom: 24px;
+        }
+
+        .page-intro h2 {
+            margin: 0 0 6px;
+            font-size: 20px;
+        }
+
+        .page-intro p {
+            margin: 0;
+            color: var(--muted);
+            font-size: 14px;
+        }
+
+        /* FILTERS */
+        .filters {
+            background: white;
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 18px;
+            margin-bottom: 24px;
+        }
+
+        .filters-grid {
+            display: grid;
+            grid-template-columns: repeat(4, minmax(160px, 1fr));
+            gap: 14px;
+            align-items: end;
+        }
+
+        .field label {
+            display: block;
+            font-size: 12px;
+            font-weight: 700;
+            color: #475569;
+            margin-bottom: 6px;
+        }
+
+        .field input,
+        .field select {
+            width: 100%;
+            height: 42px;
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 0 11px;
+            font-family: inherit;
+            background: white;
+            color: var(--text);
+        }
+
+        .filter-actions {
+            display: flex;
+            gap: 10px;
             flex-wrap: wrap;
         }
 
-        .topbar .actions .date-time {
-            font-size: 14px;
-            color: var(--text-light);
-            font-weight: 500;
-        }
-
-        /* =========================================================
-           BUTTONS
-           ========================================================= */
-
         .btn {
-            display: inline-flex;
-            align-items: center;
-            gap: 8px;
-            padding: 10px 20px;
-            border: none;
+            border: 0;
             border-radius: 8px;
-            font-weight: 600;
-            font-size: 14px;
+            height: 42px;
+            padding: 0 15px;
             cursor: pointer;
-            transition: var(--transition);
             font-family: inherit;
-            text-decoration: none;
+            font-weight: 700;
+            font-size: 13px;
         }
 
         .btn-primary {
@@ -398,384 +248,293 @@
         }
 
         .btn-primary:hover {
-            background: var(--primary-dark);
-            transform: translateY(-2px);
-            box-shadow: 0 4px 16px rgba(11, 93, 59, 0.3);
+            background: var(--primary-2);
         }
 
-        .btn-gold {
-            background: var(--gold);
-            color: white;
+        .btn-accent {
+            background: var(--accent);
+            color: #111827;
         }
 
-        .btn-gold:hover {
-            background: #c49a3a;
-            transform: translateY(-2px);
-            box-shadow: 0 4px 16px rgba(212, 168, 67, 0.3);
+        .btn-accent:hover {
+            background: var(--accent-dark);
         }
 
-        .btn-success {
-            background: var(--success);
-            color: white;
-        }
-
-        .btn-success:hover {
-            background: #157347;
-            transform: translateY(-2px);
-            box-shadow: 0 4px 16px rgba(25, 135, 84, 0.3);
-        }
-
-        .btn-danger {
-            background: var(--danger);
-            color: white;
-        }
-
-        .btn-danger:hover {
-            background: #c82333;
-            transform: translateY(-2px);
-            box-shadow: 0 4px 16px rgba(220, 53, 69, 0.3);
-        }
-
-        .btn-info {
-            background: var(--info);
-            color: white;
-        }
-
-        .btn-info:hover {
-            background: #0bb5d8;
-            transform: translateY(-2px);
-            box-shadow: 0 4px 16px rgba(13, 202, 240, 0.3);
-        }
-
-        .btn-purple {
-            background: var(--purple);
-            color: white;
-        }
-
-        .btn-purple:hover {
-            background: #5a34a0;
-            transform: translateY(-2px);
-            box-shadow: 0 4px 16px rgba(111, 66, 193, 0.3);
-        }
-
-        .btn-outline {
-            background: transparent;
-            border: 2px solid var(--gray-200);
-            color: var(--text-light);
-        }
-
-        .btn-outline:hover {
-            border-color: var(--primary);
-            color: var(--primary);
-            transform: translateY(-2px);
-        }
-
-        .btn-sm {
-            padding: 8px 16px;
-            font-size: 13px;
-            border-radius: 6px;
-        }
-
-        .btn-block {
-            width: 100%;
-            justify-content: center;
+        .btn-secondary {
+            background: #f1f5f9;
+            color: var(--text);
+            border: 1px solid var(--border);
         }
 
         .btn:disabled {
-            opacity: 0.6;
+            opacity: .5;
             cursor: not-allowed;
-            transform: none !important;
         }
 
-        /* =========================================================
-           REPORT GRID
-           ========================================================= */
-
+        /* REPORT CARDS */
         .report-grid {
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(340px, 1fr));
-            gap: 24px;
+            grid-template-columns: repeat(4, minmax(0, 1fr));
+            gap: 18px;
+            margin-bottom: 24px;
         }
 
-        /* =========================================================
-           CARDS
-           ========================================================= */
-
-        .card {
+        .report-card {
             background: white;
-            border-radius: var(--radius-lg);
-            padding: 24px;
-            box-shadow: var(--shadow);
-            transition: var(--transition);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 20px;
+            cursor: pointer;
+            transition: .2s;
         }
 
-        .card:hover {
-            box-shadow: var(--shadow-hover);
+        .report-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 24px rgba(15, 23, 42, .07);
         }
 
-        .card-header {
-            display: flex;
-            align-items: center;
-            gap: 12px;
-            margin-bottom: 16px;
-            padding-bottom: 12px;
-            border-bottom: 1px solid var(--gray-200);
+        .report-card.active {
+            border-color: var(--accent);
+            box-shadow: 0 0 0 2px rgba(234,179,8,.15);
         }
 
-        .card-header h3 {
-            font-size: 17px;
-            font-weight: 700;
-        }
-
-        .card-header i {
-            font-size: 20px;
-            width: 36px;
-            height: 36px;
-            border-radius: 50%;
+        .report-icon {
+            width: 42px;
+            height: 42px;
             display: flex;
             align-items: center;
             justify-content: center;
-            color: white;
-        }
-
-        .card-header i.payments-icon {
-            background: var(--success);
-        }
-
-        .card-header i.members-icon {
-            background: var(--gold);
-        }
-
-        .card-header i.dependants-icon {
-            background: var(--info);
-        }
-
-        .card-header i.memberdep-icon {
-            background: var(--purple);
-        }
-
-        /* =========================================================
-           FILTERS
-           ========================================================= */
-
-        .filter-group {
+            background: #f1f5f9;
+            border-radius: 10px;
             margin-bottom: 14px;
         }
 
-        .filter-group label {
-            display: block;
-            font-size: 13px;
-            font-weight: 600;
-            margin-bottom: 6px;
-            color: var(--text-light);
+        .report-icon i {
+            font-size: 18px;
         }
 
-        .filter-group input,
-        .filter-group select {
-            width: 100%;
-            padding: 9px 12px;
-            border: 2px solid var(--gray-200);
-            border-radius: 8px;
-            font-family: inherit;
-            font-size: 14px;
-            transition: var(--transition);
+        .report-card h3 {
+            margin: 0 0 5px;
+            font-size: 15px;
+        }
+
+        .report-card p {
+            margin: 0;
+            color: var(--muted);
+            font-size: 12px;
+            line-height: 1.5;
+        }
+
+        /* REPORT PANEL */
+        .report-panel {
             background: white;
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            overflow: hidden;
         }
 
-        .filter-group input:focus,
-        .filter-group select:focus {
-            outline: none;
-            border-color: var(--primary);
-            box-shadow: 0 0 0 4px rgba(11, 93, 59, 0.1);
-        }
-
-        .filter-row {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
+        .panel-header {
+            padding: 18px 20px;
+            border-bottom: 1px solid var(--border);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
             gap: 12px;
         }
 
-        /* =========================================================
-           REPORT STATUS
-           ========================================================= */
-
-        .report-status {
-            font-size: 13px;
-            margin-top: 10px;
-            min-height: 20px;
-            padding: 8px 12px;
-            border-radius: 6px;
+        .panel-title h2 {
+            margin: 0 0 4px;
+            font-size: 17px;
         }
 
-        .report-status.error {
-            color: var(--danger);
-            background: var(--danger-light);
+        .panel-title p {
+            margin: 0;
+            font-size: 12px;
+            color: var(--muted);
         }
 
-        .report-status.success {
-            color: var(--success);
-            background: var(--success-light);
-        }
-
-        .report-status.info {
-            color: #055160;
-            background: var(--info-light);
-        }
-
-        .report-status.warning {
-            color: #856404;
-            background: var(--warning-light);
-        }
-
-        /* =========================================================
-           TOAST
-           ========================================================= */
-
-        .toast-container {
-            position: fixed;
-            bottom: 30px;
-            right: 30px;
-            z-index: 9999;
+        .panel-actions {
             display: flex;
-            flex-direction: column;
-            gap: 10px;
+            gap: 8px;
+        }
+
+        .table-wrap {
+            overflow-x: auto;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            min-width: 900px;
+        }
+
+        th,
+        td {
+            padding: 11px 13px;
+            border-bottom: 1px solid var(--border);
+            text-align: left;
+            white-space: nowrap;
+            font-size: 12px;
+        }
+
+        th {
+            background: #f8fafc;
+            color: #475569;
+            font-weight: 800;
+            position: sticky;
+            top: 0;
+            z-index: 2;
+        }
+
+        tbody tr:hover {
+            background: #f8fafc;
+        }
+
+        .status {
+            display: inline-flex;
+            align-items: center;
+            padding: 4px 8px;
+            border-radius: 999px;
+            font-size: 10px;
+            font-weight: 800;
+        }
+
+        .status.active,
+        .status.successful,
+        .status.completed,
+        .status.validated {
+            background: #dcfce7;
+            color: #166534;
+        }
+
+        .status.pending,
+        .status.partial {
+            background: #fef3c7;
+            color: #92400e;
+        }
+
+        .status.failed,
+        .status.reversed {
+            background: #fee2e2;
+            color: #991b1b;
+        }
+
+        .status.dormant {
+            background: #e2e8f0;
+            color: #475569;
+        }
+
+        .empty {
+            padding: 50px 20px;
+            text-align: center;
+            color: var(--muted);
+        }
+
+        .empty i {
+            font-size: 32px;
+            margin-bottom: 12px;
+        }
+
+        /* LOADING */
+        .loading {
+            padding: 45px;
+            text-align: center;
+            color: var(--muted);
+        }
+
+        .spinner {
+            width: 28px;
+            height: 28px;
+            border: 3px solid #e2e8f0;
+            border-top-color: var(--accent-dark);
+            border-radius: 50%;
+            animation: spin .8s linear infinite;
+            margin: 0 auto 12px;
+        }
+
+        @keyframes spin {
+            to {
+                transform: rotate(360deg);
+            }
+        }
+
+        /* TOAST */
+        #toast {
+            position: fixed;
+            right: 22px;
+            bottom: 22px;
+            background: #0f172a;
+            color: white;
+            padding: 13px 16px;
+            border-radius: 9px;
+            box-shadow: 0 10px 30px rgba(0,0,0,.18);
+            font-size: 13px;
+            z-index: 5000;
+            display: none;
             max-width: 420px;
         }
 
-        .toast {
-            padding: 14px 20px;
-            border-radius: 12px;
-            color: white;
-            font-weight: 600;
-            font-size: 14px;
-            animation: slideIn 0.4s ease;
-            box-shadow: 0 12px 48px rgba(0, 0, 0, 0.15);
-            display: flex;
-            align-items: center;
-            gap: 12px;
-            cursor: pointer;
-            transition: all 0.3s ease;
+        #toast.success {
+            border-left: 4px solid var(--success);
         }
 
-        .toast:hover {
-            transform: scale(1.02);
+        #toast.error {
+            border-left: 4px solid var(--danger);
         }
 
-        .toast.success {
-            background: var(--success);
-        }
-
-        .toast.error {
-            background: var(--danger);
-        }
-
-        .toast.info {
-            background: var(--info);
-            color: var(--text);
-        }
-
-        .toast.warning {
-            background: var(--warning);
-            color: var(--text);
-        }
-
-        .toast .toast-close {
-            background: none;
-            border: none;
-            color: rgba(255, 255, 255, 0.7);
-            cursor: pointer;
-            font-size: 18px;
-            margin-left: auto;
-            padding: 0 4px;
-        }
-
-        .toast .toast-close:hover {
-            color: white;
-        }
-
-        @keyframes slideIn {
-            from {
-                transform: translateX(100px);
-                opacity: 0;
-            }
-
-            to {
-                transform: translateX(0);
-                opacity: 1;
-            }
-        }
-
-        /* =========================================================
-           RESPONSIVE
-           ========================================================= */
-
-        .sidebar-toggle {
+        /* MOBILE */
+        .mobile-menu {
             display: none;
-            background: var(--primary);
-            color: white;
-            border: none;
-            padding: 8px 14px;
-            border-radius: 10px;
+            background: none;
+            border: 0;
             font-size: 20px;
             cursor: pointer;
-            transition: var(--transition);
         }
 
-        .sidebar-toggle:hover {
-            background: var(--primary-dark);
-        }
-
-        @media (max-width: 1024px) {
+        @media (max-width: 1100px) {
             .report-grid {
-                grid-template-columns: 1fr 1fr;
+                grid-template-columns: repeat(2, 1fr);
+            }
+
+            .filters-grid {
+                grid-template-columns: repeat(2, 1fr);
             }
         }
 
-        @media (max-width: 768px) {
+        @media (max-width: 760px) {
             .sidebar {
                 transform: translateX(-100%);
-                width: 280px;
+                transition: .25s;
             }
 
             .sidebar.open {
                 transform: translateX(0);
             }
 
-            .main-content {
+            .main {
                 margin-left: 0;
                 width: 100%;
-                padding: 16px;
             }
 
-            .sidebar-toggle {
+            .mobile-menu {
                 display: block;
             }
 
-            .topbar .actions .date-time {
-                display: none;
-            }
-
-            .topbar h1 {
-                font-size: 22px;
-            }
-
-            .report-grid {
-                grid-template-columns: 1fr;
-            }
-
-            .filter-row {
-                grid-template-columns: 1fr;
-            }
-        }
-
-        @media (max-width: 480px) {
             .topbar {
-                flex-direction: column;
-                align-items: stretch;
+                padding: 0 16px;
             }
 
-            .topbar .actions {
-                justify-content: flex-start;
+            .content {
+                padding: 18px;
+            }
+
+            .report-grid,
+            .filters-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .admin-name {
+                display: none;
             }
         }
     </style>
@@ -783,3485 +542,2726 @@
 
 <body>
 
-<div class="admin-layout">
+<div class="app">
 
-    <!-- =========================================================
-         SIDEBAR BACKDROP
-         ========================================================= -->
-    <div class="sidebar-backdrop" id="sidebarBackdrop"></div>
-
-    <!-- =========================================================
-         SIDEBAR
-         ========================================================= -->
+    <!-- SIDEBAR -->
     <aside class="sidebar" id="sidebar">
 
-        <div class="sidebar-brand">
-            <a href="admin-dashboard.html" class="logo">
-                <div class="logo-icon">MB</div>
-                <div>
-                    <span class="logo-text">Masika</span>
-                    <span class="logo-sub">Admin Panel</span>
-                </div>
-            </a>
-        </div>
+        <div class="brand">
+            <img src="/assets/system-logo-white.svg"
+                 onerror="this.style.display='none'"
+                 alt="Masika BBS">
 
-        <ul class="sidebar-nav">
-
-            <li class="nav-label">Main</li>
-
-            <li>
-                <a href="admin-dashboard.html">
-                    <i class="fas fa-chart-pie"></i>
-                    Dashboard
-                </a>
-            </li>
-
-            <li>
-                <a href="admin-members.html">
-                    <i class="fas fa-users"></i>
-                    Members
-                </a>
-            </li>
-
-            <li>
-                <a href="admin-agents.html">
-                    <i class="fas fa-user-tie"></i>
-                    Agents
-                </a>
-            </li>
-
-            <li class="nav-label">Finance</li>
-
-            <li>
-                <a href="admin-collectpayments.html">
-                    <i class="fas fa-credit-card"></i>
-                    Payments
-                </a>
-            </li>
-
-            <li>
-                <a href="admin-revenue.html">
-                    <i class="fas fa-chart-line"></i>
-                    Revenue
-                </a>
-            </li>
-
-            <li class="nav-label">Settings</li>
-
-            <li>
-                <a href="admin-reports.html" class="active">
-                    <i class="fas fa-file-alt"></i>
-                    Reports
-                </a>
-            </li>
-
-            <li>
-                <a href="admin-pricing.html">
-                    <i class="fas fa-tags"></i>
-                    Pricing
-                </a>
-            </li>
-
-            <li>
-                <a href="admin-settings.html">
-                    <i class="fas fa-cog"></i>
-                    Settings
-                </a>
-            </li>
-
-        </ul>
-
-        <div class="sidebar-footer">
-
-            <div class="user-info">
-                <div class="user-avatar" id="adminAvatar">A</div>
-
-                <div>
-                    <div class="user-name" id="adminName">Admin</div>
-                    <div class="user-role" id="adminRole">Administrator</div>
-                </div>
+            <div>
+                <div class="brand-text">Masika BBS</div>
+                <div class="brand-sub">ADMINISTRATION</div>
             </div>
-
-            <button class="logout-btn" onclick="handleLogout()">
-                <i class="fas fa-sign-out-alt"></i>
-                Logout
-            </button>
-
         </div>
 
+        <nav class="nav">
+
+            <a href="/admin-dashboard.html">
+                <i class="fa-solid fa-gauge"></i>
+                <span>Dashboard</span>
+            </a>
+
+            <a href="/admin-members.html">
+                <i class="fa-solid fa-users"></i>
+                <span>Members</span>
+            </a>
+
+            <a href="/admin-agents.html">
+                <i class="fa-solid fa-user-tie"></i>
+                <span>Agents</span>
+            </a>
+
+            <a href="/admin-payments.html">
+                <i class="fa-solid fa-money-bill-transfer"></i>
+                <span>Payments</span>
+            </a>
+
+            <a href="/admin-revenue.html">
+                <i class="fa-solid fa-chart-line"></i>
+                <span>Revenue</span>
+            </a>
+
+            <a href="/admin-reports.html" class="active">
+                <i class="fa-solid fa-file-lines"></i>
+                <span>Reports</span>
+            </a>
+
+            <a href="/admin-pricing.html">
+                <i class="fa-solid fa-tags"></i>
+                <span>Pricing</span>
+            </a>
+
+            <a href="/admin-settings.html">
+                <i class="fa-solid fa-gear"></i>
+                <span>Settings</span>
+            </a>
+
+        </nav>
     </aside>
 
-    <!-- =========================================================
-         MAIN CONTENT
-         ========================================================= -->
+    <!-- MAIN -->
+    <main class="main">
 
-    <main class="main-content">
+        <header class="topbar">
 
-        <div class="topbar">
-
-            <div class="topbar-left">
-
-                <button
-                    class="sidebar-toggle"
-                    id="sidebarToggle"
-                    aria-label="Toggle menu"
-                >
-                    <i class="fas fa-bars"></i>
+            <div style="display:flex;align-items:center;gap:12px;">
+                <button class="mobile-menu" id="mobileMenu">
+                    <i class="fa-solid fa-bars"></i>
                 </button>
 
-                <h1>
-                    Reports
-                    <small>Export data as CSV for analysis</small>
-                </h1>
+                <h1>Reports</h1>
+            </div>
+
+            <div class="topbar-right">
+                <span class="admin-name" id="adminName">Administrator</span>
+
+                <button class="logout-btn" id="logoutBtn">
+                    <i class="fa-solid fa-right-from-bracket"></i>
+                    Logout
+                </button>
+            </div>
+
+        </header>
+
+        <section class="content">
+
+            <div class="page-intro">
+                <h2>Masika BBS Reports</h2>
+                <p>
+                    Generate detailed payment, member, dependant and household reports.
+                </p>
+            </div>
+
+            <!-- FILTERS -->
+            <div class="filters">
+
+                <div class="filters-grid">
+
+                    <div class="field">
+                        <label for="fromDate">From Date</label>
+                        <input type="date" id="fromDate">
+                    </div>
+
+                    <div class="field">
+                        <label for="toDate">To Date</label>
+                        <input type="date" id="toDate">
+                    </div>
+
+                    <div class="field">
+                        <label for="planFilter">Plan</label>
+
+                        <select id="planFilter">
+                            <option value="">All Plans</option>
+                            <option value="comfort">Comfort</option>
+                            <option value="dignity">Dignity</option>
+                            <option value="wazazi">Wazazi</option>
+                            <option value="chama">Chama</option>
+                        </select>
+                    </div>
+
+                    <div class="field">
+                        <label for="statusFilter">Status</label>
+
+                        <select id="statusFilter">
+                            <option value="">All Statuses</option>
+                            <option value="ACTIVE">ACTIVE</option>
+                            <option value="DORMANT">DORMANT</option>
+                            <option value="PENDING">PENDING</option>
+                            <option value="INACTIVE">INACTIVE</option>
+                        </select>
+                    </div>
+
+                    <div class="field">
+                        <label for="searchFilter">Search Member</label>
+                        <input type="text"
+                               id="searchFilter"
+                               placeholder="Membership #, name or phone">
+                    </div>
+
+                    <div class="field">
+                        <label for="paymentStatusFilter">Payment Status</label>
+
+                        <select id="paymentStatusFilter">
+                            <option value="">All Payment Statuses</option>
+                            <option value="SUCCESSFUL">SUCCESSFUL</option>
+                            <option value="COMPLETED">COMPLETED</option>
+                            <option value="PENDING">PENDING</option>
+                            <option value="FAILED">FAILED</option>
+                            <option value="REVERSED">REVERSED</option>
+                            <option value="PARTIAL">PARTIAL</option>
+                        </select>
+                    </div>
+
+                    <div class="filter-actions">
+                        <button class="btn btn-primary" id="applyFilters">
+                            <i class="fa-solid fa-filter"></i>
+                            Apply Filters
+                        </button>
+
+                        <button class="btn btn-secondary" id="clearFilters">
+                            <i class="fa-solid fa-rotate-left"></i>
+                            Clear
+                        </button>
+                    </div>
+
+                </div>
 
             </div>
 
-            <div class="actions">
-                <span class="date-time" id="currentDateTime"></span>
-            </div>
+            <!-- REPORT TYPES -->
+            <div class="report-grid">
 
-        </div>
+                <div class="report-card active" data-report="payments">
 
-        <!-- =====================================================
-             REPORT GRID
-             ===================================================== -->
+                    <div class="report-icon">
+                        <i class="fa-solid fa-money-bill-transfer"></i>
+                    </div>
 
-        <div class="report-grid">
-
-            <!-- =================================================
-                 PAYMENTS REPORT
-                 ================================================= -->
-
-            <div class="card">
-
-                <div class="card-header">
-                    <i class="fas fa-credit-card payments-icon"></i>
                     <h3>Payments</h3>
+
+                    <p>
+                        Detailed payment transaction report including
+                        membership contribution status.
+                    </p>
+
                 </div>
 
-                <div class="filter-row">
+                <div class="report-card" data-report="members">
 
-                    <div class="filter-group">
-                        <label>From</label>
-                        <input type="date" id="paymentsFrom">
+                    <div class="report-icon">
+                        <i class="fa-solid fa-users"></i>
                     </div>
 
-                    <div class="filter-group">
-                        <label>To</label>
-                        <input type="date" id="paymentsTo">
-                    </div>
-
-                </div>
-
-                <div class="filter-group">
-
-                    <label>Status</label>
-
-                    <select id="paymentsStatus">
-
-                        <option value="">All statuses</option>
-
-                        <option value="SUCCESSFUL">
-                            Successful
-                        </option>
-
-                        <option value="COMPLETED">
-                            Completed
-                        </option>
-
-                        <option value="PENDING">
-                            Pending
-                        </option>
-
-                        <option value="FAILED">
-                            Failed
-                        </option>
-
-                        <option value="REVERSED">
-                            Reversed
-                        </option>
-
-                        <option value="PARTIAL">
-                            Partial
-                        </option>
-
-                    </select>
-
-                </div>
-
-                <button
-                    class="btn btn-success btn-block"
-                    onclick="exportPaymentsCsv()"
-                    id="exportPaymentsBtn"
-                >
-                    <i class="fas fa-download"></i>
-                    Export Payments CSV
-                </button>
-
-                <div
-                    class="report-status"
-                    id="paymentsStatusMsg"
-                ></div>
-
-            </div>
-
-            <!-- =================================================
-                 MEMBERS REPORT
-                 ================================================= -->
-
-            <div class="card">
-
-                <div class="card-header">
-                    <i class="fas fa-users members-icon"></i>
                     <h3>Members</h3>
+
+                    <p>
+                        Complete principal member and household report,
+                        including every dependant and Wazazi parent.
+                    </p>
+
                 </div>
 
-                <div class="filter-row">
+                <div class="report-card" data-report="dependants">
 
-                    <div class="filter-group">
-                        <label>Registered From</label>
-                        <input type="date" id="membersFrom">
+                    <div class="report-icon">
+                        <i class="fa-solid fa-children"></i>
                     </div>
 
-                    <div class="filter-group">
-                        <label>Registered To</label>
-                        <input type="date" id="membersTo">
-                    </div>
-
-                </div>
-
-                <div class="filter-group">
-
-                    <label>Status</label>
-
-                    <select id="membersStatus">
-
-                        <option value="">All statuses</option>
-
-                        <option value="ACTIVE">
-                            Active
-                        </option>
-
-                        <option value="DORMANT">
-                            Dormant
-                        </option>
-
-                        <option value="SUSPENDED">
-                            Suspended
-                        </option>
-
-                        <option value="CANCELLED">
-                            Cancelled
-                        </option>
-
-                        <option value="PENDING">
-                            Pending
-                        </option>
-
-                    </select>
-
-                </div>
-
-                <div class="filter-group">
-
-                    <label>Plan Type</label>
-
-                    <select id="membersPlan">
-
-                        <option value="">All Plans</option>
-
-                        <option value="comfort">
-                            Comfort
-                        </option>
-
-                        <option value="dignity">
-                            Dignity
-                        </option>
-
-                        <option value="wazazi">
-                            Wazazi
-                        </option>
-
-                        <option value="chama">
-                            Chama
-                        </option>
-
-                    </select>
-
-                </div>
-
-                <button
-                    class="btn btn-gold btn-block"
-                    onclick="exportMembersCsv()"
-                    id="exportMembersBtn"
-                >
-                    <i class="fas fa-download"></i>
-                    Export Members CSV
-                </button>
-
-                <div
-                    class="report-status"
-                    id="membersStatusMsg"
-                ></div>
-
-            </div>
-
-            <!-- =================================================
-                 DEPENDANTS REPORT
-                 ================================================= -->
-
-            <div class="card">
-
-                <div class="card-header">
-                    <i class="fas fa-people-roof dependants-icon"></i>
                     <h3>Dependants</h3>
+
+                    <p>
+                        One-row-per-dependant detailed report with identity,
+                        relationship and contact information.
+                    </p>
+
                 </div>
 
-                <div class="filter-row">
+                <div class="report-card" data-report="combined">
 
-                    <div class="filter-group">
-                        <label>From</label>
-                        <input type="date" id="dependantsFrom">
+                    <div class="report-icon">
+                        <i class="fa-solid fa-people-roof"></i>
                     </div>
 
-                    <div class="filter-group">
-                        <label>To</label>
-                        <input type="date" id="dependantsTo">
-                    </div>
-
-                </div>
-
-                <div class="filter-group">
-
-                    <label>Relationship</label>
-
-                    <select id="dependantsRelationship">
-
-                        <option value="">
-                            All Relationships
-                        </option>
-
-                        <option value="spouse">
-                            Spouse
-                        </option>
-
-                        <option value="child">
-                            Child
-                        </option>
-
-                        <option value="parent">
-                            Parent
-                        </option>
-
-                        <option value="in_law">
-                            In-Law
-                        </option>
-
-                    </select>
-
-                </div>
-
-                <button
-                    class="btn btn-info btn-block"
-                    onclick="exportDependantsCsv()"
-                    id="exportDependantsBtn"
-                >
-                    <i class="fas fa-download"></i>
-                    Export Dependants CSV
-                </button>
-
-                <div
-                    class="report-status"
-                    id="dependantsStatusMsg"
-                ></div>
-
-            </div>
-
-            <!-- =================================================
-                 MEMBERS & COVERED PERSONS REPORT
-                 ================================================= -->
-
-            <div class="card">
-
-                <div class="card-header">
-                    <i class="fas fa-address-card memberdep-icon"></i>
                     <h3>Members & Dependants</h3>
-                </div>
 
-                <div class="filter-row">
-
-                    <div class="filter-group">
-
-                        <label>
-                            Registered From
-                            <span
-                                style="font-weight:400;color:var(--text-lighter)"
-                            >
-                                (blank = all time)
-                            </span>
-                        </label>
-
-                        <input type="date" id="mdFrom">
-
-                    </div>
-
-                    <div class="filter-group">
-
-                        <label>
-                            Registered To
-                        </label>
-
-                        <input type="date" id="mdTo">
-
-                    </div>
+                    <p>
+                        Household-level view showing principals, dependants
+                        and Wazazi parents together.
+                    </p>
 
                 </div>
-
-                <div class="filter-group">
-
-                    <label>Member Status</label>
-
-                    <select id="mdStatus">
-
-                        <option value="">
-                            All statuses
-                        </option>
-
-                        <option value="ACTIVE">
-                            Active
-                        </option>
-
-                        <option value="DORMANT">
-                            Dormant
-                        </option>
-
-                        <option value="SUSPENDED">
-                            Suspended
-                        </option>
-
-                        <option value="CANCELLED">
-                            Cancelled
-                        </option>
-
-                        <option value="PENDING">
-                            Pending
-                        </option>
-
-                    </select>
-
-                </div>
-
-                <div class="filter-group">
-
-                    <label>Plan Type</label>
-
-                    <select id="mdPlan">
-
-                        <option value="">
-                            All Plans
-                        </option>
-
-                        <option value="comfort">
-                            Comfort
-                        </option>
-
-                        <option value="dignity">
-                            Dignity
-                        </option>
-
-                        <option value="wazazi">
-                            Wazazi
-                        </option>
-
-                        <option value="chama">
-                            Chama
-                        </option>
-
-                    </select>
-
-                </div>
-
-                <button
-                    class="btn btn-purple btn-block"
-                    onclick="exportMembersDependantsCsv()"
-                    id="exportMembersDependantsBtn"
-                >
-                    <i class="fas fa-download"></i>
-                    Export Members & Dependants CSV
-                </button>
-
-                <div
-                    class="report-status"
-                    id="membersDependantsStatusMsg"
-                ></div>
 
             </div>
 
-        </div>
+            <!-- REPORT PANEL -->
+            <div class="report-panel">
+
+                <div class="panel-header">
+
+                    <div class="panel-title">
+
+                        <h2 id="reportTitle">Payments Report</h2>
+
+                        <p id="reportDescription">
+                            Detailed payment transactions.
+                        </p>
+
+                    </div>
+
+                    <div class="panel-actions">
+
+                        <button class="btn btn-accent"
+                                id="exportBtn">
+
+                            <i class="fa-solid fa-file-csv"></i>
+                            Export CSV
+
+                        </button>
+
+                        <button class="btn btn-secondary"
+                                id="refreshBtn">
+
+                            <i class="fa-solid fa-rotate"></i>
+
+                        </button>
+
+                    </div>
+
+                </div>
+
+                <div id="reportContent">
+
+                    <div class="loading">
+                        <div class="spinner"></div>
+                        Loading report...
+                    </div>
+
+                </div>
+
+            </div>
+
+        </section>
 
     </main>
 
 </div>
 
-<!-- =========================================================
-     TOAST CONTAINER
-     ========================================================= -->
-
-<div
-    class="toast-container"
-    id="toastContainer"
-></div>
-
+<div id="toast"></div>
 
 <script>
-/* =============================================================
-   MASIKA BBS ADMIN REPORTS
-   Database-aligned reporting version
-   ============================================================= */
+/* ============================================================
+   SUPABASE CONFIGURATION
+   ============================================================ */
 
+const SUPABASE_URL = "https://wpxzlcdrirlcyvfiquld.supabase.co";
 
-/* =============================================================
-   SUPABASE CONFIG
-   ============================================================= */
-
-const SUPABASE_URL =
-    'https://wpxzlcdrirlcyvfiquld.supabase.co';
-
+/*
+ * IMPORTANT:
+ * Use your existing Supabase ANON/PUBLISHABLE key here.
+ * NEVER put the Supabase service_role key in this file.
+ */
 const SUPABASE_ANON_KEY =
-    'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6IndweHpsY2RyaXJsY3l2ZmlxdWxkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODc5Mjc4MDcsImV4cCI6MjEwMzUwMzgwN30.OUP9pmPbrML_egpHflZtDfLv1_UDM37_BYjtb842xjg';
+    "YOUR_SUPABASE_ANON_OR_PUBLISHABLE_KEY";
 
-
-console.log('🚀 Masika Reports script loaded');
-console.log('📡 Supabase URL:', SUPABASE_URL);
-
-
-const supabaseClient =
-    window.supabase.createClient(
+const { createClient } =
+    supabase.createClient(
         SUPABASE_URL,
         SUPABASE_ANON_KEY
     );
 
 
-/* =============================================================
+/* ============================================================
    STATE
-   ============================================================= */
+   ============================================================ */
 
-let currentStaff = null;
+let currentReport = "payments";
 
+let reportRows = [];
 
-/* =============================================================
-   INITIALIZATION
-   ============================================================= */
+let membersCache = [];
 
-document.addEventListener(
-    'DOMContentLoaded',
-    async function () {
+let dependantsCache = [];
 
-        console.log('📄 Reports DOM loaded');
+let filteredMembersCache = [];
 
-        const authenticated =
-            await checkAuth();
+let maxDependants = 0;
 
-        if (!authenticated) {
-            return;
-        }
 
-        setupSidebarToggle();
-        updateClock();
+/* ============================================================
+   REPORT TITLES
+   ============================================================ */
 
-        /*
-         * Reports intentionally start with blank dates.
-         * Blank means ALL TIME.
-         */
-        setDefaultDates();
+const REPORT_INFO = {
 
-    }
-);
+    payments: {
+        title: "Payments Report",
+        description: "Detailed payment transactions and membership contribution status."
+    },
 
+    members: {
+        title: "Detailed Members & Household Report",
+        description: "One row per principal member, including all linked dependants and Wazazi parents."
+    },
 
-/* =============================================================
-   AUTHENTICATION
-   ============================================================= */
+    dependants: {
+        title: "Dependants Report",
+        description: "One row per dependant with complete dependant information."
+    },
 
-async function checkAuth() {
-
-    console.log('🔐 Checking authentication...');
-
-    try {
-
-        const {
-            data: {
-                session
-            },
-            error
-        } =
-            await supabaseClient.auth.getSession();
-
-
-        if (error) {
-
-            console.error(
-                '❌ Session error:',
-                error
-            );
-
-            window.location.href =
-                'admin-login.html';
-
-            return false;
-        }
-
-
-        if (!session) {
-
-            console.warn(
-                '⚠️ No authenticated session'
-            );
-
-            window.location.href =
-                'admin-login.html';
-
-            return false;
-        }
-
-
-        console.log(
-            '✅ Authenticated:',
-            session.user.email
-        );
-
-
-        /*
-         * The staff table is authoritative.
-         * Do not trust localStorage as authentication.
-         */
-
-        const {
-            data: staff,
-            error: staffError
-        } =
-            await supabaseClient
-                .from('staff')
-                .select(`
-                    id,
-                    auth_user_id,
-                    full_name,
-                    email,
-                    phone,
-                    role_id,
-                    branch_id,
-                    status,
-                    sales_code,
-                    roles:role_id (
-                        id,
-                        role_code,
-                        role_name,
-                        is_active
-                    )
-                `)
-                .eq(
-                    'auth_user_id',
-                    session.user.id
-                )
-                .maybeSingle();
-
-
-        if (staffError) {
-
-            console.error(
-                '❌ Staff lookup error:',
-                staffError
-            );
-
-
-            /*
-             * Legacy admins fallback.
-             */
-
-            const {
-                data: admin,
-                error: adminError
-            } =
-                await supabaseClient
-                    .from('admins')
-                    .select('*')
-                    .eq(
-                        'id',
-                        session.user.id
-                    )
-                    .maybeSingle();
-
-
-            if (
-                !adminError &&
-                admin
-            ) {
-
-                console.log(
-                    '✅ Legacy admin record found'
-                );
-
-                currentStaff = admin;
-
-                updateAdminUI(admin);
-
-                return true;
-            }
-
-
-            window.location.href =
-                'admin-login.html';
-
-            return false;
-        }
-
-
-        if (!staff) {
-
-            console.warn(
-                '⚠️ No staff record found'
-            );
-
-            window.location.href =
-                'admin-login.html';
-
-            return false;
-        }
-
-
-        const roleCode =
-            staff.roles?.role_code || '';
-
-        const roleActive =
-            staff.roles?.is_active === true;
-
-        const staffActive =
-            String(staff.status || '')
-                .toUpperCase() === 'ACTIVE';
-
-
-        const isAdmin =
-            roleCode === 'SUPER_ADMIN' ||
-            roleCode === 'ADMIN';
-
-
-        if (
-            !isAdmin ||
-            !roleActive ||
-            !staffActive
-        ) {
-
-            console.warn(
-                '⚠️ Not authorized',
-                {
-                    roleCode,
-                    roleActive,
-                    staffActive
-                }
-            );
-
-
-            await supabaseClient.auth.signOut();
-
-            window.location.href =
-                'admin-login.html';
-
-            return false;
-        }
-
-
-        currentStaff = staff;
-
-        localStorage.setItem(
-            'admin_user',
-            JSON.stringify(staff)
-        );
-
-        localStorage.setItem(
-            'admin_session',
-            JSON.stringify(session)
-        );
-
-
-        updateAdminUI(staff);
-
-        console.log(
-            '✅ Admin verified:',
-            staff.full_name
-        );
-
-        return true;
-
-    } catch (error) {
-
-        console.error(
-            '❌ Authentication error:',
-            error
-        );
-
-        showToast(
-            'error',
-            'Authentication error'
-        );
-
-        return false;
-    }
-}
-
-
-/* =============================================================
-   ADMIN UI
-   ============================================================= */
-
-function updateAdminUI(staff) {
-
-    const name =
-        staff?.full_name ||
-        staff?.name ||
-        'Admin';
-
-
-    const role =
-        staff?.roles?.role_name ||
-        staff?.role ||
-        'Administrator';
-
-
-    const nameEl =
-        document.getElementById(
-            'adminName'
-        );
-
-    const roleEl =
-        document.getElementById(
-            'adminRole'
-        );
-
-    const avatarEl =
-        document.getElementById(
-            'adminAvatar'
-        );
-
-
-    if (nameEl) {
-        nameEl.textContent = name;
+    combined: {
+        title: "Members & Dependants Report",
+        description: "Household-level report combining principal members, dependants and Wazazi parents."
     }
 
-
-    if (roleEl) {
-        roleEl.textContent = role;
-    }
+};
 
 
-    if (avatarEl) {
+/* ============================================================
+   DOM HELPERS
+   ============================================================ */
 
-        avatarEl.textContent =
-            name
-                .charAt(0)
-                .toUpperCase();
-    }
+const $ = id => document.getElementById(id);
+
+
+/* ============================================================
+   TOAST
+   ============================================================ */
+
+function showToast(message, type = "success") {
+
+    const toast = $("toast");
+
+    toast.textContent = message;
+
+    toast.className = type;
+
+    toast.style.display = "block";
+
+    clearTimeout(window.__toastTimer);
+
+    window.__toastTimer =
+        setTimeout(() => {
+            toast.style.display = "none";
+        }, 4000);
 }
 
 
-/* =============================================================
-   DEFAULT DATES
-   ============================================================= */
-
-function setDefaultDates() {
-
-    /*
-     * Blank = all time.
-     *
-     * This is intentional for an administrative reporting page.
-     * The admin can select dates when required.
-     */
-
-    const ids = [
-        'paymentsFrom',
-        'paymentsTo',
-        'membersFrom',
-        'membersTo',
-        'dependantsFrom',
-        'dependantsTo',
-        'mdFrom',
-        'mdTo'
-    ];
-
-
-    ids.forEach(id => {
-
-        const el =
-            document.getElementById(id);
-
-        if (el) {
-            el.value = '';
-        }
-    });
-}
-
-
-/* =============================================================
-   FIELD HELPERS
-   ============================================================= */
-
-function pickField(
-    obj,
-    candidates
-) {
-
-    if (!obj) {
-        return '';
-    }
-
-
-    for (
-        const key of candidates
-    ) {
-
-        if (
-            obj[key] !== undefined &&
-            obj[key] !== null &&
-            obj[key] !== ''
-        ) {
-
-            return obj[key];
-        }
-    }
-
-
-    return '';
-}
-
-
-/* =============================================================
-   MEMBER FIELD HELPERS
-   ============================================================= */
-
-function memberNumber(member) {
-
-    return pickField(
-        member,
-        [
-            'member_number',
-            'membership_number'
-        ]
-    );
-}
-
-
-function memberFullName(member) {
-
-    if (!member) {
-        return '';
-    }
-
-
-    if (
-        member.full_name &&
-        String(member.full_name).trim()
-    ) {
-
-        return String(
-            member.full_name
-        ).trim();
-    }
-
-
-    return [
-        member.first_name,
-        member.middle_name,
-        member.last_name
-    ]
-        .filter(Boolean)
-        .join(' ')
-        .trim();
-}
-
-
-function memberIdNumber(member) {
-
-    return pickField(
-        member,
-        [
-            'national_id',
-            'id_number',
-            'national_id_number',
-            'id_no',
-            'nid'
-        ]
-    );
-}
-
-
-function memberDob(member) {
-
-    return pickField(
-        member,
-        [
-            'date_of_birth',
-            'dob',
-            'birth_date'
-        ]
-    );
-}
-
-
-/* =============================================================
-   DEPENDANT HELPERS
-   ============================================================= */
-
-function dependantFullName(dependant) {
-
-    if (!dependant) {
-        return '';
-    }
-
-
-    if (
-        dependant.full_name &&
-        String(dependant.full_name).trim()
-    ) {
-
-        return String(
-            dependant.full_name
-        ).trim();
-    }
-
-
-    return [
-        dependant.first_name,
-        dependant.middle_name,
-        dependant.last_name
-    ]
-        .filter(Boolean)
-        .join(' ')
-        .trim();
-}
-
-
-function dependantIdNumber(dependant) {
-
-    return pickField(
-        dependant,
-        [
-            'national_id',
-            'id_number',
-            'national_id_number',
-            'id_no',
-            'nid'
-        ]
-    );
-}
-
-
-function dependantDob(dependant) {
-
-    return pickField(
-        dependant,
-        [
-            'date_of_birth',
-            'dob',
-            'birth_date'
-        ]
-    );
-}
-
-
-/* =============================================================
-   DEPENDANT SUMMARY (used on the plain Members report so a
-   member's full family shows in ONE row without needing to
-   cross-reference the separate Members & Dependants export)
-   ============================================================= */
-
-function summarizeDependants(dependants) {
-
-    if (
-        !Array.isArray(dependants) ||
-        dependants.length === 0
-    ) {
-        return '';
-    }
-
-
-    return dependants
-        .map(d => {
-
-            const name =
-                dependantFullName(d) ||
-                'Unnamed';
-
-            const relationship =
-                d.relationship ||
-                'Unknown relationship';
-
-            const dob =
-                formatDateOnly(
-                    dependantDob(d)
-                );
-
-            const idNumber =
-                dependantIdNumber(d);
-
-            const phone =
-                d.phone || '';
-
-            const details = [
-                relationship
-            ];
-
-            if (dob) {
-                details.push(`DOB: ${dob}`);
-            }
-
-            if (idNumber) {
-                details.push(`ID: ${idNumber}`);
-            }
-
-            if (phone) {
-                details.push(`Phone: ${phone}`);
-            }
-
-            return `${name} (${details.join(', ')})`;
-        })
-        .join('; ');
-}
-
-
-/* =============================================================
-   DYNAMIC DEPENDANT FIELD DISCOVERY
-   Used by the Members & Dependants export so that ANY column
-   present on a dependant record gets captured, not just a
-   hand-picked subset. Fields already represented by their own
-   named column (name, relationship, phone, DOB, ID, timestamps)
-   are excluded here to avoid duplicating a column.
-   ============================================================= */
-
-const KNOWN_DEPENDANT_FIELDS = new Set([
-    'id',
-    'member_id',
-    'full_name',
-    'first_name',
-    'middle_name',
-    'last_name',
-    'relationship',
-    'phone',
-    'date_of_birth',
-    'dob',
-    'birth_date',
-    'national_id',
-    'id_number',
-    'national_id_number',
-    'id_no',
-    'nid',
-    'created_at',
-    'updated_at'
-]);
-
-
-function humanizeFieldName(key) {
-
-    return String(key)
-        .replace(/_/g, ' ')
-        .replace(/\b\w/g, c => c.toUpperCase());
-}
-
-
-function collectExtraDependantFields(members) {
-
-    const extra = new Set();
-
-
-    members.forEach(member => {
-
-        const dependants =
-            Array.isArray(member.dependants)
-                ? member.dependants
-                : [];
-
-
-        dependants.forEach(dependant => {
-
-            Object.keys(dependant).forEach(key => {
-
-                if (!KNOWN_DEPENDANT_FIELDS.has(key)) {
-                    extra.add(key);
-                }
-            });
-        });
-    });
-
-
-    return Array.from(extra).sort();
-}
-
-
-/* =============================================================
+/* ============================================================
    DATE HELPERS
-   ============================================================= */
+   ============================================================ */
 
-function formatDateOnly(value) {
+function formatDate(value) {
 
-    if (!value) {
-        return '';
+    if (!value) return "";
+
+    const d = new Date(value);
+
+    if (Number.isNaN(d.getTime())) {
+        return value;
     }
 
-
-    const d =
-        new Date(value);
-
-
-    if (
-        isNaN(
-            d.getTime()
-        )
-    ) {
-
-        return String(value);
-    }
-
-
-    return d.toLocaleDateString(
-        'en-KE'
-    );
+    return d.toLocaleDateString("en-GB", {
+        year: "numeric",
+        month: "2-digit",
+        day: "2-digit"
+    });
 }
 
 
 function formatDateTime(value) {
 
-    if (!value) {
-        return '';
+    if (!value) return "";
+
+    const d = new Date(value);
+
+    if (Number.isNaN(d.getTime())) {
+        return value;
     }
 
+    return d.toLocaleString("en-GB");
+}
 
-    const d =
-        new Date(value);
 
+function formatMoney(value) {
+
+    const number = Number(value || 0);
+
+    return number.toLocaleString("en-KE", {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2
+    });
+}
+
+
+function normalizeText(value) {
+
+    if (value === null || value === undefined) {
+        return "";
+    }
+
+    return String(value).trim();
+}
+
+
+function normalizePlan(value) {
+
+    return normalizeText(value).toLowerCase();
+}
+
+
+function normalizeStatus(value) {
+
+    return normalizeText(value).toUpperCase();
+}
+
+
+/* ============================================================
+   AGE
+   ============================================================ */
+
+function calculateAge(dob) {
+
+    if (!dob) return "";
+
+    const birth = new Date(dob);
+
+    if (Number.isNaN(birth.getTime())) {
+        return "";
+    }
+
+    const today = new Date();
+
+    let age =
+        today.getFullYear() -
+        birth.getFullYear();
+
+    const monthDifference =
+        today.getMonth() -
+        birth.getMonth();
 
     if (
-        isNaN(
-            d.getTime()
+        monthDifference < 0 ||
+        (
+            monthDifference === 0 &&
+            today.getDate() < birth.getDate()
         )
     ) {
-
-        return String(value);
+        age--;
     }
 
+    return age >= 0 ? age : "";
+}
 
-    return d.toLocaleString(
-        'en-KE'
+
+/* ============================================================
+   CSV
+   ============================================================ */
+
+function escapeCsv(value) {
+
+    if (
+        value === null ||
+        value === undefined
+    ) {
+        return "";
+    }
+
+    let text = String(value);
+
+    /*
+     * Convert arrays/objects into readable JSON.
+     */
+    if (typeof value === "object") {
+        try {
+            text = JSON.stringify(value);
+        } catch {
+            text = String(value);
+        }
+    }
+
+    /*
+     * Protect Excel from formulas.
+     */
+    if (
+        text.startsWith("=") ||
+        text.startsWith("+") ||
+        text.startsWith("-") ||
+        text.startsWith("@")
+    ) {
+        text = "'" + text;
+    }
+
+    text = text.replace(/"/g, '""');
+
+    return `"${text}"`;
+}
+
+
+function exportCsv(rows, filename) {
+
+    if (!rows || rows.length === 0) {
+
+        showToast(
+            "There is no data to export.",
+            "error"
+        );
+
+        return;
+    }
+
+    const columns = [];
+
+    rows.forEach(row => {
+
+        Object.keys(row).forEach(key => {
+
+            if (!columns.includes(key)) {
+                columns.push(key);
+            }
+
+        });
+
+    });
+
+    const header =
+        columns.map(escapeCsv).join(",");
+
+    const body =
+        rows.map(row =>
+            columns
+                .map(column =>
+                    escapeCsv(row[column])
+                )
+                .join(",")
+        ).join("\r\n");
+
+    /*
+     * UTF-8 BOM makes Excel recognize
+     * names such as JOSEPH OTIENO correctly.
+     */
+    const csv =
+        "\uFEFF" +
+        header +
+        "\r\n" +
+        body;
+
+    const blob =
+        new Blob(
+            [csv],
+            {
+                type: "text/csv;charset=utf-8;"
+            }
+        );
+
+    const url =
+        URL.createObjectURL(blob);
+
+    const link =
+        document.createElement("a");
+
+    link.href = url;
+
+    link.download = filename;
+
+    document.body.appendChild(link);
+
+    link.click();
+
+    link.remove();
+
+    URL.revokeObjectURL(url);
+
+    showToast(
+        `${rows.length.toLocaleString()} rows exported successfully.`
     );
 }
 
 
-/* =============================================================
-   PAYMENT STATUS NORMALIZATION
-   ============================================================= */
+/* ============================================================
+   PAGINATED SUPABASE FETCH
+   ============================================================ */
 
-function normalizePaymentStatus(payment) {
-
-    if (!payment) {
-        return '';
-    }
-
-
-    const paymentStatus =
-        String(
-            payment.payment_status || ''
-        ).trim().toUpperCase();
-
-
-    const transactionStatus =
-        String(
-            payment.status || ''
-        ).trim().toUpperCase();
-
-
-    /*
-     * Explicit failed/reversed states must remain failed/reversed.
-     */
-
-    if (
-        paymentStatus === 'FAILED' ||
-        transactionStatus === 'FAILED'
-    ) {
-        return 'FAILED';
-    }
-
-
-    if (
-        paymentStatus === 'REVERSED' ||
-        transactionStatus === 'REVERSED'
-    ) {
-        return 'REVERSED';
-    }
-
-
-    if (
-        paymentStatus === 'PARTIAL' ||
-        transactionStatus === 'PARTIAL'
-    ) {
-        return 'PARTIAL';
-    }
-
-
-    /*
-     * Current successful records.
-     */
-
-    if (
-        paymentStatus === 'SUCCESSFUL' ||
-        transactionStatus === 'SUCCESSFUL'
-    ) {
-        return 'SUCCESSFUL';
-    }
-
-
-    /*
-     * Legacy completed records.
-     */
-
-    if (
-        transactionStatus === 'COMPLETED'
-    ) {
-        return 'COMPLETED';
-    }
-
-
-    if (
-        paymentStatus === 'COMPLETED'
-    ) {
-        return 'COMPLETED';
-    }
-
-
-    /*
-     * Pending.
-     */
-
-    if (
-        paymentStatus === 'PENDING' ||
-        transactionStatus === 'PENDING'
-    ) {
-        return 'PENDING';
-    }
-
-
-    return transactionStatus ||
-        paymentStatus ||
-        '';
-}
-
-
-/* =============================================================
-   PAYMENT FILTER
-   ============================================================= */
-
-function paymentMatchesStatus(
-    payment,
-    selectedStatus
-) {
-
-    if (!selectedStatus) {
-        return true;
-    }
-
-
-    return (
-        normalizePaymentStatus(
-            payment
-        ) === selectedStatus
-    );
-}
-
-
-/* =============================================================
-   FETCH ALL ROWS
-   Supabase default limits can otherwise truncate reports.
-   ============================================================= */
-
-async function fetchAllRows(
-    queryBuilder,
-    pageSize = 1000
-) {
+async function fetchAllRows(table, select = "*") {
 
     const allRows = [];
 
-    let from = 0;
+    const pageSize = 1000;
 
+    let from = 0;
 
     while (true) {
 
         const to =
             from + pageSize - 1;
 
-
         const {
             data,
             error
-        } =
-            await queryBuilder.range(
-                from,
-                to
-            );
-
+        } = await supabaseClient
+            .from(table)
+            .select(select)
+            .range(from, to);
 
         if (error) {
             throw error;
         }
 
-
-        const rows =
-            Array.isArray(data)
-                ? data
-                : [];
-
-
-        allRows.push(
-            ...rows
-        );
-
-
-        if (
-            rows.length < pageSize
-        ) {
+        if (!data || data.length === 0) {
             break;
         }
 
+        allRows.push(...data);
+
+        if (data.length < pageSize) {
+            break;
+        }
 
         from += pageSize;
     }
-
 
     return allRows;
 }
 
 
-/* =============================================================
-   EXPORT PAYMENTS CSV
-   ============================================================= */
-
-window.exportPaymentsCsv =
-    async function () {
-
-        const btn =
-            document.getElementById(
-                'exportPaymentsBtn'
-            );
-
-        const statusMsg =
-            document.getElementById(
-                'paymentsStatusMsg'
-            );
-
-
-        setButtonLoading(
-            btn,
-            'Exporting...'
-        );
-
-
-        setStatus(
-            statusMsg,
-            'info',
-            'Fetching payment data...'
-        );
-
-
-        try {
-
-            const from =
-                document.getElementById(
-                    'paymentsFrom'
-                ).value;
-
-
-            const to =
-                document.getElementById(
-                    'paymentsTo'
-                ).value;
-
-
-            const selectedStatus =
-                document.getElementById(
-                    'paymentsStatus'
-                ).value;
-
-
-            /*
-             * Fetch broadly and normalize status client-side.
-             *
-             * This is important because legacy payments may have:
-             *
-             * status = completed
-             * payment_status = PENDING
-             *
-             * while current successful payments can have:
-             *
-             * status = SUCCESSFUL
-             * payment_status = SUCCESSFUL
-             */
-
-            let query =
-                supabaseClient
-                    .from('payments')
-                    .select(`
-                        *,
-                        members (
-                            id,
-                            member_number,
-                            full_name,
-                            first_name,
-                            middle_name,
-                            last_name,
-                            phone
-                        )
-                    `);
-
-
-            /*
-             * Financial reporting should use payment_date.
-             */
-
-            if (from) {
-
-                query =
-                    query.gte(
-                        'payment_date',
-                        `${from}T00:00:00`
-                    );
-            }
-
-
-            if (to) {
-
-                query =
-                    query.lte(
-                        'payment_date',
-                        `${to}T23:59:59`
-                    );
-            }
-
-
-            query =
-                query.order(
-                    'payment_date',
-                    {
-                        ascending: false,
-                        nullsFirst: false
-                    }
-                );
-
-
-            const data =
-                await fetchAllRows(
-                    query
-                );
-
-
-            const filtered =
-                data.filter(
-                    payment =>
-                        paymentMatchesStatus(
-                            payment,
-                            selectedStatus
-                        )
-                );
-
-
-            if (
-                filtered.length === 0
-            ) {
-
-                setStatus(
-                    statusMsg,
-                    'warning',
-                    'No payments found for the selected filters.'
-                );
-
-                return;
-            }
-
-
-            const headers = [
-
-                'Payment Date',
-
-                'Payment ID',
-
-                'Membership #',
-
-                'Member Name',
-
-                'Phone',
-
-                'Amount',
-
-                'Payment Type',
-
-                'Effective Status',
-
-                'Transaction Status',
-
-                'Payment Status',
-
-                'Counts Toward Membership',
-
-                'Monthly Paid',
-
-                'Payment Period Start',
-
-                'Payment Period End',
-
-                'M-Pesa Code',
-
-                'M-Pesa Receipt',
-
-                'Payment Reference',
-
-                'Transaction ID',
-
-                'Payment Method',
-
-                'Created At'
-
-            ];
-
-
-            const rows =
-                filtered.map(
-                    p => {
-
-                        const member =
-                            p.members || {};
-
-
-                        return [
-
-                            formatDateTime(
-                                p.payment_date
-                            ),
-
-                            p.id || '',
-
-                            memberNumber(
-                                member
-                            ) ||
-                            p.member_number ||
-                            p.membership_number ||
-                            '',
-
-                            memberFullName(
-                                member
-                            ) ||
-                            p.member_name ||
-                            '',
-
-                            member.phone ||
-                            p.phone ||
-                            '',
-
-                            p.amount ?? 0,
-
-                            p.payment_type ||
-                            '',
-
-                            normalizePaymentStatus(
-                                p
-                            ),
-
-                            p.status ||
-                            '',
-
-                            p.payment_status ||
-                            '',
-
-                            p.counts_toward_membership === true
-                                ? 'YES'
-                                : p.counts_toward_membership === false
-                                    ? 'NO'
-                                    : '',
-
-                            p.monthly_paid === true
-                                ? 'YES'
-                                : p.monthly_paid === false
-                                    ? 'NO'
-                                    : '',
-
-                            formatDateOnly(
-                                p.payment_period_start
-                            ),
-
-                            formatDateOnly(
-                                p.payment_period_end
-                            ),
-
-                            p.mpesa_code ||
-                            '',
-
-                            p.mpesa_receipt ||
-                            '',
-
-                            p.payment_reference ||
-                            p.reference ||
-                            '',
-
-                            p.transaction_id ||
-                            '',
-
-                            p.payment_method ||
-                            '',
-
-                            formatDateTime(
-                                p.created_at
-                            )
-
-                        ];
-                    }
-                );
-
-
-            downloadCSV(
-                headers,
-                rows,
-                `payments_${todayFilename()}`
-            );
-
-
-            setStatus(
-                statusMsg,
-                'success',
-                `✅ ${filtered.length} payments exported successfully.`
-            );
-
-
-            showToast(
-                'success',
-                `${filtered.length} payments exported`
-            );
-
-
-        } catch (error) {
-
-            console.error(
-                '❌ Export payments error:',
-                error
-            );
-
-
-            setStatus(
-                statusMsg,
-                'error',
-                `❌ Failed to export payments: ${friendlyError(error)}`
-            );
-
-
-            showToast(
-                'error',
-                'Failed to export payments'
-            );
-
-        } finally {
-
-            resetButton(
-                btn,
-                '<i class="fas fa-download"></i> Export Payments CSV'
-            );
-        }
-    };
-
-
-/* =============================================================
-   EXPORT MEMBERS CSV
-   Now includes each member's dependants (joined in), with a
-   count and a human-readable summary so a member's full family
-   picture is visible from a single row.
-   ============================================================= */
-
-window.exportMembersCsv =
-    async function () {
-
-        const btn =
-            document.getElementById(
-                'exportMembersBtn'
-            );
-
-        const statusMsg =
-            document.getElementById(
-                'membersStatusMsg'
-            );
-
-
-        setButtonLoading(
-            btn,
-            'Exporting...'
-        );
-
-
-        setStatus(
-            statusMsg,
-            'info',
-            'Fetching member data...'
-        );
-
-
-        try {
-
-            const from =
-                document.getElementById(
-                    'membersFrom'
-                ).value;
-
-
-            const to =
-                document.getElementById(
-                    'membersTo'
-                ).value;
-
-
-            const status =
-                document.getElementById(
-                    'membersStatus'
-                ).value;
-
-
-            const plan =
-                document.getElementById(
-                    'membersPlan'
-                ).value;
-
-
-            let query =
-                supabaseClient
-                    .from('members')
-                    .select(`
-                        *,
-                        dependants (*)
-                    `);
-
-
-            if (from) {
-
-                query =
-                    query.gte(
-                        'created_at',
-                        `${from}T00:00:00`
-                    );
-            }
-
-
-            if (to) {
-
-                query =
-                    query.lte(
-                        'created_at',
-                        `${to}T23:59:59`
-                    );
-            }
-
-
-            if (status) {
-
-                query =
-                    query.eq(
-                        'status',
-                        status
-                    );
-            }
-
-
-            if (plan) {
-
-                query =
-                    query.eq(
-                        'plan_type',
-                        plan
-                    );
-            }
-
-
-            query =
-                query.order(
-                    'created_at',
-                    {
-                        ascending: false
-                    }
-                );
-
-
-            const data =
-                await fetchAllRows(
-                    query
-                );
-
-
-            if (
-                data.length === 0
-            ) {
-
-                setStatus(
-                    statusMsg,
-                    'warning',
-                    'No members found for the selected filters.'
-                );
-
-                return;
-            }
-
-
-            const headers = [
-
-                'Date Joined',
-
-                'Membership #',
-
-                'Full Name',
-
-                'First Name',
-
-                'Middle Name',
-
-                'Last Name',
-
-                'Phone',
-
-                'Email',
-
-                'National ID',
-
-                'Date of Birth',
-
-                'Plan',
-
-                'Status',
-
-                'Member Status',
-
-                'Registration Fee',
-
-                'Registration Fee Paid',
-
-                'Months Paid',
-
-                'Months Missing',
-
-                'Months Short',
-
-                'Amount Expected',
-
-                'Amount Paid',
-
-                'Balance',
-
-                'Payment Validation Status',
-
-                'Payment Validation Note',
-
-                'County',
-
-                'Town',
-
-                'Agent',
-
-                'Dependants Count',
-
-                'Dependants Summary',
-
-                'Created At'
-
-            ];
-
-
-            const rows =
-                data.map(
-                    m => {
-
-                        const amountExpected =
-                            numberOrZero(
-                                m.amount_expected
-                            );
-
-
-                        const amountPaid =
-                            numberOrZero(
-                                m.amount_paid
-                            );
-
-
-                        const balance =
-                            Math.max(
-                                0,
-                                amountExpected -
-                                amountPaid
-                            );
-
-
-                        const dependants =
-                            Array.isArray(m.dependants)
-                                ? m.dependants
-                                : [];
-
-
-                        return [
-
-                            formatDateOnly(
-                                m.created_at
-                            ),
-
-                            memberNumber(m),
-
-                            memberFullName(m),
-
-                            m.first_name ||
-                            '',
-
-                            m.middle_name ||
-                            '',
-
-                            m.last_name ||
-                            '',
-
-                            m.phone ||
-                            '',
-
-                            m.email ||
-                            '',
-
-                            memberIdNumber(m),
-
-                            formatDateOnly(
-                                memberDob(m)
-                            ),
-
-                            m.plan_type ||
-                            m.plan ||
-                            '',
-
-                            m.status ||
-                            '',
-
-                            m.member_status ||
-                            '',
-
-                            m.registration_fee ??
-                            '',
-
-                            m.registration_fee_paid === true
-                                ? 'YES'
-                                : m.registration_fee_paid === false
-                                    ? 'NO'
-                                    : '',
-
-                            m.months_paid ??
-                            0,
-
-                            m.months_missing ??
-                            0,
-
-                            m.months_short ??
-                            0,
-
-                            m.amount_expected ??
-                            0,
-
-                            m.amount_paid ??
-                            0,
-
-                            balance,
-
-                            m.payment_validation_status ||
-                            '',
-
-                            m.payment_validation_note ||
-                            '',
-
-                            m.county ||
-                            '',
-
-                            m.town ||
-                            '',
-
-                            m.agent_name ||
-                            m.agent_code ||
-                            m.sales_code ||
-                            '',
-
-                            dependants.length,
-
-                            summarizeDependants(dependants),
-
-                            formatDateTime(
-                                m.created_at
-                            )
-
-                        ];
-                    }
-                );
-
-
-            downloadCSV(
-                headers,
-                rows,
-                `members_${todayFilename()}`
-            );
-
-
-            setStatus(
-                statusMsg,
-                'success',
-                `✅ ${data.length} members exported successfully.`
-            );
-
-
-            showToast(
-                'success',
-                `${data.length} members exported`
-            );
-
-
-        } catch (error) {
-
-            console.error(
-                '❌ Export members error:',
-                error
-            );
-
-
-            setStatus(
-                statusMsg,
-                'error',
-                `❌ Failed to export members: ${friendlyError(error)}`
-            );
-
-
-            showToast(
-                'error',
-                'Failed to export members'
-            );
-
-        } finally {
-
-            resetButton(
-                btn,
-                '<i class="fas fa-download"></i> Export Members CSV'
-            );
-        }
-    };
-
-
-/* =============================================================
-   EXPORT DEPENDANTS CSV
-   ============================================================= */
-
-window.exportDependantsCsv =
-    async function () {
-
-        const btn =
-            document.getElementById(
-                'exportDependantsBtn'
-            );
-
-        const statusMsg =
-            document.getElementById(
-                'dependantsStatusMsg'
-            );
-
-
-        setButtonLoading(
-            btn,
-            'Exporting...'
-        );
-
-
-        setStatus(
-            statusMsg,
-            'info',
-            'Fetching dependant data...'
-        );
-
-
-        try {
-
-            const from =
-                document.getElementById(
-                    'dependantsFrom'
-                ).value;
-
-
-            const to =
-                document.getElementById(
-                    'dependantsTo'
-                ).value;
-
-
-            const relationship =
-                document.getElementById(
-                    'dependantsRelationship'
-                ).value;
-
-
-            let query =
-                supabaseClient
-                    .from('dependants')
-                    .select(`
-                        *,
-                        members (
-                            id,
-                            member_number,
-                            full_name,
-                            first_name,
-                            middle_name,
-                            last_name,
-                            phone
-                        )
-                    `);
-
-
-            if (from) {
-
-                query =
-                    query.gte(
-                        'created_at',
-                        `${from}T00:00:00`
-                    );
-            }
-
-
-            if (to) {
-
-                query =
-                    query.lte(
-                        'created_at',
-                        `${to}T23:59:59`
-                    );
-            }
-
-
-            if (relationship) {
-
-                query =
-                    query.eq(
-                        'relationship',
-                        relationship
-                    );
-            }
-
-
-            query =
-                query.order(
-                    'created_at',
-                    {
-                        ascending: false
-                    }
-                );
-
-
-            const data =
-                await fetchAllRows(
-                    query
-                );
-
-
-            if (
-                data.length === 0
-            ) {
-
-                setStatus(
-                    statusMsg,
-                    'warning',
-                    'No dependants found for the selected filters.'
-                );
-
-                return;
-            }
-
-
-            const headers = [
-
-                'Date Added',
-
-                'Membership #',
-
-                'Principal Member',
-
-                'Principal Phone',
-
-                'Dependant Name',
-
-                'Relationship',
-
-                'Dependant Phone',
-
-                'Date of Birth',
-
-                'National ID',
-
-                'Created At'
-
-            ];
-
-
-            const rows =
-                data.map(
-                    d => {
-
-                        const member =
-                            d.members || {};
-
-
-                        return [
-
-                            formatDateOnly(
-                                d.created_at
-                            ),
-
-                            memberNumber(
-                                member
-                            ) ||
-                            d.member_number ||
-                            '',
-
-                            memberFullName(
-                                member
-                            ),
-
-                            member.phone ||
-                            '',
-
-                            dependantFullName(
-                                d
-                            ),
-
-                            d.relationship ||
-                            '',
-
-                            d.phone ||
-                            '',
-
-                            formatDateOnly(
-                                dependantDob(d)
-                            ),
-
-                            dependantIdNumber(d),
-
-                            formatDateTime(
-                                d.created_at
-                            )
-
-                        ];
-                    }
-                );
-
-
-            downloadCSV(
-                headers,
-                rows,
-                `dependants_${todayFilename()}`
-            );
-
-
-            setStatus(
-                statusMsg,
-                'success',
-                `✅ ${data.length} dependants exported successfully.`
-            );
-
-
-            showToast(
-                'success',
-                `${data.length} dependants exported`
-            );
-
-
-        } catch (error) {
-
-            console.error(
-                '❌ Export dependants error:',
-                error
-            );
-
-
-            setStatus(
-                statusMsg,
-                'error',
-                `❌ Failed to export dependants: ${friendlyError(error)}`
-            );
-
-
-            showToast(
-                'error',
-                'Failed to export dependants'
-            );
-
-        } finally {
-
-            resetButton(
-                btn,
-                '<i class="fas fa-download"></i> Export Dependants CSV'
-            );
-        }
-    };
-
-
-/* =============================================================
-   MEMBERS + DEPENDANTS + WAZAZI PARENTS
-
-   Now captures EVERY field present on a dependant record, not
-   just a curated subset — any column beyond the well-known ones
-   (name, relationship, phone, DOB, ID, timestamps) is discovered
-   dynamically per export and added as its own "Dependant: X"
-   column, so nothing in the dependants table can go missing.
-   ============================================================= */
-
-window.exportMembersDependantsCsv =
-    async function () {
-
-        const btn =
-            document.getElementById(
-                'exportMembersDependantsBtn'
-            );
-
-        const statusMsg =
-            document.getElementById(
-                'membersDependantsStatusMsg'
-            );
-
-
-        setButtonLoading(
-            btn,
-            'Exporting...'
-        );
-
-
-        setStatus(
-            statusMsg,
-            'info',
-            'Fetching members, dependants and Wazazi parents...'
-        );
-
-
-        try {
-
-            const from =
-                document.getElementById(
-                    'mdFrom'
-                ).value;
-
-
-            const to =
-                document.getElementById(
-                    'mdTo'
-                ).value;
-
-
-            const status =
-                document.getElementById(
-                    'mdStatus'
-                ).value;
-
-
-            const plan =
-                document.getElementById(
-                    'mdPlan'
-                ).value;
-
-
-            /*
-             * We request the member and dependant relationship.
-             *
-             * Wazazi parents are separately extracted from
-             * parent_1_* ... parent_4_* fields on members.
-             */
-
-            let query =
-                supabaseClient
-                    .from('members')
-                    .select(`
-                        *,
-                        dependants (*)
-                    `);
-
-
-            if (from) {
-
-                query =
-                    query.gte(
-                        'created_at',
-                        `${from}T00:00:00`
-                    );
-            }
-
-
-            if (to) {
-
-                query =
-                    query.lte(
-                        'created_at',
-                        `${to}T23:59:59`
-                    );
-            }
-
-
-            if (status) {
-
-                query =
-                    query.eq(
-                        'status',
-                        status
-                    );
-            }
-
-
-            if (plan) {
-
-                query =
-                    query.eq(
-                        'plan_type',
-                        plan
-                    );
-            }
-
-
-            query =
-                query.order(
-                    'created_at',
-                    {
-                        ascending: false
-                    }
-                );
-
-
-            const members =
-                await fetchAllRows(
-                    query
-                );
-
-
-            if (
-                members.length === 0
-            ) {
-
-                setStatus(
-                    statusMsg,
-                    'warning',
-                    'No members found for the selected filters.'
-                );
-
-                return;
-            }
-
-
-            /*
-             * Discover every extra dependant field actually
-             * present in this dataset, beyond the well-known
-             * ones already given their own column below.
-             */
-
-            const extraDependantFields =
-                collectExtraDependantFields(members);
-
-
-            const headers = [
-
-                'Person Type',
-
-                'Date Joined',
-
-                'Membership #',
-
-                'Principal Member',
-
-                'Principal Phone',
-
-                'Principal ID Number',
-
-                'Principal Date of Birth',
-
-                'Plan',
-
-                'Member Status',
-
-                'Covered Person Name',
-
-                'Relationship',
-
-                'Covered Person Phone',
-
-                'Covered Person Date of Birth',
-
-                'Covered Person ID Number',
-
-                ...extraDependantFields.map(
-                    field => `Dependant: ${humanizeFieldName(field)}`
-                ),
-
-                'Created At'
-
-            ];
-
-
-            const blankExtraValues =
-                extraDependantFields.map(() => '');
-
-
-            const rows = [];
-
-
-            members.forEach(
-                member => {
-
-                    const dateJoined =
-                        formatDateOnly(
-                            member.created_at
-                        );
-
-
-                    const membershipNo =
-                        memberNumber(
-                            member
-                        );
-
-
-                    const principalName =
-                        memberFullName(
-                            member
-                        );
-
-
-                    const principalPhone =
-                        member.phone ||
-                        '';
-
-
-                    const principalId =
-                        memberIdNumber(
-                            member
-                        );
-
-
-                    const principalDob =
-                        formatDateOnly(
-                            memberDob(
-                                member
-                            )
-                        );
-
-
-                    const planName =
-                        member.plan_type ||
-                        member.plan ||
-                        '';
-
-
-                    const memberStatus =
-                        member.status ||
-                        member.member_status ||
-                        '';
-
-
-                    /*
-                     * Always export the principal. Dynamic
-                     * dependant-only fields are left blank here
-                     * since they don't apply to the principal.
-                     */
-
-                    rows.push([
-
-                        'PRINCIPAL',
-
-                        dateJoined,
-
-                        membershipNo,
-
-                        principalName,
-
-                        principalPhone,
-
-                        principalId,
-
-                        principalDob,
-
-                        planName,
-
-                        memberStatus,
-
-                        principalName,
-
-                        'PRINCIPAL',
-
-                        principalPhone,
-
-                        principalDob,
-
-                        principalId,
-
-                        ...blankExtraValues,
-
-                        formatDateTime(
-                            member.created_at
-                        )
-
-                    ]);
-
-
-                    /*
-                     * Normal dependants — includes every extra
-                     * field discovered on this dependant record.
-                     */
-
-                    const dependants =
-                        Array.isArray(
-                            member.dependants
-                        )
-                            ? member.dependants
-                            : [];
-
-
-                    dependants.forEach(
-                        dependant => {
-
-                            const extraValues =
-                                extraDependantFields.map(
-                                    field =>
-                                        dependant[field] ??
-                                        ''
-                                );
-
-
-                            rows.push([
-
-                                'DEPENDANT',
-
-                                dateJoined,
-
-                                membershipNo,
-
-                                principalName,
-
-                                principalPhone,
-
-                                principalId,
-
-                                principalDob,
-
-                                planName,
-
-                                memberStatus,
-
-                                dependantFullName(
-                                    dependant
-                                ),
-
-                                dependant.relationship ||
-                                '',
-
-                                dependant.phone ||
-                                '',
-
-                                formatDateOnly(
-                                    dependantDob(
-                                        dependant
-                                    )
-                                ),
-
-                                dependantIdNumber(
-                                    dependant
-                                ),
-
-                                ...extraValues,
-
-                                formatDateTime(
-                                    dependant.created_at
-                                )
-
-                            ]);
-                        }
-                    );
-
-
-                    /*
-                     * WAZAZI PARENTS.
-                     *
-                     * Parents live directly on the members table,
-                     * not in the dependants table, so the dynamic
-                     * dependant-only fields don't apply and are
-                     * left blank.
-                     */
-
-                    if (
-                        String(
-                            member.plan_type ||
-                            member.plan ||
-                            ''
-                        ).toLowerCase() === 'wazazi'
-                    ) {
-
-                        for (
-                            let i = 1;
-                            i <= 4;
-                            i++
-                        ) {
-
-                            const parentName =
-                                pickField(
-                                    member,
-                                    [
-                                        `parent_${i}_name`
-                                    ]
-                                );
-
-
-                            if (
-                                !parentName
-                            ) {
-                                continue;
-                            }
-
-
-                            const parentDob =
-                                pickField(
-                                    member,
-                                    [
-                                        `parent_${i}_dob`
-                                    ]
-                                );
-
-
-                            const parentPhone =
-                                pickField(
-                                    member,
-                                    [
-                                        `parent_${i}_phone`
-                                    ]
-                                );
-
-
-                            const parentId =
-                                pickField(
-                                    member,
-                                    [
-                                        `parent_${i}_id`
-                                    ]
-                                );
-
-
-                            rows.push([
-
-                                'PARENT',
-
-                                dateJoined,
-
-                                membershipNo,
-
-                                principalName,
-
-                                principalPhone,
-
-                                principalId,
-
-                                principalDob,
-
-                                planName,
-
-                                memberStatus,
-
-                                parentName,
-
-                                'PARENT',
-
-                                parentPhone,
-
-                                formatDateOnly(
-                                    parentDob
-                                ),
-
-                                parentId,
-
-                                ...blankExtraValues,
-
-                                formatDateTime(
-                                    member.created_at
-                                )
-
-                            ]);
-                        }
-                    }
-
-                }
-            );
-
-
-            downloadCSV(
-                headers,
-                rows,
-                `members_covered_persons_${todayFilename()}`
-            );
-
-
-            setStatus(
-                statusMsg,
-                'success',
-                `✅ ${members.length} members and ${rows.length} covered-person rows exported successfully.`
-            );
-
-
-            showToast(
-                'success',
-                `${rows.length} covered-person rows exported`
-            );
-
-
-        } catch (error) {
-
-            console.error(
-                '❌ Combined export error:',
-                error
-            );
-
-
-            setStatus(
-                statusMsg,
-                'error',
-                `❌ Failed to export combined report: ${friendlyError(error)}`
-            );
-
-
-            showToast(
-                'error',
-                'Failed to export combined report'
-            );
-
-        } finally {
-
-            resetButton(
-                btn,
-                '<i class="fas fa-download"></i> Export Members & Dependants CSV'
-            );
-        }
-    };
-
-
-/* =============================================================
-   CSV DOWNLOAD
-   ============================================================= */
-
-function downloadCSV(
-    headers,
-    rows,
-    filename
-) {
-
-    /*
-     * UTF-8 BOM makes Excel correctly recognize
-     * names and other Unicode text.
-     */
-
-    const csvRows = [];
-
-
-    csvRows.push(
-        headers.map(
-            csvEscape
-        ).join(',')
+/* ============================================================
+   SUPABASE CLIENT
+   ============================================================ */
+
+const supabaseClient =
+    supabase.createClient(
+        SUPABASE_URL,
+        SUPABASE_ANON_KEY
     );
 
 
-    rows.forEach(
-        row => {
+/* ============================================================
+   AUTHENTICATION
+   ============================================================ */
 
-            csvRows.push(
-                row
-                    .map(
-                        csvEscape
-                    )
-                    .join(',')
-            );
-        }
-    );
+async function verifySession() {
 
+    const {
+        data,
+        error
+    } = await supabaseClient.auth.getSession();
 
-    const csv =
-        '\uFEFF' +
-        csvRows.join('\r\n');
+    if (error) {
+        console.error(error);
+    }
 
+    const session = data?.session;
 
-    const blob =
-        new Blob(
-            [csv],
-            {
-                type:
-                    'text/csv;charset=utf-8;'
-            }
-        );
+    if (!session) {
 
+        window.location.href =
+            "/admin-login.html";
 
-    const url =
-        URL.createObjectURL(
-            blob
-        );
+        return false;
+    }
 
+    const user =
+        session.user;
 
-    const a =
-        document.createElement(
-            'a'
-        );
+    $("adminName").textContent =
+        user.email || "Administrator";
 
-
-    a.href = url;
-
-    a.download =
-        `${filename}.csv`;
-
-
-    document.body.appendChild(a);
-
-    a.click();
-
-    document.body.removeChild(a);
-
-
-    setTimeout(
-        () => URL.revokeObjectURL(url),
-        100
-    );
+    return true;
 }
 
 
-function csvEscape(value) {
+/* ============================================================
+   PAYMENT STATUS
+   ============================================================ */
+
+function effectivePaymentStatus(payment) {
+
+    const status =
+        normalizeStatus(payment?.status);
+
+    const paymentStatus =
+        normalizeStatus(payment?.payment_status);
+
+    /*
+     * Current system uses payment_status=successful.
+     * Older records may use status=completed.
+     */
 
     if (
-        value === null ||
-        value === undefined
+        paymentStatus === "SUCCESSFUL" ||
+        status === "SUCCESSFUL"
     ) {
-        return '""';
+        return "SUCCESSFUL";
     }
 
-
-    const text =
-        String(value);
-
-
-    return `"${text.replace(
-        /"/g,
-        '""'
-    )}"`;
-}
-
-
-/* =============================================================
-   UI HELPERS
-   ============================================================= */
-
-function setButtonLoading(
-    btn,
-    text
-) {
-
-    if (!btn) {
-        return;
+    if (
+        paymentStatus === "COMPLETED" ||
+        status === "COMPLETED"
+    ) {
+        return "COMPLETED";
     }
 
-
-    btn.disabled = true;
-
-
-    btn.innerHTML =
-        `<i class="fas fa-spinner fa-spin"></i> ${text}`;
-}
-
-
-function resetButton(
-    btn,
-    html
-) {
-
-    if (!btn) {
-        return;
+    if (
+        paymentStatus === "FAILED" ||
+        status === "FAILED"
+    ) {
+        return "FAILED";
     }
 
-
-    btn.disabled = false;
-
-    btn.innerHTML = html;
-}
-
-
-function setStatus(
-    element,
-    type,
-    message
-) {
-
-    if (!element) {
-        return;
+    if (
+        paymentStatus === "REVERSED" ||
+        status === "REVERSED"
+    ) {
+        return "REVERSED";
     }
 
-
-    element.className =
-        `report-status ${type}`;
-
-
-    element.textContent =
-        message;
-}
-
-
-function numberOrZero(value) {
-
-    const n =
-        Number(value);
-
-
-    return Number.isFinite(n)
-        ? n
-        : 0;
-}
-
-
-function todayFilename() {
-
-    return new Date()
-        .toISOString()
-        .split('T')[0];
-}
-
-
-function friendlyError(error) {
-
-    if (!error) {
-        return 'Unknown error';
+    if (
+        paymentStatus === "PARTIAL" ||
+        status === "PARTIAL"
+    ) {
+        return "PARTIAL";
     }
 
+    if (
+        paymentStatus === "PENDING" ||
+        status === "PENDING"
+    ) {
+        return "PENDING";
+    }
+
+    return paymentStatus || status || "";
+}
+
+
+function countsTowardMembership(payment) {
+
+    const status =
+        effectivePaymentStatus(payment);
 
     return (
-        error.message ||
-        error.details ||
-        error.hint ||
-        String(error)
+        status === "SUCCESSFUL" ||
+        status === "COMPLETED"
     );
 }
 
 
-/* =============================================================
-   SIDEBAR TOGGLE
-   ============================================================= */
+/* ============================================================
+   FILTER HELPERS
+   ============================================================ */
 
-function setupSidebarToggle() {
+function isDateWithinRange(value) {
 
-    const sidebar =
-        document.getElementById(
-            'sidebar'
-        );
+    const from =
+        $("fromDate").value;
 
+    const to =
+        $("toDate").value;
 
-    const backdrop =
-        document.getElementById(
-            'sidebarBackdrop'
-        );
-
-
-    const toggleBtn =
-        document.getElementById(
-            'sidebarToggle'
-        );
-
-
-    if (toggleBtn) {
-
-        toggleBtn.addEventListener(
-            'click',
-            function () {
-
-                sidebar.classList.toggle(
-                    'open'
-                );
-
-                backdrop.classList.toggle(
-                    'show'
-                );
-            }
-        );
+    if (!from && !to) {
+        return true;
     }
 
-
-    if (backdrop) {
-
-        backdrop.addEventListener(
-            'click',
-            function () {
-
-                sidebar.classList.remove(
-                    'open'
-                );
-
-                backdrop.classList.remove(
-                    'show'
-                );
-            }
-        );
+    if (!value) {
+        return false;
     }
 
+    const date =
+        new Date(value);
 
-    document
-        .querySelectorAll(
-            '.sidebar-nav a'
-        )
-        .forEach(
-            function (link) {
+    if (Number.isNaN(date.getTime())) {
+        return false;
+    }
 
-                link.addEventListener(
-                    'click',
-                    function () {
+    if (from) {
 
-                        sidebar.classList.remove(
-                            'open'
-                        );
+        const fromDate =
+            new Date(from + "T00:00:00");
 
-                        backdrop.classList.remove(
-                            'show'
-                        );
-                    }
-                );
-            }
-        );
+        if (date < fromDate) {
+            return false;
+        }
+    }
+
+    if (to) {
+
+        const toDate =
+            new Date(to + "T23:59:59.999");
+
+        if (date > toDate) {
+            return false;
+        }
+    }
+
+    return true;
 }
 
 
-/* =============================================================
-   CLOCK
-   ============================================================= */
+function matchesMemberFilters(member) {
 
-function updateClock() {
-
-    const clockEl =
-        document.getElementById(
-            'currentDateTime'
+    const planFilter =
+        normalizePlan(
+            $("planFilter").value
         );
 
+    const statusFilter =
+        normalizeStatus(
+            $("statusFilter").value
+        );
 
-    if (clockEl) {
+    const search =
+        normalizeText(
+            $("searchFilter").value
+        ).toLowerCase();
 
-        const now =
-            new Date();
-
-
-        clockEl.textContent =
-            now.toLocaleString(
-                'en-KE',
-                {
-                    weekday: 'short',
-                    day: '2-digit',
-                    month: 'short',
-                    year: 'numeric',
-                    hour: '2-digit',
-                    minute: '2-digit'
-                }
-            );
+    if (
+        planFilter &&
+        normalizePlan(member.plan_type || member.plan) !== planFilter
+    ) {
+        return false;
     }
 
+    const memberStatus =
+        normalizeStatus(
+            member.member_status ||
+            member.status
+        );
 
-    setTimeout(
-        updateClock,
-        30000
+    if (
+        statusFilter &&
+        memberStatus !== statusFilter
+    ) {
+        return false;
+    }
+
+    if (search) {
+
+        const searchable = [
+
+            member.member_number,
+            member.membership_number,
+            member.full_name,
+            member.phone,
+            member.email,
+            member.national_id
+
+        ]
+        .map(normalizeText)
+        .join(" ")
+        .toLowerCase();
+
+        if (!searchable.includes(search)) {
+            return false;
+        }
+    }
+
+    /*
+     * For member reports, date filtering uses
+     * registration/joining/created date.
+     */
+    const memberDate =
+        member.date_joined ||
+        member.registration_date ||
+        member.created_at;
+
+    if (!isDateWithinRange(memberDate)) {
+        return false;
+    }
+
+    return true;
+}
+
+
+function matchesDependantDate(dependant) {
+
+    const date =
+        dependant.created_at;
+
+    return isDateWithinRange(date);
+}
+
+
+/* ============================================================
+   MEMBER DISPLAY VALUE
+   ============================================================ */
+
+function getMembershipNumber(member) {
+
+    return (
+        member.member_number ||
+        member.membership_number ||
+        ""
     );
 }
 
 
-/* =============================================================
-   TOAST
-   ============================================================= */
+function getMemberPlan(member) {
 
-function showToast(
-    type,
-    message
-) {
-
-    const container =
-        document.getElementById(
-            'toastContainer'
-        );
+    return (
+        member.plan_type ||
+        member.plan ||
+        ""
+    );
+}
 
 
-    if (!container) {
-        return;
+function getMemberStatus(member) {
+
+    return (
+        member.member_status ||
+        member.status ||
+        ""
+    );
+}
+
+
+/* ============================================================
+   WAZAZI PARENTS
+   ============================================================ */
+
+function getParentRows(member) {
+
+    const parents = [];
+
+    for (let i = 1; i <= 4; i++) {
+
+        const name =
+            member[`parent_${i}_name`];
+
+        const dob =
+            member[`parent_${i}_dob`];
+
+        const phone =
+            member[`parent_${i}_phone`];
+
+        const id =
+            member[`parent_${i}_id`];
+
+        const relationship =
+            member[`parent_${i}_relationship`];
+
+        if (
+            name ||
+            dob ||
+            phone ||
+            id ||
+            relationship
+        ) {
+
+            parents.push({
+
+                number: i,
+
+                name: name || "",
+
+                dob: dob || "",
+
+                phone: phone || "",
+
+                id: id || "",
+
+                relationship:
+                    relationship || ""
+
+            });
+
+        }
+
     }
 
+    return parents;
+}
 
-    const icons = {
 
-        success:
-            'fa-check-circle',
+/* ============================================================
+   DYNAMIC DEPENDANT COLUMNS
+   ============================================================ */
 
-        error:
-            'fa-exclamation-circle',
+function getDependantColumns() {
 
-        warning:
-            'fa-triangle-exclamation',
+    const columns = [
 
-        info:
-            'fa-info-circle'
+        "Dependant Number",
+        "Full Name",
+        "National ID",
+        "Birth Certificate Number",
+        "Date of Birth",
+        "Gender",
+        "Relationship",
+        "Phone",
+        "Status",
+        "Email",
+        "Created At",
+        "Updated At"
+
+    ];
+
+    return columns;
+}
+
+
+function addDependantColumns(row, dependant, number) {
+
+    const prefix =
+        `Dependant ${number}`;
+
+    row[`${prefix} Number`] =
+        dependant.dependant_number || "";
+
+    row[`${prefix} Full Name`] =
+        dependant.full_name || "";
+
+    row[`${prefix} National ID`] =
+        dependant.national_id || "";
+
+    row[`${prefix} Birth Certificate Number`] =
+        dependant.birth_certificate_number || "";
+
+    row[`${prefix} Date of Birth`] =
+        dependant.date_of_birth || "";
+
+    row[`${prefix} Age`] =
+        calculateAge(dependant.date_of_birth);
+
+    row[`${prefix} Gender`] =
+        dependant.gender || "";
+
+    row[`${prefix} Relationship`] =
+        dependant.relationship || "";
+
+    row[`${prefix} Phone`] =
+        dependant.phone || "";
+
+    row[`${prefix} Status`] =
+        dependant.status || "";
+
+    row[`${prefix} Email`] =
+        dependant.email || "";
+
+    row[`${prefix} Created At`] =
+        dependant.created_at || "";
+
+    row[`${prefix} Updated At`] =
+        dependant.updated_at || "";
+}
+
+
+/* ============================================================
+   MEMBER REPORT ROW
+   ============================================================ */
+
+function buildMemberReportRow(member, dependants) {
+
+    const registrationFeePaid =
+        member.registration_fee_paid === true
+            ? "YES"
+            : member.registration_fee_paid === false
+                ? "NO"
+                : "";
+
+    const amountExpected =
+        Number(member.amount_expected || 0);
+
+    const amountPaid =
+        Number(member.amount_paid || 0);
+
+    const balance =
+        amountExpected - amountPaid;
+
+    const row = {
+
+        /* MEMBER IDENTITY */
+
+        "Date Joined":
+            member.date_joined ||
+            member.registration_date ||
+            member.created_at ||
+            "",
+
+        "Membership #":
+            getMembershipNumber(member),
+
+        "Member UUID":
+            member.id || "",
+
+        "Full Name":
+            member.full_name || "",
+
+        "First Name":
+            member.first_name || "",
+
+        "Middle Name":
+            member.middle_name || "",
+
+        "Last Name":
+            member.last_name || "",
+
+        "Phone":
+            member.phone || "",
+
+        "Email":
+            member.email || "",
+
+        "National ID":
+            member.national_id || "",
+
+        "Date of Birth":
+            member.date_of_birth ||
+            member.dob ||
+            "",
+
+        "Age":
+            calculateAge(
+                member.date_of_birth ||
+                member.dob
+            ),
+
+        "Gender":
+            member.gender || "",
+
+        "Marital Status":
+            member.marital_status || "",
+
+        /* LOCATION */
+
+        "County":
+            member.county || "",
+
+        "Town":
+            member.town || "",
+
+        "Physical Address":
+            member.physical_address ||
+            member.address ||
+            "",
+
+        /* MEMBERSHIP */
+
+        "Plan":
+            getMemberPlan(member),
+
+        "Status":
+            member.status || "",
+
+        "Member Status":
+            member.member_status || "",
+
+        "Registration Fee":
+            member.registration_fee ?? "",
+
+        "Registration Fee Paid":
+            registrationFeePaid,
+
+        "Months Paid":
+            member.months_paid ?? "",
+
+        "Months Missing":
+            member.months_missing ?? "",
+
+        "Months Short":
+            member.months_short ?? "",
+
+        "Amount Expected":
+            amountExpected,
+
+        "Amount Paid":
+            amountPaid,
+
+        "Balance":
+            balance,
+
+        "Payment Validation Status":
+            member.payment_validation_status || "",
+
+        "Payment Validation Note":
+            member.payment_validation_note || "",
+
+        "Payment Validated At":
+            member.payment_validated_at || "",
+
+        /* AGENT */
+
+        "Agent":
+            member.agent_name ||
+            member.agent_code ||
+            member.assigned_agent ||
+            member.sales_code ||
+            "",
+
+        "Agent Code":
+            member.agent_code ||
+            member.sales_code ||
+            "",
+
+        /* NEXT OF KIN */
+
+        "Next of Kin Name":
+            member.kin_name ||
+            member.next_of_kin_name ||
+            "",
+
+        "Next of Kin Relationship":
+            member.kin_relationship ||
+            member.next_of_kin_relationship ||
+            "",
+
+        "Next of Kin Phone":
+            member.kin_phone ||
+            member.next_of_kin_phone ||
+            "",
+
+        "Next of Kin ID":
+            member.kin_id ||
+            member.next_of_kin_id ||
+            "",
+
+        "Next of Kin Email":
+            member.kin_email ||
+            member.next_of_kin_email ||
+            "",
+
+        /* SYSTEM */
+
+        "Created At":
+            member.created_at || "",
+
+        "Updated At":
+            member.updated_at || ""
 
     };
 
 
-    const toast =
-        document.createElement(
-            'div'
-        );
+    /* ========================================================
+       WAZAZI PARENTS
+       ======================================================== */
+
+    const parents =
+        getParentRows(member);
+
+    for (let i = 1; i <= 4; i++) {
+
+        const parent =
+            parents.find(
+                p => p.number === i
+            );
+
+        row[`Parent ${i} Name`] =
+            parent?.name || "";
+
+        row[`Parent ${i} Relationship`] =
+            parent?.relationship || "";
+
+        row[`Parent ${i} Date of Birth`] =
+            parent?.dob || "";
+
+        row[`Parent ${i} Age`] =
+            calculateAge(parent?.dob);
+
+        row[`Parent ${i} Phone`] =
+            parent?.phone || "";
+
+        row[`Parent ${i} National ID`] =
+            parent?.id || "";
+    }
 
 
-    toast.className =
-        `toast ${type}`;
+    /* ========================================================
+       DEPENDANTS
+       ======================================================== */
 
+    dependants.forEach(
+        (dependant, index) => {
 
-    const icon =
-        icons[type] ||
-        icons.info;
+            addDependantColumns(
+                row,
+                dependant,
+                index + 1
+            );
+
+        }
+    );
 
 
     /*
-     * Do not insert unescaped user/database
-     * content into innerHTML.
+     * Add blank dependant columns for other members so that
+     * every row has the same CSV structure.
      */
+    for (
+        let i = dependants.length + 1;
+        i <= maxDependants;
+        i++
+    ) {
 
-    const iconEl =
-        document.createElement(
-            'i'
+        const blank = {
+
+            dependant_number: "",
+            full_name: "",
+            national_id: "",
+            birth_certificate_number: "",
+            date_of_birth: "",
+            gender: "",
+            relationship: "",
+            phone: "",
+            status: "",
+            email: "",
+            created_at: "",
+            updated_at: ""
+
+        };
+
+        addDependantColumns(
+            row,
+            blank,
+            i
         );
 
-    iconEl.className =
-        `fas ${icon}`;
+    }
 
 
-    const span =
-        document.createElement(
-            'span'
-        );
-
-    span.textContent =
-        message;
-
-
-    const closeBtn =
-        document.createElement(
-            'button'
-        );
-
-    closeBtn.className =
-        'toast-close';
-
-    closeBtn.innerHTML =
-        '&times;';
-
-
-    closeBtn.addEventListener(
-        'click',
-        function (event) {
-
-            event.stopPropagation();
-
-            toast.remove();
-        }
-    );
-
-
-    toast.appendChild(
-        iconEl
-    );
-
-    toast.appendChild(
-        span
-    );
-
-    toast.appendChild(
-        closeBtn
-    );
-
-
-    container.appendChild(
-        toast
-    );
-
-
-    setTimeout(
-        () => {
-
-            toast.style.opacity =
-                '0';
-
-            toast.style.transform =
-                'translateX(100px)';
-
-            toast.style.transition =
-                'all 0.4s ease';
-
-
-            setTimeout(
-                () => toast.remove(),
-                400
-            );
-
-        },
-        4000
-    );
+    return row;
 }
 
 
-/* =============================================================
-   LOGOUT
-   ============================================================= */
+/* ============================================================
+   LOAD BASE DATA
+   ============================================================ */
 
-window.handleLogout =
-    async function () {
+async function loadBaseData() {
 
-        try {
+    $("reportContent").innerHTML = `
+        <div class="loading">
+            <div class="spinner"></div>
+            Loading members and dependants...
+        </div>
+    `;
 
-            await supabaseClient
-                .auth
-                .signOut();
+    try {
+
+        /*
+         * IMPORTANT:
+         * We deliberately fetch the two tables separately.
+         * This avoids depending on a Supabase nested relationship.
+         */
+
+        const [
+            members,
+            dependants
+        ] = await Promise.all([
+
+            fetchAllRows(
+                "members",
+                "*"
+            ),
+
+            fetchAllRows(
+                "dependants",
+                "*"
+            )
+
+        ]);
+
+        membersCache =
+            members || [];
+
+        dependantsCache =
+            dependants || [];
+
+        /*
+         * Calculate maximum number of dependants attached
+         * to any principal member.
+         */
+
+        const dependantCounts = {};
+
+        dependantsCache.forEach(d => {
+
+            const principalId =
+                d.principal_member_id;
+
+            if (!principalId) return;
+
+            dependantCounts[principalId] =
+                (dependantCounts[principalId] || 0) + 1;
+
+        });
+
+        maxDependants =
+            Object.values(dependantCounts)
+                .reduce(
+                    (max, count) =>
+                        Math.max(max, count),
+                    0
+                );
+
+        console.log(
+            "Members loaded:",
+            membersCache.length
+        );
+
+        console.log(
+            "Dependants loaded:",
+            dependantsCache.length
+        );
+
+        console.log(
+            "Maximum dependants on one member:",
+            maxDependants
+        );
+
+    } catch (error) {
+
+        console.error(
+            "Base data loading error:",
+            error
+        );
+
+        throw error;
+    }
+}
 
 
-            localStorage.removeItem(
-                'admin_user'
+/* ============================================================
+   FILTER MEMBERS
+   ============================================================ */
+
+function getFilteredMembers() {
+
+    filteredMembersCache =
+        membersCache.filter(
+            matchesMemberFilters
+        );
+
+    return filteredMembersCache;
+}
+
+
+/* ============================================================
+   PAYMENTS REPORT
+   ============================================================ */
+
+async function generatePaymentsReport() {
+
+    $("reportContent").innerHTML = `
+        <div class="loading">
+            <div class="spinner"></div>
+            Loading payments...
+        </div>
+    `;
+
+    try {
+
+        const payments =
+            await fetchAllRows(
+                "payments",
+                "*"
             );
 
+        const memberMap =
+            new Map();
 
-            localStorage.removeItem(
-                'admin_session'
+        membersCache.forEach(member => {
+
+            memberMap.set(
+                member.id,
+                member
             );
 
+            if (member.member_number) {
+                memberMap.set(
+                    member.member_number,
+                    member
+                );
+            }
 
-            sessionStorage.clear();
+        });
 
-
-            window.location.href =
-                'admin-login.html';
-
-
-        } catch (error) {
-
-            console.error(
-                '❌ Logout error:',
-                error
+        const selectedPaymentStatus =
+            normalizeStatus(
+                $("paymentStatusFilter").value
             );
 
+        const selectedPlan =
+            normalizePlan(
+                $("planFilter").value
+            );
+
+        const search =
+            normalizeText(
+                $("searchFilter").value
+            ).toLowerCase();
+
+        const rows = [];
+
+        payments.forEach(payment => {
+
+            const status =
+                effectivePaymentStatus(payment);
+
+            if (
+                selectedPaymentStatus &&
+                status !== selectedPaymentStatus
+            ) {
+                return;
+            }
+
+            /*
+             * Payment date.
+             */
+            const paymentDate =
+                payment.payment_date ||
+                payment.created_at;
+
+            if (!isDateWithinRange(paymentDate)) {
+                return;
+            }
+
+            const member =
+                memberMap.get(
+                    payment.member_id
+                ) ||
+                memberMap.get(
+                    payment.member_number
+                );
+
+            if (
+                selectedPlan &&
+                normalizePlan(
+                    member?.plan_type ||
+                    member?.plan
+                ) !== selectedPlan
+            ) {
+                return;
+            }
+
+            if (search) {
+
+                const searchable = [
+
+                    payment.member_number,
+                    payment.phone,
+                    payment.mpesa_code,
+                    payment.mpesa_receipt,
+                    payment.payment_reference,
+                    payment.transaction_id,
+                    member?.full_name,
+                    member?.member_number,
+                    member?.phone
+
+                ]
+                .map(normalizeText)
+                .join(" ")
+                .toLowerCase();
+
+                if (!searchable.includes(search)) {
+                    return;
+                }
+            }
+
+            const counts =
+                countsTowardMembership(
+                    payment
+                );
+
+            rows.push({
+
+                "Payment Date":
+                    paymentDate || "",
+
+                "Payment ID":
+                    payment.id || "",
+
+                "Membership #":
+                    member?.member_number ||
+                    payment.member_number ||
+                    "",
+
+                "Member Name":
+                    member?.full_name ||
+                    payment.member_name ||
+                    "",
+
+                "Phone":
+                    member?.phone ||
+                    payment.phone ||
+                    "",
+
+                "Plan":
+                    member?.plan_type ||
+                    member?.plan ||
+                    "",
+
+                "Amount":
+                    Number(payment.amount || 0),
+
+                "Payment Type":
+                    payment.payment_type ||
+                    payment.type ||
+                    "",
+
+                "Effective Status":
+                    status,
+
+                "Transaction Status":
+                    payment.status || "",
+
+                "Payment Status":
+                    payment.payment_status || "",
+
+                "Counts Toward Membership":
+                    counts ? "YES" : "NO",
+
+                "Monthly Paid":
+                    payment.monthly_paid ?? "",
+
+                "Payment Period Start":
+                    payment.payment_period_start ||
+                    payment.period_start ||
+                    "",
+
+                "Payment Period End":
+                    payment.payment_period_end ||
+                    payment.period_end ||
+                    "",
+
+                "M-Pesa Code":
+                    payment.mpesa_code || "",
+
+                "M-Pesa Receipt":
+                    payment.mpesa_receipt || "",
+
+                "Payment Reference":
+                    payment.payment_reference || "",
+
+                "Transaction ID":
+                    payment.transaction_id || "",
+
+                "Payment Method":
+                    payment.payment_method || "",
+
+                "Created At":
+                    payment.created_at || "",
+
+                "Updated At":
+                    payment.updated_at || ""
+
+            });
+
+        });
+
+        reportRows = rows;
+
+        renderTable(
+            rows,
+            "payments"
+        );
+
+    } catch (error) {
+
+        console.error(error);
+
+        showError(
+            "Unable to load payments report.",
+            error
+        );
+    }
+}
+
+
+/* ============================================================
+   MEMBERS REPORT
+   ============================================================ */
+
+async function generateMembersReport() {
+
+    try {
+
+        const members =
+            getFilteredMembers();
+
+        const dependantMap =
+            new Map();
+
+        /*
+         * Group dependants by principal_member_id.
+         */
+
+        dependantsCache.forEach(
+            dependant => {
+
+                const principalId =
+                    dependant.principal_member_id;
+
+                if (!principalId) {
+                    return;
+                }
+
+                /*
+                 * If date filtering is active, only include
+                 * dependants whose created_at is within range.
+                 *
+                 * If no date is specified, all dependants are
+                 * included.
+                 */
+
+                if (
+                    !matchesDependantDate(
+                        dependant
+                    )
+                ) {
+                    return;
+                }
+
+                if (
+                    !dependantMap.has(
+                        principalId
+                    )
+                ) {
+
+                    dependantMap.set(
+                        principalId,
+                        []
+                    );
+
+                }
+
+                dependantMap
+                    .get(principalId)
+                    .push(dependant);
+
+            }
+        );
+
+        /*
+         * Sort dependants by dependant_number where possible,
+         * otherwise by creation date.
+         */
+
+        dependantMap.forEach(
+            list => {
+
+                list.sort((a, b) => {
+
+                    const an =
+                        parseInt(
+                            a.dependant_number,
+                            10
+                        );
+
+                    const bn =
+                        parseInt(
+                            b.dependant_number,
+                            10
+                        );
+
+                    if (
+                        !Number.isNaN(an) &&
+                        !Number.isNaN(bn)
+                    ) {
+                        return an - bn;
+                    }
+
+                    return String(
+                        a.created_at || ""
+                    ).localeCompare(
+                        String(
+                            b.created_at || ""
+                        )
+                    );
+
+                });
+
+            }
+        );
+
+
+        const rows =
+            members.map(member => {
+
+                const dependants =
+                    dependantMap.get(
+                        member.id
+                    ) || [];
+
+                return buildMemberReportRow(
+                    member,
+                    dependants
+                );
+
+            });
+
+        reportRows = rows;
+
+        renderTable(
+            rows,
+            "members"
+        );
+
+    } catch (error) {
+
+        console.error(error);
+
+        showError(
+            "Unable to generate detailed members report.",
+            error
+        );
+    }
+}
+
+
+/* ============================================================
+   DEPENDANTS REPORT
+   ============================================================ */
+
+async function generateDependantsReport() {
+
+    try {
+
+        const memberMap =
+            new Map();
+
+        membersCache.forEach(member => {
+
+            memberMap.set(
+                member.id,
+                member
+            );
+
+        });
+
+        const selectedPlan =
+            normalizePlan(
+                $("planFilter").value
+            );
+
+        const selectedStatus =
+            normalizeStatus(
+                $("statusFilter").value
+            );
+
+        const search =
+            normalizeText(
+                $("searchFilter").value
+            ).toLowerCase();
+
+        const rows = [];
+
+        dependantsCache.forEach(
+            dependant => {
+
+                if (
+                    !matchesDependantDate(
+                        dependant
+                    )
+                ) {
+                    return;
+                }
+
+                const member =
+                    memberMap.get(
+                        dependant.principal_member_id
+                    );
+
+                if (!member) {
+                    return;
+                }
+
+                if (
+                    selectedPlan &&
+                    normalizePlan(
+                        member.plan_type ||
+                        member.plan
+                    ) !== selectedPlan
+                ) {
+                    return;
+                }
+
+                const memberStatus =
+                    normalizeStatus(
+                        member.member_status ||
+                        member.status
+                    );
+
+                if (
+                    selectedStatus &&
+                    memberStatus !== selectedStatus
+                ) {
+                    return;
+                }
+
+                if (search) {
+
+                    const searchable = [
+
+                        dependant.dependant_number,
+                        dependant.full_name,
+                        dependant.national_id,
+                        dependant.birth_certificate_number,
+                        dependant.phone,
+                        dependant.email,
+                        dependant.relationship,
+
+                        member.member_number,
+                        member.full_name,
+                        member.phone
+
+                    ]
+                    .map(normalizeText)
+                    .join(" ")
+                    .toLowerCase();
+
+                    if (
+                        !searchable.includes(
+                            search
+                        )
+                    ) {
+                        return;
+                    }
+                }
+
+                rows.push({
+
+                    "Date Added":
+                        dependant.created_at || "",
+
+                    "Membership #":
+                        member.member_number || "",
+
+                    "Principal Member":
+                        member.full_name || "",
+
+                    "Principal Phone":
+                        member.phone || "",
+
+                    "Principal Plan":
+                        member.plan_type ||
+                        member.plan ||
+                        "",
+
+                    "Principal Status":
+                        member.member_status ||
+                        member.status ||
+                        "",
+
+                    "Dependant Number":
+                        dependant.dependant_number || "",
+
+                    "Dependant Name":
+                        dependant.full_name || "",
+
+                    "Relationship":
+                        dependant.relationship || "",
+
+                    "Dependant Phone":
+                        dependant.phone || "",
+
+                    "Dependant Email":
+                        dependant.email || "",
+
+                    "Date of Birth":
+                        dependant.date_of_birth || "",
+
+                    "Age":
+                        calculateAge(
+                            dependant.date_of_birth
+                        ),
+
+                    "Gender":
+                        dependant.gender || "",
+
+                    "National ID":
+                        dependant.national_id || "",
+
+                    "Birth Certificate Number":
+                        dependant.birth_certificate_number || "",
+
+                    "Status":
+                        dependant.status || "",
+
+                    "Created At":
+                        dependant.created_at || "",
+
+                    "Updated At":
+                        dependant.updated_at || "",
+
+                    "Dependant UUID":
+                        dependant.id || "",
+
+                    "Principal Member UUID":
+                        dependant.principal_member_id || ""
+
+                });
+
+            }
+        );
+
+        reportRows = rows;
+
+        renderTable(
+            rows,
+            "dependants"
+        );
+
+    } catch (error) {
+
+        console.error(error);
+
+        showError(
+            "Unable to generate dependants report.",
+            error
+        );
+    }
+}
+
+
+/* ============================================================
+   COMBINED HOUSEHOLD REPORT
+   ============================================================ */
+
+async function generateCombinedReport() {
+
+    try {
+
+        const members =
+            getFilteredMembers();
+
+        const dependantMap =
+            new Map();
+
+        dependantsCache.forEach(
+            dependant => {
+
+                if (
+                    !matchesDependantDate(
+                        dependant
+                    )
+                ) {
+                    return;
+                }
+
+                const id =
+                    dependant.principal_member_id;
+
+                if (!id) return;
+
+                if (!dependantMap.has(id)) {
+
+                    dependantMap.set(
+                        id,
+                        []
+                    );
+
+                }
+
+                dependantMap
+                    .get(id)
+                    .push(dependant);
+
+            }
+        );
+
+
+        const rows = [];
+
+
+        members.forEach(member => {
+
+            const dependants =
+                dependantMap.get(
+                    member.id
+                ) || [];
+
+
+            /*
+             * Principal row.
+             */
+            const base =
+                buildMemberReportRow(
+                    member,
+                    dependants
+                );
+
+
+            /*
+             * Identify household counts.
+             */
+            base["Total Dependants"] =
+                dependants.length;
+
+            base["Total Wazazi Parents"] =
+                getParentRows(member).length;
+
+            base["Household Size"] =
+                1 +
+                dependants.length +
+                getParentRows(member).length;
+
+
+            rows.push(base);
+
+        });
+
+
+        reportRows = rows;
+
+        renderTable(
+            rows,
+            "combined"
+        );
+
+    } catch (error) {
+
+        console.error(error);
+
+        showError(
+            "Unable to generate combined report.",
+            error
+        );
+    }
+}
+
+
+/* ============================================================
+   GENERATE CURRENT REPORT
+   ============================================================ */
+
+async function generateCurrentReport() {
+
+    updateReportHeader();
+
+    if (currentReport === "payments") {
+
+        await generatePaymentsReport();
+
+        return;
+    }
+
+    if (currentReport === "members") {
+
+        await generateMembersReport();
+
+        return;
+    }
+
+    if (currentReport === "dependants") {
+
+        await generateDependantsReport();
+
+        return;
+    }
+
+    if (currentReport === "combined") {
+
+        await generateCombinedReport();
+
+        return;
+    }
+}
+
+
+/* ============================================================
+   REPORT HEADER
+   ============================================================ */
+
+function updateReportHeader() {
+
+    const info =
+        REPORT_INFO[currentReport];
+
+    $("reportTitle").textContent =
+        info.title;
+
+    $("reportDescription").textContent =
+        info.description;
+}
+
+
+/* ============================================================
+   TABLE RENDERER
+   ============================================================ */
+
+function renderTable(rows, reportType) {
+
+    if (!rows || rows.length === 0) {
+
+        $("reportContent").innerHTML = `
+            <div class="empty">
+                <i class="fa-solid fa-file-circle-xmark"></i>
+                <div>No records found for the selected filters.</div>
+            </div>
+        `;
+
+        return;
+    }
+
+
+    /*
+     * Determine all columns in order of first appearance.
+     */
+    const columns = [];
+
+    rows.forEach(row => {
+
+        Object.keys(row).forEach(key => {
+
+            if (!columns.includes(key)) {
+                columns.push(key);
+            }
+
+        });
+
+    });
+
+
+    /*
+     * Build header.
+     */
+    const headerHtml =
+        columns
+            .map(column =>
+                `<th>${escapeHtml(column)}</th>`
+            )
+            .join("");
+
+
+    /*
+     * Limit visible rows for browser performance.
+     * CSV export still contains ALL reportRows.
+     */
+    const visibleRows =
+        rows.slice(0, 200);
+
+
+    const bodyHtml =
+        visibleRows.map(row => {
+
+            const cells =
+                columns.map(column => {
+
+                    let value =
+                        row[column];
+
+                    if (
+                        value === null ||
+                        value === undefined
+                    ) {
+                        value = "";
+                    }
+
+                    /*
+                     * Format money-like member columns.
+                     */
+                    if (
+                        [
+                            "Registration Fee",
+                            "Amount Expected",
+                            "Amount Paid",
+                            "Balance",
+                            "Amount"
+                        ].includes(column)
+                    ) {
+
+                        if (
+                            value !== "" &&
+                            !Number.isNaN(
+                                Number(value)
+                            )
+                        ) {
+                            value =
+                                formatMoney(
+                                    value
+                                );
+                        }
+
+                    }
+
+                    /*
+                     * Status badges.
+                     */
+                    if (
+                        [
+                            "Status",
+                            "Member Status",
+                            "Effective Status",
+                            "Transaction Status",
+                            "Payment Status",
+                            "Payment Validation Status",
+                            "Registration Fee Paid",
+                            "Counts Toward Membership"
+                        ].includes(column)
+                    ) {
+
+                        const normalized =
+                            normalizeStatus(
+                                value
+                            ).toLowerCase();
+
+                        return `
+                            <td>
+                                <span class="status ${escapeHtml(normalized)}">
+                                    ${escapeHtml(String(value))}
+                                </span>
+                            </td>
+                        `;
+
+                    }
+
+                    return `
+                        <td>
+                            ${escapeHtml(String(value))}
+                        </td>
+                    `;
+
+                }).join("");
+
+
+            return `<tr>${cells}</tr>`;
+
+        }).join("");
+
+
+    const note =
+        rows.length > 200
+            ? `
+                <div style="
+                    padding:12px 16px;
+                    background:#fffbeb;
+                    border-bottom:1px solid #fde68a;
+                    color:#92400e;
+                    font-size:12px;
+                ">
+                    Showing the first 200 rows on screen.
+                    <strong>${rows.length.toLocaleString()}</strong>
+                    rows are included in the CSV export.
+                </div>
+              `
+            : "";
+
+
+    $("reportContent").innerHTML = `
+
+        ${note}
+
+        <div class="table-wrap">
+
+            <table>
+
+                <thead>
+                    <tr>
+                        ${headerHtml}
+                    </tr>
+                </thead>
+
+                <tbody>
+                    ${bodyHtml}
+                </tbody>
+
+            </table>
+
+        </div>
+
+        <div style="
+            padding:12px 16px;
+            font-size:12px;
+            color:#64748b;
+            border-top:1px solid #e2e8f0;
+        ">
+            ${rows.length.toLocaleString()} record(s)
+        </div>
+    `;
+}
+
+
+/* ============================================================
+   HTML ESCAPE
+   ============================================================ */
+
+function escapeHtml(value) {
+
+    return String(value)
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#039;");
+}
+
+
+/* ============================================================
+   ERROR DISPLAY
+   ============================================================ */
+
+function showError(message, error) {
+
+    console.error(
+        message,
+        error
+    );
+
+    $("reportContent").innerHTML = `
+
+        <div class="empty">
+
+            <i class="fa-solid fa-triangle-exclamation"
+               style="color:#dc2626;"></i>
+
+            <div style="
+                font-weight:700;
+                color:#991b1b;
+                margin-bottom:8px;
+            ">
+                ${escapeHtml(message)}
+            </div>
+
+            <div style="
+                font-size:12px;
+                color:#64748b;
+                max-width:700px;
+                margin:auto;
+            ">
+                ${escapeHtml(
+                    error?.message ||
+                    "Check the browser console for details."
+                )}
+            </div>
+
+        </div>
+
+    `;
+}
+
+
+/* ============================================================
+   REPORT CARD CLICK
+   ============================================================ */
+
+document
+    .querySelectorAll(".report-card")
+    .forEach(card => {
+
+        card.addEventListener(
+            "click",
+            async () => {
+
+                document
+                    .querySelectorAll(".report-card")
+                    .forEach(c =>
+                        c.classList.remove("active")
+                    );
+
+                card.classList.add("active");
+
+                currentReport =
+                    card.dataset.report;
+
+                await generateCurrentReport();
+
+            }
+        );
+
+    });
+
+
+/* ============================================================
+   APPLY FILTERS
+   ============================================================ */
+
+$("applyFilters")
+    .addEventListener(
+        "click",
+        async () => {
+
+            try {
+
+                await generateCurrentReport();
+
+                showToast(
+                    "Filters applied."
+                );
+
+            } catch (error) {
+
+                console.error(error);
+
+            }
+
+        }
+    );
+
+
+/* ============================================================
+   CLEAR FILTERS
+   ============================================================ */
+
+$("clearFilters")
+    .addEventListener(
+        "click",
+        async () => {
+
+            $("fromDate").value = "";
+
+            $("toDate").value = "";
+
+            $("planFilter").value = "";
+
+            $("statusFilter").value = "";
+
+            $("paymentStatusFilter").value = "";
+
+            $("searchFilter").value = "";
+
+            await generateCurrentReport();
 
             showToast(
-                'error',
-                'Failed to logout'
+                "Filters cleared."
             );
+
         }
-    };
+    );
 
 
-/* =============================================================
-   GLOBAL FUNCTIONS
-   ============================================================= */
+/* ============================================================
+   REFRESH
+   ============================================================ */
 
-window.showToast =
-    showToast;
+$("refreshBtn")
+    .addEventListener(
+        "click",
+        async () => {
 
-window.setDefaultDates =
-    setDefaultDates;
+            try {
+
+                await loadBaseData();
+
+                await generateCurrentReport();
+
+                showToast(
+                    "Report data refreshed."
+                );
+
+            } catch (error) {
+
+                showError(
+                    "Unable to refresh report data.",
+                    error
+                );
+
+            }
+
+        }
+    );
+
+
+/* ============================================================
+   EXPORT
+   ============================================================ */
+
+$("exportBtn")
+    .addEventListener(
+        "click",
+        () => {
+
+            if (
+                !reportRows ||
+                reportRows.length === 0
+            ) {
+
+                showToast(
+                    "There is no data to export.",
+                    "error"
+                );
+
+                return;
+            }
+
+            const date =
+                new Date()
+                    .toISOString()
+                    .slice(0, 10);
+
+            let filename =
+                "masika-report";
+
+            if (currentReport === "payments") {
+                filename =
+                    "masika-payments-report";
+            }
+
+            if (currentReport === "members") {
+                filename =
+                    "masika-detailed-members-household-report";
+            }
+
+            if (currentReport === "dependants") {
+                filename =
+                    "masika-dependants-report";
+            }
+
+            if (currentReport === "combined") {
+                filename =
+                    "masika-members-and-dependants-report";
+            }
+
+            exportCsv(
+                reportRows,
+                `${filename}-${date}.csv`
+            );
+
+        }
+    );
+
+
+/* ============================================================
+   LOGOUT
+   ============================================================ */
+
+$("logoutBtn")
+    .addEventListener(
+        "click",
+        async () => {
+
+            await supabaseClient.auth.signOut();
+
+            window.location.href =
+                "/admin-login.html";
+
+        }
+    );
+
+
+/* ============================================================
+   MOBILE MENU
+   ============================================================ */
+
+$("mobileMenu")
+    .addEventListener(
+        "click",
+        () => {
+
+            $("sidebar")
+                .classList.toggle("open");
+
+        }
+    );
+
+
+/* ============================================================
+   INITIALIZATION
+   ============================================================ */
+
+async function init() {
+
+    try {
+
+        const authenticated =
+            await verifySession();
+
+        if (!authenticated) {
+            return;
+        }
+
+        await loadBaseData();
+
+        await generateCurrentReport();
+
+    } catch (error) {
+
+        console.error(
+            "Reports initialization failed:",
+            error
+        );
+
+        showError(
+            "Reports could not be loaded.",
+            error
+        );
+
+    }
+
+}
+
+init();
 
 </script>
 
