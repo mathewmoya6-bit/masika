@@ -10,10 +10,16 @@
 
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 
-    <link rel="stylesheet"
-          href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
+    <link
+        href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap"
+        rel="stylesheet"
+    >
+
+    <link
+        rel="stylesheet"
+        href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css"
+    >
 
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 
@@ -402,7 +408,8 @@
         .status.active,
         .status.successful,
         .status.completed,
-        .status.validated {
+        .status.validated,
+        .status.yes {
             background: #dcfce7;
             color: #166534;
         }
@@ -414,12 +421,14 @@
         }
 
         .status.failed,
-        .status.reversed {
+        .status.reversed,
+        .status.no {
             background: #fee2e2;
             color: #991b1b;
         }
 
-        .status.dormant {
+        .status.dormant,
+        .status.inactive {
             background: #e2e8f0;
             color: #475569;
         }
@@ -548,14 +557,18 @@
     <aside class="sidebar" id="sidebar">
 
         <div class="brand">
-            <img src="/assets/system-logo-white.svg"
-                 onerror="this.style.display='none'"
-                 alt="Masika BBS">
+
+            <img
+                src="/assets/system-logo-white.svg"
+                onerror="this.style.display='none'"
+                alt="Masika BBS"
+            >
 
             <div>
                 <div class="brand-text">Masika BBS</div>
                 <div class="brand-sub">ADMINISTRATION</div>
             </div>
+
         </div>
 
         <nav class="nav">
@@ -601,7 +614,9 @@
             </a>
 
         </nav>
+
     </aside>
+
 
     <!-- MAIN -->
     <main class="main">
@@ -609,32 +624,49 @@
         <header class="topbar">
 
             <div style="display:flex;align-items:center;gap:12px;">
+
                 <button class="mobile-menu" id="mobileMenu">
                     <i class="fa-solid fa-bars"></i>
                 </button>
 
                 <h1>Reports</h1>
+
             </div>
 
             <div class="topbar-right">
-                <span class="admin-name" id="adminName">Administrator</span>
 
-                <button class="logout-btn" id="logoutBtn">
+                <span
+                    class="admin-name"
+                    id="adminName"
+                >
+                    Administrator
+                </span>
+
+                <button
+                    class="logout-btn"
+                    id="logoutBtn"
+                >
                     <i class="fa-solid fa-right-from-bracket"></i>
                     Logout
                 </button>
+
             </div>
 
         </header>
 
+
         <section class="content">
 
             <div class="page-intro">
+
                 <h2>Masika BBS Reports</h2>
+
                 <p>
                     Generate detailed payment, member, dependant and household reports.
                 </p>
+
             </div>
+
 
             <!-- FILTERS -->
             <div class="filters">
@@ -642,80 +674,187 @@
                 <div class="filters-grid">
 
                     <div class="field">
-                        <label for="fromDate">From Date</label>
-                        <input type="date" id="fromDate">
+
+                        <label for="fromDate">
+                            From Date
+                        </label>
+
+                        <input
+                            type="date"
+                            id="fromDate"
+                        >
+
                     </div>
 
-                    <div class="field">
-                        <label for="toDate">To Date</label>
-                        <input type="date" id="toDate">
-                    </div>
 
                     <div class="field">
-                        <label for="planFilter">Plan</label>
+
+                        <label for="toDate">
+                            To Date
+                        </label>
+
+                        <input
+                            type="date"
+                            id="toDate"
+                        >
+
+                    </div>
+
+
+                    <div class="field">
+
+                        <label for="planFilter">
+                            Plan
+                        </label>
 
                         <select id="planFilter">
-                            <option value="">All Plans</option>
-                            <option value="comfort">Comfort</option>
-                            <option value="dignity">Dignity</option>
-                            <option value="wazazi">Wazazi</option>
-                            <option value="chama">Chama</option>
+
+                            <option value="">
+                                All Plans
+                            </option>
+
+                            <option value="comfort">
+                                Comfort
+                            </option>
+
+                            <option value="dignity">
+                                Dignity
+                            </option>
+
+                            <option value="wazazi">
+                                Wazazi
+                            </option>
+
+                            <option value="chama">
+                                Chama
+                            </option>
+
                         </select>
+
                     </div>
 
+
                     <div class="field">
-                        <label for="statusFilter">Status</label>
+
+                        <label for="statusFilter">
+                            Status
+                        </label>
 
                         <select id="statusFilter">
-                            <option value="">All Statuses</option>
-                            <option value="ACTIVE">ACTIVE</option>
-                            <option value="DORMANT">DORMANT</option>
-                            <option value="PENDING">PENDING</option>
-                            <option value="INACTIVE">INACTIVE</option>
+
+                            <option value="">
+                                All Statuses
+                            </option>
+
+                            <option value="ACTIVE">
+                                ACTIVE
+                            </option>
+
+                            <option value="DORMANT">
+                                DORMANT
+                            </option>
+
+                            <option value="PENDING">
+                                PENDING
+                            </option>
+
+                            <option value="INACTIVE">
+                                INACTIVE
+                            </option>
+
                         </select>
+
                     </div>
 
-                    <div class="field">
-                        <label for="searchFilter">Search Member</label>
-                        <input type="text"
-                               id="searchFilter"
-                               placeholder="Membership #, name or phone">
-                    </div>
 
                     <div class="field">
-                        <label for="paymentStatusFilter">Payment Status</label>
+
+                        <label for="searchFilter">
+                            Search Member
+                        </label>
+
+                        <input
+                            type="text"
+                            id="searchFilter"
+                            placeholder="Membership #, name or phone"
+                        >
+
+                    </div>
+
+
+                    <div class="field">
+
+                        <label for="paymentStatusFilter">
+                            Payment Status
+                        </label>
 
                         <select id="paymentStatusFilter">
-                            <option value="">All Payment Statuses</option>
-                            <option value="SUCCESSFUL">SUCCESSFUL</option>
-                            <option value="COMPLETED">COMPLETED</option>
-                            <option value="PENDING">PENDING</option>
-                            <option value="FAILED">FAILED</option>
-                            <option value="REVERSED">REVERSED</option>
-                            <option value="PARTIAL">PARTIAL</option>
+
+                            <option value="">
+                                All Payment Statuses
+                            </option>
+
+                            <option value="SUCCESSFUL">
+                                SUCCESSFUL
+                            </option>
+
+                            <option value="COMPLETED">
+                                COMPLETED
+                            </option>
+
+                            <option value="PENDING">
+                                PENDING
+                            </option>
+
+                            <option value="FAILED">
+                                FAILED
+                            </option>
+
+                            <option value="REVERSED">
+                                REVERSED
+                            </option>
+
+                            <option value="PARTIAL">
+                                PARTIAL
+                            </option>
+
                         </select>
+
                     </div>
 
+
                     <div class="filter-actions">
-                        <button class="btn btn-primary" id="applyFilters">
+
+                        <button
+                            class="btn btn-primary"
+                            id="applyFilters"
+                        >
                             <i class="fa-solid fa-filter"></i>
                             Apply Filters
                         </button>
 
-                        <button class="btn btn-secondary" id="clearFilters">
+                        <button
+                            class="btn btn-secondary"
+                            id="clearFilters"
+                        >
                             <i class="fa-solid fa-rotate-left"></i>
                             Clear
                         </button>
+
                     </div>
 
                 </div>
 
             </div>
 
+
             <!-- REPORT TYPES -->
             <div class="report-grid">
 
-                <div class="report-card active" data-report="payments">
+                <div
+                    class="report-card active"
+                    data-report="payments"
+                >
 
                     <div class="report-icon">
                         <i class="fa-solid fa-money-bill-transfer"></i>
@@ -730,7 +869,11 @@
 
                 </div>
 
-                <div class="report-card" data-report="members">
+
+                <div
+                    class="report-card"
+                    data-report="members"
+                >
 
                     <div class="report-icon">
                         <i class="fa-solid fa-users"></i>
@@ -745,7 +888,11 @@
 
                 </div>
 
-                <div class="report-card" data-report="dependants">
+
+                <div
+                    class="report-card"
+                    data-report="dependants"
+                >
 
                     <div class="report-icon">
                         <i class="fa-solid fa-children"></i>
@@ -760,7 +907,11 @@
 
                 </div>
 
-                <div class="report-card" data-report="combined">
+
+                <div
+                    class="report-card"
+                    data-report="combined"
+                >
 
                     <div class="report-icon">
                         <i class="fa-solid fa-people-roof"></i>
@@ -777,6 +928,7 @@
 
             </div>
 
+
             <!-- REPORT PANEL -->
             <div class="report-panel">
 
@@ -784,7 +936,9 @@
 
                     <div class="panel-title">
 
-                        <h2 id="reportTitle">Payments Report</h2>
+                        <h2 id="reportTitle">
+                            Payments Report
+                        </h2>
 
                         <p id="reportDescription">
                             Detailed payment transactions.
@@ -792,32 +946,38 @@
 
                     </div>
 
+
                     <div class="panel-actions">
 
-                        <button class="btn btn-accent"
-                                id="exportBtn">
-
+                        <button
+                            class="btn btn-accent"
+                            id="exportBtn"
+                        >
                             <i class="fa-solid fa-file-csv"></i>
                             Export CSV
-
                         </button>
 
-                        <button class="btn btn-secondary"
-                                id="refreshBtn">
-
+                        <button
+                            class="btn btn-secondary"
+                            id="refreshBtn"
+                            title="Refresh"
+                        >
                             <i class="fa-solid fa-rotate"></i>
-
                         </button>
 
                     </div>
 
                 </div>
 
+
                 <div id="reportContent">
 
                     <div class="loading">
+
                         <div class="spinner"></div>
+
                         Loading report...
+
                     </div>
 
                 </div>
@@ -830,24 +990,27 @@
 
 </div>
 
+
 <div id="toast"></div>
 
+
 <script>
+
 /* ============================================================
    SUPABASE CONFIGURATION
    ============================================================ */
 
-const SUPABASE_URL = "https://wpxzlcdrirlcyvfiquld.supabase.co";
+const SUPABASE_URL =
+    "https://wpxzlcdrirlcyvfiquld.supabase.co";
+
+const SUPABASE_ANON_KEY =
+    "sb_publishable_hJYI6DRcKp05YWD0Ivp1oA_5RDFsC7u";
+
 
 /*
- * IMPORTANT:
- * Use your existing Supabase ANON/PUBLISHABLE key here.
- * NEVER put the Supabase service_role key in this file.
+ * Create the client ONCE.
  */
-const SUPABASE_ANON_KEY =
-    "YOUR_SUPABASE_ANON_OR_PUBLISHABLE_KEY";
-
-const { createClient } =
+const supabaseClient =
     supabase.createClient(
         SUPABASE_URL,
         SUPABASE_ANON_KEY
@@ -872,61 +1035,79 @@ let maxDependants = 0;
 
 
 /* ============================================================
-   REPORT TITLES
+   REPORT INFORMATION
    ============================================================ */
 
 const REPORT_INFO = {
 
     payments: {
         title: "Payments Report",
-        description: "Detailed payment transactions and membership contribution status."
+        description:
+            "Detailed payment transactions and membership contribution status."
     },
 
     members: {
         title: "Detailed Members & Household Report",
-        description: "One row per principal member, including all linked dependants and Wazazi parents."
+        description:
+            "One row per principal member, including ALL linked dependants and Wazazi parents."
     },
 
     dependants: {
         title: "Dependants Report",
-        description: "One row per dependant with complete dependant information."
+        description:
+            "One row per dependant with complete dependant information."
     },
 
     combined: {
         title: "Members & Dependants Report",
-        description: "Household-level report combining principal members, dependants and Wazazi parents."
+        description:
+            "Household-level report combining principal members, dependants and Wazazi parents."
     }
 
 };
 
 
 /* ============================================================
-   DOM HELPERS
+   DOM
    ============================================================ */
 
-const $ = id => document.getElementById(id);
+const $ =
+    id => document.getElementById(id);
 
 
 /* ============================================================
    TOAST
    ============================================================ */
 
-function showToast(message, type = "success") {
+function showToast(
+    message,
+    type = "success"
+) {
 
-    const toast = $("toast");
+    const toast =
+        $("toast");
 
-    toast.textContent = message;
+    toast.textContent =
+        message;
 
-    toast.className = type;
+    toast.className =
+        type;
 
-    toast.style.display = "block";
+    toast.style.display =
+        "block";
 
-    clearTimeout(window.__toastTimer);
+    clearTimeout(
+        window.__toastTimer
+    );
 
     window.__toastTimer =
-        setTimeout(() => {
-            toast.style.display = "none";
-        }, 4000);
+        setTimeout(
+            () => {
+                toast.style.display =
+                    "none";
+            },
+            4000
+        );
 }
 
 
@@ -936,50 +1117,76 @@ function showToast(message, type = "success") {
 
 function formatDate(value) {
 
-    if (!value) return "";
+    if (!value) {
+        return "";
+    }
 
-    const d = new Date(value);
+    const d =
+        new Date(value);
 
-    if (Number.isNaN(d.getTime())) {
+    if (
+        Number.isNaN(
+            d.getTime()
+        )
+    ) {
         return value;
     }
 
-    return d.toLocaleDateString("en-GB", {
-        year: "numeric",
-        month: "2-digit",
-        day: "2-digit"
-    });
+    return d.toLocaleDateString(
+        "en-GB",
+        {
+            year: "numeric",
+            month: "2-digit",
+            day: "2-digit"
+        }
+    );
 }
 
 
 function formatDateTime(value) {
 
-    if (!value) return "";
+    if (!value) {
+        return "";
+    }
 
-    const d = new Date(value);
+    const d =
+        new Date(value);
 
-    if (Number.isNaN(d.getTime())) {
+    if (
+        Number.isNaN(
+            d.getTime()
+        )
+    ) {
         return value;
     }
 
-    return d.toLocaleString("en-GB");
+    return d.toLocaleString(
+        "en-GB"
+    );
 }
 
 
 function formatMoney(value) {
 
-    const number = Number(value || 0);
+    const number =
+        Number(value || 0);
 
-    return number.toLocaleString("en-KE", {
-        minimumFractionDigits: 2,
-        maximumFractionDigits: 2
-    });
+    return number.toLocaleString(
+        "en-KE",
+        {
+            minimumFractionDigits: 2,
+            maximumFractionDigits: 2
+        }
+    );
 }
 
 
 function normalizeText(value) {
 
-    if (value === null || value === undefined) {
+    if (
+        value === null ||
+        value === undefined
+    ) {
         return "";
     }
 
@@ -989,13 +1196,17 @@ function normalizeText(value) {
 
 function normalizePlan(value) {
 
-    return normalizeText(value).toLowerCase();
+    return normalizeText(
+        value
+    ).toLowerCase();
 }
 
 
 function normalizeStatus(value) {
 
-    return normalizeText(value).toUpperCase();
+    return normalizeText(
+        value
+    ).toUpperCase();
 }
 
 
@@ -1005,15 +1216,23 @@ function normalizeStatus(value) {
 
 function calculateAge(dob) {
 
-    if (!dob) return "";
-
-    const birth = new Date(dob);
-
-    if (Number.isNaN(birth.getTime())) {
+    if (!dob) {
         return "";
     }
 
-    const today = new Date();
+    const birth =
+        new Date(dob);
+
+    if (
+        Number.isNaN(
+            birth.getTime()
+        )
+    ) {
+        return "";
+    }
+
+    const today =
+        new Date();
 
     let age =
         today.getFullYear() -
@@ -1033,7 +1252,9 @@ function calculateAge(dob) {
         age--;
     }
 
-    return age >= 0 ? age : "";
+    return age >= 0
+        ? age
+        : "";
 }
 
 
@@ -1050,21 +1271,32 @@ function escapeCsv(value) {
         return "";
     }
 
-    let text = String(value);
+    let text =
+        String(value);
 
-    /*
-     * Convert arrays/objects into readable JSON.
-     */
-    if (typeof value === "object") {
+    if (
+        typeof value === "object"
+    ) {
+
         try {
-            text = JSON.stringify(value);
+
+            text =
+                JSON.stringify(
+                    value
+                );
+
         } catch {
-            text = String(value);
+
+            text =
+                String(value);
+
         }
+
     }
 
+
     /*
-     * Protect Excel from formulas.
+     * Prevent CSV/Excel formula injection.
      */
     if (
         text.startsWith("=") ||
@@ -1072,18 +1304,32 @@ function escapeCsv(value) {
         text.startsWith("-") ||
         text.startsWith("@")
     ) {
-        text = "'" + text;
+
+        text =
+            "'" + text;
+
     }
 
-    text = text.replace(/"/g, '""');
+
+    text =
+        text.replace(
+            /"/g,
+            '""'
+        );
 
     return `"${text}"`;
 }
 
 
-function exportCsv(rows, filename) {
+function exportCsv(
+    rows,
+    filename
+) {
 
-    if (!rows || rows.length === 0) {
+    if (
+        !rows ||
+        rows.length === 0
+    ) {
 
         showToast(
             "There is no data to export.",
@@ -1093,67 +1339,107 @@ function exportCsv(rows, filename) {
         return;
     }
 
+
     const columns = [];
 
-    rows.forEach(row => {
 
-        Object.keys(row).forEach(key => {
+    rows.forEach(
+        row => {
 
-            if (!columns.includes(key)) {
-                columns.push(key);
-            }
+            Object.keys(
+                row
+            ).forEach(
+                key => {
 
-        });
+                    if (
+                        !columns.includes(
+                            key
+                        )
+                    ) {
 
-    });
+                        columns.push(
+                            key
+                        );
+
+                    }
+
+                }
+            );
+
+        }
+    );
+
 
     const header =
-        columns.map(escapeCsv).join(",");
+        columns
+            .map(
+                escapeCsv
+            )
+            .join(",");
+
 
     const body =
-        rows.map(row =>
-            columns
-                .map(column =>
-                    escapeCsv(row[column])
-                )
-                .join(",")
-        ).join("\r\n");
+        rows
+            .map(
+                row =>
+                    columns
+                        .map(
+                            column =>
+                                escapeCsv(
+                                    row[column]
+                                )
+                        )
+                        .join(",")
+            )
+            .join("\r\n");
 
-    /*
-     * UTF-8 BOM makes Excel recognize
-     * names such as JOSEPH OTIENO correctly.
-     */
+
     const csv =
         "\uFEFF" +
         header +
         "\r\n" +
         body;
 
+
     const blob =
         new Blob(
             [csv],
             {
-                type: "text/csv;charset=utf-8;"
+                type:
+                    "text/csv;charset=utf-8;"
             }
         );
 
+
     const url =
-        URL.createObjectURL(blob);
+        URL.createObjectURL(
+            blob
+        );
+
 
     const link =
-        document.createElement("a");
+        document.createElement(
+            "a"
+        );
 
-    link.href = url;
+    link.href =
+        url;
 
-    link.download = filename;
+    link.download =
+        filename;
 
-    document.body.appendChild(link);
+    document.body.appendChild(
+        link
+    );
 
     link.click();
 
     link.remove();
 
-    URL.revokeObjectURL(url);
+    URL.revokeObjectURL(
+        url
+    );
+
 
     showToast(
         `${rows.length.toLocaleString()} rows exported successfully.`
@@ -1165,57 +1451,75 @@ function exportCsv(rows, filename) {
    PAGINATED SUPABASE FETCH
    ============================================================ */
 
-async function fetchAllRows(table, select = "*") {
+async function fetchAllRows(
+    table,
+    select = "*"
+) {
 
     const allRows = [];
 
-    const pageSize = 1000;
+    const pageSize =
+        1000;
 
-    let from = 0;
+    let from =
+        0;
+
 
     while (true) {
 
         const to =
-            from + pageSize - 1;
+            from +
+            pageSize -
+            1;
+
 
         const {
             data,
             error
-        } = await supabaseClient
-            .from(table)
-            .select(select)
-            .range(from, to);
+        } =
+            await supabaseClient
+                .from(table)
+                .select(select)
+                .range(
+                    from,
+                    to
+                );
+
 
         if (error) {
             throw error;
         }
 
-        if (!data || data.length === 0) {
+
+        if (
+            !data ||
+            data.length === 0
+        ) {
             break;
         }
 
-        allRows.push(...data);
 
-        if (data.length < pageSize) {
+        allRows.push(
+            ...data
+        );
+
+
+        if (
+            data.length <
+            pageSize
+        ) {
             break;
         }
 
-        from += pageSize;
+
+        from +=
+            pageSize;
+
     }
+
 
     return allRows;
 }
-
-
-/* ============================================================
-   SUPABASE CLIENT
-   ============================================================ */
-
-const supabaseClient =
-    supabase.createClient(
-        SUPABASE_URL,
-        SUPABASE_ANON_KEY
-    );
 
 
 /* ============================================================
@@ -1227,13 +1531,23 @@ async function verifySession() {
     const {
         data,
         error
-    } = await supabaseClient.auth.getSession();
+    } =
+        await supabaseClient.auth.getSession();
+
 
     if (error) {
-        console.error(error);
+
+        console.error(
+            "Session error:",
+            error
+        );
+
     }
 
-    const session = data?.session;
+
+    const session =
+        data?.session;
+
 
     if (!session) {
 
@@ -1243,11 +1557,15 @@ async function verifySession() {
         return false;
     }
 
+
     const user =
         session.user;
 
+
     $("adminName").textContent =
-        user.email || "Administrator";
+        user?.email ||
+        "Administrator";
+
 
     return true;
 }
@@ -1257,82 +1575,114 @@ async function verifySession() {
    PAYMENT STATUS
    ============================================================ */
 
-function effectivePaymentStatus(payment) {
+function effectivePaymentStatus(
+    payment
+) {
 
     const status =
-        normalizeStatus(payment?.status);
+        normalizeStatus(
+            payment?.status
+        );
 
     const paymentStatus =
-        normalizeStatus(payment?.payment_status);
+        normalizeStatus(
+            payment?.payment_status
+        );
 
-    /*
-     * Current system uses payment_status=successful.
-     * Older records may use status=completed.
-     */
 
     if (
-        paymentStatus === "SUCCESSFUL" ||
-        status === "SUCCESSFUL"
+        paymentStatus ===
+            "SUCCESSFUL" ||
+        status ===
+            "SUCCESSFUL"
     ) {
         return "SUCCESSFUL";
     }
 
+
     if (
-        paymentStatus === "COMPLETED" ||
-        status === "COMPLETED"
+        paymentStatus ===
+            "COMPLETED" ||
+        status ===
+            "COMPLETED"
     ) {
         return "COMPLETED";
     }
 
+
     if (
-        paymentStatus === "FAILED" ||
-        status === "FAILED"
+        paymentStatus ===
+            "FAILED" ||
+        status ===
+            "FAILED"
     ) {
         return "FAILED";
     }
 
+
     if (
-        paymentStatus === "REVERSED" ||
-        status === "REVERSED"
+        paymentStatus ===
+            "REVERSED" ||
+        status ===
+            "REVERSED"
     ) {
         return "REVERSED";
     }
 
+
     if (
-        paymentStatus === "PARTIAL" ||
-        status === "PARTIAL"
+        paymentStatus ===
+            "PARTIAL" ||
+        status ===
+            "PARTIAL"
     ) {
         return "PARTIAL";
     }
 
+
     if (
-        paymentStatus === "PENDING" ||
-        status === "PENDING"
+        paymentStatus ===
+            "PENDING" ||
+        status ===
+            "PENDING"
     ) {
         return "PENDING";
     }
 
-    return paymentStatus || status || "";
+
+    return (
+        paymentStatus ||
+        status ||
+        ""
+    );
 }
 
 
-function countsTowardMembership(payment) {
+function countsTowardMembership(
+    payment
+) {
 
     const status =
-        effectivePaymentStatus(payment);
+        effectivePaymentStatus(
+            payment
+        );
 
     return (
-        status === "SUCCESSFUL" ||
-        status === "COMPLETED"
+        status ===
+            "SUCCESSFUL" ||
+        status ===
+            "COMPLETED"
     );
 }
 
 
 /* ============================================================
-   FILTER HELPERS
+   DATE FILTER
    ============================================================ */
 
-function isDateWithinRange(value) {
+function isDateWithinRange(
+    value
+) {
 
     const from =
         $("fromDate").value;
@@ -1340,68 +1690,116 @@ function isDateWithinRange(value) {
     const to =
         $("toDate").value;
 
-    if (!from && !to) {
+
+    if (
+        !from &&
+        !to
+    ) {
         return true;
     }
+
 
     if (!value) {
         return false;
     }
 
+
     const date =
         new Date(value);
 
-    if (Number.isNaN(date.getTime())) {
+
+    if (
+        Number.isNaN(
+            date.getTime()
+        )
+    ) {
         return false;
     }
+
 
     if (from) {
 
         const fromDate =
-            new Date(from + "T00:00:00");
+            new Date(
+                from +
+                "T00:00:00"
+            );
 
-        if (date < fromDate) {
+
+        if (
+            date <
+            fromDate
+        ) {
             return false;
         }
+
     }
+
 
     if (to) {
 
         const toDate =
-            new Date(to + "T23:59:59.999");
+            new Date(
+                to +
+                "T23:59:59.999"
+            );
 
-        if (date > toDate) {
+
+        if (
+            date >
+            toDate
+        ) {
             return false;
         }
+
     }
+
 
     return true;
 }
 
 
-function matchesMemberFilters(member) {
+/* ============================================================
+   MEMBER FILTER
+   ============================================================ */
+
+function matchesMemberFilters(
+    member
+) {
 
     const planFilter =
         normalizePlan(
             $("planFilter").value
         );
 
+
     const statusFilter =
         normalizeStatus(
             $("statusFilter").value
         );
+
 
     const search =
         normalizeText(
             $("searchFilter").value
         ).toLowerCase();
 
+
+    const memberPlan =
+        normalizePlan(
+            member.plan_type ||
+            member.plan
+        );
+
+
     if (
         planFilter &&
-        normalizePlan(member.plan_type || member.plan) !== planFilter
+        memberPlan !==
+            planFilter
     ) {
         return false;
     }
+
 
     const memberStatus =
         normalizeStatus(
@@ -1409,12 +1807,15 @@ function matchesMemberFilters(member) {
             member.status
         );
 
+
     if (
         statusFilter &&
-        memberStatus !== statusFilter
+        memberStatus !==
+            statusFilter
     ) {
         return false;
     }
+
 
     if (search) {
 
@@ -1428,46 +1829,50 @@ function matchesMemberFilters(member) {
             member.national_id
 
         ]
-        .map(normalizeText)
-        .join(" ")
-        .toLowerCase();
+            .map(
+                normalizeText
+            )
+            .join(" ")
+            .toLowerCase();
 
-        if (!searchable.includes(search)) {
+
+        if (
+            !searchable.includes(
+                search
+            )
+        ) {
             return false;
         }
+
     }
 
-    /*
-     * For member reports, date filtering uses
-     * registration/joining/created date.
-     */
+
     const memberDate =
         member.date_joined ||
         member.registration_date ||
         member.created_at;
 
-    if (!isDateWithinRange(memberDate)) {
+
+    if (
+        !isDateWithinRange(
+            memberDate
+        )
+    ) {
         return false;
     }
+
 
     return true;
 }
 
 
-function matchesDependantDate(dependant) {
-
-    const date =
-        dependant.created_at;
-
-    return isDateWithinRange(date);
-}
-
-
 /* ============================================================
-   MEMBER DISPLAY VALUE
+   MEMBER HELPERS
    ============================================================ */
 
-function getMembershipNumber(member) {
+function getMembershipNumber(
+    member
+) {
 
     return (
         member.member_number ||
@@ -1477,7 +1882,9 @@ function getMembershipNumber(member) {
 }
 
 
-function getMemberPlan(member) {
+function getMemberPlan(
+    member
+) {
 
     return (
         member.plan_type ||
@@ -1487,7 +1894,9 @@ function getMemberPlan(member) {
 }
 
 
-function getMemberStatus(member) {
+function getMemberStatus(
+    member
+) {
 
     return (
         member.member_status ||
@@ -1501,26 +1910,44 @@ function getMemberStatus(member) {
    WAZAZI PARENTS
    ============================================================ */
 
-function getParentRows(member) {
+function getParentRows(
+    member
+) {
 
     const parents = [];
 
-    for (let i = 1; i <= 4; i++) {
+
+    for (
+        let i = 1;
+        i <= 4;
+        i++
+    ) {
 
         const name =
-            member[`parent_${i}_name`];
+            member[
+                `parent_${i}_name`
+            ];
 
         const dob =
-            member[`parent_${i}_dob`];
+            member[
+                `parent_${i}_dob`
+            ];
 
         const phone =
-            member[`parent_${i}_phone`];
+            member[
+                `parent_${i}_phone`
+            ];
 
         const id =
-            member[`parent_${i}_id`];
+            member[
+                `parent_${i}_id`
+            ];
 
         const relationship =
-            member[`parent_${i}_relationship`];
+            member[
+                `parent_${i}_relationship`
+            ];
+
 
         if (
             name ||
@@ -1534,13 +1961,17 @@ function getParentRows(member) {
 
                 number: i,
 
-                name: name || "",
+                name:
+                    name || "",
 
-                dob: dob || "",
+                dob:
+                    dob || "",
 
-                phone: phone || "",
+                phone:
+                    phone || "",
 
-                id: id || "",
+                id:
+                    id || "",
 
                 relationship:
                     relationship || ""
@@ -1551,80 +1982,175 @@ function getParentRows(member) {
 
     }
 
+
     return parents;
 }
 
 
 /* ============================================================
-   DYNAMIC DEPENDANT COLUMNS
+   DEPENDANT SORT
    ============================================================ */
 
-function getDependantColumns() {
+function sortDependants(
+    list
+) {
 
-    const columns = [
+    return [...list].sort(
+        (a, b) => {
 
-        "Dependant Number",
-        "Full Name",
-        "National ID",
-        "Birth Certificate Number",
-        "Date of Birth",
-        "Gender",
-        "Relationship",
-        "Phone",
-        "Status",
-        "Email",
-        "Created At",
-        "Updated At"
+            const an =
+                parseInt(
+                    a.dependant_number,
+                    10
+                );
 
-    ];
+            const bn =
+                parseInt(
+                    b.dependant_number,
+                    10
+                );
 
-    return columns;
+
+            if (
+                !Number.isNaN(an) &&
+                !Number.isNaN(bn)
+            ) {
+
+                return an - bn;
+
+            }
+
+
+            return String(
+                a.created_at || ""
+            ).localeCompare(
+                String(
+                    b.created_at || ""
+                )
+            );
+
+        }
+    );
 }
 
 
-function addDependantColumns(row, dependant, number) {
+/* ============================================================
+   DEPENDANT COLUMNS
+   ============================================================ */
+
+function addDependantColumns(
+    row,
+    dependant,
+    number
+) {
 
     const prefix =
         `Dependant ${number}`;
 
-    row[`${prefix} Number`] =
-        dependant.dependant_number || "";
 
-    row[`${prefix} Full Name`] =
-        dependant.full_name || "";
+    row[
+        `${prefix} UUID`
+    ] =
+        dependant.id || "";
 
-    row[`${prefix} National ID`] =
-        dependant.national_id || "";
 
-    row[`${prefix} Birth Certificate Number`] =
-        dependant.birth_certificate_number || "";
+    row[
+        `${prefix} Number`
+    ] =
+        dependant.dependant_number ||
+        "";
 
-    row[`${prefix} Date of Birth`] =
-        dependant.date_of_birth || "";
 
-    row[`${prefix} Age`] =
-        calculateAge(dependant.date_of_birth);
+    row[
+        `${prefix} Full Name`
+    ] =
+        dependant.full_name ||
+        "";
 
-    row[`${prefix} Gender`] =
-        dependant.gender || "";
 
-    row[`${prefix} Relationship`] =
-        dependant.relationship || "";
+    row[
+        `${prefix} National ID`
+    ] =
+        dependant.national_id ||
+        "";
 
-    row[`${prefix} Phone`] =
-        dependant.phone || "";
 
-    row[`${prefix} Status`] =
-        dependant.status || "";
+    row[
+        `${prefix} Birth Certificate Number`
+    ] =
+        dependant.birth_certificate_number ||
+        "";
 
-    row[`${prefix} Email`] =
-        dependant.email || "";
 
-    row[`${prefix} Created At`] =
-        dependant.created_at || "";
+    row[
+        `${prefix} Date of Birth`
+    ] =
+        dependant.date_of_birth ||
+        "";
 
-    row[`${prefix} Updated At`] =
-        dependant.updated_at || "";
+
+    row[
+        `${prefix} Age`
+    ] =
+        calculateAge(
+            dependant.date_of_birth
+        );
+
+
+    row[
+        `${prefix} Gender`
+    ] =
+        dependant.gender ||
+        "";
+
+
+    row[
+        `${prefix} Relationship`
+    ] =
+        dependant.relationship ||
+        "";
+
+
+    row[
+        `${prefix} Phone`
+    ] =
+        dependant.phone ||
+        "";
+
+
+    row[
+        `${prefix} Email`
+    ] =
+        dependant.email ||
+        "";
+
+
+    row[
+        `${prefix} Status`
+    ] =
+        dependant.status ||
+        "";
+
+
+    row[
+        `${prefix} Created At`
+    ] =
+        dependant.created_at ||
+        "";
+
+
+    row[
+        `${prefix} Updated At`
+    ] =
+        dependant.updated_at ||
+        "";
+
+
+    row[
+        `${prefix} Principal Member UUID`
+    ] =
+        dependant.principal_member_id ||
+        "";
 }
 
 
@@ -1632,27 +2158,51 @@ function addDependantColumns(row, dependant, number) {
    MEMBER REPORT ROW
    ============================================================ */
 
-function buildMemberReportRow(member, dependants) {
+function buildMemberReportRow(
+    member,
+    dependants
+) {
 
     const registrationFeePaid =
-        member.registration_fee_paid === true
+        member.registration_fee_paid ===
+            true
             ? "YES"
-            : member.registration_fee_paid === false
+            : member.registration_fee_paid ===
+                false
                 ? "NO"
                 : "";
 
+
     const amountExpected =
-        Number(member.amount_expected || 0);
+        Number(
+            member.amount_expected ||
+            0
+        );
+
 
     const amountPaid =
-        Number(member.amount_paid || 0);
+        Number(
+            member.amount_paid ||
+            0
+        );
+
 
     const balance =
-        amountExpected - amountPaid;
+        amountExpected -
+        amountPaid;
+
+
+    const memberDob =
+        member.date_of_birth ||
+        member.dob ||
+        "";
+
 
     const row = {
 
-        /* MEMBER IDENTITY */
+        /* ====================================================
+           PRINCIPAL MEMBER
+           ==================================================== */
 
         "Date Joined":
             member.date_joined ||
@@ -1661,7 +2211,9 @@ function buildMemberReportRow(member, dependants) {
             "",
 
         "Membership #":
-            getMembershipNumber(member),
+            getMembershipNumber(
+                member
+            ),
 
         "Member UUID":
             member.id || "",
@@ -1688,23 +2240,24 @@ function buildMemberReportRow(member, dependants) {
             member.national_id || "",
 
         "Date of Birth":
-            member.date_of_birth ||
-            member.dob ||
-            "",
+            memberDob,
 
         "Age":
             calculateAge(
-                member.date_of_birth ||
-                member.dob
+                memberDob
             ),
 
         "Gender":
             member.gender || "",
 
         "Marital Status":
-            member.marital_status || "",
+            member.marital_status ||
+            "",
 
-        /* LOCATION */
+
+        /* ====================================================
+           LOCATION
+           ==================================================== */
 
         "County":
             member.county || "",
@@ -1717,10 +2270,15 @@ function buildMemberReportRow(member, dependants) {
             member.address ||
             "",
 
-        /* MEMBERSHIP */
+
+        /* ====================================================
+           MEMBERSHIP
+           ==================================================== */
 
         "Plan":
-            getMemberPlan(member),
+            getMemberPlan(
+                member
+            ),
 
         "Status":
             member.status || "",
@@ -1729,19 +2287,23 @@ function buildMemberReportRow(member, dependants) {
             member.member_status || "",
 
         "Registration Fee":
-            member.registration_fee ?? "",
+            member.registration_fee ??
+            "",
 
         "Registration Fee Paid":
             registrationFeePaid,
 
         "Months Paid":
-            member.months_paid ?? "",
+            member.months_paid ??
+            "",
 
         "Months Missing":
-            member.months_missing ?? "",
+            member.months_missing ??
+            "",
 
         "Months Short":
-            member.months_short ?? "",
+            member.months_short ??
+            "",
 
         "Amount Expected":
             amountExpected,
@@ -1753,15 +2315,21 @@ function buildMemberReportRow(member, dependants) {
             balance,
 
         "Payment Validation Status":
-            member.payment_validation_status || "",
+            member.payment_validation_status ||
+            "",
 
         "Payment Validation Note":
-            member.payment_validation_note || "",
+            member.payment_validation_note ||
+            "",
 
         "Payment Validated At":
-            member.payment_validated_at || "",
+            member.payment_validated_at ||
+            "",
 
-        /* AGENT */
+
+        /* ====================================================
+           AGENT
+           ==================================================== */
 
         "Agent":
             member.agent_name ||
@@ -1775,7 +2343,10 @@ function buildMemberReportRow(member, dependants) {
             member.sales_code ||
             "",
 
-        /* NEXT OF KIN */
+
+        /* ====================================================
+           NEXT OF KIN
+           ==================================================== */
 
         "Next of Kin Name":
             member.kin_name ||
@@ -1802,13 +2373,18 @@ function buildMemberReportRow(member, dependants) {
             member.next_of_kin_email ||
             "",
 
-        /* SYSTEM */
+
+        /* ====================================================
+           SYSTEM
+           ==================================================== */
 
         "Created At":
-            member.created_at || "",
+            member.created_at ||
+            "",
 
         "Updated At":
-            member.updated_at || ""
+            member.updated_at ||
+            ""
 
     };
 
@@ -1818,41 +2394,78 @@ function buildMemberReportRow(member, dependants) {
        ======================================================== */
 
     const parents =
-        getParentRows(member);
+        getParentRows(
+            member
+        );
 
-    for (let i = 1; i <= 4; i++) {
+
+    for (
+        let i = 1;
+        i <= 4;
+        i++
+    ) {
 
         const parent =
             parents.find(
-                p => p.number === i
+                p =>
+                    p.number === i
             );
 
-        row[`Parent ${i} Name`] =
-            parent?.name || "";
 
-        row[`Parent ${i} Relationship`] =
-            parent?.relationship || "";
+        row[
+            `Parent ${i} Name`
+        ] =
+            parent?.name ||
+            "";
 
-        row[`Parent ${i} Date of Birth`] =
-            parent?.dob || "";
 
-        row[`Parent ${i} Age`] =
-            calculateAge(parent?.dob);
+        row[
+            `Parent ${i} Relationship`
+        ] =
+            parent?.relationship ||
+            "";
 
-        row[`Parent ${i} Phone`] =
-            parent?.phone || "";
 
-        row[`Parent ${i} National ID`] =
-            parent?.id || "";
+        row[
+            `Parent ${i} Date of Birth`
+        ] =
+            parent?.dob ||
+            "";
+
+
+        row[
+            `Parent ${i} Age`
+        ] =
+            calculateAge(
+                parent?.dob
+            );
+
+
+        row[
+            `Parent ${i} Phone`
+        ] =
+            parent?.phone ||
+            "";
+
+
+        row[
+            `Parent ${i} National ID`
+        ] =
+            parent?.id ||
+            "";
+
     }
 
 
     /* ========================================================
-       DEPENDANTS
+       ALL DEPENDANTS
        ======================================================== */
 
     dependants.forEach(
-        (dependant, index) => {
+        (
+            dependant,
+            index
+        ) => {
 
             addDependantColumns(
                 row,
@@ -1865,39 +2478,50 @@ function buildMemberReportRow(member, dependants) {
 
 
     /*
-     * Add blank dependant columns for other members so that
-     * every row has the same CSV structure.
+     * Make every principal row have the same dependant
+     * columns, based on the largest household.
      */
+
     for (
-        let i = dependants.length + 1;
+        let i =
+            dependants.length + 1;
+
         i <= maxDependants;
+
         i++
     ) {
 
-        const blank = {
-
-            dependant_number: "",
-            full_name: "",
-            national_id: "",
-            birth_certificate_number: "",
-            date_of_birth: "",
-            gender: "",
-            relationship: "",
-            phone: "",
-            status: "",
-            email: "",
-            created_at: "",
-            updated_at: ""
-
-        };
-
         addDependantColumns(
             row,
-            blank,
+            {},
             i
         );
 
     }
+
+
+    /*
+     * Household totals.
+     */
+
+    row[
+        "Total Dependants"
+    ] =
+        dependants.length;
+
+
+    row[
+        "Total Wazazi Parents"
+    ] =
+        parents.length;
+
+
+    row[
+        "Household Size"
+    ] =
+        1 +
+        dependants.length +
+        parents.length;
 
 
     return row;
@@ -1905,88 +2529,124 @@ function buildMemberReportRow(member, dependants) {
 
 
 /* ============================================================
-   LOAD BASE DATA
+   LOAD MEMBERS + DEPENDANTS
    ============================================================ */
 
 async function loadBaseData() {
 
     $("reportContent").innerHTML = `
+
         <div class="loading">
+
             <div class="spinner"></div>
+
             Loading members and dependants...
+
         </div>
+
     `;
+
 
     try {
 
         /*
-         * IMPORTANT:
-         * We deliberately fetch the two tables separately.
-         * This avoids depending on a Supabase nested relationship.
+         * Fetch separately.
+         *
+         * This deliberately avoids relying on a Supabase
+         * foreign-key relationship between members and dependants.
          */
 
         const [
             members,
             dependants
-        ] = await Promise.all([
+        ] =
+            await Promise.all([
 
-            fetchAllRows(
-                "members",
-                "*"
-            ),
+                fetchAllRows(
+                    "members",
+                    "*"
+                ),
 
-            fetchAllRows(
-                "dependants",
-                "*"
-            )
+                fetchAllRows(
+                    "dependants",
+                    "*"
+                )
 
-        ]);
+            ]);
+
 
         membersCache =
             members || [];
 
+
         dependantsCache =
             dependants || [];
 
+
         /*
-         * Calculate maximum number of dependants attached
-         * to any principal member.
+         * Calculate the maximum number of dependants
+         * belonging to any one principal.
          */
 
-        const dependantCounts = {};
+        const dependantCounts =
+            {};
 
-        dependantsCache.forEach(d => {
 
-            const principalId =
-                d.principal_member_id;
+        dependantsCache.forEach(
+            dependant => {
 
-            if (!principalId) return;
+                const principalId =
+                    dependant.principal_member_id;
 
-            dependantCounts[principalId] =
-                (dependantCounts[principalId] || 0) + 1;
 
-        });
+                if (!principalId) {
+                    return;
+                }
+
+
+                dependantCounts[
+                    principalId
+                ] =
+                    (
+                        dependantCounts[
+                            principalId
+                        ] || 0
+                    ) + 1;
+
+            }
+        );
+
 
         maxDependants =
-            Object.values(dependantCounts)
-                .reduce(
-                    (max, count) =>
-                        Math.max(max, count),
-                    0
-                );
+            Object.values(
+                dependantCounts
+            ).reduce(
+                (
+                    max,
+                    count
+                ) =>
+                    Math.max(
+                        max,
+                        count
+                    ),
+                0
+            );
+
 
         console.log(
             "Members loaded:",
             membersCache.length
         );
 
+
         console.log(
             "Dependants loaded:",
             dependantsCache.length
         );
 
+
         console.log(
-            "Maximum dependants on one member:",
+            "Maximum dependants:",
             maxDependants
         );
 
@@ -1998,12 +2658,13 @@ async function loadBaseData() {
         );
 
         throw error;
+
     }
 }
 
 
 /* ============================================================
-   FILTER MEMBERS
+   FILTERED MEMBERS
    ============================================================ */
 
 function getFilteredMembers() {
@@ -2018,17 +2679,23 @@ function getFilteredMembers() {
 
 
 /* ============================================================
-   PAYMENTS REPORT
+   PAYMENT REPORT
    ============================================================ */
 
 async function generatePaymentsReport() {
 
     $("reportContent").innerHTML = `
+
         <div class="loading">
+
             <div class="spinner"></div>
+
             Loading payments...
+
         </div>
+
     `;
+
 
     try {
 
@@ -2038,219 +2705,278 @@ async function generatePaymentsReport() {
                 "*"
             );
 
+
         const memberMap =
             new Map();
 
-        membersCache.forEach(member => {
 
-            memberMap.set(
-                member.id,
-                member
-            );
+        membersCache.forEach(
+            member => {
 
-            if (member.member_number) {
                 memberMap.set(
-                    member.member_number,
+                    member.id,
                     member
                 );
-            }
 
-        });
+
+                if (
+                    member.member_number
+                ) {
+
+                    memberMap.set(
+                        member.member_number,
+                        member
+                    );
+
+                }
+
+            }
+        );
+
 
         const selectedPaymentStatus =
             normalizeStatus(
                 $("paymentStatusFilter").value
             );
 
+
         const selectedPlan =
             normalizePlan(
                 $("planFilter").value
             );
+
 
         const search =
             normalizeText(
                 $("searchFilter").value
             ).toLowerCase();
 
+
         const rows = [];
 
-        payments.forEach(payment => {
 
-            const status =
-                effectivePaymentStatus(payment);
+        payments.forEach(
+            payment => {
 
-            if (
-                selectedPaymentStatus &&
-                status !== selectedPaymentStatus
-            ) {
-                return;
-            }
+                const status =
+                    effectivePaymentStatus(
+                        payment
+                    );
 
-            /*
-             * Payment date.
-             */
-            const paymentDate =
-                payment.payment_date ||
-                payment.created_at;
 
-            if (!isDateWithinRange(paymentDate)) {
-                return;
-            }
-
-            const member =
-                memberMap.get(
-                    payment.member_id
-                ) ||
-                memberMap.get(
-                    payment.member_number
-                );
-
-            if (
-                selectedPlan &&
-                normalizePlan(
-                    member?.plan_type ||
-                    member?.plan
-                ) !== selectedPlan
-            ) {
-                return;
-            }
-
-            if (search) {
-
-                const searchable = [
-
-                    payment.member_number,
-                    payment.phone,
-                    payment.mpesa_code,
-                    payment.mpesa_receipt,
-                    payment.payment_reference,
-                    payment.transaction_id,
-                    member?.full_name,
-                    member?.member_number,
-                    member?.phone
-
-                ]
-                .map(normalizeText)
-                .join(" ")
-                .toLowerCase();
-
-                if (!searchable.includes(search)) {
+                if (
+                    selectedPaymentStatus &&
+                    status !==
+                        selectedPaymentStatus
+                ) {
                     return;
                 }
+
+
+                const paymentDate =
+                    payment.payment_date ||
+                    payment.created_at;
+
+
+                if (
+                    !isDateWithinRange(
+                        paymentDate
+                    )
+                ) {
+                    return;
+                }
+
+
+                const member =
+                    memberMap.get(
+                        payment.member_id
+                    ) ||
+                    memberMap.get(
+                        payment.member_number
+                    );
+
+
+                if (
+                    selectedPlan &&
+                    normalizePlan(
+                        member?.plan_type ||
+                        member?.plan
+                    ) !== selectedPlan
+                ) {
+                    return;
+                }
+
+
+                if (search) {
+
+                    const searchable = [
+
+                        payment.member_number,
+                        payment.phone,
+                        payment.mpesa_code,
+                        payment.mpesa_receipt,
+                        payment.payment_reference,
+                        payment.transaction_id,
+                        member?.full_name,
+                        member?.member_number,
+                        member?.phone
+
+                    ]
+                        .map(
+                            normalizeText
+                        )
+                        .join(" ")
+                        .toLowerCase();
+
+
+                    if (
+                        !searchable.includes(
+                            search
+                        )
+                    ) {
+                        return;
+                    }
+
+                }
+
+
+                const counts =
+                    countsTowardMembership(
+                        payment
+                    );
+
+
+                rows.push({
+
+                    "Payment Date":
+                        paymentDate || "",
+
+                    "Payment ID":
+                        payment.id || "",
+
+                    "Membership #":
+                        member?.member_number ||
+                        payment.member_number ||
+                        "",
+
+                    "Member Name":
+                        member?.full_name ||
+                        payment.member_name ||
+                        "",
+
+                    "Phone":
+                        member?.phone ||
+                        payment.phone ||
+                        "",
+
+                    "Plan":
+                        member?.plan_type ||
+                        member?.plan ||
+                        "",
+
+                    "Amount":
+                        Number(
+                            payment.amount ||
+                            0
+                        ),
+
+                    "Payment Type":
+                        payment.payment_type ||
+                        payment.type ||
+                        "",
+
+                    "Effective Status":
+                        status,
+
+                    "Transaction Status":
+                        payment.status ||
+                        "",
+
+                    "Payment Status":
+                        payment.payment_status ||
+                        "",
+
+                    "Counts Toward Membership":
+                        counts
+                            ? "YES"
+                            : "NO",
+
+                    "Monthly Paid":
+                        payment.monthly_paid ??
+                        "",
+
+                    "Payment Period Start":
+                        payment.payment_period_start ||
+                        payment.period_start ||
+                        "",
+
+                    "Payment Period End":
+                        payment.payment_period_end ||
+                        payment.period_end ||
+                        "",
+
+                    "M-Pesa Code":
+                        payment.mpesa_code ||
+                        "",
+
+                    "M-Pesa Receipt":
+                        payment.mpesa_receipt ||
+                        "",
+
+                    "Payment Reference":
+                        payment.payment_reference ||
+                        "",
+
+                    "Transaction ID":
+                        payment.transaction_id ||
+                        "",
+
+                    "Payment Method":
+                        payment.payment_method ||
+                        "",
+
+                    "Created At":
+                        payment.created_at ||
+                        "",
+
+                    "Updated At":
+                        payment.updated_at ||
+                        ""
+
+                });
+
             }
+        );
 
-            const counts =
-                countsTowardMembership(
-                    payment
-                );
 
-            rows.push({
+        reportRows =
+            rows;
 
-                "Payment Date":
-                    paymentDate || "",
-
-                "Payment ID":
-                    payment.id || "",
-
-                "Membership #":
-                    member?.member_number ||
-                    payment.member_number ||
-                    "",
-
-                "Member Name":
-                    member?.full_name ||
-                    payment.member_name ||
-                    "",
-
-                "Phone":
-                    member?.phone ||
-                    payment.phone ||
-                    "",
-
-                "Plan":
-                    member?.plan_type ||
-                    member?.plan ||
-                    "",
-
-                "Amount":
-                    Number(payment.amount || 0),
-
-                "Payment Type":
-                    payment.payment_type ||
-                    payment.type ||
-                    "",
-
-                "Effective Status":
-                    status,
-
-                "Transaction Status":
-                    payment.status || "",
-
-                "Payment Status":
-                    payment.payment_status || "",
-
-                "Counts Toward Membership":
-                    counts ? "YES" : "NO",
-
-                "Monthly Paid":
-                    payment.monthly_paid ?? "",
-
-                "Payment Period Start":
-                    payment.payment_period_start ||
-                    payment.period_start ||
-                    "",
-
-                "Payment Period End":
-                    payment.payment_period_end ||
-                    payment.period_end ||
-                    "",
-
-                "M-Pesa Code":
-                    payment.mpesa_code || "",
-
-                "M-Pesa Receipt":
-                    payment.mpesa_receipt || "",
-
-                "Payment Reference":
-                    payment.payment_reference || "",
-
-                "Transaction ID":
-                    payment.transaction_id || "",
-
-                "Payment Method":
-                    payment.payment_method || "",
-
-                "Created At":
-                    payment.created_at || "",
-
-                "Updated At":
-                    payment.updated_at || ""
-
-            });
-
-        });
-
-        reportRows = rows;
 
         renderTable(
             rows,
             "payments"
         );
 
+
     } catch (error) {
 
-        console.error(error);
+        console.error(
+            error
+        );
+
 
         showError(
             "Unable to load payments report.",
             error
         );
+
     }
 }
 
 
 /* ============================================================
-   MEMBERS REPORT
+   DETAILED MEMBERS REPORT
    ============================================================ */
 
 async function generateMembersReport() {
@@ -2260,12 +2986,21 @@ async function generateMembersReport() {
         const members =
             getFilteredMembers();
 
+
+        /*
+         * IMPORTANT:
+         *
+         * We DO NOT apply the member date filter to dependants.
+         *
+         * Once a principal member qualifies for the report,
+         * ALL dependants belonging to that principal are included.
+         *
+         * This guarantees the household report remains complete.
+         */
+
         const dependantMap =
             new Map();
 
-        /*
-         * Group dependants by principal_member_id.
-         */
 
         dependantsCache.forEach(
             dependant => {
@@ -2273,25 +3008,11 @@ async function generateMembersReport() {
                 const principalId =
                     dependant.principal_member_id;
 
+
                 if (!principalId) {
                     return;
                 }
 
-                /*
-                 * If date filtering is active, only include
-                 * dependants whose created_at is within range.
-                 *
-                 * If no date is specified, all dependants are
-                 * included.
-                 */
-
-                if (
-                    !matchesDependantDate(
-                        dependant
-                    )
-                ) {
-                    return;
-                }
 
                 if (
                     !dependantMap.has(
@@ -2306,86 +3027,81 @@ async function generateMembersReport() {
 
                 }
 
+
                 dependantMap
-                    .get(principalId)
-                    .push(dependant);
+                    .get(
+                        principalId
+                    )
+                    .push(
+                        dependant
+                    );
 
             }
         );
 
+
         /*
-         * Sort dependants by dependant_number where possible,
-         * otherwise by creation date.
+         * Sort every household's dependants.
          */
 
         dependantMap.forEach(
-            list => {
+            (
+                list,
+                principalId
+            ) => {
 
-                list.sort((a, b) => {
-
-                    const an =
-                        parseInt(
-                            a.dependant_number,
-                            10
-                        );
-
-                    const bn =
-                        parseInt(
-                            b.dependant_number,
-                            10
-                        );
-
-                    if (
-                        !Number.isNaN(an) &&
-                        !Number.isNaN(bn)
-                    ) {
-                        return an - bn;
-                    }
-
-                    return String(
-                        a.created_at || ""
-                    ).localeCompare(
-                        String(
-                            b.created_at || ""
-                        )
-                    );
-
-                });
+                dependantMap.set(
+                    principalId,
+                    sortDependants(
+                        list
+                    )
+                );
 
             }
         );
 
 
         const rows =
-            members.map(member => {
+            members.map(
+                member => {
 
-                const dependants =
-                    dependantMap.get(
-                        member.id
-                    ) || [];
+                    const dependants =
+                        dependantMap.get(
+                            member.id
+                        ) || [];
 
-                return buildMemberReportRow(
-                    member,
-                    dependants
-                );
 
-            });
+                    return buildMemberReportRow(
+                        member,
+                        dependants
+                    );
 
-        reportRows = rows;
+                }
+            );
+
+
+        reportRows =
+            rows;
+
 
         renderTable(
             rows,
             "members"
         );
 
+
     } catch (error) {
 
-        console.error(error);
+        console.error(
+            error
+        );
+
 
         showError(
             "Unable to generate detailed members report.",
             error
         );
+
     }
 }
 
@@ -2401,51 +3117,67 @@ async function generateDependantsReport() {
         const memberMap =
             new Map();
 
-        membersCache.forEach(member => {
 
-            memberMap.set(
-                member.id,
-                member
-            );
+        membersCache.forEach(
+            member => {
 
-        });
+                memberMap.set(
+                    member.id,
+                    member
+                );
+
+            }
+        );
+
 
         const selectedPlan =
             normalizePlan(
                 $("planFilter").value
             );
 
+
         const selectedStatus =
             normalizeStatus(
                 $("statusFilter").value
             );
+
 
         const search =
             normalizeText(
                 $("searchFilter").value
             ).toLowerCase();
 
+
         const rows = [];
+
 
         dependantsCache.forEach(
             dependant => {
 
+                /*
+                 * Dependants report date filtering is based
+                 * on dependant created_at.
+                 */
+
                 if (
-                    !matchesDependantDate(
-                        dependant
+                    !isDateWithinRange(
+                        dependant.created_at
                     )
                 ) {
                     return;
                 }
+
 
                 const member =
                     memberMap.get(
                         dependant.principal_member_id
                     );
 
+
                 if (!member) {
                     return;
                 }
+
 
                 if (
                     selectedPlan &&
@@ -2457,18 +3189,22 @@ async function generateDependantsReport() {
                     return;
                 }
 
+
                 const memberStatus =
                     normalizeStatus(
                         member.member_status ||
                         member.status
                     );
 
+
                 if (
                     selectedStatus &&
-                    memberStatus !== selectedStatus
+                    memberStatus !==
+                        selectedStatus
                 ) {
                     return;
                 }
+
 
                 if (search) {
 
@@ -2481,15 +3217,20 @@ async function generateDependantsReport() {
                         dependant.phone,
                         dependant.email,
                         dependant.relationship,
+                        dependant.gender,
+                        dependant.status,
 
                         member.member_number,
                         member.full_name,
                         member.phone
 
                     ]
-                    .map(normalizeText)
-                    .join(" ")
-                    .toLowerCase();
+                        .map(
+                            normalizeText
+                        )
+                        .join(" ")
+                        .toLowerCase();
+
 
                     if (
                         !searchable.includes(
@@ -2498,21 +3239,31 @@ async function generateDependantsReport() {
                     ) {
                         return;
                     }
+
                 }
+
 
                 rows.push({
 
                     "Date Added":
-                        dependant.created_at || "",
+                        dependant.created_at ||
+                        "",
 
                     "Membership #":
-                        member.member_number || "",
+                        member.member_number ||
+                        "",
 
                     "Principal Member":
-                        member.full_name || "",
+                        member.full_name ||
+                        "",
 
                     "Principal Phone":
-                        member.phone || "",
+                        member.phone ||
+                        "",
+
+                    "Principal Email":
+                        member.email ||
+                        "",
 
                     "Principal Plan":
                         member.plan_type ||
@@ -2524,23 +3275,37 @@ async function generateDependantsReport() {
                         member.status ||
                         "",
 
+                    "Dependant UUID":
+                        dependant.id ||
+                        "",
+
+                    "Principal Member UUID":
+                        dependant.principal_member_id ||
+                        "",
+
                     "Dependant Number":
-                        dependant.dependant_number || "",
+                        dependant.dependant_number ||
+                        "",
 
                     "Dependant Name":
-                        dependant.full_name || "",
+                        dependant.full_name ||
+                        "",
 
                     "Relationship":
-                        dependant.relationship || "",
+                        dependant.relationship ||
+                        "",
 
                     "Dependant Phone":
-                        dependant.phone || "",
+                        dependant.phone ||
+                        "",
 
                     "Dependant Email":
-                        dependant.email || "",
+                        dependant.email ||
+                        "",
 
                     "Date of Birth":
-                        dependant.date_of_birth || "",
+                        dependant.date_of_birth ||
+                        "",
 
                     "Age":
                         calculateAge(
@@ -2548,49 +3313,57 @@ async function generateDependantsReport() {
                         ),
 
                     "Gender":
-                        dependant.gender || "",
+                        dependant.gender ||
+                        "",
 
                     "National ID":
-                        dependant.national_id || "",
+                        dependant.national_id ||
+                        "",
 
                     "Birth Certificate Number":
-                        dependant.birth_certificate_number || "",
+                        dependant.birth_certificate_number ||
+                        "",
 
                     "Status":
-                        dependant.status || "",
+                        dependant.status ||
+                        "",
 
                     "Created At":
-                        dependant.created_at || "",
+                        dependant.created_at ||
+                        "",
 
                     "Updated At":
-                        dependant.updated_at || "",
-
-                    "Dependant UUID":
-                        dependant.id || "",
-
-                    "Principal Member UUID":
-                        dependant.principal_member_id || ""
+                        dependant.updated_at ||
+                        ""
 
                 });
 
             }
         );
 
-        reportRows = rows;
+
+        reportRows =
+            rows;
+
 
         renderTable(
             rows,
             "dependants"
         );
 
+
     } catch (error) {
 
-        console.error(error);
+        console.error(
+            error
+        );
+
 
         showError(
             "Unable to generate dependants report.",
             error
         );
+
     }
 }
 
@@ -2606,26 +3379,28 @@ async function generateCombinedReport() {
         const members =
             getFilteredMembers();
 
+
         const dependantMap =
             new Map();
+
 
         dependantsCache.forEach(
             dependant => {
 
-                if (
-                    !matchesDependantDate(
-                        dependant
-                    )
-                ) {
-                    return;
-                }
-
                 const id =
                     dependant.principal_member_id;
 
-                if (!id) return;
 
-                if (!dependantMap.has(id)) {
+                if (!id) {
+                    return;
+                }
+
+
+                if (
+                    !dependantMap.has(
+                        id
+                    )
+                ) {
 
                     dependantMap.set(
                         id,
@@ -2634,9 +3409,29 @@ async function generateCombinedReport() {
 
                 }
 
+
                 dependantMap
                     .get(id)
-                    .push(dependant);
+                    .push(
+                        dependant
+                    );
+
+            }
+        );
+
+
+        dependantMap.forEach(
+            (
+                list,
+                id
+            ) => {
+
+                dependantMap.set(
+                    id,
+                    sortDependants(
+                        list
+                    )
+                );
 
             }
         );
@@ -2645,98 +3440,108 @@ async function generateCombinedReport() {
         const rows = [];
 
 
-        members.forEach(member => {
+        members.forEach(
+            member => {
 
-            const dependants =
-                dependantMap.get(
-                    member.id
-                ) || [];
+                const dependants =
+                    dependantMap.get(
+                        member.id
+                    ) || [];
 
 
-            /*
-             * Principal row.
-             */
-            const base =
-                buildMemberReportRow(
-                    member,
-                    dependants
+                const row =
+                    buildMemberReportRow(
+                        member,
+                        dependants
+                    );
+
+
+                rows.push(
+                    row
                 );
 
-
-            /*
-             * Identify household counts.
-             */
-            base["Total Dependants"] =
-                dependants.length;
-
-            base["Total Wazazi Parents"] =
-                getParentRows(member).length;
-
-            base["Household Size"] =
-                1 +
-                dependants.length +
-                getParentRows(member).length;
+            }
+        );
 
 
-            rows.push(base);
+        reportRows =
+            rows;
 
-        });
-
-
-        reportRows = rows;
 
         renderTable(
             rows,
             "combined"
         );
 
+
     } catch (error) {
 
-        console.error(error);
+        console.error(
+            error
+        );
+
 
         showError(
             "Unable to generate combined report.",
             error
         );
+
     }
 }
 
 
 /* ============================================================
-   GENERATE CURRENT REPORT
+   CURRENT REPORT
    ============================================================ */
 
 async function generateCurrentReport() {
 
     updateReportHeader();
 
-    if (currentReport === "payments") {
+
+    if (
+        currentReport ===
+        "payments"
+    ) {
 
         await generatePaymentsReport();
 
         return;
     }
 
-    if (currentReport === "members") {
+
+    if (
+        currentReport ===
+        "members"
+    ) {
 
         await generateMembersReport();
 
         return;
     }
 
-    if (currentReport === "dependants") {
+
+    if (
+        currentReport ===
+        "dependants"
+    ) {
 
         await generateDependantsReport();
 
         return;
     }
 
-    if (currentReport === "combined") {
+
+    if (
+        currentReport ===
+        "combined"
+    ) {
 
         await generateCombinedReport();
 
         return;
     }
+
 }
 
 
@@ -2747,10 +3552,14 @@ async function generateCurrentReport() {
 function updateReportHeader() {
 
     const info =
-        REPORT_INFO[currentReport];
+        REPORT_INFO[
+            currentReport
+        ];
+
 
     $("reportTitle").textContent =
         info.title;
+
 
     $("reportDescription").textContent =
         info.description;
@@ -2761,15 +3570,28 @@ function updateReportHeader() {
    TABLE RENDERER
    ============================================================ */
 
-function renderTable(rows, reportType) {
+function renderTable(
+    rows,
+    reportType
+) {
 
-    if (!rows || rows.length === 0) {
+    if (
+        !rows ||
+        rows.length === 0
+    ) {
 
         $("reportContent").innerHTML = `
+
             <div class="empty">
+
                 <i class="fa-solid fa-file-circle-xmark"></i>
-                <div>No records found for the selected filters.</div>
+
+                <div>
+                    No records found for the selected filters.
+                </div>
+
             </div>
+
         `;
 
         return;
@@ -2777,133 +3599,263 @@ function renderTable(rows, reportType) {
 
 
     /*
-     * Determine all columns in order of first appearance.
+     * Determine columns from the first row,
+     * then include any additional columns.
      */
+
     const columns = [];
 
-    rows.forEach(row => {
 
-        Object.keys(row).forEach(key => {
+    rows.forEach(
+        row => {
 
-            if (!columns.includes(key)) {
-                columns.push(key);
-            }
+            Object.keys(
+                row
+            ).forEach(
+                key => {
 
-        });
+                    if (
+                        !columns.includes(
+                            key
+                        )
+                    ) {
 
-    });
+                        columns.push(
+                            key
+                        );
+
+                    }
+
+                }
+            );
+
+        }
+    );
 
 
-    /*
-     * Build header.
-     */
     const headerHtml =
         columns
-            .map(column =>
-                `<th>${escapeHtml(column)}</th>`
+            .map(
+                column =>
+                    `<th>${escapeHtml(column)}</th>`
             )
             .join("");
 
 
     /*
-     * Limit visible rows for browser performance.
-     * CSV export still contains ALL reportRows.
+     * Only first 200 rows shown in browser.
+     * CSV contains ALL rows.
      */
+
     const visibleRows =
-        rows.slice(0, 200);
+        rows.slice(
+            0,
+            200
+        );
 
 
     const bodyHtml =
-        visibleRows.map(row => {
+        visibleRows
+            .map(
+                row => {
 
-            const cells =
-                columns.map(column => {
+                    const cells =
+                        columns
+                            .map(
+                                column => {
 
-                    let value =
-                        row[column];
+                                    let value =
+                                        row[
+                                            column
+                                        ];
 
-                    if (
-                        value === null ||
-                        value === undefined
-                    ) {
-                        value = "";
-                    }
 
-                    /*
-                     * Format money-like member columns.
-                     */
-                    if (
-                        [
-                            "Registration Fee",
-                            "Amount Expected",
-                            "Amount Paid",
-                            "Balance",
-                            "Amount"
-                        ].includes(column)
-                    ) {
+                                    if (
+                                        value ===
+                                            null ||
+                                        value ===
+                                            undefined
+                                    ) {
 
-                        if (
-                            value !== "" &&
-                            !Number.isNaN(
-                                Number(value)
+                                        value =
+                                            "";
+
+                                    }
+
+
+                                    /*
+                                     * Format dates.
+                                     */
+
+                                    if (
+                                        column.includes(
+                                            "Date"
+                                        ) &&
+                                        value
+                                    ) {
+
+                                        if (
+                                            typeof value ===
+                                                "string"
+                                        ) {
+
+                                            const parsed =
+                                                new Date(
+                                                    value
+                                                );
+
+
+                                            if (
+                                                !Number.isNaN(
+                                                    parsed.getTime()
+                                                )
+                                            ) {
+
+                                                value =
+                                                    formatDate(
+                                                        value
+                                                    );
+
+                                            }
+
+                                        }
+
+                                    }
+
+
+                                    /*
+                                     * Format Created/Updated timestamps.
+                                     */
+
+                                    if (
+                                        (
+                                            column ===
+                                                "Created At" ||
+                                            column ===
+                                                "Updated At" ||
+                                            column ===
+                                                "Payment Validated At"
+                                        ) &&
+                                        value
+                                    ) {
+
+                                        value =
+                                            formatDateTime(
+                                                value
+                                            );
+
+                                    }
+
+
+                                    /*
+                                     * Format money.
+                                     */
+
+                                    if (
+                                        [
+                                            "Registration Fee",
+                                            "Amount Expected",
+                                            "Amount Paid",
+                                            "Balance",
+                                            "Amount"
+                                        ].includes(
+                                            column
+                                        )
+                                    ) {
+
+                                        if (
+                                            value !== "" &&
+                                            !Number.isNaN(
+                                                Number(
+                                                    value
+                                                )
+                                            )
+                                        ) {
+
+                                            value =
+                                                formatMoney(
+                                                    value
+                                                );
+
+                                        }
+
+                                    }
+
+
+                                    /*
+                                     * Status badges.
+                                     */
+
+                                    if (
+                                        [
+                                            "Status",
+                                            "Member Status",
+                                            "Effective Status",
+                                            "Transaction Status",
+                                            "Payment Status",
+                                            "Payment Validation Status",
+                                            "Registration Fee Paid",
+                                            "Counts Toward Membership"
+                                        ].includes(
+                                            column
+                                        )
+                                    ) {
+
+                                        const normalized =
+                                            normalizeStatus(
+                                                value
+                                            ).toLowerCase();
+
+
+                                        return `
+
+                                            <td>
+
+                                                <span
+                                                    class="status ${escapeHtml(normalized)}"
+                                                >
+                                                    ${escapeHtml(
+                                                        String(
+                                                            value
+                                                        )
+                                                    )}
+                                                </span>
+
+                                            </td>
+
+                                        `;
+
+                                    }
+
+
+                                    return `
+
+                                        <td>
+                                            ${escapeHtml(
+                                                String(
+                                                    value
+                                                )
+                                            )}
+                                        </td>
+
+                                    `;
+
+                                }
                             )
-                        ) {
-                            value =
-                                formatMoney(
-                                    value
-                                );
-                        }
-
-                    }
-
-                    /*
-                     * Status badges.
-                     */
-                    if (
-                        [
-                            "Status",
-                            "Member Status",
-                            "Effective Status",
-                            "Transaction Status",
-                            "Payment Status",
-                            "Payment Validation Status",
-                            "Registration Fee Paid",
-                            "Counts Toward Membership"
-                        ].includes(column)
-                    ) {
-
-                        const normalized =
-                            normalizeStatus(
-                                value
-                            ).toLowerCase();
-
-                        return `
-                            <td>
-                                <span class="status ${escapeHtml(normalized)}">
-                                    ${escapeHtml(String(value))}
-                                </span>
-                            </td>
-                        `;
-
-                    }
-
-                    return `
-                        <td>
-                            ${escapeHtml(String(value))}
-                        </td>
-                    `;
-
-                }).join("");
+                            .join("");
 
 
-            return `<tr>${cells}</tr>`;
+                    return `<tr>${cells}</tr>`;
 
-        }).join("");
+                }
+            )
+            .join("");
 
 
     const note =
         rows.length > 200
             ? `
+
                 <div style="
                     padding:12px 16px;
                     background:#fffbeb;
@@ -2911,10 +3863,17 @@ function renderTable(rows, reportType) {
                     color:#92400e;
                     font-size:12px;
                 ">
+
                     Showing the first 200 rows on screen.
-                    <strong>${rows.length.toLocaleString()}</strong>
+
+                    <strong>
+                        ${rows.length.toLocaleString()}
+                    </strong>
+
                     rows are included in the CSV export.
+
                 </div>
+
               `
             : "";
 
@@ -2928,9 +3887,11 @@ function renderTable(rows, reportType) {
             <table>
 
                 <thead>
+
                     <tr>
                         ${headerHtml}
                     </tr>
+
                 </thead>
 
                 <tbody>
@@ -2941,14 +3902,29 @@ function renderTable(rows, reportType) {
 
         </div>
 
+
         <div style="
             padding:12px 16px;
             font-size:12px;
             color:#64748b;
             border-top:1px solid #e2e8f0;
         ">
-            ${rows.length.toLocaleString()} record(s)
+
+            ${rows.length.toLocaleString()}
+            record(s)
+
+            ${
+                reportType === "members"
+                    ? `
+                        ·
+                        ${maxDependants}
+                        dependant column group(s) available
+                      `
+                    : ""
+            }
+
         </div>
+
     `;
 }
 
@@ -2957,14 +3933,33 @@ function renderTable(rows, reportType) {
    HTML ESCAPE
    ============================================================ */
 
-function escapeHtml(value) {
+function escapeHtml(
+    value
+) {
 
-    return String(value)
-        .replace(/&/g, "&amp;")
-        .replace(/</g, "&lt;")
-        .replace(/>/g, "&gt;")
-        .replace(/"/g, "&quot;")
-        .replace(/'/g, "&#039;");
+    return String(
+        value
+    )
+        .replace(
+            /&/g,
+            "&amp;"
+        )
+        .replace(
+            /</g,
+            "&lt;"
+        )
+        .replace(
+            />/g,
+            "&gt;"
+        )
+        .replace(
+            /"/g,
+            "&quot;"
+        )
+        .replace(
+            /'/g,
+            "&#039;"
+        );
 }
 
 
@@ -2972,27 +3967,39 @@ function escapeHtml(value) {
    ERROR DISPLAY
    ============================================================ */
 
-function showError(message, error) {
+function showError(
+    message,
+    error
+) {
 
     console.error(
         message,
         error
     );
 
+
     $("reportContent").innerHTML = `
 
         <div class="empty">
 
-            <i class="fa-solid fa-triangle-exclamation"
-               style="color:#dc2626;"></i>
+            <i
+                class="fa-solid fa-triangle-exclamation"
+                style="color:#dc2626;"
+            ></i>
+
 
             <div style="
                 font-weight:700;
                 color:#991b1b;
                 margin-bottom:8px;
             ">
-                ${escapeHtml(message)}
+
+                ${escapeHtml(
+                    message
+                )}
+
             </div>
+
 
             <div style="
                 font-size:12px;
@@ -3000,10 +4007,12 @@ function showError(message, error) {
                 max-width:700px;
                 margin:auto;
             ">
+
                 ${escapeHtml(
                     error?.message ||
                     "Check the browser console for details."
                 )}
+
             </div>
 
         </div>
@@ -3017,30 +4026,44 @@ function showError(message, error) {
    ============================================================ */
 
 document
-    .querySelectorAll(".report-card")
-    .forEach(card => {
+    .querySelectorAll(
+        ".report-card"
+    )
+    .forEach(
+        card => {
 
-        card.addEventListener(
-            "click",
-            async () => {
+            card.addEventListener(
+                "click",
+                async () => {
 
-                document
-                    .querySelectorAll(".report-card")
-                    .forEach(c =>
-                        c.classList.remove("active")
+                    document
+                        .querySelectorAll(
+                            ".report-card"
+                        )
+                        .forEach(
+                            c =>
+                                c.classList.remove(
+                                    "active"
+                                )
+                        );
+
+
+                    card.classList.add(
+                        "active"
                     );
 
-                card.classList.add("active");
 
-                currentReport =
-                    card.dataset.report;
+                    currentReport =
+                        card.dataset.report;
 
-                await generateCurrentReport();
 
-            }
-        );
+                    await generateCurrentReport();
 
-    });
+                }
+            );
+
+        }
+    );
 
 
 /* ============================================================
@@ -3056,13 +4079,16 @@ $("applyFilters")
 
                 await generateCurrentReport();
 
+
                 showToast(
                     "Filters applied."
                 );
 
             } catch (error) {
 
-                console.error(error);
+                console.error(
+                    error
+                );
 
             }
 
@@ -3079,19 +4105,27 @@ $("clearFilters")
         "click",
         async () => {
 
-            $("fromDate").value = "";
+            $("fromDate").value =
+                "";
 
-            $("toDate").value = "";
+            $("toDate").value =
+                "";
 
-            $("planFilter").value = "";
+            $("planFilter").value =
+                "";
 
-            $("statusFilter").value = "";
+            $("statusFilter").value =
+                "";
 
-            $("paymentStatusFilter").value = "";
+            $("paymentStatusFilter").value =
+                "";
 
-            $("searchFilter").value = "";
+            $("searchFilter").value =
+                "";
+
 
             await generateCurrentReport();
+
 
             showToast(
                 "Filters cleared."
@@ -3115,6 +4149,7 @@ $("refreshBtn")
                 await loadBaseData();
 
                 await generateCurrentReport();
+
 
                 showToast(
                     "Report data refreshed."
@@ -3155,33 +4190,63 @@ $("exportBtn")
                 return;
             }
 
+
             const date =
                 new Date()
                     .toISOString()
-                    .slice(0, 10);
+                    .slice(
+                        0,
+                        10
+                    );
+
 
             let filename =
                 "masika-report";
 
-            if (currentReport === "payments") {
+
+            if (
+                currentReport ===
+                "payments"
+            ) {
+
                 filename =
                     "masika-payments-report";
+
             }
 
-            if (currentReport === "members") {
+
+            if (
+                currentReport ===
+                "members"
+            ) {
+
                 filename =
                     "masika-detailed-members-household-report";
+
             }
 
-            if (currentReport === "dependants") {
+
+            if (
+                currentReport ===
+                "dependants"
+            ) {
+
                 filename =
                     "masika-dependants-report";
+
             }
 
-            if (currentReport === "combined") {
+
+            if (
+                currentReport ===
+                "combined"
+            ) {
+
                 filename =
                     "masika-members-and-dependants-report";
+
             }
+
 
             exportCsv(
                 reportRows,
@@ -3203,6 +4268,7 @@ $("logoutBtn")
 
             await supabaseClient.auth.signOut();
 
+
             window.location.href =
                 "/admin-login.html";
 
@@ -3220,7 +4286,9 @@ $("mobileMenu")
         () => {
 
             $("sidebar")
-                .classList.toggle("open");
+                .classList.toggle(
+                    "open"
+                );
 
         }
     );
@@ -3237,13 +4305,17 @@ async function init() {
         const authenticated =
             await verifySession();
 
+
         if (!authenticated) {
             return;
         }
 
+
         await loadBaseData();
 
+
         await generateCurrentReport();
+
 
     } catch (error) {
 
@@ -3251,6 +4323,7 @@ async function init() {
             "Reports initialization failed:",
             error
         );
+
 
         showError(
             "Reports could not be loaded.",
@@ -3260,6 +4333,7 @@ async function init() {
     }
 
 }
+
 
 init();
 
