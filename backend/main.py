@@ -21,11 +21,18 @@
 #           STK pushes for anything but a registration fee failed with
 #           "invalid input value for enum payment_type" since the enum
 #           has no lowercase 'monthly'/'topup'/'addon' at all.
+#   5. NEW  TextSMS integration: welcome SMS on registration, and a
+#           payment-confirmation SMS whenever a payment completes (see
+#           "SMS NOTIFICATIONS (TextSMS)" section). Both are best-effort —
+#           an SMS failure never fails the registration/payment request.
 #
 # NEW ENV VARS (Render -> Environment)
 #   ALLOWED_ORIGINS         = https://masika-murex.vercel.app,https://www.masikabbs.com,https://masikabbs.com
 #   PAYMENT_COLLECTOR_ROLES = SUPER_ADMIN        (comma-separated role_codes)
 #   ADMIN_MAX_COLLECT_AMOUNT = 250000            (optional)
+#   TEXTSMS_API_KEY         = <from TextSMS dashboard>
+#   TEXTSMS_PARTNER_ID      = <from TextSMS dashboard>
+#   TEXTSMS_SHORTCODE       = <your approved sender ID / shortcode>
 #
 # DB MIGRATION REQUIRED FOR THIS VERSION
 #   ALTER TYPE payment_type ADD VALUE IF NOT EXISTS 'TOPUP';
@@ -210,6 +217,83 @@ if create_client:
         logger.info("Supabase client initialized successfully")
     except Exception as e:
         logger.error(f"Failed to initialize Supabase client: {e}")
+
+# ============================================================
+# SMS NOTIFICATIONS (TextSMS)
+# ============================================================
+# Best-effort SMS via TextSMS (https://sms.textsms.co.ke). Every function
+# here returns a bool and never raises — a down SMS gateway must never fail
+# a registration or a payment request. Call sites fire these with
+# asyncio.create_task(...) (or plain await, since failures are swallowed)
+# and log on failure; they never block the response on SMS delivery.
+
+TEXTSMS_URL = "https://sms.textsms.co.ke/api/services/sendsms/"
+TEXTSMS_API_KEY = os.getenv("TEXTSMS_API_KEY", "")
+TEXTSMS_PARTNER_ID = os.getenv("TEXTSMS_PARTNER_ID", "")
+TEXTSMS_SHORTCODE = os.getenv("TEXTSMS_SHORTCODE", "")
+
+
+def _sms_normalize(phone: str) -> str:
+    """Convert phone to 254XXXXXXXXX format (no plus) for TextSMS."""
+    phone = (phone or "").strip().replace(" ", "")
+    if phone.startswith("+254"):
+        return phone[1:]
+    if phone.startswith("0"):
+        return "254" + phone[1:]
+    if phone.startswith("254"):
+        return phone
+    return "254" + phone
+
+
+async def _send_textsms(mobile: str, message: str) -> bool:
+    """Shared TextSMS sender used by both notification helpers below."""
+    if not httpx:
+        logger.warning("SMS not sent (httpx unavailable): %s", mobile)
+        return False
+    if not (TEXTSMS_API_KEY and TEXTSMS_PARTNER_ID and TEXTSMS_SHORTCODE):
+        logger.warning("SMS not sent (TextSMS env vars not configured): %s", mobile)
+        return False
+
+    payload = {
+        "apikey": TEXTSMS_API_KEY,
+        "partnerID": TEXTSMS_PARTNER_ID,
+        "shortcode": TEXTSMS_SHORTCODE,
+        "mobile": mobile,
+        "message": message,
+    }
+
+    try:
+        async with httpx.AsyncClient(timeout=10) as client:
+            resp = await client.post(TEXTSMS_URL, json=payload)
+            data = resp.json()
+            code = data.get("responses", [{}])[0].get("response-code")
+            if code != 200:
+                logger.warning(f"TextSMS failed for {mobile}: {data}")
+            return code == 200
+    except Exception as e:
+        logger.error(f"TextSMS error for {mobile}: {e}")
+        return False
+
+
+async def send_registration_sms(phone: str, member_number: str, name: str = "") -> bool:
+    """Send a welcome SMS with the member's membership number after registration."""
+    mobile = _sms_normalize(phone)
+    message = (
+        f"Welcome to Masika{', ' + name if name else ''}! "
+        f"Your membership number is {member_number}. "
+        f"Keep it safe for payments and claims."
+    )
+    return await _send_textsms(mobile, message)
+
+
+async def send_payment_confirmation_sms(phone: str, amount: str, member_number: str) -> bool:
+    """Send a confirmation SMS after a successful M-Pesa payment."""
+    mobile = _sms_normalize(phone)
+    message = (
+        f"Payment of KES {amount} received for membership {member_number}. "
+        f"Thank you for staying current with Masika."
+    )
+    return await _send_textsms(mobile, message)
 
 # ============================================================
 # ENUMS
@@ -836,6 +920,12 @@ async def lifespan(app: FastAPI):
                 "still protect the payment record, but consider setting this."
             )
 
+    if not (TEXTSMS_API_KEY and TEXTSMS_PARTNER_ID and TEXTSMS_SHORTCODE):
+        logger.warning(
+            "TEXTSMS_API_KEY / TEXTSMS_PARTNER_ID / TEXTSMS_SHORTCODE are not fully "
+            "set — registration and payment-confirmation SMS will be skipped."
+        )
+
     yield
 
     if mpesa_http_client:
@@ -889,7 +979,8 @@ async def health_check():
         "version": "2.0.0",
         "database": "connected" if supabase else "disconnected",
         "mpesa": "configured" if MPESA_CONSUMER_KEY else "not configured",
-        "mpesa_environment": MPESA_ENVIRONMENT
+        "mpesa_environment": MPESA_ENVIRONMENT,
+        "sms": "configured" if (TEXTSMS_API_KEY and TEXTSMS_PARTNER_ID and TEXTSMS_SHORTCODE) else "not configured"
     }
 
 # ============================================================
@@ -1113,6 +1204,16 @@ async def public_register(payload: PublicRegistrationRequest):
                     email=dep.get("email"),
                 )
             ).execute()
+
+        # Best-effort welcome SMS. Never let an SMS failure fail registration —
+        # send_registration_sms() already swallows and logs its own errors,
+        # but wrap in try/except too in case of an unexpected exception.
+        try:
+            asyncio.create_task(
+                send_registration_sms(payload.phone, member_number, payload.first_name)
+            )
+        except Exception as e:
+            logger.error(f"Could not schedule registration SMS: {e}")
 
         return PublicRegisterResponse(
             success=True,
@@ -1808,25 +1909,55 @@ async def activate_registration(payment: dict):
     contribution also set registration_fee_paid = True and member_status =
     ACTIVE. It now only acts on registration payments; other payment types
     (monthly / topup / addon) are simply recorded.
+
+    Also sends the payment-confirmation SMS for EVERY completed member
+    payment (registration, monthly, topup, addon) — not just registrations —
+    since the member should be told their money arrived regardless of type.
     """
     try:
         payment_type = (payment.get("payment_type") or "").lower()
 
         if payment.get("member_id"):
+            member_result = (
+                supabase.table("members")
+                .select("phone, member_number")
+                .eq("id", payment["member_id"])
+                .limit(1)
+                .execute()
+            )
+            member_phone = None
+            member_number = None
+            if member_result.data:
+                member_phone = member_result.data[0].get("phone")
+                member_number = member_result.data[0].get("member_number")
+
             if payment_type != "registration":
                 logger.info(
                     f"Payment {payment.get('id')} is '{payment_type}', not registration "
                     f"- member activation skipped"
                 )
-                return
+            else:
+                supabase.table("members").update({
+                    "registration_fee_paid": True,
+                    "member_status": "ACTIVE",
+                    "updated_at": datetime.now().isoformat()
+                }).eq("id", payment["member_id"]).execute()
 
-            supabase.table("members").update({
-                "registration_fee_paid": True,
-                "member_status": "ACTIVE",
-                "updated_at": datetime.now().isoformat()
-            }).eq("id", payment["member_id"]).execute()
+                logger.info(f"Member {payment['member_id']} activated")
 
-            logger.info(f"Member {payment['member_id']} activated")
+            # Best-effort payment confirmation SMS, regardless of payment type.
+            phone_for_sms = member_phone or payment.get("phone")
+            if phone_for_sms and member_number:
+                try:
+                    asyncio.create_task(
+                        send_payment_confirmation_sms(
+                            phone_for_sms,
+                            str(payment.get("amount", "")),
+                            member_number,
+                        )
+                    )
+                except Exception as e:
+                    logger.error(f"Could not schedule payment confirmation SMS: {e}")
 
         elif payment.get("chama_group_id"):
             supabase.table("chama_groups").update({
@@ -2749,6 +2880,15 @@ async def register(member_data: MemberCreate):
                 email=dep.email,
             )
         ).execute()
+
+    # Best-effort welcome SMS (see /api/public/register for the same pattern).
+    try:
+        asyncio.create_task(
+            send_registration_sms(member_data.phone, member_number, member_data.first_name)
+        )
+    except Exception as e:
+        logger.error(f"Could not schedule registration SMS: {e}")
+
     return {
         "success": True,
         "member": {
