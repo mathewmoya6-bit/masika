@@ -1,4 +1,3 @@
-
 # MAIN ENTRY POINT - backend/main.py
 # Complete Production-Ready FastAPI Application
 # Render runs: uvicorn main:app
@@ -25,11 +24,16 @@
 #           STK pushes for anything but a registration fee failed with
 #           "invalid input value for enum payment_type" since the enum
 #           has no lowercase 'monthly'/'topup'/'addon' at all.
+#   5. NEW  /api/public/notifications/process
+#           Cron-triggered sweep that sends pending SMS notifications
+#           (see "NOTIFICATIONS" section). Protected by NOTIFICATION_PROCESS_KEY.
 #
 # NEW ENV VARS (Render -> Environment)
 #   ALLOWED_ORIGINS         = https://masika-murex.vercel.app,https://www.masikabbs.com,https://masikabbs.com
 #   PAYMENT_COLLECTOR_ROLES = SUPER_ADMIN        (comma-separated role_codes)
 #   ADMIN_MAX_COLLECT_AMOUNT = 250000            (optional)
+#   NOTIFICATION_PROCESS_KEY = <random secret>   (required header X-Notification-Key on the sweep endpoint)
+#   TEXTSMS_API_KEY / TEXTSMS_PARTNER_ID / TEXTSMS_SHORTCODE   (required for SMS sending; see send_payment_reminder_sms)
 #
 # DB MIGRATION REQUIRED FOR THIS VERSION
 #   ALTER TYPE payment_type ADD VALUE IF NOT EXISTS 'TOPUP';
@@ -53,7 +57,7 @@ import base64
 # FASTAPI IMPORTS
 # ============================================================
 
-from fastapi import FastAPI, HTTPException, status, Query, Request, Depends, APIRouter
+from fastapi import FastAPI, HTTPException, status, Query, Request, Depends, APIRouter, Header
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 
@@ -153,6 +157,19 @@ MPESA_MAX_RETRIES = int(os.getenv("MPESA_MAX_RETRIES", "2"))
 # Shared secret required on the internal reconciliation endpoint
 # (guards against anyone hitting it to force-poll M-Pesa on your credentials).
 RECONCILE_SECRET = os.getenv("RECONCILE_SECRET", "")
+
+# Shared secret required on the internal notification-sweep endpoint
+# (guards against anyone hitting it to burn your SMS credit).
+NOTIFICATION_PROCESS_KEY = os.getenv("NOTIFICATION_PROCESS_KEY", "")
+
+# TextSMS (textsms.co.ke) credentials for outbound SMS. All three are
+# required for send_payment_reminder_sms() to actually send anything —
+# without them it logs and returns False so the sweep endpoint still
+# runs and marks notifications FAILED instead of crashing.
+TEXTSMS_API_KEY = os.getenv("TEXTSMS_API_KEY", "")
+TEXTSMS_PARTNER_ID = os.getenv("TEXTSMS_PARTNER_ID", "")
+TEXTSMS_SHORTCODE = os.getenv("TEXTSMS_SHORTCODE", "")
+TEXTSMS_SEND_URL = os.getenv("TEXTSMS_SEND_URL", "https://sms.textsms.co.ke/api/services/sendsms/")
 
 # Optional allowlist for the /payment/callback webhook, as a comma-separated
 # list of IPs or CIDR ranges. Safaricom publishes its Daraja callback source
@@ -814,6 +831,66 @@ def is_ip_allowed(client_ip: Optional[str]) -> bool:
         except ValueError:
             continue
     return False
+
+# ============================================================
+# NOTIFICATIONS / SMS HELPERS
+# ============================================================
+
+async def send_payment_reminder_sms(phone: str, name: str, member_number: str) -> bool:
+    """
+    Send a payment-reminder SMS via TextSMS (textsms.co.ke).
+
+    Requires TEXTSMS_API_KEY, TEXTSMS_PARTNER_ID and TEXTSMS_SHORTCODE to be
+    set on Render — without them this logs a warning and returns False so
+    callers can mark the notification FAILED instead of crashing.
+
+    NOTE: verify the TextSMS request/response field names below against your
+    actual TextSMS account docs/dashboard before relying on this in
+    production — the shape here is TextSMS's documented v1 sendsms
+    contract, but partner accounts occasionally differ.
+    """
+    if not (TEXTSMS_API_KEY and TEXTSMS_PARTNER_ID and TEXTSMS_SHORTCODE):
+        logger.warning("send_payment_reminder_sms: TEXTSMS_* env vars not fully configured — skipping send")
+        return False
+
+    if not httpx:
+        logger.error("send_payment_reminder_sms: httpx not available")
+        return False
+
+    formatted_phone = format_phone_number(phone)
+    message = (
+        f"Dear {name or 'Member'}, your Masika Benevolent membership "
+        f"({member_number}) has a pending payment. Please complete it to "
+        f"keep your cover active."
+    )
+
+    payload = {
+        "apikey": TEXTSMS_API_KEY,
+        "partnerID": TEXTSMS_PARTNER_ID,
+        "message": message,
+        "shortcode": TEXTSMS_SHORTCODE,
+        "mobile": formatted_phone,
+    }
+
+    try:
+        async with httpx.AsyncClient(timeout=20) as client:
+            response = await client.post(TEXTSMS_SEND_URL, json=payload)
+        if response.status_code != 200:
+            logger.error(f"TextSMS HTTP {response.status_code}: {response.text[:300]}")
+            return False
+
+        data = response.json()
+        # TextSMS returns {"responses":[{"respose-code":200,...}]} on success —
+        # note the "respose-code" typo is on their side, not ours.
+        responses = data.get("responses") or []
+        if responses and str(responses[0].get("respose-code", responses[0].get("response-code"))) in ("200", "0"):
+            return True
+
+        logger.error(f"TextSMS send failed for {formatted_phone}: {data}")
+        return False
+    except Exception as e:
+        logger.error(f"TextSMS send error for {formatted_phone}: {e}")
+        return False
 
 # ============================================================
 # CREATE FASTAPI APP
@@ -1879,6 +1956,101 @@ async def activate_registration(payment: dict):
 
     except Exception as e:
         logger.error(f"Activation failed: {e}")
+
+
+# ------------------------------------------------------------
+# 9c. NOTIFICATION SWEEP (pending SMS)
+# ------------------------------------------------------------
+# Cron-triggered (e.g. a Render cron job hitting this every few minutes)
+# sweep that sends any pending SMS rows in `notifications` and marks them
+# SENT/FAILED. Protected by NOTIFICATION_PROCESS_KEY in the
+# X-Notification-Key header, same pattern as /payment/reconcile above.
+
+@public_router.post("/notifications/process")
+async def process_pending_notifications(
+    x_notification_key: str = Header(default="")
+):
+    if not NOTIFICATION_PROCESS_KEY:
+        raise HTTPException(
+            status_code=500,
+            detail="NOTIFICATION_PROCESS_KEY is not configured"
+        )
+
+    if x_notification_key != NOTIFICATION_PROCESS_KEY:
+        raise HTTPException(status_code=401, detail="Unauthorized")
+
+    if not supabase:
+        raise HTTPException(status_code=500, detail="Database not available")
+
+    # Get pending SMS notifications
+    result = (
+        supabase
+        .table("notifications")
+        .select("id, member_id, message, notification_type, channel")
+        .eq("channel", "SMS")
+        .eq("status", "PENDING")
+        .limit(50)
+        .execute()
+    )
+
+    notifications = result.data or []
+
+    sent = 0
+    failed = 0
+
+    for notification in notifications:
+
+        # Get member details.
+        # FIX: `members` has no `full_name` column — it's first_name/
+        # last_name (see MemberResponse/member_record above) — and using
+        # .single() here raises instead of returning None when the member
+        # row is missing, which would abort the whole sweep on one bad row.
+        member_result = (
+            supabase
+            .table("members")
+            .select("member_number, first_name, last_name, phone")
+            .eq("id", notification["member_id"])
+            .limit(1)
+            .execute()
+        )
+
+        member = member_result.data[0] if member_result.data else None
+
+        if not member:
+            failed += 1
+            supabase.table("notifications").update({
+                "status": "FAILED",
+                "failure_reason": "Member not found"
+            }).eq("id", notification["id"]).execute()
+            continue
+
+        full_name = f"{member.get('first_name', '')} {member.get('last_name', '')}".strip()
+
+        success = await send_payment_reminder_sms(
+            phone=member["phone"],
+            name=full_name,
+            member_number=member["member_number"]
+        )
+
+        if success:
+            sent += 1
+            supabase.table("notifications").update({
+                "status": "SENT",
+                "sent_at": datetime.now().isoformat()
+            }).eq("id", notification["id"]).execute()
+        else:
+            failed += 1
+            supabase.table("notifications").update({
+                "status": "FAILED",
+                "failure_reason": "TextSMS sending failed"
+            }).eq("id", notification["id"]).execute()
+
+    return {
+        "success": True,
+        "processed": len(notifications),
+        "sent": sent,
+        "failed": failed
+    }
 
 
 # ============================================================
