@@ -27,6 +27,15 @@
 #   5. NEW  /api/public/notifications/process
 #           Cron-triggered sweep that sends pending SMS notifications
 #           (see "NOTIFICATIONS" section). Protected by NOTIFICATION_PROCESS_KEY.
+#   6. NEW  send_registration_sms() / send_payment_confirmation_sms()
+#           Registration welcome SMS is sent from public_register() right
+#           after the member row is created. Payment confirmation SMS is
+#           sent from activate_registration() — which already runs on every
+#           path that marks a payment "completed" (callback, on-demand
+#           status poll, reconciliation sweep) — for ANY completed member
+#           payment, not just registration. Both reuse the same TEXTSMS_*
+#           config and format_phone_number() as send_payment_reminder_sms();
+#           neither blocks or fails the caller if the SMS send fails.
 #
 # NEW ENV VARS (Render -> Environment)
 #   ALLOWED_ORIGINS         = https://masika-murex.vercel.app,https://www.masikabbs.com,https://masikabbs.com
@@ -163,9 +172,10 @@ RECONCILE_SECRET = os.getenv("RECONCILE_SECRET", "")
 NOTIFICATION_PROCESS_KEY = os.getenv("NOTIFICATION_PROCESS_KEY", "")
 
 # TextSMS (textsms.co.ke) credentials for outbound SMS. All three are
-# required for send_payment_reminder_sms() to actually send anything —
-# without them it logs and returns False so the sweep endpoint still
-# runs and marks notifications FAILED instead of crashing.
+# required for send_payment_reminder_sms() / send_registration_sms() /
+# send_payment_confirmation_sms() to actually send anything — without them
+# each logs and returns False so callers still run and just skip the SMS
+# instead of crashing.
 TEXTSMS_API_KEY = os.getenv("TEXTSMS_API_KEY", "")
 TEXTSMS_PARTNER_ID = os.getenv("TEXTSMS_PARTNER_ID", "")
 TEXTSMS_SHORTCODE = os.getenv("TEXTSMS_SHORTCODE", "")
@@ -892,6 +902,116 @@ async def send_payment_reminder_sms(phone: str, name: str, member_number: str) -
         logger.error(f"TextSMS send error for {formatted_phone}: {e}")
         return False
 
+
+def _textsms_response_ok(data: dict) -> bool:
+    """Shared success check for TextSMS's response body, tolerant of both
+    their documented key ("response-code") and the "respose-code" typo
+    that shows up on some accounts (see send_payment_reminder_sms above)."""
+    responses = data.get("responses") or []
+    if not responses:
+        return False
+    code = responses[0].get("respose-code", responses[0].get("response-code"))
+    return str(code) in ("200", "0")
+
+
+async def send_registration_sms(phone: str, member_number: str, name: str = "") -> bool:
+    """
+    Send a welcome SMS with the member's membership number right after
+    registration. Reuses the same TEXTSMS_* config / URL / phone formatting
+    as send_payment_reminder_sms() rather than re-reading env vars, so a
+    shortcode change (e.g. TEXTSMS_SHORTCODE) only needs updating once.
+
+    Requires TEXTSMS_API_KEY, TEXTSMS_PARTNER_ID and TEXTSMS_SHORTCODE — if
+    any are missing this logs a warning and returns False. Callers should
+    treat this as best-effort and never fail registration on an SMS error.
+    """
+    if not (TEXTSMS_API_KEY and TEXTSMS_PARTNER_ID and TEXTSMS_SHORTCODE):
+        logger.warning("send_registration_sms: TEXTSMS_* env vars not fully configured — skipping send")
+        return False
+
+    if not httpx:
+        logger.error("send_registration_sms: httpx not available")
+        return False
+
+    formatted_phone = format_phone_number(phone)
+    message = (
+        f"Welcome to Masika Benevolent{', ' + name if name else ''}! "
+        f"Your membership number is {member_number}. Keep it safe for "
+        f"payments and claims."
+    )
+
+    payload = {
+        "apikey": TEXTSMS_API_KEY,
+        "partnerID": TEXTSMS_PARTNER_ID,
+        "message": message,
+        "shortcode": TEXTSMS_SHORTCODE,
+        "mobile": formatted_phone,
+    }
+
+    try:
+        async with httpx.AsyncClient(timeout=20) as client:
+            response = await client.post(TEXTSMS_SEND_URL, json=payload)
+        if response.status_code != 200:
+            logger.error(f"TextSMS (registration) HTTP {response.status_code}: {response.text[:300]}")
+            return False
+
+        data = response.json()
+        if _textsms_response_ok(data):
+            return True
+
+        logger.error(f"TextSMS (registration) send failed for {formatted_phone}: {data}")
+        return False
+    except Exception as e:
+        logger.error(f"TextSMS (registration) send error for {formatted_phone}: {e}")
+        return False
+
+
+async def send_payment_confirmation_sms(phone: str, amount: str, member_number: str) -> bool:
+    """
+    Send a confirmation SMS after a payment is marked completed (M-Pesa
+    callback, on-demand status poll, or the reconciliation sweep — see
+    activate_registration(), which calls this for every completed member
+    payment). Same config/formatting reuse as send_registration_sms().
+    """
+    if not (TEXTSMS_API_KEY and TEXTSMS_PARTNER_ID and TEXTSMS_SHORTCODE):
+        logger.warning("send_payment_confirmation_sms: TEXTSMS_* env vars not fully configured — skipping send")
+        return False
+
+    if not httpx:
+        logger.error("send_payment_confirmation_sms: httpx not available")
+        return False
+
+    formatted_phone = format_phone_number(phone)
+    message = (
+        f"Payment of KES {amount} received for membership {member_number}. "
+        f"Thank you for staying current with Masika."
+    )
+
+    payload = {
+        "apikey": TEXTSMS_API_KEY,
+        "partnerID": TEXTSMS_PARTNER_ID,
+        "message": message,
+        "shortcode": TEXTSMS_SHORTCODE,
+        "mobile": formatted_phone,
+    }
+
+    try:
+        async with httpx.AsyncClient(timeout=20) as client:
+            response = await client.post(TEXTSMS_SEND_URL, json=payload)
+        if response.status_code != 200:
+            logger.error(f"TextSMS (payment confirmation) HTTP {response.status_code}: {response.text[:300]}")
+            return False
+
+        data = response.json()
+        if _textsms_response_ok(data):
+            return True
+
+        logger.error(f"TextSMS (payment confirmation) send failed for {formatted_phone}: {data}")
+        return False
+    except Exception as e:
+        logger.error(f"TextSMS (payment confirmation) send error for {formatted_phone}: {e}")
+        return False
+
 # ============================================================
 # CREATE FASTAPI APP
 # ============================================================
@@ -1161,6 +1281,13 @@ async def public_register(payload: PublicRegistrationRequest):
 
         new_member = result.data[0]
         member_id = new_member["id"]
+
+        # Welcome SMS with the new membership number. Best-effort: a failed
+        # or unconfigured send must never fail registration itself.
+        try:
+            await send_registration_sms(payload.phone, member_number, payload.first_name)
+        except Exception as e:
+            logger.error(f"Registration welcome SMS failed for member {member_id}: {e}")
 
         # FIX: "payments" has no member_number column — only member_id/membership_id.
         # The stray "member_number" key here was the cause of the PGRST204 error.
@@ -1914,16 +2041,44 @@ async def reconcile_pending_payments(request: Request, older_than_minutes: int =
 
 async def activate_registration(payment: dict):
     """
-    Activate member or chama registration after a successful REGISTRATION payment.
+    Runs on every path that marks a payment "completed" (callback,
+    on-demand status poll, reconciliation sweep). Two things happen here:
 
-    FIX: this used to run for EVERY completed member payment, so a monthly
-    contribution also set registration_fee_paid = True and member_status =
-    ACTIVE. It now only acts on registration payments; other payment types
-    (monthly / topup / addon) are simply recorded.
+      1. Payment confirmation SMS — sent for ANY completed member payment
+         (registration, monthly, topup, addon), not just registration.
+         Best-effort: a failed/unconfigured send never raises.
+      2. Member/chama activation — FIX: this used to run for EVERY
+         completed member payment, so a monthly contribution also set
+         registration_fee_paid = True and member_status = ACTIVE. It now
+         only acts on registration payments; other payment types are
+         simply recorded.
     """
     try:
         payment_type = (payment.get("payment_type") or "").lower()
 
+        # ---- 1. Payment confirmation SMS (any completed member payment) ----
+        if payment.get("member_id") and payment.get("phone"):
+            try:
+                member_lookup = (
+                    supabase.table("members")
+                    .select("member_number")
+                    .eq("id", payment["member_id"])
+                    .limit(1)
+                    .execute()
+                )
+                member_number_for_sms = (
+                    member_lookup.data[0].get("member_number") if member_lookup.data else None
+                )
+                if member_number_for_sms:
+                    await send_payment_confirmation_sms(
+                        payment["phone"],
+                        str(payment.get("amount", "")),
+                        member_number_for_sms
+                    )
+            except Exception as e:
+                logger.error(f"Payment confirmation SMS failed for payment {payment.get('id')}: {e}")
+
+        # ---- 2. Member / chama activation (registration payments only) ----
         if payment.get("member_id"):
             if payment_type != "registration":
                 logger.info(
@@ -2954,6 +3109,14 @@ async def register(member_data: MemberCreate):
     if not result.data:
         raise HTTPException(status_code=400, detail="Failed to create member")
     new_member = result.data[0]
+
+    # Welcome SMS with the new membership number. Best-effort: a failed
+    # or unconfigured send must never fail registration itself.
+    try:
+        await send_registration_sms(member_data.phone, member_number, member_data.first_name)
+    except Exception as e:
+        logger.error(f"Registration welcome SMS failed for member {new_member['id']}: {e}")
+
     # FIX: `dependants` has no first_name/last_name/is_active columns —
     # it stores full_name and status instead. See build_dependant_row().
     for dep in member_data.dependants:
