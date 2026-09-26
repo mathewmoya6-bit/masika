@@ -36,6 +36,10 @@
 #           payment, not just registration. Both reuse the same TEXTSMS_*
 #           config and format_phone_number() as send_payment_reminder_sms();
 #           neither blocks or fails the caller if the SMS send fails.
+#   7. FIX  send_payment_reminder_sms() now returns (success, detail) and
+#           the notification sweep writes TextSMS's actual response into
+#           notifications.failure_reason instead of a generic string, so
+#           failures are diagnosable from SQL instead of Render logs.
 #
 # NEW ENV VARS (Render -> Environment)
 #   ALLOWED_ORIGINS         = https://masika-murex.vercel.app,https://www.masikabbs.com,https://masikabbs.com
@@ -54,7 +58,7 @@ import sys
 import logging
 from pathlib import Path
 from datetime import datetime, date, timedelta
-from typing import Optional, List, Dict, Any
+from typing import Optional, List, Dict, Any, Tuple
 from enum import Enum
 from contextlib import asynccontextmanager
 import re
@@ -846,9 +850,39 @@ def is_ip_allowed(client_ip: Optional[str]) -> bool:
 # NOTIFICATIONS / SMS HELPERS
 # ============================================================
 
-async def send_payment_reminder_sms(phone: str, name: str, member_number: str) -> bool:
+def _textsms_response_ok(data: dict) -> bool:
+    """Shared success check for TextSMS's response body, tolerant of both
+    their documented key ("response-code") and the "respose-code" typo
+    that shows up on some accounts."""
+    responses = data.get("responses") or []
+    if not responses:
+        return False
+    code = responses[0].get("respose-code", responses[0].get("response-code"))
+    return str(code) in ("200", "0")
+
+
+def _textsms_failure_detail(status_code: int, body_text: str, data: Optional[dict] = None) -> str:
+    """Build a short, storable failure string from a TextSMS response so
+    notifications.failure_reason shows the real cause instead of a generic
+    message. Kept short since this goes straight into a DB column."""
+    if data is not None:
+        responses = data.get("responses") or []
+        if responses:
+            code = responses[0].get("respose-code", responses[0].get("response-code"))
+            desc = responses[0].get("response-description") or responses[0].get("respose-description")
+            return f"TextSMS {code}: {desc}"[:250]
+        return f"TextSMS HTTP {status_code}: {str(data)[:200]}"
+    return f"TextSMS HTTP {status_code}: {body_text[:200]}"
+
+
+async def send_payment_reminder_sms(phone: str, name: str, member_number: str) -> Tuple[bool, str]:
     """
     Send a payment-reminder SMS via TextSMS (textsms.co.ke).
+
+    Returns (success, detail) — detail is a short human-readable reason
+    on failure (or "sent" on success), meant to be stored directly in
+    notifications.failure_reason so failures are diagnosable from SQL
+    instead of only from Render logs.
 
     Requires TEXTSMS_API_KEY, TEXTSMS_PARTNER_ID and TEXTSMS_SHORTCODE to be
     set on Render — without them this logs a warning and returns False so
@@ -861,11 +895,11 @@ async def send_payment_reminder_sms(phone: str, name: str, member_number: str) -
     """
     if not (TEXTSMS_API_KEY and TEXTSMS_PARTNER_ID and TEXTSMS_SHORTCODE):
         logger.warning("send_payment_reminder_sms: TEXTSMS_* env vars not fully configured — skipping send")
-        return False
+        return False, "TextSMS not configured (missing TEXTSMS_API_KEY/PARTNER_ID/SHORTCODE)"
 
     if not httpx:
         logger.error("send_payment_reminder_sms: httpx not available")
-        return False
+        return False, "httpx not available on server"
 
     formatted_phone = format_phone_number(phone)
     message = (
@@ -886,32 +920,20 @@ async def send_payment_reminder_sms(phone: str, name: str, member_number: str) -
         async with httpx.AsyncClient(timeout=20) as client:
             response = await client.post(TEXTSMS_SEND_URL, json=payload)
         if response.status_code != 200:
+            detail = _textsms_failure_detail(response.status_code, response.text)
             logger.error(f"TextSMS HTTP {response.status_code}: {response.text[:300]}")
-            return False
+            return False, detail
 
         data = response.json()
-        # TextSMS returns {"responses":[{"respose-code":200,...}]} on success —
-        # note the "respose-code" typo is on their side, not ours.
-        responses = data.get("responses") or []
-        if responses and str(responses[0].get("respose-code", responses[0].get("response-code"))) in ("200", "0"):
-            return True
+        if _textsms_response_ok(data):
+            return True, "sent"
 
+        detail = _textsms_failure_detail(response.status_code, response.text, data)
         logger.error(f"TextSMS send failed for {formatted_phone}: {data}")
-        return False
+        return False, detail
     except Exception as e:
         logger.error(f"TextSMS send error for {formatted_phone}: {e}")
-        return False
-
-
-def _textsms_response_ok(data: dict) -> bool:
-    """Shared success check for TextSMS's response body, tolerant of both
-    their documented key ("response-code") and the "respose-code" typo
-    that shows up on some accounts (see send_payment_reminder_sms above)."""
-    responses = data.get("responses") or []
-    if not responses:
-        return False
-    code = responses[0].get("respose-code", responses[0].get("response-code"))
-    return str(code) in ("200", "0")
+        return False, f"TextSMS request error: {str(e)[:200]}"
 
 
 async def send_registration_sms(phone: str, member_number: str, name: str = "") -> bool:
@@ -2181,7 +2203,13 @@ async def process_pending_notifications(
 
         full_name = f"{member.get('first_name', '')} {member.get('last_name', '')}".strip()
 
-        success = await send_payment_reminder_sms(
+        # FIX: send_payment_reminder_sms() now returns (success, detail).
+        # The generic "TextSMS sending failed" string used to overwrite
+        # whatever TextSMS actually said, so a failure was undiagnosable
+        # from SQL. failure_reason now stores that real detail (e.g. a
+        # TextSMS response code/description, an HTTP status, or "TextSMS
+        # not configured...") instead.
+        success, detail = await send_payment_reminder_sms(
             phone=member["phone"],
             name=full_name,
             member_number=member["member_number"]
@@ -2197,7 +2225,7 @@ async def process_pending_notifications(
             failed += 1
             supabase.table("notifications").update({
                 "status": "FAILED",
-                "failure_reason": "TextSMS sending failed"
+                "failure_reason": detail
             }).eq("id", notification["id"]).execute()
 
     return {
