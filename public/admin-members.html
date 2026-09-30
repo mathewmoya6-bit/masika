@@ -1464,11 +1464,13 @@
                 const pageMembers = data || [];
                 const memberIds = pageMembers.map(m => m.id).filter(Boolean);
                 const firstPaymentByMember = {};
+                const totalPaidByMember = {};
+                const paymentRecordsByMember = {};
 
                 if (memberIds.length) {
                     const { data: firstPayments, error: firstPaymentsError } = await supabaseClient
                         .from('payments')
-                        .select('member_id, created_at, confirmed_at, verified_at, payment_status, status, counts_toward_membership')
+                        .select('member_id, amount, created_at, confirmed_at, verified_at, payment_status, status, counts_toward_membership, payment_type, mpesa_receipt_number')
                         .in('member_id', memberIds)
                         .eq('payment_status', 'SUCCESSFUL')
                         .order('created_at', { ascending: true });
@@ -1478,6 +1480,10 @@
                             if (!firstPaymentByMember[payment.member_id]) {
                                 firstPaymentByMember[payment.member_id] = payment;
                             }
+                            const memberId = payment.member_id;
+                            totalPaidByMember[memberId] = (totalPaidByMember[memberId] || 0) + Number(payment.amount || 0);
+                            if (!paymentRecordsByMember[memberId]) paymentRecordsByMember[memberId] = [];
+                            paymentRecordsByMember[memberId].push(payment);
                         });
                     } else {
                         console.warn('First payment lookup failed:', firstPaymentsError);
@@ -1530,7 +1536,8 @@
                         ...member,
                         calculated_status: authoritativeStatus,
                         missed_months: Number(member.months_missing || 0),
-                        total_paid: Number(member.amount_paid || 0),
+                        total_paid: totalPaidByMember[member.id] ?? Number(member.amount_paid || 0),
+                        payment_count: (paymentRecordsByMember[member.id] || []).length,
                         first_payment_date: firstPaymentDate
                             ? firstPaymentDate.toISOString().slice(0, 10)
                             : null,
@@ -1596,7 +1603,7 @@
                     .select('*')
                     .eq('member_id', memberId)
                     .order('created_at', { ascending: false })
-                    .limit(50);
+                    .limit(1000);
 
                 if (error) throw error;
                 if (seq !== paymentsLoadSeq) return; // superseded
@@ -1632,9 +1639,28 @@
                 return;
             }
 
-            countEl.textContent = `(${payments.length} record${payments.length === 1 ? '' : 's'})`;
+            const successfulStatuses = ['COMPLETED', 'SUCCESS', 'SUCCESSFUL', 'PAID', 'CONFIRMED'];
+            const successfulPayments = payments.filter(p => successfulStatuses.includes(String(p.payment_status || p.status || '').toUpperCase()));
+            const totalPaid = successfulPayments.reduce((sum, p) => sum + Number(p.amount || 0), 0);
+            const firstSuccessful = [...successfulPayments].sort((a, b) => {
+                const ad = new Date(a.confirmed_at || a.verified_at || a.created_at || 0).getTime();
+                const bd = new Date(b.confirmed_at || b.verified_at || b.created_at || 0).getTime();
+                return ad - bd;
+            })[0];
+            const firstPaymentRaw = firstSuccessful ? (firstSuccessful.confirmed_at || firstSuccessful.verified_at || firstSuccessful.created_at) : null;
+            const firstPaymentDate = firstPaymentRaw ? new Date(firstPaymentRaw) : null;
+            const renewalDate = firstPaymentDate && !Number.isNaN(firstPaymentDate.getTime()) ? new Date(firstPaymentDate) : null;
+            if (renewalDate) renewalDate.setFullYear(renewalDate.getFullYear() + 1);
 
-            let html = '<div class="payment-history-list">';
+            countEl.textContent = `(${payments.length} record${payments.length === 1 ? '' : 's'} • KES ${totalPaid.toLocaleString('en-KE', {minimumFractionDigits: 0, maximumFractionDigits: 2})} successful)`;
+
+            let html = `
+                <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:12px;">
+                    <span class="mini-badge info"><i class="fas fa-money-bill-wave"></i> Total Paid: KES ${totalPaid.toLocaleString('en-KE', {minimumFractionDigits: 0, maximumFractionDigits: 2})}</span>
+                    <span class="mini-badge info"><i class="fas fa-calendar-day"></i> First Payment: ${firstPaymentDate ? firstPaymentDate.toLocaleDateString('en-GB') : '—'}</span>
+                    <span class="mini-badge info"><i class="fas fa-calendar-check"></i> Renewal: ${renewalDate ? renewalDate.toLocaleDateString('en-GB') : '—'}</span>
+                </div>
+                <div class="payment-history-list">`;
 
             payments.forEach(p => {
                 const amount = parseFloat(p.amount || 0).toLocaleString('en-KE', {
