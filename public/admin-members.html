@@ -267,6 +267,23 @@
         .topbar .actions { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
         .topbar .actions .date-time { font-size: 14px; color: var(--text-light); font-weight: 500; }
 
+        .live-indicator {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 12px;
+            font-weight: 600;
+            color: var(--text-light);
+        }
+        .live-indicator .live-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: var(--gray-300);
+        }
+        .live-indicator.on { color: var(--success); }
+        .live-indicator.on .live-dot { background: var(--success); animation: pulse 1.6s infinite; }
+
         .sidebar-toggle {
             display: none;
             background: var(--primary);
@@ -815,6 +832,9 @@
                     </h1>
                 </div>
                 <div class="actions">
+                    <span class="live-indicator" id="liveIndicator" title="Live updates">
+                        <span class="live-dot"></span> <span id="liveLabel">Connecting...</span>
+                    </span>
                     <span class="date-time" id="currentDateTime"></span>
                     <button onclick="refreshData()" class="btn btn-primary btn-sm" id="refreshBtn">
                         <i class="fas fa-sync" id="refreshIcon"></i> Refresh
@@ -1002,6 +1022,10 @@
         const STK_POLL_INTERVAL_MS = 10000;
         const STK_POLL_MAX_ATTEMPTS = 12; // 2 minutes, matches collectpayments.html
 
+        // Live refresh
+        const REALTIME_DEBOUNCE_MS = 800;
+        const FALLBACK_REFRESH_MS = 30000;
+
         async function getAuthToken() {
             const { data: { session } } = await supabaseClient.auth.getSession();
             return session?.access_token || null;
@@ -1047,6 +1071,11 @@
         let stkCheckoutId = null;
         let idCardBusyId = null;
 
+        let realtimeChannel = null;
+        let realtimeDebounce = null;
+        let fallbackTimer = null;
+        let loadSeq = 0; // guards against out-of-order responses
+
         const membersList = document.getElementById('membersList');
         const pagination = document.getElementById('membersPagination');
         const paginationInfo = document.getElementById('paginationInfo');
@@ -1063,7 +1092,10 @@
             updateClock();
 
             const ok = await checkAuth();
-            if (ok) await loadMembers(1);
+            if (ok) {
+                await loadMembers(1);
+                startRealtime();
+            }
 
             memberSearch.addEventListener('keypress', e => {
                 if (e.key === 'Enter') { e.preventDefault(); applyFilters(); }
@@ -1115,25 +1147,91 @@
         }
 
         // ============================================================
+        // REALTIME
+        // ------------------------------------------------------------
+        // Supabase Realtime cannot subscribe to a VIEW, so we listen on
+        // the base tables (payments, members) and re-query the view
+        // silently (no spinner) when anything changes.
+        // Requires:  alter publication supabase_realtime add table public.payments;
+        // and a SELECT policy on payments for staff.
+        // A 30s fallback refresh covers dropped sockets.
+        // ============================================================
+        function setLiveIndicator(on, label) {
+            const el = document.getElementById('liveIndicator');
+            const lb = document.getElementById('liveLabel');
+            if (!el || !lb) return;
+            el.classList.toggle('on', !!on);
+            lb.textContent = label;
+        }
+
+        function scheduleSilentReload() {
+            clearTimeout(realtimeDebounce);
+            realtimeDebounce = setTimeout(() => {
+                if (memberEditMode) return; // don't disturb an admin mid-edit
+                loadMembers(currentPage, true);
+            }, REALTIME_DEBOUNCE_MS);
+        }
+
+        function startRealtime() {
+            if (realtimeChannel) return;
+
+            realtimeChannel = supabaseClient
+                .channel('admin-members-live')
+                .on('postgres_changes', { event: '*', schema: 'public', table: 'payments' }, payload => {
+                    console.log('Realtime payments change:', payload.eventType);
+                    scheduleSilentReload();
+                })
+                .on('postgres_changes', { event: '*', schema: 'public', table: 'members' }, payload => {
+                    console.log('Realtime members change:', payload.eventType);
+                    scheduleSilentReload();
+                })
+                .subscribe(status => {
+                    console.log('Realtime status:', status);
+                    if (status === 'SUBSCRIBED') setLiveIndicator(true, 'Live');
+                    else if (status === 'CLOSED' || status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
+                        setLiveIndicator(false, 'Auto-refresh');
+                    }
+                });
+
+            fallbackTimer = setInterval(() => {
+                if (!document.hidden && !memberEditMode && authReady) loadMembers(currentPage, true);
+            }, FALLBACK_REFRESH_MS);
+
+            document.addEventListener('visibilitychange', () => {
+                if (!document.hidden && authReady && !memberEditMode) loadMembers(currentPage, true);
+            });
+
+            window.addEventListener('beforeunload', () => {
+                if (realtimeChannel) supabaseClient.removeChannel(realtimeChannel);
+                clearInterval(fallbackTimer);
+            });
+        }
+
+        // ============================================================
         // LOAD MEMBERS — reads from the VIEW only
         // ------------------------------------------------------------
         // No client-side status calculation. No client-side missed
         // months. No client-side duration. The view handles it all.
+        // silent = true: background refresh, no spinner, keeps the
+        // current table if the request fails.
         // ============================================================
-        async function loadMembers(page = 1) {
+        async function loadMembers(page = 1, silent = false) {
             if (!authReady) return;
             currentPage = page;
+            const seq = ++loadSeq;
 
             const search = memberSearch.value.trim();
             const status = statusFilter.value;
             const plan = planFilter.value;
 
-            membersList.innerHTML = `
-                <div class="loading-spinner">
-                    <div class="spinner"></div>
-                    <p>Loading members...</p>
-                </div>`;
-            pagination.style.display = 'none';
+            if (!silent) {
+                membersList.innerHTML = `
+                    <div class="loading-spinner">
+                        <div class="spinner"></div>
+                        <p>Loading members...</p>
+                    </div>`;
+                pagination.style.display = 'none';
+            }
 
             try {
                 const from = (page - 1) * pageSize;
@@ -1160,6 +1258,7 @@
                     .range(from, to);
 
                 if (error) throw error;
+                if (seq !== loadSeq) return; // a newer load superseded this one
 
                 totalRecords = count || 0;
                 currentMembersCache = data || [];
@@ -1175,6 +1274,7 @@
 
             } catch (err) {
                 console.error('Load members error:', err);
+                if (silent) return; // keep the existing table on background failure
                 membersList.innerHTML = `
                     <div style="text-align:center;padding:40px;color:var(--danger);">
                         <i class="fas fa-exclamation-triangle" style="font-size:40px;display:block;margin-bottom:12px;"></i>
@@ -1510,7 +1610,7 @@
                 setMemberEditMode(false);
                 renderMemberViewFields(data);
                 showModalSuccess('Member details updated.');
-                loadMembers(currentPage);
+                loadMembers(currentPage, true);
             } catch (err) {
                 console.error('Save member error:', err);
                 showModalError(`Failed to save: ${err.message || 'unknown error'}`);
@@ -1529,7 +1629,7 @@
                     .eq('id', selectedMemberId);
                 if (error) throw error;
                 showModalSuccess(`Status updated to ${ns}.`);
-                loadMembers(currentPage);
+                loadMembers(currentPage, true);
             } catch (err) {
                 showModalError(`Failed to update status: ${err.message || 'unknown error'}`);
             }
@@ -1592,12 +1692,13 @@
             }
         }
 
+        // NOTE: closing the modal does NOT stop polling. If a payment is
+        // still pending, the poll keeps running in the background so the
+        // list refreshes the moment the payment lands.
         function closeStkModal() {
-            stopStkPolling();
             document.getElementById('stkModal').classList.remove('open');
             stkMemberId = null;
             stkMembershipNumber = null;
-            stkCheckoutId = null;
         }
 
         function clearStkModal() {
@@ -1685,7 +1786,7 @@
                 showToast('STK push sent to ' + phone, 'success');
 
                 if (stkCheckoutId) {
-                    startStkPolling(stkCheckoutId, token);
+                    startStkPolling(stkCheckoutId);
                 } else {
                     resetStkSendBtn();
                 }
@@ -1699,34 +1800,43 @@
             }
         }
 
-        function startStkPolling(checkoutId, token) {
+        // Fetches a fresh token on every tick so long polls never fail on expiry.
+        function startStkPolling(checkoutId) {
             stopStkPolling();
             stkPollAttempts = 0;
 
             stkPollTimer = setInterval(async () => {
                 stkPollAttempts++;
                 try {
+                    const token = await getAuthToken();
+                    if (!token) { stopStkPolling(); return; }
+
                     const response = await fetch(`${API_BASE_URL}/admin/payments/status/${encodeURIComponent(checkoutId)}`, {
                         headers: { 'Authorization': `Bearer ${token}` }
                     });
                     const data = await response.json();
                     const status = String(data?.status || '').toLowerCase();
 
-                    if (status === 'completed') {
+                    const isDone = ['completed', 'success', 'successful', 'paid', 'confirmed'].includes(status);
+                    const isFailed = ['failed', 'cancelled', 'canceled', 'rejected', 'timeout', 'expired'].includes(status);
+
+                    if (isDone) {
                         stopStkPolling();
                         const receipt = data.receipt || data.mpesa_receipt_number || null;
                         setStkStatus('success', 'Payment confirmed' + (receipt ? ` — receipt ${receipt}.` : '.'));
                         showToast('Payment completed successfully!', 'success');
                         resetStkSendBtn();
-                        loadMembers(currentPage);
-                    } else if (status === 'failed') {
+                        loadMembers(currentPage, true);
+                    } else if (isFailed) {
                         stopStkPolling();
                         setStkStatus('failed', 'Payment was not completed.');
+                        showToast('Payment failed or was cancelled.', 'error');
                         resetStkSendBtn();
                     } else if (stkPollAttempts >= STK_POLL_MAX_ATTEMPTS) {
                         stopStkPolling();
                         setStkStatus('pending', 'Taking longer than expected — check the Payments page for the final result.');
                         resetStkSendBtn();
+                        loadMembers(currentPage, true);
                     }
                     // pending — keep polling silently.
                 } catch (err) {
@@ -1959,6 +2069,7 @@
 
         async function handleLogout() {
             try {
+                if (realtimeChannel) await supabaseClient.removeChannel(realtimeChannel);
                 await supabaseClient.auth.signOut();
                 localStorage.removeItem('admin_user');
                 localStorage.removeItem('admin_session');
