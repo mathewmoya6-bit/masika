@@ -1239,10 +1239,9 @@
         // ============================================================
         // REALTIME LIVE UPDATES
         // ------------------------------------------------------------
-        // The page reads calculated member data from the
-        // admin_member_payment_status VIEW. Supabase Realtime cannot
-        // subscribe to a VIEW, so we listen to every base table that
-        // can affect the view and then silently re-query the view.
+        // The page reads authoritative member data directly from the
+        // members table. Supabase Realtime listens to base tables and
+        // then silently re-queries the affected data.
         // A short fallback refresh keeps the page current even if the
         // realtime WebSocket is temporarily unavailable.
         //
@@ -1310,7 +1309,7 @@
             setLiveIndicator(false, 'Connecting...');
 
             realtimeChannel = supabaseClient
-                .channel('admin-members-live', {
+                .channel(`admin-members-live-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`, {
                     config: {
                         broadcast: { self: false },
                         presence: { key: '' }
@@ -1562,7 +1561,7 @@
                     .from('payments')
                     .select('*')
                     .eq('member_id', memberId)
-                    .order('payment_date', { ascending: false })
+                    .order('created_at', { ascending: false })
                     .limit(50);
 
                 if (error) throw error;
@@ -1608,13 +1607,14 @@
                     minimumFractionDigits: 0,
                     maximumFractionDigits: 2
                 });
-                const dateStr = p.payment_date
-                    ? new Date(p.payment_date).toLocaleDateString('en-KE', {
+                const paymentDate = p.payment_date || p.confirmed_at || p.verified_at || p.created_at;
+                const dateStr = paymentDate
+                    ? new Date(paymentDate).toLocaleDateString('en-KE', {
                         day: '2-digit', month: 'short', year: 'numeric'
                     })
                     : '—';
 
-                const statusRaw = String(p.status || '').toUpperCase();
+                const statusRaw = String(p.payment_status || p.status || '').toUpperCase();
                 let badgeClass = 'neutral';
                 let badgeLabel = statusRaw || '—';
                 if (['COMPLETED', 'SUCCESS', 'SUCCESSFUL', 'PAID', 'CONFIRMED'].includes(statusRaw)) {
@@ -1642,4 +1642,865 @@
                             ${receipt ? `<span class="ph-receipt"><i class="fas fa-hashtag" style="font-size:10px;"></i> ${escapeHTML(receipt)}</span>` : ''}
                         </div>
                         <div style="display:flex;align-items:center;gap:10px;flex-shrink:0;">
-                           
+                            <span class="ph-amount">KES ${amount}</span>
+                            <span class="mini-badge ${badgeClass} ph-badge">${escapeHTML(badgeLabel)}</span>
+                        </div>
+                    </div>`;
+            });
+
+            html += '</div>';
+            container.innerHTML = html;
+        }
+
+        // ============================================================
+        // RENDER MEMBERS
+        // ------------------------------------------------------------
+        // Status and payment totals come from authoritative `members`
+        // fields. Derived duration/renewal values are display-only.
+        // ============================================================
+        function renderMembers(members) {
+            if (!members || members.length === 0) {
+                membersList.innerHTML = `
+                    <div style="text-align:center;padding:40px;color:var(--text-light);">
+                        <i class="fas fa-users" style="font-size:40px;display:block;margin-bottom:12px;opacity:0.3;"></i>
+                        <p>No members found matching your criteria.</p>
+                        <button onclick="resetFilters()" class="btn btn-primary" style="margin-top:12px;">
+                            <i class="fas fa-undo"></i> Clear Filters
+                        </button>
+                    </div>`;
+                return;
+            }
+
+            let html = `
+                <div class="table-wrapper">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Member #</th>
+                                <th>Name</th>
+                                <th>Phone</th>
+                                <th>Plan</th>
+                                <th>Status</th>
+                                <th>Duration</th>
+                                <th>Renewal</th>
+                                <th>Payments</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>`;
+
+            members.forEach(member => {
+                // ---- pass-through fields from the view ----
+                const memberNumber = member.member_number || '—';
+                const fullName = member.full_name || '—';
+                const phone = member.phone || '—';
+                const plan = member.plan_type || '—';
+                const status = member.calculated_status || 'PENDING';
+                const missedPayments = Number(member.missed_months || 0);
+                const monthsPaid = Number(member.months_paid || 0);
+                const duration = member.membership_duration || 'New member';
+                const monthsToRenew = Number(member.months_to_renew ?? 0);
+
+                const renewalDate = member.renewal_due_date
+                    ? new Date(member.renewal_due_date + 'T00:00:00').toLocaleDateString('en-GB')
+                    : '—';
+
+                // ---- Status badge ----
+                const statusClass = String(status).toLowerCase();
+                const statusBadge = `<span class="status-badge ${statusClass}">${escapeHTML(status)}</span>`;
+
+                // ---- Payments display ----
+                let paymentDisplay;
+                if (missedPayments === 0) paymentDisplay = 'Up to date';
+                else if (missedPayments === 1) paymentDisplay = '1 month missed';
+                else paymentDisplay = `${missedPayments} months missed`;
+
+                const paymentMainClass = missedPayments === 0 ? 'ok' : 'missed';
+                const paymentCell = `
+                    <div class="payment-cell">
+                        <span class="payment-main ${paymentMainClass}">${paymentDisplay}</span>
+                        <small>${monthsPaid} paid</small>
+                    </div>`;
+
+                // ---- Renewal badge (derived from view) ----
+                let renewalClass = 'ok';
+                let renewalLabel = 'On track';
+                if (monthsToRenew < 0) {
+                    renewalClass = 'late';
+                    renewalLabel = `${Math.abs(monthsToRenew)}mo overdue`;
+                } else if (monthsToRenew === 0) {
+                    renewalClass = 'soon';
+                    renewalLabel = 'Due now';
+                } else if (monthsToRenew === 1) {
+                    renewalClass = 'soon';
+                    renewalLabel = '1mo to renew';
+                } else if (monthsToRenew <= 3) {
+                    renewalClass = 'soon';
+                    renewalLabel = `${monthsToRenew}mo to renew`;
+                } else {
+                    renewalLabel = `${monthsToRenew}mo to renew`;
+                }
+
+                html += `
+                    <tr>
+                        <td><strong>${escapeHTML(memberNumber)}</strong></td>
+                        <td>${escapeHTML(fullName)}</td>
+                        <td>${escapeHTML(phone)}</td>
+                        <td><span class="status-badge ${escapeHTML(plan.toLowerCase())}">${escapeHTML(plan)}</span></td>
+                        <td>${statusBadge}</td>
+                        <td><span class="mini-badge info"><i class="fas fa-clock"></i> ${escapeHTML(duration)}</span></td>
+                        <td>
+                            <span class="mini-badge ${renewalClass}" title="Renewal due: ${renewalDate}">
+                                <i class="fas ${renewalClass === 'late' ? 'fa-triangle-exclamation' : renewalClass === 'soon' ? 'fa-bell' : 'fa-calendar-check'}"></i>
+                                ${renewalLabel}
+                            </span>
+                        </td>
+                        <td>${paymentCell}</td>
+                        <td>
+                            <div class="row-actions">
+                                <button class="btn-icon view" title="View member" onclick="openMemberModal('${member.id}')">
+                                    <i class="fas fa-eye"></i>
+                                </button>
+                                <button class="btn-icon edit" title="Edit member" onclick="openMemberModal('${member.id}', true)">
+                                    <i class="fas fa-pen"></i>
+                                </button>
+                                <button class="btn-icon stk" title="Send STK push" onclick="openStkModal('${member.id}')">
+                                    <i class="fas fa-mobile-alt"></i>
+                                </button>
+                                <button class="btn-icon idcard" title="Member ID card" id="idcard-btn-${member.id}" onclick="generateIdCard('${member.id}')">
+                                    <i class="fas fa-id-card"></i>
+                                </button>
+                            </div>
+                        </td>
+                    </tr>`;
+            });
+
+            html += `</tbody></table></div>`;
+            membersList.innerHTML = html;
+        }
+
+        function renderPagination() {
+            const totalPages = Math.ceil(totalRecords / pageSize);
+            if (totalPages <= 1) { pagination.style.display = 'none'; return; }
+            pagination.style.display = 'flex';
+            paginationInfo.textContent = `Showing ${((currentPage - 1) * pageSize) + 1}-${Math.min(currentPage * pageSize, totalRecords)} of ${totalRecords}`;
+            prevPageBtn.disabled = currentPage <= 1;
+            nextPageBtn.disabled = currentPage >= totalPages;
+        }
+
+        function changePage(delta) {
+            const totalPages = Math.ceil(totalRecords / pageSize);
+            const next = currentPage + delta;
+            if (next < 1 || next > totalPages) return;
+            loadMembers(next);
+        }
+
+        function applyFilters() { loadMembers(1); }
+
+        function resetFilters() {
+            memberSearch.value = '';
+            statusFilter.value = '';
+            planFilter.value = '';
+            loadMembers(1);
+        }
+
+        // ============================================================
+        // VIEW / EDIT MODAL (member detail)
+        // ------------------------------------------------------------
+        // openMemberModal(id) opens read-only.
+        // openMemberModal(id, true) opens straight into edit mode.
+        // Payment history is loaded into the modal for view mode.
+        // ============================================================
+        async function openMemberModal(memberId, startInEdit = false) {
+            selectedMemberId = memberId;
+            memberEditMode = false;
+
+            try {
+                // For editing we still pull the full member row from members.
+                const { data: member, error } = await supabaseClient
+                    .from('members').select('*').eq('id', memberId).single();
+                if (error) throw error;
+
+                currentMemberRecord = member;
+
+                document.getElementById('memberModalName').textContent =
+                    `${member.first_name || ''} ${member.last_name || ''}`.trim() || 'Member';
+                document.getElementById('memberStatusSelect').value = member.status || 'PENDING';
+
+                document.getElementById('memberModal').classList.add('open');
+                clearModalMessages();
+                setMemberEditMode(!!startInEdit);
+
+                // Load payment history in the background
+                loadMemberPayments(memberId, false);
+
+            } catch (err) {
+                console.error('Open member error:', err);
+                showModalError(`Failed to load member details: ${err.message || 'unknown error'}`);
+            }
+        }
+
+        function closeMemberModal() {
+            document.getElementById('memberModal').classList.remove('open');
+            selectedMemberId = null;
+            currentMemberRecord = null;
+            memberEditMode = false;
+            currentMemberPayments = [];
+            clearModalMessages();
+        }
+
+        function renderMemberViewFields(member) {
+            document.getElementById('memberPersonalInfo').innerHTML = `
+                <div><span class="label">Full Name</span><div class="value">${escapeHTML(member.first_name || '')} ${escapeHTML(member.last_name || '')}</div></div>
+                <div><span class="label">Date of Birth</span><div class="value">${escapeHTML(member.date_of_birth || '-')}</div></div>
+                <div><span class="label">Gender</span><div class="value">${escapeHTML(member.gender || '-')}</div></div>
+                <div><span class="label">ID Number</span><div class="value">${escapeHTML(member.id_number || '-')}</div></div>`;
+
+            document.getElementById('memberContactInfo').innerHTML = `
+                <div><span class="label">Phone</span><div class="value">${escapeHTML(member.phone || '-')}</div></div>
+                <div><span class="label">Alternative Phone</span><div class="value">${escapeHTML(member.alternative_phone || '-')}</div></div>
+                <div><span class="label">Email</span><div class="value">${escapeHTML(member.email || '-')}</div></div>
+                <div><span class="label">County</span><div class="value">${escapeHTML(member.county || '-')}</div></div>
+                <div><span class="label">Town</span><div class="value">${escapeHTML(member.town || '-')}</div></div>
+                <div><span class="label">Location</span><div class="value">${escapeHTML(member.location || '-')}</div></div>`;
+
+            document.getElementById('memberMembershipInfo').innerHTML = `
+                <div><span class="label">Membership Number</span><div class="value">${escapeHTML(member.member_number || member.membership_number || '-')}</div></div>
+                <div><span class="label">Plan Type</span><div class="value">${escapeHTML(member.plan_type || '-')}</div></div>
+                <div><span class="label">Benefit Option</span><div class="value">${escapeHTML(member.benefit_option || '-')}</div></div>
+                <div><span class="label">Registration Fee</span><div class="value">KES ${parseFloat(member.registration_fee || 0).toLocaleString()}</div></div>
+                <div><span class="label">Status</span><div class="value"><span class="status-badge ${String(member.status || 'PENDING').toLowerCase()}">${escapeHTML(member.status || 'PENDING')}</span></div></div>
+                <div><span class="label">Joined</span><div class="value">${member.created_at ? new Date(member.created_at).toLocaleDateString('en-KE') : '-'}</div></div>`;
+
+            document.getElementById('memberKinInfo').innerHTML = `
+                <div><span class="label">Name</span><div class="value">${escapeHTML(member.kin_name || '-')}</div></div>
+                <div><span class="label">Relationship</span><div class="value">${escapeHTML(member.kin_relationship || '-')}</div></div>
+                <div><span class="label">Phone</span><div class="value">${escapeHTML(member.kin_phone || '-')}</div></div>
+                <div><span class="label">ID Number</span><div class="value">${escapeHTML(member.kin_id || '-')}</div></div>`;
+        }
+
+        function renderMemberEditFields(member) {
+            const dob = member.date_of_birth ? String(member.date_of_birth).slice(0,10) : '';
+
+            document.getElementById('memberPersonalInfo').innerHTML = `
+                <div class="form-group"><label>First Name</label><input type="text" id="emFirstName" maxlength="100" value="${escapeAttr(member.first_name)}"></div>
+                <div class="form-group"><label>Last Name</label><input type="text" id="emLastName" maxlength="100" value="${escapeAttr(member.last_name)}"></div>
+                <div class="form-group"><label>Date of Birth</label><input type="date" id="emDob" value="${dob}"></div>
+                <div class="form-group"><label>Gender</label>
+                    <select id="emGender">
+                        <option value="" ${!member.gender ? 'selected' : ''}>Not specified</option>
+                        <option value="MALE" ${member.gender === 'MALE' ? 'selected' : ''}>Male</option>
+                        <option value="FEMALE" ${member.gender === 'FEMALE' ? 'selected' : ''}>Female</option>
+                    </select>
+                </div>
+                <div class="form-group full"><label>ID Number</label><input type="text" id="emIdNumber" maxlength="30" value="${escapeAttr(member.id_number)}"></div>`;
+
+            document.getElementById('memberContactInfo').innerHTML = `
+                <div class="form-group"><label>Phone</label><input type="tel" id="emPhone" value="${escapeAttr(member.phone)}"></div>
+                <div class="form-group"><label>Alternative Phone</label><input type="tel" id="emAltPhone" value="${escapeAttr(member.alternative_phone)}"></div>
+                <div class="form-group"><label>Email</label><input type="email" id="emEmail" maxlength="150" value="${escapeAttr(member.email)}"></div>
+                <div class="form-group"><label>County</label><input type="text" id="emCounty" maxlength="100" value="${escapeAttr(member.county)}"></div>
+                <div class="form-group"><label>Town</label><input type="text" id="emTown" maxlength="100" value="${escapeAttr(member.town)}"></div>
+                <div class="form-group full"><label>Location / Area</label><input type="text" id="emLocation" maxlength="150" value="${escapeAttr(member.location)}"></div>`;
+
+            document.getElementById('memberMembershipInfo').innerHTML = `
+                <div class="form-group"><label>Benefit Option</label>
+                    <select id="emBenefit">
+                        <option value="" ${!member.benefit_option ? 'selected' : ''}>Not specified</option>
+                        <option value="service" ${member.benefit_option === 'service' ? 'selected' : ''}>Service</option>
+                        <option value="cash" ${member.benefit_option === 'cash' ? 'selected' : ''}>Cash</option>
+                    </select>
+                </div>
+                <div class="form-group"><label>Registration Fee (KES)</label><input type="number" id="emFee" min="0" step="1" value="${escapeAttr(member.registration_fee ?? '')}"></div>`;
+
+            document.getElementById('memberKinInfo').innerHTML = `
+                <div class="form-group"><label>Full Name</label><input type="text" id="emKinName" maxlength="150" value="${escapeAttr(member.kin_name)}"></div>
+                <div class="form-group"><label>Relationship</label><input type="text" id="emKinRelationship" maxlength="50" value="${escapeAttr(member.kin_relationship)}"></div>
+                <div class="form-group"><label>Phone</label><input type="tel" id="emKinPhone" value="${escapeAttr(member.kin_phone)}"></div>
+                <div class="form-group"><label>ID Number</label><input type="text" id="emKinId" maxlength="30" value="${escapeAttr(member.kin_id)}"></div>`;
+        }
+
+        function setMemberEditMode(on) {
+            memberEditMode = on;
+            const btn = document.getElementById('memberEditToggleBtn');
+            document.getElementById('memberEditActions').style.display = on ? 'flex' : 'none';
+            btn.innerHTML = on ? '<i class="fas fa-eye"></i> View' : '<i class="fas fa-pen"></i> Edit Details';
+
+            // Hide payment history while editing (it's view-only data)
+            document.getElementById('memberPaymentsFieldset').style.display = on ? 'none' : 'block';
+
+            if (on) renderMemberEditFields(currentMemberRecord);
+            else renderMemberViewFields(currentMemberRecord);
+        }
+
+        function toggleEditMember() {
+            if (!currentMemberRecord) return;
+            clearModalMessages();
+            setMemberEditMode(!memberEditMode);
+        }
+
+        async function saveMemberDetails() {
+            if (!selectedMemberId || !currentMemberRecord) return;
+
+            const val = id => document.getElementById(id).value.trim();
+
+            const first_name = val('emFirstName');
+            const last_name = val('emLastName');
+            if (!first_name) return showModalError('First name is required.');
+            if (!last_name) return showModalError('Last name is required.');
+
+            const payload = {
+                first_name, last_name,
+                date_of_birth: val('emDob') || null,
+                gender: val('emGender') || null,
+                id_number: val('emIdNumber') || null,
+                phone: val('emPhone') || null,
+                alternative_phone: val('emAltPhone') || null,
+                email: val('emEmail') || null,
+                county: val('emCounty') || null,
+                town: val('emTown') || null,
+                location: val('emLocation') || null,
+                benefit_option: val('emBenefit') || null,
+                registration_fee: val('emFee') !== '' ? Number(val('emFee')) : null,
+                kin_name: val('emKinName') || null,
+                kin_relationship: val('emKinRelationship') || null,
+                kin_phone: val('emKinPhone') || null,
+                kin_id: val('emKinId') || null,
+                updated_at: new Date().toISOString()
+            };
+
+            const saveBtn = document.getElementById('memberEditSaveBtn');
+            saveBtn.disabled = true;
+            saveBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Saving...';
+
+            try {
+                const { data, error } = await supabaseClient
+                    .from('members').update(payload).eq('id', selectedMemberId).select('*').single();
+                if (error) throw error;
+
+                currentMemberRecord = data;
+                setMemberEditMode(false);
+                renderMemberViewFields(data);
+                showModalSuccess('Member details updated.');
+                loadMembers(currentPage, true);
+            } catch (err) {
+                console.error('Save member error:', err);
+                showModalError(`Failed to save: ${err.message || 'unknown error'}`);
+            } finally {
+                saveBtn.disabled = false;
+                saveBtn.innerHTML = '<i class="fas fa-check"></i> Save Changes';
+            }
+        }
+
+        async function saveMemberStatus() {
+            if (!selectedMemberId) return showModalError('No member selected.');
+            const ns = document.getElementById('memberStatusSelect').value;
+            try {
+                const { error } = await supabaseClient.from('members')
+                    .update({ status: ns, updated_at: new Date().toISOString() })
+                    .eq('id', selectedMemberId);
+                if (error) throw error;
+                showModalSuccess(`Status updated to ${ns}.`);
+                loadMembers(currentPage, true);
+            } catch (err) {
+                showModalError(`Failed to update status: ${err.message || 'unknown error'}`);
+            }
+        }
+
+        // ============================================================
+        // STK PUSH
+        // ------------------------------------------------------------
+        // Same backend calls as admin-collectpayments.html:
+        //   POST {API_BASE_URL}/admin/payments/collect
+        //     body: { member_id, membership_number, phone_number, amount, payment_type }
+        //     -> { success, checkout_request_id, payment_id, amount, ... }
+        //   GET  {API_BASE_URL}/admin/payments/status/{checkout_request_id}
+        //     -> { status: 'pending' | 'completed' | 'failed', receipt, ... }
+        // Both require the staff's Supabase Bearer token; the backend
+        // checks PAYMENT_COLLECTOR_ROLES independently of this page's
+        // own SUPER_ADMIN/ADMIN gate.
+        //
+        // AUTOMATIC UPDATE: When a payment is confirmed via polling,
+        // we refresh both the member list and — if the member modal is
+        // open — the member's payment history. Supabase Realtime on the
+        // `payments` table also triggers this automatically.
+        // ============================================================
+        async function openStkModal(memberId) {
+            stkMemberId = memberId;
+            stkMembershipNumber = null;
+            clearStkModal();
+
+            const cached = currentMembersCache.find(m => m.id === memberId);
+            document.getElementById('stkMemberLabel').textContent = cached
+                ? `${cached.full_name || 'Member'} — ${cached.member_number || ''}`
+                : 'Member';
+            document.getElementById('stkPhone').value = cached?.phone || '';
+            document.getElementById('stkAmount').value = '';
+            document.getElementById('stkPaymentType').value = 'monthly';
+            stkMembershipNumber = cached?.member_number || null;
+
+            document.getElementById('stkModal').classList.add('open');
+
+            // Best-effort: pull the full member row for phone/membership number/plan premium.
+            try {
+                const { data: member } = await supabaseClient
+                    .from('members').select('phone, plan_type, member_number, membership_number')
+                    .eq('id', memberId).single();
+
+                if (member) {
+                    if (member.phone && !document.getElementById('stkPhone').value) {
+                        document.getElementById('stkPhone').value = member.phone;
+                    }
+                    stkMembershipNumber = member.member_number || member.membership_number || stkMembershipNumber;
+
+                    if (member.plan_type) {
+                        const { data: plan } = await supabaseClient
+                            .from('plans')
+                            .select('principal_monthly_premium')
+                            .eq('plan_code', member.plan_type)
+                            .maybeSingle();
+                        if (plan?.principal_monthly_premium) {
+                            document.getElementById('stkAmount').value = plan.principal_monthly_premium;
+                        }
+                    }
+                }
+            } catch (err) {
+                console.warn('Could not prefill STK details:', err);
+            }
+        }
+
+        // NOTE: closing the modal does NOT stop polling. If a payment is
+        // still pending, the poll keeps running in the background so the
+        // list refreshes the moment the payment lands.
+        function closeStkModal() {
+            document.getElementById('stkModal').classList.remove('open');
+            stkMemberId = null;
+            stkMembershipNumber = null;
+        }
+
+        function clearStkModal() {
+            document.getElementById('stkModalError').style.display = 'none';
+            document.getElementById('stkStatusBox').innerHTML = '';
+            resetStkSendBtn();
+        }
+
+        function normalizeKenyanPhone(raw) {
+            let p = String(raw || '').replace(/[^\d]/g, '');
+            if (p.startsWith('0')) p = '254' + p.slice(1);
+            else if (p.startsWith('7') || p.startsWith('1')) p = '254' + p;
+            return p;
+        }
+
+        async function sendStkPush() {
+            if (!stkMemberId) return;
+
+            const errEl = document.getElementById('stkModalError');
+            errEl.style.display = 'none';
+
+            const phone = normalizeKenyanPhone(document.getElementById('stkPhone').value);
+            const rawAmount = parseFloat(document.getElementById('stkAmount').value);
+            const amount = Math.round(rawAmount);
+            const paymentType = document.getElementById('stkPaymentType').value || 'monthly';
+
+            if (!phone || phone.length < 10) {
+                errEl.textContent = 'Enter a valid M-Pesa phone number.';
+                errEl.style.display = 'block';
+                return;
+            }
+            if (!rawAmount || amount < 1) {
+                errEl.textContent = 'Enter an amount greater than 0.';
+                errEl.style.display = 'block';
+                return;
+            }
+            if (Math.abs(rawAmount - amount) > 0.001) {
+                errEl.textContent = 'Amount must be a whole number of shillings.';
+                errEl.style.display = 'block';
+                return;
+            }
+
+            const token = await getAuthToken();
+            if (!token) {
+                errEl.textContent = 'Authentication required — please log in again.';
+                errEl.style.display = 'block';
+                return;
+            }
+
+            const sendBtn = document.getElementById('stkSendBtn');
+            sendBtn.disabled = true;
+            sendBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Sending...';
+            setStkStatus('pending', 'Sending payment request to phone...');
+
+            try {
+                const payload = {
+                    member_id: stkMemberId,
+                    phone_number: phone,
+                    amount: amount,
+                    payment_type: paymentType
+                };
+                if (stkMembershipNumber) payload.membership_number = stkMembershipNumber;
+
+                const response = await fetch(`${API_BASE_URL}/admin/payments/collect`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${token}`
+                    },
+                    body: JSON.stringify(payload)
+                });
+
+                let data = null;
+                try { data = await response.json(); } catch { data = null; }
+
+                if (!response.ok || !data || data.success === false) {
+                    const detail = Array.isArray(data?.detail)
+                        ? data.detail.map(d => d.msg).join(' | ')
+                        : (data?.detail || data?.message || `Payment request failed (HTTP ${response.status}).`);
+                    throw new Error(detail);
+                }
+
+                stkCheckoutId = data.checkout_request_id || null;
+                setStkStatus('pending', 'Request sent. Waiting for the member to enter their M-Pesa PIN...');
+                showToast('STK push sent to ' + phone, 'success');
+
+                if (stkCheckoutId) {
+                    startStkPolling(stkCheckoutId);
+                } else {
+                    resetStkSendBtn();
+                }
+
+            } catch (err) {
+                console.error('STK push error:', err);
+                setStkStatus('failed', err.message || 'Failed to send STK push.');
+                errEl.textContent = err.message || 'Failed to send STK push.';
+                errEl.style.display = 'block';
+                resetStkSendBtn();
+            }
+        }
+
+        // Fetches a fresh token on every tick so long polls never fail on expiry.
+        function startStkPolling(checkoutId) {
+            stopStkPolling();
+            stkPollAttempts = 0;
+
+            stkPollTimer = setInterval(async () => {
+                stkPollAttempts++;
+                try {
+                    const token = await getAuthToken();
+                    if (!token) { stopStkPolling(); return; }
+
+                    const response = await fetch(`${API_BASE_URL}/admin/payments/status/${encodeURIComponent(checkoutId)}`, {
+                        headers: { 'Authorization': `Bearer ${token}` }
+                    });
+                    const data = await response.json();
+                    const status = String(data?.status || '').toLowerCase();
+
+                    const isDone = ['completed', 'success', 'successful', 'paid', 'confirmed'].includes(status);
+                    const isFailed = ['failed', 'cancelled', 'canceled', 'rejected', 'timeout', 'expired'].includes(status);
+
+                    if (isDone) {
+                        stopStkPolling();
+                        const receipt = data.receipt || data.mpesa_receipt_number || null;
+                        setStkStatus('success', 'Payment confirmed' + (receipt ? ` — receipt ${receipt}.` : '.'));
+                        showToast('Payment completed successfully!', 'success');
+                        resetStkSendBtn();
+
+                        // AUTOMATIC UPDATE: refresh member list and modal payment history
+                        loadMembers(currentPage, true);
+                        if (selectedMemberId) {
+                            loadMemberPayments(selectedMemberId, true);
+                        }
+                    } else if (isFailed) {
+                        stopStkPolling();
+                        setStkStatus('failed', 'Payment was not completed.');
+                        showToast('Payment failed or was cancelled.', 'error');
+                        resetStkSendBtn();
+                    } else if (stkPollAttempts >= STK_POLL_MAX_ATTEMPTS) {
+                        stopStkPolling();
+                        setStkStatus('pending', 'Taking longer than expected — check the Payments page for the final result.');
+                        resetStkSendBtn();
+                        loadMembers(currentPage, true);
+                        if (selectedMemberId) {
+                            loadMemberPayments(selectedMemberId, true);
+                        }
+                    }
+                    // pending — keep polling silently.
+                } catch (err) {
+                    console.warn('STK status poll error:', err);
+                    if (stkPollAttempts >= STK_POLL_MAX_ATTEMPTS) stopStkPolling();
+                }
+            }, STK_POLL_INTERVAL_MS);
+        }
+
+        function stopStkPolling() {
+            if (stkPollTimer) clearInterval(stkPollTimer);
+            stkPollTimer = null;
+        }
+
+        function resetStkSendBtn() {
+            const btn = document.getElementById('stkSendBtn');
+            btn.disabled = false;
+            btn.innerHTML = '<i class="fas fa-paper-plane"></i> Send Request';
+        }
+
+        function setStkStatus(kind, message) {
+            document.getElementById('stkStatusBox').innerHTML = `
+                <div class="stk-status ${kind}">
+                    <span class="dot"></span>
+                    <span>${escapeHTML(message)}</span>
+                </div>`;
+        }
+
+        // ============================================================
+        // MEMBER ID CARD (PDF)
+        // ------------------------------------------------------------
+        // No backend ID-card endpoint exists yet, so this generates
+        // the card client-side with jsPDF — the same library
+        // admin-collectpayments.html already uses for receipts.
+        // Card is a standard ID-1 size (85.6mm x 54mm).
+        // ============================================================
+        async function generateIdCard(memberId) {
+            if (idCardBusyId) return;
+            idCardBusyId = memberId;
+
+            const btn = document.getElementById(`idcard-btn-${memberId}`);
+            const originalIcon = btn ? btn.innerHTML : '';
+            if (btn) { btn.disabled = true; btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i>'; }
+
+            try {
+                const { data: member, error } = await supabaseClient
+                    .from('members').select('*').eq('id', memberId).single();
+                if (error) throw error;
+
+                const { jsPDF } = window.jspdf;
+                const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: [85.6, 54] });
+
+                const fullName = `${member.first_name || ''} ${member.last_name || ''}`.trim() || 'Member';
+                const memberNumber = member.member_number || member.membership_number || 'N/A';
+                const planLabel = (member.plan_type || '-').toString().toUpperCase();
+                const joined = member.created_at ? new Date(member.created_at).toLocaleDateString('en-KE') : '-';
+
+                // Header band
+                doc.setFillColor(11, 93, 59);
+                doc.rect(0, 0, 85.6, 15, 'F');
+                doc.setTextColor(255, 255, 255);
+                doc.setFontSize(9);
+                doc.setFont('helvetica', 'bold');
+                doc.text('MASIKA BENEVOLENT', 4, 6);
+                doc.setFontSize(6.5);
+                doc.setFont('helvetica', 'normal');
+                doc.text('Membership Identity Card', 4, 10.5);
+
+                // Body
+                doc.setTextColor(31, 41, 51);
+                doc.setFontSize(9);
+                doc.setFont('helvetica', 'bold');
+                doc.text(fullName, 4, 22);
+
+                doc.setFontSize(7);
+                doc.setFont('helvetica', 'normal');
+                doc.text(`Member #: ${memberNumber}`, 4, 28);
+                doc.text(`Plan: ${planLabel}`, 4, 33);
+                doc.text(`Phone: ${member.phone || '-'}`, 4, 38);
+                doc.text(`Joined: ${joined}`, 4, 43);
+
+                // Footer band
+                doc.setDrawColor(212, 168, 67);
+                doc.setLineWidth(0.8);
+                doc.line(4, 48, 81.6, 48);
+                doc.setFontSize(5.5);
+                doc.setTextColor(107, 114, 128);
+                doc.text('This card remains the property of Masika Benevolent.', 4, 51.5);
+
+                doc.save(`id_card_${memberNumber}.pdf`);
+                showToast('ID card generated.', 'success');
+            } catch (err) {
+                console.error('ID card error:', err);
+                showToast(`Failed to generate ID card: ${err.message || 'unknown error'}`, 'error');
+            } finally {
+                idCardBusyId = null;
+                if (btn) { btn.disabled = false; btn.innerHTML = originalIcon; }
+            }
+        }
+
+        // ============================================================
+        // EXPORT
+        // ============================================================
+        async function exportMembers() {
+            try {
+                const { data, error } = await supabaseClient
+                    .from(MEMBERS_TABLE)
+                    .select(MEMBER_COLUMNS)
+                    .is('deleted_at', null);
+                if (error) throw error;
+                if (!data || !data.length) return showToast('No members to export.', 'warning');
+
+                const headers = [
+                    'Member Number','Full Name','Phone','Plan','Status',
+                    'Missed Months','Months Paid','Registration Date','Renewal Due',
+                    'Amount Paid','Amount Expected'
+                ];
+                const rows = data.map(m => {
+                    const registrationDate = m.registration_date
+                        ? new Date(`${m.registration_date}T00:00:00`)
+                        : null;
+                    const renewalDate = registrationDate
+                        ? new Date(
+                            registrationDate.getFullYear() + 1,
+                            registrationDate.getMonth(),
+                            registrationDate.getDate()
+                        )
+                        : null;
+
+                    const status = String(m.status || m.member_status || 'PENDING').toUpperCase();
+
+                    return [
+                        m.member_number || '',
+                        m.full_name || '',
+                        m.phone || '',
+                        m.plan_type || m.plan || '',
+                        status,
+                        Number(m.months_missing || 0),
+                        Number(m.months_paid || 0),
+                        m.registration_date || '',
+                        renewalDate ? renewalDate.toISOString().slice(0, 10) : '',
+                        Number(m.amount_paid || 0),
+                        Number(m.amount_expected || 0)
+                    ];
+                });
+
+                let csv = headers.join(',') + '\n';
+                rows.forEach(row => {
+                    csv += row.map(c => `"${String(c).replace(/"/g, '""')}"`).join(',') + '\n';
+                });
+
+                const blob = new Blob([csv], { type: 'text/csv' });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `members_${new Date().toISOString().split('T')[0]}.csv`;
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                URL.revokeObjectURL(url);
+                showToast('Members exported.', 'success');
+            } catch (err) {
+                console.error('Export error:', err);
+                showToast('Failed to export.', 'error');
+            }
+        }
+
+        async function refreshData() {
+            refreshBtn.disabled = true;
+            refreshIcon.classList.add('fa-spin');
+            try {
+                await loadMembers(currentPage);
+                if (selectedMemberId) {
+                    await loadMemberPayments(selectedMemberId, true);
+                }
+                showToast('Data refreshed.', 'success');
+            } catch { showToast('Failed to refresh.', 'error'); }
+            finally {
+                refreshBtn.disabled = false;
+                refreshIcon.classList.remove('fa-spin');
+            }
+        }
+
+        // ============================================================
+        // HELPERS
+        // ============================================================
+        function showModalError(msg) {
+            const el = document.getElementById('memberModalError');
+            el.textContent = msg;
+            el.style.display = 'block';
+            document.getElementById('memberModalSuccess').style.display = 'none';
+        }
+
+        function showModalSuccess(msg) {
+            const el = document.getElementById('memberModalSuccess');
+            el.textContent = msg;
+            el.style.display = 'block';
+            document.getElementById('memberModalError').style.display = 'none';
+        }
+
+        function clearModalMessages() {
+            document.getElementById('memberModalError').style.display = 'none';
+            document.getElementById('memberModalSuccess').style.display = 'none';
+        }
+
+        function setupSidebarToggle() {
+            const sb = document.getElementById('sidebar');
+            const bd = document.getElementById('sidebarBackdrop');
+            const bt = document.getElementById('sidebarToggle');
+            if (bt) bt.addEventListener('click', () => { sb.classList.toggle('open'); bd.classList.toggle('show'); });
+            if (bd) bd.addEventListener('click', () => { sb.classList.remove('open'); bd.classList.remove('show'); });
+            document.querySelectorAll('.sidebar-nav a').forEach(a => {
+                a.addEventListener('click', () => { sb.classList.remove('open'); bd.classList.remove('show'); });
+            });
+        }
+
+        function updateClock() {
+            const el = document.getElementById('currentDateTime');
+            if (el) {
+                el.textContent = new Date().toLocaleString('en-KE', {
+                    weekday: 'short', day: '2-digit', month: 'short', year: 'numeric',
+                    hour: '2-digit', minute: '2-digit'
+                });
+            }
+            setTimeout(updateClock, 30000);
+        }
+
+        function showToast(message, type = 'info') {
+            const c = document.getElementById('toastContainer');
+            if (!c) return;
+            const t = document.createElement('div');
+            t.className = `toast ${type}`;
+            t.textContent = message;
+            c.appendChild(t);
+            setTimeout(() => t.remove(), type === 'warning' ? 9000 : 4000);
+        }
+
+        function escapeHTML(value) {
+            if (value === null || value === undefined || value === '') return '-';
+            return String(value)
+                .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;').replace(/'/g, '&#039;');
+        }
+
+        function escapeAttr(value) {
+            return String(value || '')
+                .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;').replace(/'/g, '&#039;');
+        }
+
+        async function handleLogout() {
+            try {
+                if (realtimeChannel) await supabaseClient.removeChannel(realtimeChannel);
+                await supabaseClient.auth.signOut();
+                localStorage.removeItem('admin_user');
+                localStorage.removeItem('admin_session');
+                sessionStorage.clear();
+                window.location.href = 'admin-login.html';
+            } catch (err) {
+                console.error('Logout error:', err);
+                showToast('Failed to logout.', 'error');
+            }
+        }
+
+        // Expose handlers
+        Object.assign(window, {
+            loadMembers, applyFilters, resetFilters, changePage, refreshData,
+            openMemberModal, closeMemberModal, toggleEditMember, saveMemberDetails,
+            saveMemberStatus, exportMembers, handleLogout, showToast,
+            openStkModal, closeStkModal, sendStkPush, generateIdCard,
+            loadMemberPayments
+        });
+
+        document.getElementById('memberModal').addEventListener('click', function(e) {
+            if (e.target === this) closeMemberModal();
+        });
+        document.getElementById('stkModal').addEventListener('click', function(e) {
+            if (e.target === this) closeStkModal();
+        });
+    </script>
+</body>
+</html>
