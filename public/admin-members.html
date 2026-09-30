@@ -958,9 +958,6 @@
         </main>
     </div>
 
-    <!-- ============================================================ -->
-    <!-- MEMBER DETAIL MODAL (with payment history)                    -->
-    <!-- ============================================================ -->
     <div class="modal-overlay" id="memberModal">
         <div class="modal modal-lg">
             <h3>
@@ -1009,9 +1006,6 @@
                 <div class="detail-grid" id="memberKinInfo"></div>
             </fieldset>
 
-            <!-- ============================================================ -->
-            <!-- PAYMENT HISTORY (NEW)                                         -->
-            <!-- ============================================================ -->
             <fieldset id="memberPaymentsFieldset">
                 <legend>
                     Payment History
@@ -1037,9 +1031,6 @@
         </div>
     </div>
 
-    <!-- ============================================================ -->
-    <!-- STK MODAL                                                      -->
-    <!-- ============================================================ -->
     <div class="modal-overlay" id="stkModal">
         <div class="modal modal-sm">
             <h3>
@@ -1092,17 +1083,9 @@
 
         const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
-        // ============================================================
-        // BACKEND API CONFIG
-        // Same FastAPI backend and staff-only admin routes that
-        // admin-collectpayments.html uses: /api/admin/payments/collect
-        // and /api/admin/payments/status/{checkout_request_id}, both
-        // requiring the Supabase Bearer token (PAYMENT_COLLECTOR_ROLES
-        // check on the backend). No /v1 prefix.
-        // ============================================================
         const API_BASE_URL = 'https://masika-c921.onrender.com/api';
         const STK_POLL_INTERVAL_MS = 10000;
-        const STK_POLL_MAX_ATTEMPTS = 12; // 2 minutes, matches collectpayments.html
+        const STK_POLL_MAX_ATTEMPTS = 12;
 
         async function getAuthToken() {
             const { data: { session } } = await supabaseClient.auth.getSession();
@@ -1110,20 +1093,19 @@
         }
 
         // ============================================================
-        // AUTHORITATIVE MEMBER PAYMENT DATA
+        // AUTHORITATIVE MEMBER COLUMNS
         // ------------------------------------------------------------
-        // Payment totals/status are maintained on `members` by the
-        // database payment-reconciliation logic. Do NOT use the old
-        // admin_member_payment_status view for months/status because
-        // it can contain stale calculated values.
+        // Only columns that actually exist on the `members` table.
+        // Full name is built client-side from first_name + last_name.
+        // Plan lives in `plan` (not `plan_type`).
         // ============================================================
         const MEMBERS_TABLE = 'members';
         const MEMBER_COLUMNS = `
             id,
             member_number,
-            full_name,
+            first_name,
+            last_name,
             phone,
-            plan_type,
             plan,
             status,
             member_status,
@@ -1160,9 +1142,8 @@
         let realtimeDebounce = null;
         let realtimeReconnectTimer = null;
         let fallbackTimer = null;
-        let loadSeq = 0; // guards against out-of-order responses
+        let loadSeq = 0;
 
-        // Payment history state
         let currentMemberPayments = [];
         let paymentsLoadSeq = 0;
 
@@ -1237,18 +1218,7 @@
         }
 
         // ============================================================
-        // REALTIME LIVE UPDATES
-        // ------------------------------------------------------------
-        // The page reads calculated member data from the
-        // admin_member_payment_status VIEW. Supabase Realtime cannot
-        // subscribe to a VIEW, so we listen to every base table that
-        // can affect the view and then silently re-query the view.
-        // A short fallback refresh keeps the page current even if the
-        // realtime WebSocket is temporarily unavailable.
-        //
-        // ADDITIONALLY: we subscribe to the `payments` table so that
-        // whenever a payment is recorded (e.g. via STK push), the
-        // member modal's payment history refreshes automatically.
+        // REALTIME
         // ============================================================
         const REALTIME_DEBOUNCE_MS = 400;
         const FALLBACK_REFRESH_MS = 5000;
@@ -1270,8 +1240,6 @@
                     console.log(`Realtime refresh: ${reason}`);
                     await loadMembers(currentPage, true);
 
-                    // If the member modal is open and not in edit mode,
-                    // refresh its payment history too.
                     if (selectedMemberId && !memberEditMode) {
                         await loadMemberPayments(selectedMemberId, true);
                     }
@@ -1397,11 +1365,11 @@
         }
 
         // ============================================================
-        // LOAD MEMBERS — reads authoritative fields from `members`
+        // LOAD MEMBERS
         // ------------------------------------------------------------
-        // No client-side payment reconciliation. The database owns:
-        // months_paid, months_missing, months_short, amount_paid,
-        // amount_expected and validated status.
+        // Reads authoritative fields from `members`. Duration is
+        // derived from months_paid (validated). Renewal is a separate
+        // 12-month marker based on registration_date.
         // ============================================================
         async function loadMembers(page = 1, silent = false) {
             if (!authReady) return;
@@ -1427,25 +1395,21 @@
 
                 let query = supabaseClient
                     .from(MEMBERS_TABLE)
-                    .select(MEMBER_COLUMNS, { count: 'exact' })
-                    .is('deleted_at', null);
+                    .select(MEMBER_COLUMNS, { count: 'exact' });
 
                 if (statusFilterValue) {
-                    query = query.or(
-                        `status.eq.${statusFilterValue},member_status.eq.${statusFilterValue}`
-                    );
+                    query = query.eq('status', statusFilterValue);
                 }
 
                 if (planFilterValue) {
-                    query = query.or(
-                        `plan_type.eq.${planFilterValue},plan.eq.${planFilterValue}`
-                    );
+                    query = query.eq('plan', planFilterValue);
                 }
 
                 if (search) {
                     const s = search.replace(/[%,]/g, '');
                     query = query.or(
-                        `full_name.ilike.%${s}%,` +
+                        `first_name.ilike.%${s}%,` +
+                        `last_name.ilike.%${s}%,` +
                         `member_number.ilike.%${s}%,` +
                         `phone.ilike.%${s}%`
                     );
@@ -1466,23 +1430,16 @@
 
                     let renewalDate = null;
                     let monthsToRenew = 0;
-                    let duration = 'New member';
+
+                    // Duration is based on authoritative validated months paid.
+                    const monthsPaid = Number(member.months_paid || 0);
+                    const duration = `${monthsPaid} month${monthsPaid === 1 ? '' : 's'}`;
 
                     if (registrationDate && !Number.isNaN(registrationDate.getTime())) {
                         renewalDate = new Date(registrationDate);
                         renewalDate.setFullYear(renewalDate.getFullYear() + 1);
 
                         const now = new Date();
-                        let monthsElapsed =
-                            (now.getFullYear() - registrationDate.getFullYear()) * 12 +
-                            (now.getMonth() - registrationDate.getMonth());
-
-                        if (now.getDate() < registrationDate.getDate()) {
-                            monthsElapsed -= 1;
-                        }
-
-                        monthsElapsed = Math.max(0, monthsElapsed);
-                        duration = `${monthsElapsed} month${monthsElapsed === 1 ? '' : 's'}`;
 
                         monthsToRenew =
                             (renewalDate.getFullYear() - now.getFullYear()) * 12 +
@@ -1491,6 +1448,7 @@
                         if (now.getDate() > renewalDate.getDate()) {
                             monthsToRenew -= 1;
                         }
+
                         monthsToRenew = Math.max(0, monthsToRenew);
                     }
 
@@ -1514,8 +1472,7 @@
 
                 const { count: total } = await supabaseClient
                     .from(MEMBERS_TABLE)
-                    .select('id', { count: 'exact', head: true })
-                    .is('deleted_at', null);
+                    .select('id', { count: 'exact', head: true });
 
                 document.getElementById('memberCountBadge').textContent = total || 0;
 
@@ -1535,12 +1492,7 @@
         }
 
         // ============================================================
-        // LOAD MEMBER PAYMENTS (for the member modal)
-        // ------------------------------------------------------------
-        // Reads directly from the `payments` table filtered by
-        // member_id. Supabase Realtime on `payments` triggers a
-        // silent refresh of this list whenever a new payment lands,
-        // so the member account view updates automatically.
+        // LOAD MEMBER PAYMENTS
         // ============================================================
         async function loadMemberPayments(memberId, silent = false) {
             if (!memberId) return;
@@ -1566,7 +1518,7 @@
                     .limit(50);
 
                 if (error) throw error;
-                if (seq !== paymentsLoadSeq) return; // superseded
+                if (seq !== paymentsLoadSeq) return;
 
                 currentMemberPayments = data || [];
                 renderMemberPayments(currentMemberPayments);
@@ -1584,6 +1536,9 @@
 
         // ============================================================
         // RENDER MEMBER PAYMENTS
+        // ------------------------------------------------------------
+        // Reads payment_status first (new callback schema), then
+        // falls back to legacy `status`.
         // ============================================================
         function renderMemberPayments(payments) {
             const container = document.getElementById('memberPaymentsContent');
@@ -1614,7 +1569,7 @@
                     })
                     : '—';
 
-                const statusRaw = String(p.status || '').toUpperCase();
+                const statusRaw = String(p.payment_status || p.status || '').toUpperCase();
                 let badgeClass = 'neutral';
                 let badgeLabel = statusRaw || '—';
                 if (['COMPLETED', 'SUCCESS', 'SUCCESSFUL', 'PAID', 'CONFIRMED'].includes(statusRaw)) {
@@ -1629,7 +1584,7 @@
                 }
 
                 const paymentType = p.payment_type || p.type || 'payment';
-                const receipt = p.mpesa_receipt_number || p.receipt || p.transaction_reference || '';
+                const receipt = p.mpesa_receipt_number || p.mpesa_receipt || p.receipt || p.transaction_reference || '';
 
                 html += `
                     <div class="payment-history-item">
@@ -1655,8 +1610,9 @@
         // ============================================================
         // RENDER MEMBERS
         // ------------------------------------------------------------
-        // Status and payment totals come from authoritative `members`
-        // fields. Derived duration/renewal values are display-only.
+        // Full name built from first_name + last_name. Plan from
+        // `plan` column. All totals come from authoritative members
+        // fields (months_paid, months_missing).
         // ============================================================
         function renderMembers(members) {
             if (!members || members.length === 0) {
@@ -1690,26 +1646,23 @@
                         <tbody>`;
 
             members.forEach(member => {
-                // ---- pass-through fields from the view ----
                 const memberNumber = member.member_number || '—';
-                const fullName = member.full_name || '—';
+                const fullName = `${member.first_name || ''} ${member.last_name || ''}`.trim() || '—';
                 const phone = member.phone || '—';
-                const plan = member.plan_type || '—';
+                const plan = member.plan || '—';
                 const status = member.calculated_status || 'PENDING';
                 const missedPayments = Number(member.missed_months || 0);
                 const monthsPaid = Number(member.months_paid || 0);
-                const duration = member.membership_duration || 'New member';
+                const duration = member.membership_duration || '0 months';
                 const monthsToRenew = Number(member.months_to_renew ?? 0);
 
                 const renewalDate = member.renewal_due_date
                     ? new Date(member.renewal_due_date + 'T00:00:00').toLocaleDateString('en-GB')
                     : '—';
 
-                // ---- Status badge ----
                 const statusClass = String(status).toLowerCase();
                 const statusBadge = `<span class="status-badge ${statusClass}">${escapeHTML(status)}</span>`;
 
-                // ---- Payments display ----
                 let paymentDisplay;
                 if (missedPayments === 0) paymentDisplay = 'Up to date';
                 else if (missedPayments === 1) paymentDisplay = '1 month missed';
@@ -1722,7 +1675,6 @@
                         <small>${monthsPaid} paid</small>
                     </div>`;
 
-                // ---- Renewal badge (derived from view) ----
                 let renewalClass = 'ok';
                 let renewalLabel = 'On track';
                 if (monthsToRenew < 0) {
@@ -1746,7 +1698,7 @@
                         <td><strong>${escapeHTML(memberNumber)}</strong></td>
                         <td>${escapeHTML(fullName)}</td>
                         <td>${escapeHTML(phone)}</td>
-                        <td><span class="status-badge ${escapeHTML(plan.toLowerCase())}">${escapeHTML(plan)}</span></td>
+                        <td><span class="status-badge ${escapeHTML(String(plan).toLowerCase())}">${escapeHTML(plan)}</span></td>
                         <td>${statusBadge}</td>
                         <td><span class="mini-badge info"><i class="fas fa-clock"></i> ${escapeHTML(duration)}</span></td>
                         <td>
@@ -1805,18 +1757,13 @@
         }
 
         // ============================================================
-        // VIEW / EDIT MODAL (member detail)
-        // ------------------------------------------------------------
-        // openMemberModal(id) opens read-only.
-        // openMemberModal(id, true) opens straight into edit mode.
-        // Payment history is loaded into the modal for view mode.
+        // VIEW / EDIT MODAL
         // ============================================================
         async function openMemberModal(memberId, startInEdit = false) {
             selectedMemberId = memberId;
             memberEditMode = false;
 
             try {
-                // For editing we still pull the full member row from members.
                 const { data: member, error } = await supabaseClient
                     .from('members').select('*').eq('id', memberId).single();
                 if (error) throw error;
@@ -1831,7 +1778,6 @@
                 clearModalMessages();
                 setMemberEditMode(!!startInEdit);
 
-                // Load payment history in the background
                 loadMemberPayments(memberId, false);
 
             } catch (err) {
@@ -1866,9 +1812,12 @@
 
             document.getElementById('memberMembershipInfo').innerHTML = `
                 <div><span class="label">Membership Number</span><div class="value">${escapeHTML(member.member_number || member.membership_number || '-')}</div></div>
-                <div><span class="label">Plan Type</span><div class="value">${escapeHTML(member.plan_type || '-')}</div></div>
+                <div><span class="label">Plan</span><div class="value">${escapeHTML(member.plan || '-')}</div></div>
                 <div><span class="label">Benefit Option</span><div class="value">${escapeHTML(member.benefit_option || '-')}</div></div>
-                <div><span class="label">Registration Fee</span><div class="value">KES ${parseFloat(member.registration_fee || 0).toLocaleString()}</div></div>
+                <div><span class="label">Months Paid</span><div class="value">${Number(member.months_paid || 0)}</div></div>
+                <div><span class="label">Months Missing</span><div class="value">${Number(member.months_missing || 0)}</div></div>
+                <div><span class="label">Amount Paid</span><div class="value">KES ${parseFloat(member.amount_paid || 0).toLocaleString()}</div></div>
+                <div><span class="label">Amount Expected</span><div class="value">KES ${parseFloat(member.amount_expected || 0).toLocaleString()}</div></div>
                 <div><span class="label">Status</span><div class="value"><span class="status-badge ${String(member.status || 'PENDING').toLowerCase()}">${escapeHTML(member.status || 'PENDING')}</span></div></div>
                 <div><span class="label">Joined</span><div class="value">${member.created_at ? new Date(member.created_at).toLocaleDateString('en-KE') : '-'}</div></div>`;
 
@@ -1910,8 +1859,7 @@
                         <option value="service" ${member.benefit_option === 'service' ? 'selected' : ''}>Service</option>
                         <option value="cash" ${member.benefit_option === 'cash' ? 'selected' : ''}>Cash</option>
                     </select>
-                </div>
-                <div class="form-group"><label>Registration Fee (KES)</label><input type="number" id="emFee" min="0" step="1" value="${escapeAttr(member.registration_fee ?? '')}"></div>`;
+                </div>`;
 
             document.getElementById('memberKinInfo').innerHTML = `
                 <div class="form-group"><label>Full Name</label><input type="text" id="emKinName" maxlength="150" value="${escapeAttr(member.kin_name)}"></div>
@@ -1926,7 +1874,6 @@
             document.getElementById('memberEditActions').style.display = on ? 'flex' : 'none';
             btn.innerHTML = on ? '<i class="fas fa-eye"></i> View' : '<i class="fas fa-pen"></i> Edit Details';
 
-            // Hide payment history while editing (it's view-only data)
             document.getElementById('memberPaymentsFieldset').style.display = on ? 'none' : 'block';
 
             if (on) renderMemberEditFields(currentMemberRecord);
@@ -1961,7 +1908,6 @@
                 town: val('emTown') || null,
                 location: val('emLocation') || null,
                 benefit_option: val('emBenefit') || null,
-                registration_fee: val('emFee') !== '' ? Number(val('emFee')) : null,
                 kin_name: val('emKinName') || null,
                 kin_relationship: val('emKinRelationship') || null,
                 kin_phone: val('emKinPhone') || null,
@@ -1997,7 +1943,11 @@
             const ns = document.getElementById('memberStatusSelect').value;
             try {
                 const { error } = await supabaseClient.from('members')
-                    .update({ status: ns, updated_at: new Date().toISOString() })
+                    .update({
+                        status: ns,
+                        member_status: ns,
+                        updated_at: new Date().toISOString()
+                    })
                     .eq('id', selectedMemberId);
                 if (error) throw error;
                 showModalSuccess(`Status updated to ${ns}.`);
@@ -2009,21 +1959,6 @@
 
         // ============================================================
         // STK PUSH
-        // ------------------------------------------------------------
-        // Same backend calls as admin-collectpayments.html:
-        //   POST {API_BASE_URL}/admin/payments/collect
-        //     body: { member_id, membership_number, phone_number, amount, payment_type }
-        //     -> { success, checkout_request_id, payment_id, amount, ... }
-        //   GET  {API_BASE_URL}/admin/payments/status/{checkout_request_id}
-        //     -> { status: 'pending' | 'completed' | 'failed', receipt, ... }
-        // Both require the staff's Supabase Bearer token; the backend
-        // checks PAYMENT_COLLECTOR_ROLES independently of this page's
-        // own SUPER_ADMIN/ADMIN gate.
-        //
-        // AUTOMATIC UPDATE: When a payment is confirmed via polling,
-        // we refresh both the member list and — if the member modal is
-        // open — the member's payment history. Supabase Realtime on the
-        // `payments` table also triggers this automatically.
         // ============================================================
         async function openStkModal(memberId) {
             stkMemberId = memberId;
@@ -2031,8 +1966,11 @@
             clearStkModal();
 
             const cached = currentMembersCache.find(m => m.id === memberId);
+            const cachedName = cached
+                ? `${cached.first_name || ''} ${cached.last_name || ''}`.trim()
+                : 'Member';
             document.getElementById('stkMemberLabel').textContent = cached
-                ? `${cached.full_name || 'Member'} — ${cached.member_number || ''}`
+                ? `${cachedName} — ${cached.member_number || ''}`
                 : 'Member';
             document.getElementById('stkPhone').value = cached?.phone || '';
             document.getElementById('stkAmount').value = '';
@@ -2041,26 +1979,25 @@
 
             document.getElementById('stkModal').classList.add('open');
 
-            // Best-effort: pull the full member row for phone/membership number/plan premium.
             try {
                 const { data: member } = await supabaseClient
-                    .from('members').select('phone, plan_type, member_number, membership_number')
+                    .from('members').select('phone, plan, member_number')
                     .eq('id', memberId).single();
 
                 if (member) {
                     if (member.phone && !document.getElementById('stkPhone').value) {
                         document.getElementById('stkPhone').value = member.phone;
                     }
-                    stkMembershipNumber = member.member_number || member.membership_number || stkMembershipNumber;
+                    stkMembershipNumber = member.member_number || stkMembershipNumber;
 
-                    if (member.plan_type) {
+                    if (member.plan) {
                         const { data: plan } = await supabaseClient
                             .from('plans')
-                            .select('principal_monthly_premium')
-                            .eq('plan_code', member.plan_type)
+                            .select('monthly_premium')
+                            .eq('plan_code', member.plan)
                             .maybeSingle();
-                        if (plan?.principal_monthly_premium) {
-                            document.getElementById('stkAmount').value = plan.principal_monthly_premium;
+                        if (plan?.monthly_premium) {
+                            document.getElementById('stkAmount').value = plan.monthly_premium;
                         }
                     }
                 }
@@ -2069,9 +2006,6 @@
             }
         }
 
-        // NOTE: closing the modal does NOT stop polling. If a payment is
-        // still pending, the poll keeps running in the background so the
-        // list refreshes the moment the payment lands.
         function closeStkModal() {
             document.getElementById('stkModal').classList.remove('open');
             stkMemberId = null;
@@ -2177,7 +2111,6 @@
             }
         }
 
-        // Fetches a fresh token on every tick so long polls never fail on expiry.
         function startStkPolling(checkoutId) {
             stopStkPolling();
             stkPollAttempts = 0;
@@ -2204,11 +2137,13 @@
                         showToast('Payment completed successfully!', 'success');
                         resetStkSendBtn();
 
-                        // AUTOMATIC UPDATE: refresh member list and modal payment history
-                        loadMembers(currentPage, true);
-                        if (selectedMemberId) {
-                            loadMemberPayments(selectedMemberId, true);
-                        }
+                        // Give the DB trigger + validation a moment to run before reloading
+                        setTimeout(() => {
+                            loadMembers(currentPage, true);
+                            if (selectedMemberId) {
+                                loadMemberPayments(selectedMemberId, true);
+                            }
+                        }, 1500);
                     } else if (isFailed) {
                         stopStkPolling();
                         setStkStatus('failed', 'Payment was not completed.');
@@ -2223,7 +2158,6 @@
                             loadMemberPayments(selectedMemberId, true);
                         }
                     }
-                    // pending — keep polling silently.
                 } catch (err) {
                     console.warn('STK status poll error:', err);
                     if (stkPollAttempts >= STK_POLL_MAX_ATTEMPTS) stopStkPolling();
@@ -2252,11 +2186,6 @@
 
         // ============================================================
         // MEMBER ID CARD (PDF)
-        // ------------------------------------------------------------
-        // No backend ID-card endpoint exists yet, so this generates
-        // the card client-side with jsPDF — the same library
-        // admin-collectpayments.html already uses for receipts.
-        // Card is a standard ID-1 size (85.6mm x 54mm).
         // ============================================================
         async function generateIdCard(memberId) {
             if (idCardBusyId) return;
@@ -2276,10 +2205,9 @@
 
                 const fullName = `${member.first_name || ''} ${member.last_name || ''}`.trim() || 'Member';
                 const memberNumber = member.member_number || member.membership_number || 'N/A';
-                const planLabel = (member.plan_type || '-').toString().toUpperCase();
+                const planLabel = (member.plan || '-').toString().toUpperCase();
                 const joined = member.created_at ? new Date(member.created_at).toLocaleDateString('en-KE') : '-';
 
-                // Header band
                 doc.setFillColor(11, 93, 59);
                 doc.rect(0, 0, 85.6, 15, 'F');
                 doc.setTextColor(255, 255, 255);
@@ -2290,7 +2218,6 @@
                 doc.setFont('helvetica', 'normal');
                 doc.text('Membership Identity Card', 4, 10.5);
 
-                // Body
                 doc.setTextColor(31, 41, 51);
                 doc.setFontSize(9);
                 doc.setFont('helvetica', 'bold');
@@ -2303,7 +2230,6 @@
                 doc.text(`Phone: ${member.phone || '-'}`, 4, 38);
                 doc.text(`Joined: ${joined}`, 4, 43);
 
-                // Footer band
                 doc.setDrawColor(212, 168, 67);
                 doc.setLineWidth(0.8);
                 doc.line(4, 48, 81.6, 48);
@@ -2329,8 +2255,7 @@
             try {
                 const { data, error } = await supabaseClient
                     .from(MEMBERS_TABLE)
-                    .select(MEMBER_COLUMNS)
-                    .is('deleted_at', null);
+                    .select(MEMBER_COLUMNS);
                 if (error) throw error;
                 if (!data || !data.length) return showToast('No members to export.', 'warning');
 
@@ -2352,12 +2277,13 @@
                         : null;
 
                     const status = String(m.status || m.member_status || 'PENDING').toUpperCase();
+                    const fullName = `${m.first_name || ''} ${m.last_name || ''}`.trim();
 
                     return [
                         m.member_number || '',
-                        m.full_name || '',
+                        fullName,
                         m.phone || '',
-                        m.plan_type || m.plan || '',
+                        m.plan || '',
                         status,
                         Number(m.months_missing || 0),
                         Number(m.months_paid || 0),
@@ -2486,7 +2412,6 @@
             }
         }
 
-        // Expose handlers
         Object.assign(window, {
             loadMembers, applyFilters, resetFilters, changePage, refreshData,
             openMemberModal, closeMemberModal, toggleEditMember, saveMemberDetails,
