@@ -1110,23 +1110,30 @@
         }
 
         // ============================================================
-        // VIEW: single source of truth for status + missed months
+        // AUTHORITATIVE MEMBER PAYMENT DATA
+        // ------------------------------------------------------------
+        // Payment totals/status are maintained on `members` by the
+        // database payment-reconciliation logic. Do NOT use the old
+        // admin_member_payment_status view for months/status because
+        // it can contain stale calculated values.
         // ============================================================
-        const MEMBERS_VIEW = 'admin_member_payment_status';
-        const VIEW_COLUMNS = `
+        const MEMBERS_TABLE = 'members';
+        const MEMBER_COLUMNS = `
             id,
             member_number,
             full_name,
             phone,
             plan_type,
-            calculated_status,
-            missed_months,
-            last_payment_month,
+            plan,
+            status,
+            member_status,
+            registration_date,
             months_paid,
-            date_joined,
-            renewal_due_date,
-            months_to_renew,
-            membership_duration
+            months_missing,
+            months_short,
+            amount_expected,
+            amount_paid,
+            payment_validation_status
         `;
 
         // ============================================================
@@ -1390,12 +1397,11 @@
         }
 
         // ============================================================
-        // LOAD MEMBERS — reads from the VIEW only
+        // LOAD MEMBERS — reads authoritative fields from `members`
         // ------------------------------------------------------------
-        // No client-side status calculation. No client-side missed
-        // months. No client-side duration. The view handles it all.
-        // silent = true: background refresh, no spinner, keeps the
-        // current table if the request fails.
+        // No client-side payment reconciliation. The database owns:
+        // months_paid, months_missing, months_short, amount_paid,
+        // amount_expected and validated status.
         // ============================================================
         async function loadMembers(page = 1, silent = false) {
             if (!authReady) return;
@@ -1403,8 +1409,8 @@
             const seq = ++loadSeq;
 
             const search = memberSearch.value.trim();
-            const status = statusFilter.value;
-            const plan = planFilter.value;
+            const statusFilterValue = statusFilter.value;
+            const planFilterValue = planFilter.value;
 
             if (!silent) {
                 membersList.innerHTML = `
@@ -1420,12 +1426,22 @@
                 const to = from + pageSize - 1;
 
                 let query = supabaseClient
-                    .from(MEMBERS_VIEW)
-                    .select(VIEW_COLUMNS, { count: 'exact' });
+                    .from(MEMBERS_TABLE)
+                    .select(MEMBER_COLUMNS, { count: 'exact' })
+                    .is('deleted_at', null);
 
-                // Server-side filtering on the view's own columns.
-                if (status) query = query.eq('calculated_status', status);
-                if (plan)   query = query.eq('plan_type', plan);
+                if (statusFilterValue) {
+                    query = query.or(
+                        `status.eq.${statusFilterValue},member_status.eq.${statusFilterValue}`
+                    );
+                }
+
+                if (planFilterValue) {
+                    query = query.or(
+                        `plan_type.eq.${planFilterValue},plan.eq.${planFilterValue}`
+                    );
+                }
+
                 if (search) {
                     const s = search.replace(/[%,]/g, '');
                     query = query.or(
@@ -1436,27 +1452,76 @@
                 }
 
                 const { data, error, count } = await query
-                    .order('date_joined', { ascending: false })
+                    .order('registration_date', { ascending: false, nullsFirst: false })
                     .range(from, to);
 
                 if (error) throw error;
-                if (seq !== loadSeq) return; // a newer load superseded this one
+                if (seq !== loadSeq) return;
 
                 totalRecords = count || 0;
-                currentMembersCache = data || [];
+                currentMembersCache = (data || []).map(member => {
+                    const registrationDate = member.registration_date
+                        ? new Date(`${member.registration_date}T00:00:00`)
+                        : null;
+
+                    let renewalDate = null;
+                    let monthsToRenew = 0;
+                    let duration = 'New member';
+
+                    if (registrationDate && !Number.isNaN(registrationDate.getTime())) {
+                        renewalDate = new Date(registrationDate);
+                        renewalDate.setFullYear(renewalDate.getFullYear() + 1);
+
+                        const now = new Date();
+                        let monthsElapsed =
+                            (now.getFullYear() - registrationDate.getFullYear()) * 12 +
+                            (now.getMonth() - registrationDate.getMonth());
+
+                        if (now.getDate() < registrationDate.getDate()) {
+                            monthsElapsed -= 1;
+                        }
+
+                        monthsElapsed = Math.max(0, monthsElapsed);
+                        duration = `${monthsElapsed} month${monthsElapsed === 1 ? '' : 's'}`;
+
+                        monthsToRenew =
+                            (renewalDate.getFullYear() - now.getFullYear()) * 12 +
+                            (renewalDate.getMonth() - now.getMonth());
+
+                        if (now.getDate() > renewalDate.getDate()) {
+                            monthsToRenew -= 1;
+                        }
+                        monthsToRenew = Math.max(0, monthsToRenew);
+                    }
+
+                    const authoritativeStatus =
+                        String(member.status || member.member_status || 'PENDING').toUpperCase();
+
+                    return {
+                        ...member,
+                        calculated_status: authoritativeStatus,
+                        missed_months: Number(member.months_missing || 0),
+                        membership_duration: duration,
+                        renewal_due_date: renewalDate
+                            ? renewalDate.toISOString().slice(0, 10)
+                            : null,
+                        months_to_renew: monthsToRenew
+                    };
+                });
 
                 renderMembers(currentMembersCache);
                 renderPagination();
 
-                // Badge — total member count
                 const { count: total } = await supabaseClient
-                    .from(MEMBERS_VIEW)
-                    .select('*', { count: 'exact', head: true });
+                    .from(MEMBERS_TABLE)
+                    .select('id', { count: 'exact', head: true })
+                    .is('deleted_at', null);
+
                 document.getElementById('memberCountBadge').textContent = total || 0;
 
             } catch (err) {
                 console.error('Load members error:', err);
-                if (silent) return; // keep the existing table on background failure
+                if (silent) return;
                 membersList.innerHTML = `
                     <div style="text-align:center;padding:40px;color:var(--danger);">
                         <i class="fas fa-exclamation-triangle" style="font-size:40px;display:block;margin-bottom:12px;"></i>
@@ -1590,9 +1655,8 @@
         // ============================================================
         // RENDER MEMBERS
         // ------------------------------------------------------------
-        // Every field is a pass-through from the view.
-        // Status, missed_months, months_paid, membership_duration,
-        // renewal_due_date, months_to_renew all come from the view.
+        // Status and payment totals come from authoritative `members`
+        // fields. Derived duration/renewal values are display-only.
         // ============================================================
         function renderMembers(members) {
             if (!members || members.length === 0) {
@@ -2264,28 +2328,45 @@
         async function exportMembers() {
             try {
                 const { data, error } = await supabaseClient
-                    .from(MEMBERS_VIEW)
-                    .select('*');
+                    .from(MEMBERS_TABLE)
+                    .select(MEMBER_COLUMNS)
+                    .is('deleted_at', null);
                 if (error) throw error;
                 if (!data || !data.length) return showToast('No members to export.', 'warning');
 
                 const headers = [
                     'Member Number','Full Name','Phone','Plan','Status',
-                    'Missed Months','Months Paid','Duration','Last Payment','Renewal Due','Months To Renew'
+                    'Missed Months','Months Paid','Registration Date','Renewal Due',
+                    'Amount Paid','Amount Expected'
                 ];
-                const rows = data.map(m => [
-                    m.member_number || '',
-                    m.full_name || '',
-                    m.phone || '',
-                    m.plan_type || '',
-                    m.calculated_status || '',
-                    m.missed_months || 0,
-                    m.months_paid || 0,
-                    m.membership_duration || '',
-                    m.last_payment_month || '',
-                    m.renewal_due_date || '',
-                    m.months_to_renew ?? ''
-                ]);
+                const rows = data.map(m => {
+                    const registrationDate = m.registration_date
+                        ? new Date(`${m.registration_date}T00:00:00`)
+                        : null;
+                    const renewalDate = registrationDate
+                        ? new Date(
+                            registrationDate.getFullYear() + 1,
+                            registrationDate.getMonth(),
+                            registrationDate.getDate()
+                        )
+                        : null;
+
+                    const status = String(m.status || m.member_status || 'PENDING').toUpperCase();
+
+                    return [
+                        m.member_number || '',
+                        m.full_name || '',
+                        m.phone || '',
+                        m.plan_type || m.plan || '',
+                        status,
+                        Number(m.months_missing || 0),
+                        Number(m.months_paid || 0),
+                        m.registration_date || '',
+                        renewalDate ? renewalDate.toISOString().slice(0, 10) : '',
+                        Number(m.amount_paid || 0),
+                        Number(m.amount_expected || 0)
+                    ];
+                });
 
                 let csv = headers.join(',') + '\n';
                 rows.forEach(row => {
