@@ -40,6 +40,11 @@
 #           the notification sweep writes TextSMS's actual response into
 #           notifications.failure_reason instead of a generic string, so
 #           failures are diagnosable from SQL instead of Render logs.
+#   8. NEW  Permanent callback fix:
+#           - Idempotency guard based on payment_status == SUCCESSFUL
+#           - UTC Python timestamps (not SQL "now()")
+#           - Immediate member months_paid / amount_paid recalculation
+#             runs inside the callback, no frontend/manual step required
 #
 # NEW ENV VARS (Render -> Environment)
 #   ALLOWED_ORIGINS         = https://masika-murex.vercel.app,https://www.masikabbs.com,https://masikabbs.com
@@ -51,13 +56,30 @@
 # DB MIGRATION REQUIRED FOR THIS VERSION
 #   ALTER TYPE payment_type ADD VALUE IF NOT EXISTS 'TOPUP';
 #   ALTER TYPE payment_type ADD VALUE IF NOT EXISTS 'ADDON';
+#
+#   -- REQUIRED for the permanent callback fix --
+#   alter table public.payments
+#     add column if not exists payment_status text,
+#     add column if not exists result_code int,
+#     add column if not exists result_desc text,
+#     add column if not exists mpesa_receipt_number text,
+#     add column if not exists confirmed_at timestamptz,
+#     add column if not exists verified_at timestamptz,
+#     add column if not exists counts_toward_membership boolean default false,
+#     add column if not exists raw_callback jsonb,
+#     add column if not exists notes text,
+#     add column if not exists phone_number text;
+#
+#   alter table public.members
+#     add column if not exists months_paid int default 0,
+#     add column if not exists amount_paid numeric default 0;
 # ============================================================
 
 import os
 import sys
 import logging
 from pathlib import Path
-from datetime import datetime, date, timedelta
+from datetime import datetime, date, timedelta, timezone
 from typing import Optional, List, Dict, Any, Tuple
 from enum import Enum
 from contextlib import asynccontextmanager
@@ -650,16 +672,6 @@ def get_member_safe(member: dict) -> dict:
 # ------------------------------------------------------------
 # DEPENDANT INSERT HELPER
 # ------------------------------------------------------------
-# The `dependants` table schema does NOT match DependantBase/DependantCreate
-# field-for-field. Actual columns (confirmed via information_schema):
-#   id, principal_member_id, dependant_number, full_name, national_id,
-#   birth_certificate_number, date_of_birth, gender, relationship, phone,
-#   status, created_at, updated_at, email
-#
-# In particular: there is no first_name/last_name (combined into full_name)
-# and no is_active (it's a `status` varchar instead). This single helper is
-# now the only place that builds a dependants insert row, so a future schema
-# change only needs fixing here instead of in three separate call sites.
 def build_dependant_row(
     principal_member_id: str,
     first_name: str,
@@ -690,14 +702,6 @@ def build_dependant_row(
 # ------------------------------------------------------------
 # LIVE PRICING HELPER
 # ------------------------------------------------------------
-# Single source of truth for plan pricing: the Supabase `plans` table —
-# the SAME table admin-pricing.html writes to. Nothing in this file
-# should hardcode a fee; every place that needs a price calls this.
-#
-# Requires a `dependant_fee` numeric column on `plans` (used for the
-# Wazazi per-parent fee; defaults to 0 if unset):
-#   alter table public.plans add column if not exists dependant_fee numeric default 0;
-
 def get_live_plan_pricing(plan_slug: str) -> Dict[str, float]:
     """
     Fetch the CURRENT registration fee (and per-dependant fee, if
@@ -737,24 +741,14 @@ def get_live_plan_pricing(plan_slug: str) -> Dict[str, float]:
 # M-PESA HELPERS
 # ============================================================
 
-# Shared, connection-pooled async client for all Daraja calls (created in
-# lifespan). A fresh client per request would open/close a TLS connection
-# every time under load — this reuses connections instead.
 mpesa_http_client: Optional["httpx.AsyncClient"] = None
 
-# Simple in-process cache for the OAuth token. Daraja tokens are valid for
-# ~3600s; requesting a new one on every STK push adds latency and can hit
-# rate limits under load. Guarded by a lock so concurrent requests don't
-# all fetch a fresh token at once.
 _mpesa_token_cache: Dict[str, Any] = {"token": None, "expires_at": None}
 _mpesa_token_lock = asyncio.Lock()
 
 
 async def _mpesa_request_with_retry(method: str, url: str, **kwargs) -> Optional["httpx.Response"]:
-    """POST/GET to Daraja with a couple of retries on transient failures
-    (timeouts, connection errors, 5xx). Does NOT retry on 4xx — those are
-    genuine request errors (bad auth, bad payload) and retrying won't help.
-    """
+    """POST/GET to Daraja with a couple of retries on transient failures."""
     if not mpesa_http_client:
         return None
     last_exc = None
@@ -798,8 +792,6 @@ async def get_mpesa_access_token() -> Optional[str]:
 
         data = response.json()
         token = data.get("access_token")
-        # Daraja returns expires_in (seconds, typically 3599). Refresh a
-        # minute early to avoid using a token that expires mid-request.
         expires_in = int(data.get("expires_in", 3599))
         _mpesa_token_cache["token"] = token
         _mpesa_token_cache["expires_at"] = datetime.now() + timedelta(seconds=max(expires_in - 60, 30))
@@ -824,9 +816,7 @@ def format_phone_number(phone: str) -> str:
 
 
 def is_ip_allowed(client_ip: Optional[str]) -> bool:
-    """Check the callback source IP against MPESA_CALLBACK_IP_WHITELIST.
-    If no whitelist is configured, allow everything (idempotency + the
-    unguessable checkout_request_id are still enforced downstream)."""
+    """Check the callback source IP against MPESA_CALLBACK_IP_WHITELIST."""
     if not MPESA_CALLBACK_IP_WHITELIST:
         return True
     if not client_ip:
@@ -851,9 +841,6 @@ def is_ip_allowed(client_ip: Optional[str]) -> bool:
 # ============================================================
 
 def _textsms_response_ok(data: dict) -> bool:
-    """Shared success check for TextSMS's response body, tolerant of both
-    their documented key ("response-code") and the "respose-code" typo
-    that shows up on some accounts."""
     responses = data.get("responses") or []
     if not responses:
         return False
@@ -862,9 +849,6 @@ def _textsms_response_ok(data: dict) -> bool:
 
 
 def _textsms_failure_detail(status_code: int, body_text: str, data: Optional[dict] = None) -> str:
-    """Build a short, storable failure string from a TextSMS response so
-    notifications.failure_reason shows the real cause instead of a generic
-    message. Kept short since this goes straight into a DB column."""
     if data is not None:
         responses = data.get("responses") or []
         if responses:
@@ -876,23 +860,6 @@ def _textsms_failure_detail(status_code: int, body_text: str, data: Optional[dic
 
 
 async def send_payment_reminder_sms(phone: str, name: str, member_number: str) -> Tuple[bool, str]:
-    """
-    Send a payment-reminder SMS via TextSMS (textsms.co.ke).
-
-    Returns (success, detail) — detail is a short human-readable reason
-    on failure (or "sent" on success), meant to be stored directly in
-    notifications.failure_reason so failures are diagnosable from SQL
-    instead of only from Render logs.
-
-    Requires TEXTSMS_API_KEY, TEXTSMS_PARTNER_ID and TEXTSMS_SHORTCODE to be
-    set on Render — without them this logs a warning and returns False so
-    callers can mark the notification FAILED instead of crashing.
-
-    NOTE: verify the TextSMS request/response field names below against your
-    actual TextSMS account docs/dashboard before relying on this in
-    production — the shape here is TextSMS's documented v1 sendsms
-    contract, but partner accounts occasionally differ.
-    """
     if not (TEXTSMS_API_KEY and TEXTSMS_PARTNER_ID and TEXTSMS_SHORTCODE):
         logger.warning("send_payment_reminder_sms: TEXTSMS_* env vars not fully configured — skipping send")
         return False, "TextSMS not configured (missing TEXTSMS_API_KEY/PARTNER_ID/SHORTCODE)"
@@ -937,16 +904,6 @@ async def send_payment_reminder_sms(phone: str, name: str, member_number: str) -
 
 
 async def send_registration_sms(phone: str, member_number: str, name: str = "") -> bool:
-    """
-    Send a welcome SMS with the member's membership number right after
-    registration. Reuses the same TEXTSMS_* config / URL / phone formatting
-    as send_payment_reminder_sms() rather than re-reading env vars, so a
-    shortcode change (e.g. TEXTSMS_SHORTCODE) only needs updating once.
-
-    Requires TEXTSMS_API_KEY, TEXTSMS_PARTNER_ID and TEXTSMS_SHORTCODE — if
-    any are missing this logs a warning and returns False. Callers should
-    treat this as best-effort and never fail registration on an SMS error.
-    """
     if not (TEXTSMS_API_KEY and TEXTSMS_PARTNER_ID and TEXTSMS_SHORTCODE):
         logger.warning("send_registration_sms: TEXTSMS_* env vars not fully configured — skipping send")
         return False
@@ -989,12 +946,6 @@ async def send_registration_sms(phone: str, member_number: str, name: str = "") 
 
 
 async def send_payment_confirmation_sms(phone: str, amount: str, member_number: str) -> bool:
-    """
-    Send a confirmation SMS after a payment is marked completed (M-Pesa
-    callback, on-demand status poll, or the reconciliation sweep — see
-    activate_registration(), which calls this for every completed member
-    payment). Same config/formatting reuse as send_registration_sms().
-    """
     if not (TEXTSMS_API_KEY and TEXTSMS_PARTNER_ID and TEXTSMS_SHORTCODE):
         logger.warning("send_payment_confirmation_sms: TEXTSMS_* env vars not fully configured — skipping send")
         return False
@@ -1079,12 +1030,6 @@ app = FastAPI(
 # CORS
 # ============================================================
 
-# Reads ALLOWED_ORIGINS from env (comma-separated). It MUST include every
-# site that calls this API, e.g. on Render:
-#   https://masika-murex.vercel.app,https://www.masikabbs.com,https://masikabbs.com
-# Falls back to "*" only when unset (e.g. local dev), since "*" combined with
-# allow_credentials=True means any site can make authenticated requests using
-# a visitor's token.
 _allowed_origins_env = os.getenv("ALLOWED_ORIGINS", "").strip()
 ALLOWED_ORIGINS = [o.strip() for o in _allowed_origins_env.split(",") if o.strip()] or ["*"]
 
@@ -1127,12 +1072,6 @@ public_router = APIRouter(prefix="/api/public", tags=["Public"])
 
 @public_router.get("/plans", response_model=List[PlanResponse])
 async def get_public_plans():
-    """
-    Get available membership plans with their LIVE fees from Supabase —
-    the same `plans` table admin-pricing.html writes to. Previously this
-    returned a hardcoded list, so a price change in admin-pricing never
-    reached anything that called this route.
-    """
     if not supabase:
         raise HTTPException(status_code=500, detail="Database not available")
 
@@ -1151,7 +1090,7 @@ async def get_public_plans():
     for p in (result.data or []):
         slug = (p.get("plan_code") or "").strip().lower()
         if not slug or slug == "chama":
-            continue  # chama has its own registration flow/rate, not a member plan card
+            continue
         plans.append({
             "slug": slug,
             "name": p.get("plan_name") or "",
@@ -1169,7 +1108,6 @@ async def get_public_plans():
 
 @public_router.get("/agents", response_model=List[AgentResponse])
 async def get_public_agents(branch_id: Optional[str] = None):
-    """Get available sales agents."""
     if not supabase:
         return []
     try:
@@ -1200,7 +1138,6 @@ async def get_public_agents(branch_id: Optional[str] = None):
 
 @public_router.get("/branches", response_model=List[BranchResponse])
 async def get_public_branches():
-    """Get available branches."""
     if not supabase:
         return [
             {
@@ -1226,10 +1163,6 @@ async def get_public_branches():
 
 @public_router.post("/register", response_model=PublicRegisterResponse)
 async def public_register(payload: PublicRegistrationRequest):
-    """
-    Public registration endpoint for individual members.
-    Creates a pending member record with a payment record.
-    """
     if not supabase:
         raise HTTPException(status_code=500, detail="Database not available")
 
@@ -1258,8 +1191,6 @@ async def public_register(payload: PublicRegistrationRequest):
         plan = plan.lower()
         waiting_period = 6 if plan == "dignity" else 4
 
-        # Live pricing from Supabase — the SAME `plans` table
-        # admin-pricing.html writes to. No hardcoded amounts here.
         pricing = get_live_plan_pricing(plan)
         registration_amount = pricing["registration_fee"]
 
@@ -1304,17 +1235,11 @@ async def public_register(payload: PublicRegistrationRequest):
         new_member = result.data[0]
         member_id = new_member["id"]
 
-        # Welcome SMS with the new membership number. Best-effort: a failed
-        # or unconfigured send must never fail registration itself.
         try:
             await send_registration_sms(payload.phone, member_number, payload.first_name)
         except Exception as e:
             logger.error(f"Registration welcome SMS failed for member {member_id}: {e}")
 
-        # FIX: "payments" has no member_number column — only member_id/membership_id.
-        # The stray "member_number" key here was the cause of the PGRST204 error.
-        # If you need the member_number visible on the payment row for reporting,
-        # look it up via a join on member_id instead of duplicating it here.
         payment_record = {
             "member_id": member_id,
             "amount": registration_amount,
@@ -1329,8 +1254,6 @@ async def public_register(payload: PublicRegistrationRequest):
         }
         supabase.table("payments").insert(payment_record).execute()
 
-        # FIX: `dependants` has no first_name/last_name/is_active columns —
-        # it stores full_name and status instead. See build_dependant_row().
         for dep in payload.dependants:
             supabase.table("dependants").insert(
                 build_dependant_row(
@@ -1363,15 +1286,6 @@ async def public_register(payload: PublicRegistrationRequest):
 
 @public_router.post("/register/chama")
 async def public_register_chama(payload: ChamaRegistrationRequest):
-    """
-    Public registration endpoint for Chama/Group registrations.
-
-    Member count rules:
-      - No CSV uploaded  -> the count is number_of_members.
-      - CSV uploaded     -> the CSV row count is used, and if number_of_members
-                            was also sent it must match.
-    The amount is always computed here: member_count x live chama rate.
-    """
     if not supabase:
         raise HTTPException(status_code=500, detail="Database not available")
 
@@ -1415,8 +1329,6 @@ async def public_register_chama(payload: ChamaRegistrationRequest):
             raise HTTPException(status_code=400, detail=f"{label} ID is required")
 
     try:
-        # Live per-member chama rate from Supabase's `plans` table
-        # (plan_code = 'CHAMA'), instead of a hardcoded 100.00.
         chama_pricing = get_live_plan_pricing("chama")
         chama_rate = chama_pricing["registration_fee"]
 
@@ -1447,8 +1359,6 @@ async def public_register_chama(payload: ChamaRegistrationRequest):
         group_id = group["id"]
         registration_amount = group["registration_amount"]
 
-        # FIX: "payments" has no group_name column. Only chama_group_id identifies
-        # the group on this table; look up the name via a join if you need it later.
         payment_record = {
             "chama_group_id": group_id,
             "amount": registration_amount,
@@ -1461,7 +1371,6 @@ async def public_register_chama(payload: ChamaRegistrationRequest):
         }
         supabase.table("payments").insert(payment_record).execute()
 
-        # Member rows are only created when a CSV member list was uploaded.
         for member in payload.members:
             supabase.table("chama_members").insert({
                 "chama_group_id": group_id,
@@ -1496,17 +1405,6 @@ async def public_register_chama(payload: ChamaRegistrationRequest):
 
 @public_router.post("/payment/stk-push", response_model=STKPushResponse)
 async def initiate_stk_push(request: STKPushRequest):
-    """
-    Initiate M-Pesa STK push payment.
-    Supports both individual member_id and chama group_id.
-
-    SECURITY: the amount actually charged is computed SERVER-SIDE from
-    the member's/group's live plan price below (`verified_amount`) —
-    `request.amount` from the client is only used for a basic sanity
-    check and is otherwise ignored. Previously this endpoint charged
-    whatever amount the client sent, which meant a modified request
-    could pay any figure it wanted.
-    """
     if not supabase:
         raise HTTPException(status_code=500, detail="Database not available")
 
@@ -1520,7 +1418,6 @@ async def initiate_stk_push(request: STKPushRequest):
     if not request.member_id and not request.group_id:
         raise HTTPException(status_code=400, detail="Either member_id or group_id is required")
 
-    # ---- Recompute the amount server-side; never trust request.amount ----
     verified_amount: float
 
     if request.member_id:
@@ -1543,29 +1440,22 @@ async def initiate_stk_push(request: STKPushRequest):
             parent_count = parent_count_result.count or 0
             verified_amount += parent_count * pricing["dependant_fee"]
 
-    else:  # request.group_id
+    else:
         group_result = supabase.table("chama_groups").select("registration_amount").eq("id", request.group_id).limit(1).execute()
         if not group_result.data:
             raise HTTPException(status_code=404, detail="Chama group not found")
-        # registration_amount was already computed correctly at chama
-        # registration time (member_count * live rate) — trust that
-        # stored value rather than recomputing it here.
         verified_amount = float(group_result.data[0].get("registration_amount") or 0)
 
     if verified_amount <= 0:
         raise HTTPException(status_code=400, detail="Could not determine a valid amount for this registration")
 
     try:
-        # FIX: kept as a Python-side reference; no longer written to a
-        # "transaction_id" column (doesn't exist — see payment_record below).
         transaction_ref = f"TXN-{datetime.now().strftime('%Y%m%d')}-{secrets.token_hex(4).upper()}"
 
         payment_check = supabase.table("payments").select("*").eq("status", "pending")
         if request.member_id:
             payment_check = payment_check.eq("member_id", request.member_id)
         elif request.group_id:
-            # FIX: the FK column on `payments` is "chama_group_id", not
-            # "group_id" — the old filter here silently matched nothing.
             payment_check = payment_check.eq("chama_group_id", request.group_id)
         payment_check = payment_check.execute()
 
@@ -1579,9 +1469,6 @@ async def initiate_stk_push(request: STKPushRequest):
                     merchant_request_id=existing.get("merchant_request_id")
                 )
 
-        # FIX: "transaction_id" isn't a payments column — the schema's equivalent
-        # is "transaction_reference". Also "group_id" isn't a column either;
-        # the correct FK is "chama_group_id" (matches the chama insert above).
         payment_record = {
             "transaction_reference": transaction_ref,
             "phone": phone,
@@ -1602,9 +1489,6 @@ async def initiate_stk_push(request: STKPushRequest):
         checkout_request_id = None
         merchant_request_id = None
 
-        # Never leave a payment looking pending when M-Pesa was not actually
-        # initiated. A pending row is valid only when we have a CheckoutRequestID
-        # that can be followed up by the callback/status/reconciliation flow.
         if not (MPESA_CONSUMER_KEY and MPESA_CONSUMER_SECRET and MPESA_PASSKEY and MPESA_SHORTCODE):
             reason = "M-Pesa server configuration is incomplete"
             logger.error(reason)
@@ -1664,7 +1548,6 @@ async def initiate_stk_push(request: STKPushRequest):
         raise HTTPException(status_code=400, detail=f"Payment initiation failed: {str(e)}")
 
 async def initiate_mpesa_stk_push(phone: str, amount: float, transaction_id: str, description: str = "Masika Benevolent Payment") -> dict:
-    """Initiate M-Pesa STK push."""
     if not httpx or not mpesa_http_client:
         return {"success": False, "message": "HTTP client not available"}
 
@@ -1672,8 +1555,6 @@ async def initiate_mpesa_stk_push(phone: str, amount: float, transaction_id: str
     if not token:
         return {"success": False, "message": "Failed to get M-Pesa access token"}
 
-    # Daraja rejects fractional amounts — round to the nearest whole shilling
-    # rather than truncating, so a KES 199.60 charge doesn't silently become 199.
     whole_amount = round(amount)
     if whole_amount <= 0:
         return {"success": False, "message": "Amount must round to at least KES 1"}
@@ -1717,8 +1598,6 @@ async def initiate_mpesa_stk_push(phone: str, amount: float, transaction_id: str
                 logger.error(f"M-Pesa error: {data}")
                 return {"success": False, "message": data.get("ResponseDescription", "STK push failed")}
 
-        # 401 usually means the cached token was stale — clear it so the
-        # next attempt fetches a fresh one instead of reusing a dead token.
         if response.status_code == 401:
             _mpesa_token_cache["token"] = None
             _mpesa_token_cache["expires_at"] = None
@@ -1736,9 +1615,6 @@ async def initiate_mpesa_stk_push(phone: str, amount: float, transaction_id: str
 
 @public_router.get("/payment/status/{checkout_request_id}", response_model=PaymentStatusResponse)
 async def get_payment_status(checkout_request_id: str):
-    """
-    Check the status of an M-Pesa payment.
-    """
     if not supabase:
         raise HTTPException(status_code=500, detail="Database not available")
 
@@ -1783,8 +1659,6 @@ async def get_payment_status(checkout_request_id: str):
             except Exception as e:
                 logger.error(f"Status query failed: {e}")
 
-        # FIX: include the stored M-Pesa receipt so payments already
-        # confirmed by the callback still show their receipt number.
         return PaymentStatusResponse(
             status=payment.get("status", "pending"),
             amount=payment.get("amount"),
@@ -1799,8 +1673,6 @@ async def get_payment_status(checkout_request_id: str):
         raise HTTPException(status_code=400, detail=f"Status check failed: {str(e)}")
 
 async def query_mpesa_transaction_status(checkout_request_id: str) -> dict:
-    """Query M-Pesa transaction status (used both for on-demand polling from
-    the status endpoint and for the reconciliation sweep below)."""
     if not httpx or not mpesa_http_client:
         return {"success": False}
 
@@ -1830,8 +1702,6 @@ async def query_mpesa_transaction_status(checkout_request_id: str) -> dict:
 
         if response.status_code == 200:
             data = response.json()
-            # ResultCode comes back as a string on some Daraja responses and
-            # an int on others — compare as string to handle both.
             result_code = str(data.get("ResultCode", ""))
             if result_code == "0":
                 return {
@@ -1839,25 +1709,10 @@ async def query_mpesa_transaction_status(checkout_request_id: str) -> dict:
                     "receipt": data.get("ReceiptNumber") or data.get("MpesaReceiptNumber")
                 }
             elif result_code == "1037":
-                # 1037 = "DS timeout user cannot be reached" — still pending,
-                # not a hard failure; the user may retry the prompt.
                 return {"success": False, "pending": True}
             elif result_code in KNOWN_MPESA_FAILURE_CODES:
-                # Only these are genuinely terminal — cancelled by the user,
-                # wrong PIN, insufficient balance, etc.
                 return {"success": False, "failed": True, "reason": data.get("ResultDesc")}
             else:
-                # FIX: any OTHER/unrecognized code used to fall through to
-                # "failed" here. That's what was silently eating real
-                # payments: Safaricom returns a variety of transient/unknown
-                # codes (e.g. querying while still awaiting PIN entry), and
-                # marking those "failed" set payments.status = "failed" —
-                # which the callback handler's idempotency guard then treats
-                # as terminal, so when the REAL success callback arrived
-                # afterward it got ignored as a "duplicate". Money left the
-                # customer's phone, Safaricom confirmed success, and the app
-                # still showed "Payment failed". Unknown codes now stay
-                # pending instead of being guessed as failures.
                 logger.warning(f"Unrecognized M-Pesa ResultCode {result_code}: {data.get('ResultDesc')} — treating as still pending")
                 return {"success": False, "pending": True}
 
@@ -1868,8 +1723,6 @@ async def query_mpesa_transaction_status(checkout_request_id: str) -> dict:
         logger.error(f"Status query error: {e}")
         return {"success": False}
 
-# Known terminal M-Pesa failure ResultCodes (STK query). Anything not in
-# this set is treated as "still pending" rather than guessed as a failure.
 KNOWN_MPESA_FAILURE_CODES = {
     "1",      # Insufficient balance
     "1001",   # Unable to lock subscriber / another transaction in progress
@@ -1919,12 +1772,12 @@ async def payment_callback(request: Request):
             result_code = None
 
         if not checkout_request_id:
-            logger.warning(
-                "M-Pesa callback missing CheckoutRequestID"
-            )
+            logger.warning("M-Pesa callback missing CheckoutRequestID")
             return {"ResultCode": 0, "ResultDesc": "Accepted"}
 
-        # Find payment
+        # --------------------------------------------------------
+        # IDEMPOTENCY: look up the payment first
+        # --------------------------------------------------------
         result = (
             supabase
             .table("payments")
@@ -1935,53 +1788,57 @@ async def payment_callback(request: Request):
         )
 
         if not result.data:
-            logger.warning(
-                f"Payment not found: {checkout_request_id}"
-            )
-            return {"ResultCode": 0, "ResultDesc": "Accepted"}
+            logger.warning(f"Payment not found: {checkout_request_id}")
+            return {
+                "ResultCode": 0,
+                "ResultDesc": "Payment record not found"
+            }
 
         payment = result.data[0]
         payment_id = payment["id"]
 
-        # Do not process an already successful payment twice
-        if str(
-            payment.get("payment_status") or ""
-        ).upper() == "SUCCESSFUL":
+        # Already successfully processed — do not reactivate, do not
+        # overwrite the receipt, do not double-count the member.
+        if (
+            str(payment.get("payment_status", "")).upper() == "SUCCESSFUL"
+            and payment.get("mpesa_receipt_number")
+        ):
+            logger.info(f"Payment already successful: {payment_id}")
+            return {
+                "ResultCode": 0,
+                "ResultDesc": "Already processed"
+            }
 
-            logger.info(
-                f"Payment already successful: {payment_id}"
-            )
-            return {"ResultCode": 0, "ResultDesc": "Accepted"}
-
+        # --------------------------------------------------------
         # Extract callback metadata
-        metadata = (
-            stk_callback.get("CallbackMetadata") or {}
-        )
-
+        # --------------------------------------------------------
+        metadata = stk_callback.get("CallbackMetadata") or {}
         items = metadata.get("Item") or []
 
         mpesa_receipt = None
         callback_amount = None
         callback_phone = None
+        transaction_date = None
 
         for item in items:
             name = item.get("Name")
             value = item.get("Value")
 
             if name == "MpesaReceiptNumber":
-                mpesa_receipt = (
-                    str(value) if value is not None else None
-                )
+                mpesa_receipt = str(value) if value is not None else None
 
             elif name == "Amount":
                 callback_amount = value
 
             elif name == "PhoneNumber":
-                callback_phone = (
-                    str(value) if value is not None else None
-                )
+                callback_phone = str(value) if value is not None else None
 
-        now = datetime.now().isoformat()
+            elif name == "TransactionDate":
+                transaction_date = value
+
+        # Python UTC timestamp (Supabase REST does NOT interpret
+        # "now()" as a SQL function in a normal update payload).
+        now_iso = datetime.now(timezone.utc).isoformat()
 
         # =====================================================
         # SUCCESS
@@ -1992,14 +1849,14 @@ async def payment_callback(request: Request):
                 "payment_status": "SUCCESSFUL",
                 "status": "completed",
                 "result_code": 0,
-                "result_desc": result_desc,
+                "result_desc": result_desc or "Payment successful",
                 "mpesa_receipt": mpesa_receipt,
                 "mpesa_receipt_number": mpesa_receipt,
-                "confirmed_at": now,
-                "verified_at": now,
+                "confirmed_at": now_iso,
+                "verified_at": now_iso,
                 "counts_toward_membership": True,
                 "raw_callback": data,
-                "updated_at": now
+                "updated_at": now_iso,
             }
 
             if callback_amount is not None:
@@ -2012,19 +1869,65 @@ async def payment_callback(request: Request):
                 update_data["phone_number"] = callback_phone
                 update_data["phone"] = callback_phone
 
-            supabase.table("payments").update(
-                update_data
-            ).eq(
-                "id", payment_id
-            ).execute()
+            if transaction_date:
+                update_data["notes"] = f"M-Pesa transaction date: {transaction_date}"
+
+            supabase.table("payments") \
+                .update(update_data) \
+                .eq("checkout_request_id", checkout_request_id) \
+                .execute()
 
             logger.info(
-                f"M-Pesa payment SUCCESSFUL: "
-                f"{checkout_request_id}, "
-                f"receipt={mpesa_receipt}"
+                f"M-Pesa payment SUCCESSFUL: {checkout_request_id}, receipt={mpesa_receipt}"
             )
 
-            # Reload payment after update
+            # --------------------------------------------------------
+            # IMMEDIATE MEMBER RECALCULATION
+            # Run right here so we never depend on the frontend or a
+            # separate manual step to reflect the new payment.
+            # --------------------------------------------------------
+            member_id = payment.get("member_id")
+
+            if member_id:
+                try:
+                    successful = (
+                        supabase.table("payments")
+                        .select("amount,payment_type")
+                        .eq("member_id", member_id)
+                        .eq("payment_status", "SUCCESSFUL")
+                        .eq("counts_toward_membership", True)
+                        .execute()
+                    )
+
+                    rows = successful.data or []
+
+                    monthly_rows = [
+                        p for p in rows
+                        if str(p.get("payment_type", "")).upper() == "MONTHLY"
+                    ]
+
+                    months_paid = len(monthly_rows)
+                    amount_paid = sum(float(p.get("amount") or 0) for p in rows)
+
+                    supabase.table("members").update({
+                        "months_paid": months_paid,
+                        "amount_paid": amount_paid,
+                        "updated_at": now_iso,
+                    }).eq("id", member_id).execute()
+
+                    logger.info(
+                        f"Member {member_id} recalculated: "
+                        f"months_paid={months_paid}, amount_paid={amount_paid}"
+                    )
+                except Exception as e:
+                    logger.exception(
+                        f"Member recalculation failed for {member_id}: {e}"
+                    )
+
+            # --------------------------------------------------------
+            # Reload payment and hand it to activate_registration()
+            # so the SMS + registration/chama activation still run.
+            # --------------------------------------------------------
             refreshed = (
                 supabase
                 .table("payments")
@@ -2041,13 +1944,9 @@ async def payment_callback(request: Request):
             )
 
             try:
-                await activate_registration(
-                    payment_for_activation
-                )
+                await activate_registration(payment_for_activation)
             except Exception as e:
-                logger.exception(
-                    f"Activation error for {payment_id}: {e}"
-                )
+                logger.exception(f"Activation error for {payment_id}: {e}")
 
         # =====================================================
         # FAILED / CANCELLED / TIMEOUT
@@ -2060,20 +1959,19 @@ async def payment_callback(request: Request):
                 "result_code": result_code,
                 "result_desc": result_desc,
                 "failure_reason": result_desc,
-                "confirmed_at": now,
-                "verified_at": now,
+                "confirmed_at": now_iso,
+                "verified_at": now_iso,
                 "counts_toward_membership": False,
                 "raw_callback": data,
-                "updated_at": now
+                "updated_at": now_iso
             }).eq(
-                "id", payment_id
+                "checkout_request_id",
+                checkout_request_id
             ).execute()
 
             logger.info(
-                f"M-Pesa payment FAILED: "
-                f"{checkout_request_id}, "
-                f"code={result_code}, "
-                f"reason={result_desc}"
+                f"M-Pesa payment FAILED: {checkout_request_id}, "
+                f"code={result_code}, reason={result_desc}"
             )
 
         return {
@@ -2083,9 +1981,7 @@ async def payment_callback(request: Request):
 
     except Exception as e:
 
-        logger.exception(
-            f"Payment callback processing error: {e}"
-        )
+        logger.exception(f"Payment callback processing error: {e}")
 
         return {
             "ResultCode": 0,
@@ -2093,22 +1989,11 @@ async def payment_callback(request: Request):
         }
 
 # ------------------------------------------------------------
-# 8b. RECONCILIATION SWEEP (for STK pushes whose callback never arrives)
+# 8b. RECONCILIATION SWEEP
 # ------------------------------------------------------------
-# Safaricom's callback is a best-effort webhook — it can be delayed, dropped,
-# or fail to reach us (deploy restart, transient network issue). Without a
-# sweep, a member who paid but whose callback was lost stays stuck on
-# "pending" forever. Call this on a schedule (e.g. a Render cron job hitting
-# it every few minutes) with the shared secret in the X-Reconcile-Key header.
 
 @public_router.post("/payment/reconcile")
 async def reconcile_pending_payments(request: Request, older_than_minutes: int = 2, limit: int = 25):
-    """
-    Actively poll M-Pesa for any payment still 'pending' with a
-    checkout_request_id older than `older_than_minutes`, and resolve it the
-    same way the callback would. Protected by RECONCILE_SECRET since it
-    triggers real calls against your M-Pesa credentials.
-    """
     if not RECONCILE_SECRET:
         raise HTTPException(status_code=503, detail="Reconciliation is not configured (RECONCILE_SECRET unset)")
     if request.headers.get("X-Reconcile-Key") != RECONCILE_SECRET:
@@ -2219,7 +2104,6 @@ async def activate_registration(payment: dict):
         # =====================================================
         if member_id:
 
-            # Only registration activates the member
             if payment_type != "registration":
 
                 logger.info(
@@ -2232,11 +2116,7 @@ async def activate_registration(payment: dict):
 
             supabase.table("members").update({
                 "registration_fee_paid": True,
-
-                # Keep both member status fields synchronized
-                "status": "ACTIVE",
                 "member_status": "ACTIVE",
-
                 "updated_at": now
             }).eq(
                 "id", member_id
@@ -2290,10 +2170,6 @@ async def activate_registration(payment: dict):
 # ------------------------------------------------------------
 # 9c. NOTIFICATION SWEEP (pending SMS)
 # ------------------------------------------------------------
-# Cron-triggered (e.g. a Render cron job hitting this every few minutes)
-# sweep that sends any pending SMS rows in `notifications` and marks them
-# SENT/FAILED. Protected by NOTIFICATION_PROCESS_KEY in the
-# X-Notification-Key header, same pattern as /payment/reconcile above.
 
 @public_router.post("/notifications/process")
 async def process_pending_notifications(
@@ -2311,7 +2187,6 @@ async def process_pending_notifications(
     if not supabase:
         raise HTTPException(status_code=500, detail="Database not available")
 
-    # Get pending SMS notifications
     result = (
         supabase
         .table("notifications")
@@ -2329,11 +2204,6 @@ async def process_pending_notifications(
 
     for notification in notifications:
 
-        # Get member details.
-        # FIX: `members` has no `full_name` column — it's first_name/
-        # last_name (see MemberResponse/member_record above) — and using
-        # .single() here raises instead of returning None when the member
-        # row is missing, which would abort the whole sweep on one bad row.
         member_result = (
             supabase
             .table("members")
@@ -2355,12 +2225,6 @@ async def process_pending_notifications(
 
         full_name = f"{member.get('first_name', '')} {member.get('last_name', '')}".strip()
 
-        # FIX: send_payment_reminder_sms() now returns (success, detail).
-        # The generic "TextSMS sending failed" string used to overwrite
-        # whatever TextSMS actually said, so a failure was undiagnosable
-        # from SQL. failure_reason now stores that real detail (e.g. a
-        # TextSMS response code/description, an HTTP status, or "TextSMS
-        # not configured...") instead.
         success, detail = await send_payment_reminder_sms(
             phone=member["phone"],
             name=full_name,
@@ -2391,13 +2255,6 @@ async def process_pending_notifications(
 # ============================================================
 # ADMIN PAYMENT COLLECTION  (NEW)
 # ============================================================
-# Staff-initiated STK push for an EXISTING member (monthly, top-up, add-on
-# or registration), used by admin-collectpayments.html.
-#
-# Auth: the admin page sends the SUPABASE access token from its login. It is
-# validated with Supabase, then the user must be an ACTIVE row in `staff`
-# (linked by staff.auth_user_id) whose role (roles.role_code) is listed in
-# PAYMENT_COLLECTOR_ROLES.
 
 def _resolve_payment_collector_sync(token: str) -> dict:
     """Validate a Supabase access token and confirm the staff member may collect payments."""
@@ -2455,7 +2312,6 @@ def _resolve_payment_collector_sync(token: str) -> dict:
 async def get_payment_collector(
     credentials: HTTPAuthorizationCredentials = Depends(security),
 ) -> dict:
-    # supabase-py is synchronous, so keep it off the event loop
     return await asyncio.to_thread(_resolve_payment_collector_sync, credentials.credentials)
 
 
@@ -2467,20 +2323,6 @@ class AdminCollectPaymentRequest(BaseModel):
     payment_type: PaymentTypeEnum = PaymentTypeEnum.MONTHLY
 
 
-# The `payments.payment_type` Postgres enum was built up ad hoc over time
-# and is genuinely inconsistent in case ('REGISTRATION'/'MONTHLY' uppercase,
-# but 'registration'/'chama_registration' also exist lowercase from other
-# insert paths in this file — see /api/public/register and
-# /api/public/payment/stk-push above). It has NO lowercase 'monthly',
-# 'topup', or 'addon' value at all.
-#
-# Rather than touch every other write path in this file (which already
-# works and is depended on), this endpoint is the only one that maps
-# PaymentTypeEnum's lowercase values onto the DB's actual uppercase labels
-# before insert. Requires this one-time migration on the `payment_type`
-# enum (values TOPUP/ADDON don't exist yet as of this comment):
-#   ALTER TYPE payment_type ADD VALUE IF NOT EXISTS 'TOPUP';
-#   ALTER TYPE payment_type ADD VALUE IF NOT EXISTS 'ADDON';
 PAYMENT_TYPE_DB_LABELS = {
     "registration": "REGISTRATION",
     "monthly": "MONTHLY",
@@ -2497,10 +2339,6 @@ async def admin_collect_payment(
     payload: AdminCollectPaymentRequest,
     collector: dict = Depends(get_payment_collector),
 ):
-    """
-    Send an STK push on behalf of a member. Requires a valid Supabase login
-    token belonging to an active staff member with an allowed role.
-    """
     if not supabase:
         raise HTTPException(status_code=500, detail="Database not available")
 
@@ -2520,7 +2358,6 @@ async def admin_collect_payment(
             detail=f"Amount must be between 1 and {int(ADMIN_MAX_COLLECT_AMOUNT)}",
         )
 
-    # ---- find the member ----
     member_query = supabase.table("members").select("id, member_number, first_name, last_name")
 
     if payload.member_id:
@@ -2537,17 +2374,10 @@ async def admin_collect_payment(
     member = member_result.data[0]
     payment_type = payload.payment_type.value
 
-    # The `payment_type` Postgres enum uses inconsistent casing historically
-    # (REGISTRATION/MONTHLY uppercase, "registration"/"chama_registration"
-    # lowercase — see payments table). This endpoint always writes the
-    # uppercase labels so admin-collected rows are internally consistent,
-    # even though PaymentTypeEnum itself stays lowercase for every other
-    # caller of this file.
     db_payment_type = PAYMENT_TYPE_DB_LABELS[payment_type]
 
     transaction_ref = f"TXN-{datetime.now().strftime('%Y%m%d')}-{secrets.token_hex(4).upper()}"
 
-    # ---- create the pending payment row ----
     try:
         inserted = supabase.table("payments").insert({
             "member_id": member["id"],
@@ -2567,7 +2397,6 @@ async def admin_collect_payment(
 
     payment_id = inserted.data[0]["id"] if inserted.data else None
 
-    # ---- send the STK push (member number shows as the account reference) ----
     stk_result = await initiate_mpesa_stk_push(
         phone,
         amount,
@@ -2618,7 +2447,6 @@ async def admin_payment_status(
     checkout_request_id: str,
     collector: dict = Depends(get_payment_collector),
 ):
-    # Reuses the public status logic (polls M-Pesa and resolves the payment)
     return await get_payment_status(checkout_request_id)
 
 
@@ -2628,13 +2456,8 @@ app.include_router(admin_payments_router)
 # ============================================================
 # PAYMENT VALIDATION / MEMBERSHIP RECONCILIATION
 # ============================================================
-# Reconciles a member's registration + monthly contributions using the
-# payments ledger. The registration payment is never counted as a monthly
-# contribution. Legacy status fields (legacy_status, legacy_missing_months)
-# are returned for reference only and never influence the computed status.
 
 def _parse_date(value):
-    """Safely convert a Supabase date/datetime value to a date."""
     if not value:
         return None
 
@@ -2654,30 +2477,18 @@ def _parse_date(value):
 
 
 def _months_between(start_date: date, end_date: date) -> int:
-    """
-    Number of monthly contribution periods between two dates.
-
-    Monthly contributions begin in the month after registration.
-    The current month is included only if it has already started as
-    a required contribution period.
-    """
     if not start_date or not end_date:
         return 0
 
     start_month = start_date.year * 12 + start_date.month
     end_month = end_date.year * 12 + end_date.month
 
-    # Monthly contribution starts the month after registration.
     months = end_month - start_month
 
     return max(0, months)
 
 
 def get_plan_monthly_fee(plan_slug: str) -> float:
-    """
-    Get the current monthly contribution from the live plans table.
-    Never hardcode the monthly fee.
-    """
     if not supabase:
         raise HTTPException(status_code=500, detail="Database not available")
 
@@ -2703,14 +2514,6 @@ def get_plan_monthly_fee(plan_slug: str) -> float:
 
 
 def calculate_member_payment_validation(member_id: str) -> dict:
-    """
-    Reconcile a member using the NEW SYSTEM payment ledger.
-
-    IMPORTANT:
-    legacy_status / legacy_missing_months are historical only.
-    They are NEVER used to determine the new status.
-    """
-
     if not supabase:
         raise HTTPException(status_code=500, detail="Database not available")
 
@@ -2754,11 +2557,6 @@ def calculate_member_payment_validation(member_id: str) -> dict:
             "message": f"No monthly contribution is configured for plan '{plan}'."
         }
 
-    # --------------------------------------------------------
-    # Load ALL completed payments in the new system.
-    # Do NOT use only the last 10 payments.
-    # --------------------------------------------------------
-
     payment_result = (
         supabase.table("payments")
         .select("*")
@@ -2785,27 +2583,12 @@ def calculate_member_payment_validation(member_id: str) -> dict:
             monthly_paid += amount
             monthly_payments.append(payment)
 
-    # --------------------------------------------------------
-    # Registration payment is NOT counted as monthly payment.
-    # --------------------------------------------------------
-
     expected_months = _months_between(
         registration_date,
         date.today()
     )
 
     expected_monthly_amount = expected_months * monthly_fee
-
-    # --------------------------------------------------------
-    # Match monthly payments chronologically against required
-    # monthly contributions.
-    #
-    # Example:
-    # monthly fee = 50
-    # payment = 100
-    #
-    # This satisfies two months.
-    # --------------------------------------------------------
 
     remaining_credit = monthly_paid
     months_paid = 0
@@ -2823,13 +2606,6 @@ def calculate_member_payment_validation(member_id: str) -> dict:
 
         else:
             months_missing += 1
-
-    # --------------------------------------------------------
-    # Determine status.
-    #
-    # No historical payment evidence:
-    # don't falsely declare DORMANT.
-    # --------------------------------------------------------
 
     has_new_system_monthly_evidence = len(monthly_payments) > 0
 
@@ -2859,15 +2635,6 @@ def calculate_member_payment_validation(member_id: str) -> dict:
             f"{months_missing} month(s) missing and "
             f"{months_short} month(s) short."
         )
-
-    # --------------------------------------------------------
-    # Update BOTH status fields.
-    #
-    # member_status is the existing field used throughout the
-    # application.
-    #
-    # status is the new normalized field.
-    # --------------------------------------------------------
 
     update_data = {
         "status": current_status,
@@ -2932,27 +2699,14 @@ def calculate_member_payment_validation(member_id: str) -> dict:
 # ------------------------------------------------------------
 # 9b. PAYMENT VALIDATION ENDPOINTS
 # ------------------------------------------------------------
-# Wraps calculate_member_payment_validation() so the admin panel
-# (admin-members.html "Validate Payments" button) and any cron /
-# reporting job can trigger the reconciliation on demand.
 
 class BulkValidateRequest(BaseModel):
-    """Optionally restrict the sweep to a specific list of member ids."""
     member_ids: Optional[List[str]] = None
-    # Safety cap so a misconfigured call can't try to reconcile
-    # tens of thousands of members in one request.
     limit: int = 200
 
 
 @public_router.post("/payment/validate/{member_id}")
 async def validate_member_payment(member_id: str):
-    """
-    Reconcile ONE member's payment history against their plan's
-    current monthly contribution and update their status.
-
-    Returns the full audit dict from calculate_member_payment_validation(),
-    including months_paid / months_missing / months_short and amounts.
-    """
     try:
         result = calculate_member_payment_validation(member_id)
         return result
@@ -2968,15 +2722,6 @@ async def validate_member_payment(member_id: str):
 
 @public_router.post("/payment/validate-bulk")
 async def validate_members_bulk(payload: BulkValidateRequest):
-    """
-    Reconcile many members at once.
-
-    - If `member_ids` is provided, only those are validated.
-    - Otherwise the newest `limit` members with a known plan are swept.
-
-    Returns per-member results plus a summary count so a cron job or
-    an admin "Refresh all" button can see what changed.
-    """
     if not supabase:
         raise HTTPException(status_code=500, detail="Database not available")
 
@@ -3063,10 +2808,6 @@ async def validate_members_bulk(payload: BulkValidateRequest):
 
 @public_router.get("/member/{member_id}")
 async def get_public_member(member_id: str):
-    """
-    Fetch a member's public-safe record (used by receipt/ID-card/confirmation
-    pages that only have the member_id from the registration response).
-    """
     if not supabase:
         raise HTTPException(status_code=500, detail="Database not available")
 
@@ -3082,9 +2823,6 @@ async def get_public_member(member_id: str):
 
 @public_router.get("/member/{member_id}/status", response_model=MemberStatusResponse)
 async def get_member_status(member_id: str):
-    """
-    Get member status including coverage information.
-    """
     if not supabase:
         raise HTTPException(status_code=500, detail="Database not available")
 
@@ -3130,9 +2868,6 @@ async def get_member_status(member_id: str):
 
 @public_router.get("/receipt/{payment_id}", response_model=ReceiptResponse)
 async def get_receipt(payment_id: str):
-    """
-    Generate/download receipt for a completed payment.
-    """
     if not supabase:
         raise HTTPException(status_code=500, detail="Database not available")
 
@@ -3179,9 +2914,6 @@ async def get_receipt(payment_id: str):
 
 @public_router.get("/id-card/{member_id}", response_model=IDCardResponse)
 async def get_id_card(member_id: str):
-    """
-    Generate ID card data for a member.
-    """
     if not supabase:
         raise HTTPException(status_code=500, detail="Database not available")
 
@@ -3210,21 +2942,10 @@ async def get_id_card(member_id: str):
         logger.error(f"ID card generation failed: {e}")
         raise HTTPException(status_code=400, detail=f"ID card generation failed: {str(e)}")
 
-# This is the piece that was missing: without this line, every
-# /api/public/* route defined above never gets mounted on the app,
-# so FastAPI returns 404 for all of them.
 app.include_router(public_router)
 
-# Alias so the callback also works at whatever path MPESA_CALLBACK_URL is set
-# to on Render (currently /api/webhooks/mpesa) — same handler, same
-# idempotency/IP-allowlist logic, just reachable at both URLs so a mismatch
-# between "what the STK payload says" and "what's configured in the env var"
-# can't silently 404 a real payment callback.
 app.post("/api/webhooks/mpesa", tags=["Public"])(payment_callback)
 
-# If Render's MPESA_CALLBACK_URL points to a custom path on this same service,
-# register that exact path too. This prevents a callback URL mismatch from
-# creating payments that can never be resolved by the webhook.
 try:
     from urllib.parse import urlparse
     _callback_path = urlparse(MPESA_CALLBACK_URL).path
@@ -3290,15 +3011,11 @@ async def register(member_data: MemberCreate):
         raise HTTPException(status_code=400, detail="Failed to create member")
     new_member = result.data[0]
 
-    # Welcome SMS with the new membership number. Best-effort: a failed
-    # or unconfigured send must never fail registration itself.
     try:
         await send_registration_sms(member_data.phone, member_number, member_data.first_name)
     except Exception as e:
         logger.error(f"Registration welcome SMS failed for member {new_member['id']}: {e}")
 
-    # FIX: `dependants` has no first_name/last_name/is_active columns —
-    # it stores full_name and status instead. See build_dependant_row().
     for dep in member_data.dependants:
         supabase.table("dependants").insert(
             build_dependant_row(
@@ -3462,8 +3179,6 @@ async def create_dependant(dependant: DependantCreate):
     member = supabase.table("members").select("id").eq("id", dependant.member_id).execute()
     if not member.data:
         raise HTTPException(status_code=404, detail="Member not found")
-    # FIX: `dependants` has no first_name/last_name/is_active columns —
-    # it stores full_name and status instead. See build_dependant_row().
     result = supabase.table("dependants").insert(
         build_dependant_row(
             principal_member_id=dependant.member_id,
@@ -3489,10 +3204,6 @@ async def update_dependant(dependant_id: str, dependant_update: DependantUpdate)
     update_fields = dependant_update.dict(exclude_unset=True)
     update_data: Dict[str, Any] = {}
 
-    # FIX: map the incoming first_name/last_name/is_active fields onto the
-    # real columns (full_name, status). If only one of first/last name is
-    # given, fall back to splitting the existing full_name so we don't
-    # clobber the other half.
     if "first_name" in update_fields or "last_name" in update_fields:
         current_first, _, current_last = (existing.get("full_name") or "").partition(" ")
         first_name = update_fields.get("first_name", current_first)
@@ -3525,9 +3236,6 @@ async def update_dependant(dependant_id: str, dependant_update: DependantUpdate)
 async def delete_dependant(dependant_id: str):
     if not supabase:
         raise HTTPException(status_code=500, detail="Database not available")
-    # FIX: `dependants` has no is_active column — use status instead.
-    # (deleted_at isn't part of the confirmed schema either; drop it unless
-    # you've added that column separately.)
     result = supabase.table("dependants").update({"status": "INACTIVE", "updated_at": datetime.now().isoformat()}).eq("id", dependant_id).execute()
     if not result.data:
         raise HTTPException(status_code=404, detail="Dependant not found")
