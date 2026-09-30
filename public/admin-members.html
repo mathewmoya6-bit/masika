@@ -1458,25 +1458,56 @@
                 if (seq !== loadSeq) return;
 
                 totalRecords = count || 0;
-                currentMembersCache = (data || []).map(member => {
-                    const registrationDate = member.registration_date
-                        ? new Date(`${member.registration_date}T00:00:00`)
+
+                // Renewal starts from the DATE OF THE FIRST SUCCESSFUL MEMBERSHIP PAYMENT,
+                // not registration_date. Each member gets a 12-month cycle from that day.
+                const pageMembers = data || [];
+                const memberIds = pageMembers.map(m => m.id).filter(Boolean);
+                const firstPaymentByMember = {};
+
+                if (memberIds.length) {
+                    const { data: firstPayments, error: firstPaymentsError } = await supabaseClient
+                        .from('payments')
+                        .select('member_id, created_at, confirmed_at, verified_at, payment_status, status, counts_toward_membership')
+                        .in('member_id', memberIds)
+                        .eq('payment_status', 'SUCCESSFUL')
+                        .order('created_at', { ascending: true });
+
+                    if (!firstPaymentsError) {
+                        (firstPayments || []).forEach(payment => {
+                            if (!firstPaymentByMember[payment.member_id]) {
+                                firstPaymentByMember[payment.member_id] = payment;
+                            }
+                        });
+                    } else {
+                        console.warn('First payment lookup failed:', firstPaymentsError);
+                    }
+                }
+
+                currentMembersCache = pageMembers.map(member => {
+                    const firstPayment = firstPaymentByMember[member.id];
+                    const firstPaymentRaw = firstPayment
+                        ? (firstPayment.confirmed_at || firstPayment.verified_at || firstPayment.created_at)
+                        : null;
+                    const firstPaymentDate = firstPaymentRaw
+                        ? new Date(firstPaymentRaw)
                         : null;
 
                     let renewalDate = null;
                     let monthsToRenew = 0;
-                    let duration = 'New member';
+                    let duration = 'Awaiting first payment';
 
-                    if (registrationDate && !Number.isNaN(registrationDate.getTime())) {
-                        renewalDate = new Date(registrationDate);
+                    if (firstPaymentDate && !Number.isNaN(firstPaymentDate.getTime())) {
+                        // Preserve the exact payment day/month and add 12 months.
+                        renewalDate = new Date(firstPaymentDate);
                         renewalDate.setFullYear(renewalDate.getFullYear() + 1);
 
                         const now = new Date();
                         let monthsElapsed =
-                            (now.getFullYear() - registrationDate.getFullYear()) * 12 +
-                            (now.getMonth() - registrationDate.getMonth());
+                            (now.getFullYear() - firstPaymentDate.getFullYear()) * 12 +
+                            (now.getMonth() - firstPaymentDate.getMonth());
 
-                        if (now.getDate() < registrationDate.getDate()) {
+                        if (now.getDate() < firstPaymentDate.getDate()) {
                             monthsElapsed -= 1;
                         }
 
@@ -1490,7 +1521,6 @@
                         if (now.getDate() > renewalDate.getDate()) {
                             monthsToRenew -= 1;
                         }
-                        monthsToRenew = Math.max(0, monthsToRenew);
                     }
 
                     const authoritativeStatus =
@@ -1500,6 +1530,10 @@
                         ...member,
                         calculated_status: authoritativeStatus,
                         missed_months: Number(member.months_missing || 0),
+                        total_paid: Number(member.amount_paid || 0),
+                        first_payment_date: firstPaymentDate
+                            ? firstPaymentDate.toISOString().slice(0, 10)
+                            : null,
                         membership_duration: duration,
                         renewal_due_date: renewalDate
                             ? renewalDate.toISOString().slice(0, 10)
@@ -1684,6 +1718,7 @@
                                 <th>Duration</th>
                                 <th>Renewal</th>
                                 <th>Payments</th>
+                                <th>Total Paid</th>
                                 <th>Actions</th>
                             </tr>
                         </thead>
@@ -1698,11 +1733,15 @@
                 const status = member.calculated_status || 'PENDING';
                 const missedPayments = Number(member.missed_months || 0);
                 const monthsPaid = Number(member.months_paid || 0);
-                const duration = member.membership_duration || 'New member';
+                const totalPaid = Number(member.total_paid ?? member.amount_paid ?? 0);
+                const duration = member.membership_duration || 'Awaiting first payment';
                 const monthsToRenew = Number(member.months_to_renew ?? 0);
 
                 const renewalDate = member.renewal_due_date
                     ? new Date(member.renewal_due_date + 'T00:00:00').toLocaleDateString('en-GB')
+                    : '—';
+                const firstPaymentDate = member.first_payment_date
+                    ? new Date(member.first_payment_date + 'T00:00:00').toLocaleDateString('en-GB')
                     : '—';
 
                 // ---- Status badge ----
@@ -1750,12 +1789,13 @@
                         <td>${statusBadge}</td>
                         <td><span class="mini-badge info"><i class="fas fa-clock"></i> ${escapeHTML(duration)}</span></td>
                         <td>
-                            <span class="mini-badge ${renewalClass}" title="Renewal due: ${renewalDate}">
+                            <span class="mini-badge ${renewalClass}" title="First payment: ${firstPaymentDate} | Renewal due: ${renewalDate}">
                                 <i class="fas ${renewalClass === 'late' ? 'fa-triangle-exclamation' : renewalClass === 'soon' ? 'fa-bell' : 'fa-calendar-check'}"></i>
                                 ${renewalLabel}
                             </span>
                         </td>
                         <td>${paymentCell}</td>
+                        <td><strong>KES ${totalPaid.toLocaleString('en-KE', {minimumFractionDigits: 0, maximumFractionDigits: 2})}</strong></td>
                         <td>
                             <div class="row-actions">
                                 <button class="btn-icon view" title="View member" onclick="openMemberModal('${member.id}')">
