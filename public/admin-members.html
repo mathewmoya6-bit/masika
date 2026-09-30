@@ -748,6 +748,66 @@
         .toast.warning { background: #b7791f; }
         .toast.info { background: var(--primary); }
 
+        /* ---------- Payment history (inside member modal) ---------- */
+        .payment-history-list {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            max-height: 260px;
+            overflow-y: auto;
+            padding-right: 4px;
+        }
+        .payment-history-item {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 12px;
+            padding: 10px 14px;
+            border-radius: 10px;
+            background: var(--gray-50);
+            border: 1px solid var(--gray-100);
+            font-size: 13px;
+            transition: var(--transition);
+        }
+        .payment-history-item:hover {
+            background: var(--gray-100);
+            border-color: var(--gray-200);
+        }
+        .payment-history-item .ph-left {
+            display: flex;
+            flex-direction: column;
+            gap: 2px;
+            min-width: 0;
+        }
+        .payment-history-item .ph-amount {
+            font-weight: 700;
+            color: var(--primary);
+            white-space: nowrap;
+        }
+        .payment-history-item .ph-date {
+            color: var(--text-light);
+            font-size: 12px;
+        }
+        .payment-history-item .ph-type {
+            font-weight: 600;
+            font-size: 12px;
+            text-transform: capitalize;
+        }
+        .payment-history-item .ph-receipt {
+            font-size: 11px;
+            color: var(--text-lighter);
+            word-break: break-all;
+        }
+        .payment-history-item .ph-badge {
+            flex-shrink: 0;
+        }
+        .payment-history-empty {
+            text-align: center;
+            padding: 24px;
+            color: var(--text-light);
+            font-size: 13px;
+        }
+
         @media (max-width: 768px) {
             .sidebar { transform: translateX(-100%); width: 280px; }
             .sidebar.open { transform: translateX(0); }
@@ -898,8 +958,11 @@
         </main>
     </div>
 
+    <!-- ============================================================ -->
+    <!-- MEMBER DETAIL MODAL (with payment history)                    -->
+    <!-- ============================================================ -->
     <div class="modal-overlay" id="memberModal">
-        <div class="modal">
+        <div class="modal modal-lg">
             <h3>
                 <span><i class="fas fa-id-card" style="color:var(--primary);"></i> <span id="memberModalName">Member</span></span>
                 <span style="display:flex;gap:8px;">
@@ -946,6 +1009,22 @@
                 <div class="detail-grid" id="memberKinInfo"></div>
             </fieldset>
 
+            <!-- ============================================================ -->
+            <!-- PAYMENT HISTORY (NEW)                                         -->
+            <!-- ============================================================ -->
+            <fieldset id="memberPaymentsFieldset">
+                <legend>
+                    Payment History
+                    <span id="paymentHistoryCount" style="font-weight:400;color:var(--text-light);font-size:11px;margin-left:6px;"></span>
+                </legend>
+                <div id="memberPaymentsContent">
+                    <div class="payment-history-empty">
+                        <i class="fas fa-spinner fa-spin" style="font-size:20px;display:block;margin-bottom:8px;opacity:0.5;"></i>
+                        Loading payments...
+                    </div>
+                </div>
+            </fieldset>
+
             <div class="modal-actions" id="memberEditActions" style="display:none;margin-top:-8px;">
                 <button type="button" class="btn btn-secondary" onclick="toggleEditMember()">Cancel</button>
                 <button type="button" class="btn btn-primary" id="memberEditSaveBtn" onclick="saveMemberDetails()">
@@ -958,6 +1037,9 @@
         </div>
     </div>
 
+    <!-- ============================================================ -->
+    <!-- STK MODAL                                                      -->
+    <!-- ============================================================ -->
     <div class="modal-overlay" id="stkModal">
         <div class="modal modal-sm">
             <h3>
@@ -1022,7 +1104,6 @@
         const STK_POLL_INTERVAL_MS = 10000;
         const STK_POLL_MAX_ATTEMPTS = 12; // 2 minutes, matches collectpayments.html
 
-
         async function getAuthToken() {
             const { data: { session } } = await supabaseClient.auth.getSession();
             return session?.access_token || null;
@@ -1073,6 +1154,10 @@
         let realtimeReconnectTimer = null;
         let fallbackTimer = null;
         let loadSeq = 0; // guards against out-of-order responses
+
+        // Payment history state
+        let currentMemberPayments = [];
+        let paymentsLoadSeq = 0;
 
         const membersList = document.getElementById('membersList');
         const pagination = document.getElementById('membersPagination');
@@ -1153,6 +1238,10 @@
         // can affect the view and then silently re-query the view.
         // A short fallback refresh keeps the page current even if the
         // realtime WebSocket is temporarily unavailable.
+        //
+        // ADDITIONALLY: we subscribe to the `payments` table so that
+        // whenever a payment is recorded (e.g. via STK push), the
+        // member modal's payment history refreshes automatically.
         // ============================================================
         const REALTIME_DEBOUNCE_MS = 400;
         const FALLBACK_REFRESH_MS = 5000;
@@ -1173,6 +1262,12 @@
                 try {
                     console.log(`Realtime refresh: ${reason}`);
                     await loadMembers(currentPage, true);
+
+                    // If the member modal is open and not in edit mode,
+                    // refresh its payment history too.
+                    if (selectedMemberId && !memberEditMode) {
+                        await loadMemberPayments(selectedMemberId, true);
+                    }
                 } catch (err) {
                     console.warn('Background refresh failed:', err);
                 }
@@ -1253,6 +1348,9 @@
             fallbackTimer = setInterval(() => {
                 if (!document.hidden && authReady && !memberEditMode) {
                     loadMembers(currentPage, true);
+                    if (selectedMemberId && !memberEditMode) {
+                        loadMemberPayments(selectedMemberId, true);
+                    }
                 }
             }, FALLBACK_REFRESH_MS);
         }
@@ -1262,6 +1360,7 @@
                 if (document.hidden || !authReady || memberEditMode) return;
 
                 loadMembers(currentPage, true);
+                if (selectedMemberId) loadMemberPayments(selectedMemberId, true);
 
                 if (!realtimeChannel) {
                     startRealtime();
@@ -1368,6 +1467,124 @@
                         </button>
                     </div>`;
             }
+        }
+
+        // ============================================================
+        // LOAD MEMBER PAYMENTS (for the member modal)
+        // ------------------------------------------------------------
+        // Reads directly from the `payments` table filtered by
+        // member_id. Supabase Realtime on `payments` triggers a
+        // silent refresh of this list whenever a new payment lands,
+        // so the member account view updates automatically.
+        // ============================================================
+        async function loadMemberPayments(memberId, silent = false) {
+            if (!memberId) return;
+            const seq = ++paymentsLoadSeq;
+            const container = document.getElementById('memberPaymentsContent');
+            const countEl = document.getElementById('paymentHistoryCount');
+
+            if (!silent) {
+                container.innerHTML = `
+                    <div class="payment-history-empty">
+                        <i class="fas fa-spinner fa-spin" style="font-size:20px;display:block;margin-bottom:8px;opacity:0.5;"></i>
+                        Loading payments...
+                    </div>`;
+                countEl.textContent = '';
+            }
+
+            try {
+                const { data, error } = await supabaseClient
+                    .from('payments')
+                    .select('*')
+                    .eq('member_id', memberId)
+                    .order('payment_date', { ascending: false })
+                    .limit(50);
+
+                if (error) throw error;
+                if (seq !== paymentsLoadSeq) return; // superseded
+
+                currentMemberPayments = data || [];
+                renderMemberPayments(currentMemberPayments);
+
+            } catch (err) {
+                console.error('Load member payments error:', err);
+                if (silent) return;
+                container.innerHTML = `
+                    <div class="payment-history-empty" style="color:var(--danger);">
+                        <i class="fas fa-exclamation-triangle" style="font-size:20px;display:block;margin-bottom:8px;"></i>
+                        Failed to load payments: ${escapeHTML(err.message || 'unknown error')}
+                    </div>`;
+            }
+        }
+
+        // ============================================================
+        // RENDER MEMBER PAYMENTS
+        // ============================================================
+        function renderMemberPayments(payments) {
+            const container = document.getElementById('memberPaymentsContent');
+            const countEl = document.getElementById('paymentHistoryCount');
+
+            if (!payments || payments.length === 0) {
+                countEl.textContent = '';
+                container.innerHTML = `
+                    <div class="payment-history-empty">
+                        <i class="fas fa-receipt" style="font-size:24px;display:block;margin-bottom:8px;opacity:0.3;"></i>
+                        No payments recorded yet.
+                    </div>`;
+                return;
+            }
+
+            countEl.textContent = `(${payments.length} record${payments.length === 1 ? '' : 's'})`;
+
+            let html = '<div class="payment-history-list">';
+
+            payments.forEach(p => {
+                const amount = parseFloat(p.amount || 0).toLocaleString('en-KE', {
+                    minimumFractionDigits: 0,
+                    maximumFractionDigits: 2
+                });
+                const dateStr = p.payment_date
+                    ? new Date(p.payment_date).toLocaleDateString('en-KE', {
+                        day: '2-digit', month: 'short', year: 'numeric'
+                    })
+                    : '—';
+
+                const statusRaw = String(p.status || '').toUpperCase();
+                let badgeClass = 'neutral';
+                let badgeLabel = statusRaw || '—';
+                if (['COMPLETED', 'SUCCESS', 'SUCCESSFUL', 'PAID', 'CONFIRMED'].includes(statusRaw)) {
+                    badgeClass = 'ok';
+                    badgeLabel = 'Completed';
+                } else if (['PENDING', 'PROCESSING'].includes(statusRaw)) {
+                    badgeClass = 'soon';
+                    badgeLabel = 'Pending';
+                } else if (['FAILED', 'CANCELLED', 'CANCELED', 'REJECTED', 'TIMEOUT', 'EXPIRED'].includes(statusRaw)) {
+                    badgeClass = 'late';
+                    badgeLabel = 'Failed';
+                }
+
+                const paymentType = p.payment_type || p.type || 'payment';
+                const receipt = p.mpesa_receipt_number || p.receipt || p.transaction_reference || '';
+
+                html += `
+                    <div class="payment-history-item">
+                        <div class="ph-left">
+                            <span class="ph-type">
+                                <i class="fas fa-circle" style="font-size:6px;color:var(--primary);vertical-align:middle;margin-right:4px;"></i>
+                                ${escapeHTML(paymentType)}
+                            </span>
+                            <span class="ph-date"><i class="fas fa-calendar-day" style="font-size:10px;"></i> ${escapeHTML(dateStr)}</span>
+                            ${receipt ? `<span class="ph-receipt"><i class="fas fa-hashtag" style="font-size:10px;"></i> ${escapeHTML(receipt)}</span>` : ''}
+                        </div>
+                        <div style="display:flex;align-items:center;gap:10px;flex-shrink:0;">
+                            <span class="ph-amount">KES ${amount}</span>
+                            <span class="mini-badge ${badgeClass} ph-badge">${escapeHTML(badgeLabel)}</span>
+                        </div>
+                    </div>`;
+            });
+
+            html += '</div>';
+            container.innerHTML = html;
         }
 
         // ============================================================
@@ -1528,6 +1745,7 @@
         // ------------------------------------------------------------
         // openMemberModal(id) opens read-only.
         // openMemberModal(id, true) opens straight into edit mode.
+        // Payment history is loaded into the modal for view mode.
         // ============================================================
         async function openMemberModal(memberId, startInEdit = false) {
             selectedMemberId = memberId;
@@ -1549,6 +1767,9 @@
                 clearModalMessages();
                 setMemberEditMode(!!startInEdit);
 
+                // Load payment history in the background
+                loadMemberPayments(memberId, false);
+
             } catch (err) {
                 console.error('Open member error:', err);
                 showModalError(`Failed to load member details: ${err.message || 'unknown error'}`);
@@ -1560,6 +1781,7 @@
             selectedMemberId = null;
             currentMemberRecord = null;
             memberEditMode = false;
+            currentMemberPayments = [];
             clearModalMessages();
         }
 
@@ -1639,6 +1861,9 @@
             const btn = document.getElementById('memberEditToggleBtn');
             document.getElementById('memberEditActions').style.display = on ? 'flex' : 'none';
             btn.innerHTML = on ? '<i class="fas fa-eye"></i> View' : '<i class="fas fa-pen"></i> Edit Details';
+
+            // Hide payment history while editing (it's view-only data)
+            document.getElementById('memberPaymentsFieldset').style.display = on ? 'none' : 'block';
 
             if (on) renderMemberEditFields(currentMemberRecord);
             else renderMemberViewFields(currentMemberRecord);
@@ -1730,6 +1955,11 @@
         // Both require the staff's Supabase Bearer token; the backend
         // checks PAYMENT_COLLECTOR_ROLES independently of this page's
         // own SUPER_ADMIN/ADMIN gate.
+        //
+        // AUTOMATIC UPDATE: When a payment is confirmed via polling,
+        // we refresh both the member list and — if the member modal is
+        // open — the member's payment history. Supabase Realtime on the
+        // `payments` table also triggers this automatically.
         // ============================================================
         async function openStkModal(memberId) {
             stkMemberId = memberId;
@@ -1909,7 +2139,12 @@
                         setStkStatus('success', 'Payment confirmed' + (receipt ? ` — receipt ${receipt}.` : '.'));
                         showToast('Payment completed successfully!', 'success');
                         resetStkSendBtn();
+
+                        // AUTOMATIC UPDATE: refresh member list and modal payment history
                         loadMembers(currentPage, true);
+                        if (selectedMemberId) {
+                            loadMemberPayments(selectedMemberId, true);
+                        }
                     } else if (isFailed) {
                         stopStkPolling();
                         setStkStatus('failed', 'Payment was not completed.');
@@ -1920,6 +2155,9 @@
                         setStkStatus('pending', 'Taking longer than expected — check the Payments page for the final result.');
                         resetStkSendBtn();
                         loadMembers(currentPage, true);
+                        if (selectedMemberId) {
+                            loadMemberPayments(selectedMemberId, true);
+                        }
                     }
                     // pending — keep polling silently.
                 } catch (err) {
@@ -2075,6 +2313,9 @@
             refreshIcon.classList.add('fa-spin');
             try {
                 await loadMembers(currentPage);
+                if (selectedMemberId) {
+                    await loadMemberPayments(selectedMemberId, true);
+                }
                 showToast('Data refreshed.', 'success');
             } catch { showToast('Failed to refresh.', 'error'); }
             finally {
@@ -2169,7 +2410,8 @@
             loadMembers, applyFilters, resetFilters, changePage, refreshData,
             openMemberModal, closeMemberModal, toggleEditMember, saveMemberDetails,
             saveMemberStatus, exportMembers, handleLogout, showToast,
-            openStkModal, closeStkModal, sendStkPush, generateIdCard
+            openStkModal, closeStkModal, sendStkPush, generateIdCard,
+            loadMemberPayments
         });
 
         document.getElementById('memberModal').addEventListener('click', function(e) {
