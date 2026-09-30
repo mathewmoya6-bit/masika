@@ -1022,9 +1022,6 @@
         const STK_POLL_INTERVAL_MS = 10000;
         const STK_POLL_MAX_ATTEMPTS = 12; // 2 minutes, matches collectpayments.html
 
-        // Live refresh
-        const REALTIME_DEBOUNCE_MS = 800;
-        const FALLBACK_REFRESH_MS = 30000;
 
         async function getAuthToken() {
             const { data: { session } } = await supabaseClient.auth.getSession();
@@ -1073,6 +1070,7 @@
 
         let realtimeChannel = null;
         let realtimeDebounce = null;
+        let realtimeReconnectTimer = null;
         let fallbackTimer = null;
         let loadSeq = 0; // guards against out-of-order responses
 
@@ -1147,15 +1145,19 @@
         }
 
         // ============================================================
-        // REALTIME
+        // REALTIME LIVE UPDATES
         // ------------------------------------------------------------
-        // Supabase Realtime cannot subscribe to a VIEW, so we listen on
-        // the base tables (payments, members) and re-query the view
-        // silently (no spinner) when anything changes.
-        // Requires:  alter publication supabase_realtime add table public.payments;
-        // and a SELECT policy on payments for staff.
-        // A 30s fallback refresh covers dropped sockets.
+        // The page reads calculated member data from the
+        // admin_member_payment_status VIEW. Supabase Realtime cannot
+        // subscribe to a VIEW, so we listen to every base table that
+        // can affect the view and then silently re-query the view.
+        // A short fallback refresh keeps the page current even if the
+        // realtime WebSocket is temporarily unavailable.
         // ============================================================
+        const REALTIME_DEBOUNCE_MS = 400;
+        const FALLBACK_REFRESH_MS = 5000;
+        const REALTIME_RECONNECT_MS = 2000;
+
         function setLiveIndicator(on, label) {
             const el = document.getElementById('liveIndicator');
             const lb = document.getElementById('liveLabel');
@@ -1164,47 +1166,128 @@
             lb.textContent = label;
         }
 
-        function scheduleSilentReload() {
+        function scheduleSilentReload(reason = 'realtime') {
             clearTimeout(realtimeDebounce);
-            realtimeDebounce = setTimeout(() => {
-                if (memberEditMode) return; // don't disturb an admin mid-edit
-                loadMembers(currentPage, true);
+            realtimeDebounce = setTimeout(async () => {
+                if (!authReady || memberEditMode) return;
+                try {
+                    console.log(`Realtime refresh: ${reason}`);
+                    await loadMembers(currentPage, true);
+                } catch (err) {
+                    console.warn('Background refresh failed:', err);
+                }
             }, REALTIME_DEBOUNCE_MS);
         }
 
+        function stopRealtime() {
+            if (realtimeChannel) {
+                try {
+                    supabaseClient.removeChannel(realtimeChannel);
+                } catch (err) {
+                    console.warn('Realtime channel cleanup failed:', err);
+                }
+                realtimeChannel = null;
+            }
+        }
+
+        function scheduleRealtimeReconnect() {
+            if (realtimeReconnectTimer) return;
+
+            realtimeReconnectTimer = setTimeout(() => {
+                realtimeReconnectTimer = null;
+                if (!authReady || document.hidden) return;
+                stopRealtime();
+                startRealtime();
+            }, REALTIME_RECONNECT_MS);
+        }
+
         function startRealtime() {
-            if (realtimeChannel) return;
+            if (!authReady || realtimeChannel) return;
+
+            console.log('Starting Masika Realtime...');
+            setLiveIndicator(false, 'Connecting...');
 
             realtimeChannel = supabaseClient
-                .channel('admin-members-live')
-                .on('postgres_changes', { event: '*', schema: 'public', table: 'payments' }, payload => {
-                    console.log('Realtime payments change:', payload.eventType);
-                    scheduleSilentReload();
+                .channel('admin-members-live', {
+                    config: {
+                        broadcast: { self: false },
+                        presence: { key: '' }
+                    }
                 })
-                .on('postgres_changes', { event: '*', schema: 'public', table: 'members' }, payload => {
-                    console.log('Realtime members change:', payload.eventType);
-                    scheduleSilentReload();
+                .on('postgres_changes', {
+                    event: '*', schema: 'public', table: 'payments'
+                }, payload => {
+                    console.log('Realtime payments:', payload.eventType);
+                    scheduleSilentReload('payment change');
                 })
-                .subscribe(status => {
-                    console.log('Realtime status:', status);
-                    if (status === 'SUBSCRIBED') setLiveIndicator(true, 'Live');
-                    else if (status === 'CLOSED' || status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
-                        setLiveIndicator(false, 'Auto-refresh');
+                .on('postgres_changes', {
+                    event: '*', schema: 'public', table: 'members'
+                }, payload => {
+                    console.log('Realtime members:', payload.eventType);
+                    scheduleSilentReload('member change');
+                })
+                .on('postgres_changes', {
+                    event: '*', schema: 'public', table: 'memberships'
+                }, payload => {
+                    console.log('Realtime memberships:', payload.eventType);
+                    scheduleSilentReload('membership change');
+                })
+                .subscribe((status, err) => {
+                    console.log('Realtime status:', status, err || '');
+
+                    if (status === 'SUBSCRIBED') {
+                        setLiveIndicator(true, 'Live');
+                        scheduleSilentReload('realtime connected');
+                    } else if (
+                        status === 'CHANNEL_ERROR' ||
+                        status === 'TIMED_OUT' ||
+                        status === 'CLOSED'
+                    ) {
+                        setLiveIndicator(false, 'Reconnecting...');
+                        stopRealtime();
+                        scheduleRealtimeReconnect();
                     }
                 });
 
+            clearInterval(fallbackTimer);
             fallbackTimer = setInterval(() => {
-                if (!document.hidden && !memberEditMode && authReady) loadMembers(currentPage, true);
+                if (!document.hidden && authReady && !memberEditMode) {
+                    loadMembers(currentPage, true);
+                }
             }, FALLBACK_REFRESH_MS);
+        }
 
+        if (!window.__masikaRealtimeEventsInstalled) {
             document.addEventListener('visibilitychange', () => {
-                if (!document.hidden && authReady && !memberEditMode) loadMembers(currentPage, true);
+                if (document.hidden || !authReady || memberEditMode) return;
+
+                loadMembers(currentPage, true);
+
+                if (!realtimeChannel) {
+                    startRealtime();
+                }
+            });
+
+            window.addEventListener('online', () => {
+                if (authReady) {
+                    scheduleSilentReload('browser online');
+                    stopRealtime();
+                    startRealtime();
+                }
+            });
+
+            window.addEventListener('offline', () => {
+                setLiveIndicator(false, 'Offline');
             });
 
             window.addEventListener('beforeunload', () => {
-                if (realtimeChannel) supabaseClient.removeChannel(realtimeChannel);
+                stopRealtime();
                 clearInterval(fallbackTimer);
+                clearTimeout(realtimeDebounce);
+                clearTimeout(realtimeReconnectTimer);
             });
+
+            window.__masikaRealtimeEventsInstalled = true;
         }
 
         // ============================================================
