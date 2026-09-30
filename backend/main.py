@@ -1887,104 +1887,210 @@ KNOWN_MPESA_FAILURE_CODES = {
 
 @public_router.post("/payment/callback")
 async def payment_callback(request: Request):
-    """
-    M-Pesa payment callback webhook. Called by Safaricom when the STK
-    transaction completes (success, user cancellation, or timeout).
+    """Safaricom M-Pesa STK callback."""
 
-    Registered at two paths (see the app.post alias right after this router
-    is included below) — /api/public/payment/callback, which is what the
-    outgoing STK payload's CallBackURL defaults to, and /api/webhooks/mpesa,
-    which is what MPESA_CALLBACK_URL was set to on Render. Whichever one
-    Safaricom actually calls, both land here.
-
-    Always returns {"ResultCode": 0} to Safaricom once the payload is
-    parsed — even if our own processing hits an error — because returning
-    a non-zero code makes Daraja retry the callback, and retries won't fix
-    a bug on our side, they'll just resend the same webhook repeatedly.
-    """
     client_ip = request.client.host if request.client else None
+
     if not is_ip_allowed(client_ip):
-        logger.warning(f"Rejected M-Pesa callback from disallowed IP: {client_ip}")
+        logger.warning(
+            f"Rejected M-Pesa callback from disallowed IP: {client_ip}"
+        )
         raise HTTPException(status_code=403, detail="Forbidden")
 
     try:
         data = await request.json()
     except Exception as e:
-        logger.error(f"Payment callback: could not parse JSON body: {e}")
-        return {"ResultCode": 0, "ResultDesc": "Success"}
+        logger.error(f"Payment callback JSON error: {e}")
+        return {"ResultCode": 0, "ResultDesc": "Accepted"}
 
-    logger.info(f"Payment callback received from {client_ip}: {data}")
+    logger.info(f"M-Pesa callback received: {data}")
 
     try:
-        body = data.get("Body", {})
-        stk_callback = body.get("stkCallback", {})
+        body = data.get("Body") or {}
+        stk_callback = body.get("stkCallback") or {}
 
-        result_code = str(stk_callback.get("ResultCode", "")).strip()
-        result_desc = stk_callback.get("ResultDesc")
+        merchant_request_id = stk_callback.get("MerchantRequestID")
         checkout_request_id = stk_callback.get("CheckoutRequestID")
-        callback_metadata = stk_callback.get("CallbackMetadata", {})
+        result_desc = stk_callback.get("ResultDesc")
+
+        try:
+            result_code = int(stk_callback.get("ResultCode"))
+        except (TypeError, ValueError):
+            result_code = None
 
         if not checkout_request_id:
-            logger.warning("Payment callback missing CheckoutRequestID — ignoring")
-            return {"ResultCode": 0, "ResultDesc": "Success"}
+            logger.warning(
+                "M-Pesa callback missing CheckoutRequestID"
+            )
+            return {"ResultCode": 0, "ResultDesc": "Accepted"}
 
-        payment_result = supabase.table("payments").select("*").eq("checkout_request_id", checkout_request_id).execute()
-        if not payment_result.data:
-            logger.warning(f"Payment not found for checkout_request_id: {checkout_request_id}")
-            return {"ResultCode": 0, "ResultDesc": "Success"}
+        # Find payment
+        result = (
+            supabase
+            .table("payments")
+            .select("*")
+            .eq("checkout_request_id", checkout_request_id)
+            .limit(1)
+            .execute()
+        )
 
-        payment = payment_result.data[0]
+        if not result.data:
+            logger.warning(
+                f"Payment not found: {checkout_request_id}"
+            )
+            return {"ResultCode": 0, "ResultDesc": "Accepted"}
 
-        # Idempotency: Safaricom can and does resend the same callback
-        # (network retries on their end). If we've already resolved this
-        # payment, don't reactivate the member or overwrite the receipt.
-        payment_status = str(payment.get("status") or "").strip().lower()
-        if payment_status in ("completed", "failed"):
-            logger.info(f"Duplicate callback for already-{payment_status} payment {checkout_request_id} — ignoring")
-            return {"ResultCode": 0, "ResultDesc": "Success"}
+        payment = result.data[0]
+        payment_id = payment["id"]
 
-        if result_code == "0":
-            mpesa_receipt = None
-            items = callback_metadata.get("Item", [])
-            for item in items:
-                if item.get("Name") == "MpesaReceiptNumber":
-                    mpesa_receipt = item.get("Value")
+        # Do not process an already successful payment twice
+        if str(
+            payment.get("payment_status") or ""
+        ).upper() == "SUCCESSFUL":
+
+            logger.info(
+                f"Payment already successful: {payment_id}"
+            )
+            return {"ResultCode": 0, "ResultDesc": "Accepted"}
+
+        # Extract callback metadata
+        metadata = (
+            stk_callback.get("CallbackMetadata") or {}
+        )
+
+        items = metadata.get("Item") or []
+
+        mpesa_receipt = None
+        callback_amount = None
+        callback_phone = None
+
+        for item in items:
+            name = item.get("Name")
+            value = item.get("Value")
+
+            if name == "MpesaReceiptNumber":
+                mpesa_receipt = (
+                    str(value) if value is not None else None
+                )
+
+            elif name == "Amount":
+                callback_amount = value
+
+            elif name == "PhoneNumber":
+                callback_phone = (
+                    str(value) if value is not None else None
+                )
+
+        now = datetime.now().isoformat()
+
+        # =====================================================
+        # SUCCESS
+        # =====================================================
+        if result_code == 0:
 
             update_data = {
+                "payment_status": "SUCCESSFUL",
                 "status": "completed",
+                "result_code": 0,
+                "result_desc": result_desc,
                 "mpesa_receipt": mpesa_receipt,
-                "updated_at": datetime.now().isoformat()
+                "mpesa_receipt_number": mpesa_receipt,
+                "confirmed_at": now,
+                "verified_at": now,
+                "counts_toward_membership": True,
+                "raw_callback": data,
+                "updated_at": now
             }
-            try:
-                supabase.table("payments").update(update_data).eq("id", payment["id"]).execute()
-            except Exception:
-                # Older schemas may not have every column below yet — retry
-                # with just the fields we know exist rather than losing the
-                # receipt entirely because of one unrecognized column.
-                supabase.table("payments").update({
-                    "status": "completed",
-                    "mpesa_receipt": mpesa_receipt
-                }).eq("id", payment["id"]).execute()
 
-            await activate_registration(payment)
-            logger.info(f"Payment completed: {checkout_request_id}, receipt: {mpesa_receipt}")
+            if callback_amount is not None:
+                try:
+                    update_data["amount"] = float(callback_amount)
+                except (TypeError, ValueError):
+                    pass
+
+            if callback_phone:
+                update_data["phone_number"] = callback_phone
+                update_data["phone"] = callback_phone
+
+            supabase.table("payments").update(
+                update_data
+            ).eq(
+                "id", payment_id
+            ).execute()
+
+            logger.info(
+                f"M-Pesa payment SUCCESSFUL: "
+                f"{checkout_request_id}, "
+                f"receipt={mpesa_receipt}"
+            )
+
+            # Reload payment after update
+            refreshed = (
+                supabase
+                .table("payments")
+                .select("*")
+                .eq("id", payment_id)
+                .limit(1)
+                .execute()
+            )
+
+            payment_for_activation = (
+                refreshed.data[0]
+                if refreshed.data
+                else {**payment, **update_data}
+            )
+
+            try:
+                await activate_registration(
+                    payment_for_activation
+                )
+            except Exception as e:
+                logger.exception(
+                    f"Activation error for {payment_id}: {e}"
+                )
+
+        # =====================================================
+        # FAILED / CANCELLED / TIMEOUT
+        # =====================================================
         else:
-            logger.info(f"Payment not completed: {checkout_request_id} - {result_desc}")
-            try:
-                supabase.table("payments").update({
-                    "status": "failed",
-                    "failure_reason": result_desc,
-                    "updated_at": datetime.now().isoformat()
-                }).eq("id", payment["id"]).execute()
-            except Exception:
-                supabase.table("payments").update({"status": "failed"}).eq("id", payment["id"]).execute()
 
-        return {"ResultCode": 0, "ResultDesc": "Success"}
+            supabase.table("payments").update({
+                "payment_status": "FAILED",
+                "status": "failed",
+                "result_code": result_code,
+                "result_desc": result_desc,
+                "failure_reason": result_desc,
+                "confirmed_at": now,
+                "verified_at": now,
+                "counts_toward_membership": False,
+                "raw_callback": data,
+                "updated_at": now
+            }).eq(
+                "id", payment_id
+            ).execute()
+
+            logger.info(
+                f"M-Pesa payment FAILED: "
+                f"{checkout_request_id}, "
+                f"code={result_code}, "
+                f"reason={result_desc}"
+            )
+
+        return {
+            "ResultCode": 0,
+            "ResultDesc": "Accepted"
+        }
 
     except Exception as e:
-        logger.error(f"Payment callback processing error: {e}")
-        # Still ack with ResultCode 0 — see docstring above.
-        return {"ResultCode": 0, "ResultDesc": "Success"}
+
+        logger.exception(
+            f"Payment callback processing error: {e}"
+        )
+
+        return {
+            "ResultCode": 0,
+            "ResultDesc": "Accepted"
+        }
 
 # ------------------------------------------------------------
 # 8b. RECONCILIATION SWEEP (for STK pushes whose callback never arrives)
@@ -2062,77 +2168,123 @@ async def reconcile_pending_payments(request: Request, older_than_minutes: int =
 # ------------------------------------------------------------
 
 async def activate_registration(payment: dict):
-    """
-    Runs on every path that marks a payment "completed" (callback,
-    on-demand status poll, reconciliation sweep). Two things happen here:
+    """Activate registration and send payment confirmation."""
 
-      1. Payment confirmation SMS — sent for ANY completed member payment
-         (registration, monthly, topup, addon), not just registration.
-         Best-effort: a failed/unconfigured send never raises.
-      2. Member/chama activation — FIX: this used to run for EVERY
-         completed member payment, so a monthly contribution also set
-         registration_fee_paid = True and member_status = ACTIVE. It now
-         only acts on registration payments; other payment types are
-         simply recorded.
-    """
     try:
-        payment_type = (payment.get("payment_type") or "").lower()
 
-        # ---- 1. Payment confirmation SMS (any completed member payment) ----
-        if payment.get("member_id") and payment.get("phone"):
+        payment_type = str(
+            payment.get("payment_type") or ""
+        ).strip().lower()
+
+        member_id = payment.get("member_id")
+        chama_group_id = payment.get("chama_group_id")
+
+        # =====================================================
+        # PAYMENT CONFIRMATION SMS
+        # =====================================================
+        if member_id and payment.get("phone"):
+
             try:
+
                 member_lookup = (
-                    supabase.table("members")
+                    supabase
+                    .table("members")
                     .select("member_number")
-                    .eq("id", payment["member_id"])
+                    .eq("id", member_id)
                     .limit(1)
                     .execute()
                 )
-                member_number_for_sms = (
-                    member_lookup.data[0].get("member_number") if member_lookup.data else None
-                )
-                if member_number_for_sms:
-                    await send_payment_confirmation_sms(
-                        payment["phone"],
-                        str(payment.get("amount", "")),
-                        member_number_for_sms
-                    )
-            except Exception as e:
-                logger.error(f"Payment confirmation SMS failed for payment {payment.get('id')}: {e}")
 
-        # ---- 2. Member / chama activation (registration payments only) ----
-        if payment.get("member_id"):
+                if member_lookup.data:
+
+                    member_number = (
+                        member_lookup.data[0]
+                        .get("member_number")
+                    )
+
+                    if member_number:
+                        await send_payment_confirmation_sms(
+                            payment["phone"],
+                            str(payment.get("amount", "")),
+                            member_number
+                        )
+
+            except Exception as e:
+                logger.exception(
+                    f"Payment SMS failed: {e}"
+                )
+
+        # =====================================================
+        # MEMBER REGISTRATION
+        # =====================================================
+        if member_id:
+
+            # Only registration activates the member
             if payment_type != "registration":
+
                 logger.info(
-                    f"Payment {payment.get('id')} is '{payment_type}', not registration "
-                    f"- member activation skipped"
+                    f"Payment {payment.get('id')} is "
+                    f"{payment_type}; registration activation skipped."
                 )
                 return
 
+            now = datetime.now().isoformat()
+
             supabase.table("members").update({
                 "registration_fee_paid": True,
+
+                # Keep both member status fields synchronized
+                "status": "ACTIVE",
                 "member_status": "ACTIVE",
-                "updated_at": datetime.now().isoformat()
-            }).eq("id", payment["member_id"]).execute()
 
-            logger.info(f"Member {payment['member_id']} activated")
+                "updated_at": now
+            }).eq(
+                "id", member_id
+            ).execute()
 
-        elif payment.get("chama_group_id"):
+            logger.info(
+                f"Member {member_id} activated successfully"
+            )
+
+            return
+
+        # =====================================================
+        # CHAMA
+        # =====================================================
+        if chama_group_id:
+
+            now = datetime.now().isoformat()
+
             supabase.table("chama_groups").update({
                 "status": "ACTIVE",
                 "payment_status": "paid",
-                "updated_at": datetime.now().isoformat()
-            }).eq("id", payment["chama_group_id"]).execute()
+                "updated_at": now
+            }).eq(
+                "id", chama_group_id
+            ).execute()
 
-            supabase.table("chama_members").update({
-                "is_active": True,
-                "updated_at": datetime.now().isoformat()
-            }).eq("chama_group_id", payment["chama_group_id"]).execute()
+            try:
+                supabase.table("chama_members").update({
+                    "is_active": True,
+                    "updated_at": now
+                }).eq(
+                    "chama_group_id", chama_group_id
+                ).execute()
+            except Exception as e:
+                logger.warning(
+                    f"Chama members activation failed: {e}"
+                )
 
-            logger.info(f"Chama group {payment['chama_group_id']} activated")
+            logger.info(
+                f"Chama group {chama_group_id} activated"
+            )
 
     except Exception as e:
-        logger.error(f"Activation failed: {e}")
+
+        logger.exception(
+            f"Activation failed for payment "
+            f"{payment.get('id')}: {e}"
+        )
 
 
 # ------------------------------------------------------------
