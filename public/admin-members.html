@@ -1459,98 +1459,166 @@
 
                 totalRecords = count || 0;
 
-                // Renewal starts from the DATE OF THE FIRST SUCCESSFUL MEMBERSHIP PAYMENT,
-                // not registration_date. Each member gets a 12-month cycle from that day.
+                // Payment-driven membership calculations.
+                // The membership clock starts from the FIRST SUCCESSFUL MONTHLY payment.
+                // Registration/top-up/failed payments never satisfy a monthly contribution.
                 const pageMembers = data || [];
                 const memberIds = pageMembers.map(m => m.id).filter(Boolean);
-                const firstPaymentByMember = {};
-                const totalPaidByMember = {};
                 const paymentRecordsByMember = {};
+                const successfulMonthlyByMember = {};
+                const totalPaidByMember = {};
+
+                const successfulStatuses = ['SUCCESSFUL', 'SUCCESS', 'PAID', 'CONFIRMED', 'COMPLETED'];
+                const monthlyTypes = ['MONTHLY', 'REGISTRATION_AND_MONTHLY', 'ADVANCE'];
+
+                const monthKey = (value) => {
+                    if (!value) return null;
+                    const d = new Date(value);
+                    if (Number.isNaN(d.getTime())) return null;
+                    const parts = new Intl.DateTimeFormat('en-US', {
+                        timeZone: 'Africa/Nairobi',
+                        year: 'numeric',
+                        month: '2-digit'
+                    }).formatToParts(d).reduce((out, part) => {
+                        if (part.type !== 'literal') out[part.type] = part.value;
+                        return out;
+                    }, {});
+                    return `${parts.year}-${parts.month}`;
+                };
+
+                const dateKey = (value) => {
+                    if (!value) return null;
+                    const d = new Date(value);
+                    if (Number.isNaN(d.getTime())) return null;
+                    const parts = new Intl.DateTimeFormat('en-US', {
+                        timeZone: 'Africa/Nairobi',
+                        year: 'numeric',
+                        month: '2-digit',
+                        day: '2-digit'
+                    }).formatToParts(d).reduce((out, part) => {
+                        if (part.type !== 'literal') out[part.type] = part.value;
+                        return out;
+                    }, {});
+                    return `${parts.year}-${parts.month}-${parts.day}`;
+                };
+
+                const monthDifference = (fromKey, toKey) => {
+                    if (!fromKey || !toKey) return 0;
+                    const [fy, fm] = fromKey.split('-').map(Number);
+                    const [ty, tm] = toKey.split('-').map(Number);
+                    return ((ty - fy) * 12) + (tm - fm);
+                };
 
                 if (memberIds.length) {
-                    const { data: paymentRows, error: paymentRowsError } = await supabaseClient
+                    const { data: paymentRows, error: paymentsError } = await supabaseClient
                         .from('payments')
                         .select('member_id, amount, created_at, confirmed_at, verified_at, payment_status, status, counts_toward_membership, payment_type, mpesa_receipt_number')
                         .in('member_id', memberIds)
                         .order('created_at', { ascending: true });
 
-                    if (!paymentRowsError) {
-                        const successfulStatuses = ['SUCCESSFUL', 'SUCCESS', 'PAID', 'CONFIRMED', 'COMPLETED'];
+                    if (paymentsError) {
+                        console.warn('Payment mapping lookup failed:', paymentsError);
+                    } else {
                         (paymentRows || []).forEach(payment => {
                             const memberId = payment.member_id;
+                            if (!memberId) return;
                             if (!paymentRecordsByMember[memberId]) paymentRecordsByMember[memberId] = [];
                             paymentRecordsByMember[memberId].push(payment);
 
-                            const status = String(payment.payment_status || payment.status || '').toUpperCase();
-                            if (!successfulStatuses.includes(status)) return;
+                            const isSuccessful = successfulStatuses.includes(
+                                String(payment.payment_status || payment.status || '').toUpperCase()
+                            );
+                            if (!isSuccessful) return;
 
-                            // The membership clock starts on the original payment
-                            // transaction date (created_at), not the later callback /
-                            // verification timestamp.
-                            if (!firstPaymentByMember[memberId]) {
-                                firstPaymentByMember[memberId] = payment;
-                            }
-                            totalPaidByMember[memberId] = (totalPaidByMember[memberId] || 0) + Number(payment.amount || 0);
+                            totalPaidByMember[memberId] =
+                                (totalPaidByMember[memberId] || 0) + Number(payment.amount || 0);
+
+                            const paymentType = String(payment.payment_type || '').toUpperCase();
+                            if (!monthlyTypes.includes(paymentType)) return;
+
+                            if (!successfulMonthlyByMember[memberId]) successfulMonthlyByMember[memberId] = [];
+                            successfulMonthlyByMember[memberId].push(payment);
                         });
-                    } else {
-                        console.warn('Member payment mapping lookup failed:', paymentRowsError);
                     }
                 }
 
+                const today = new Date();
+                const todayMonthKey = monthKey(today);
+
                 currentMembersCache = pageMembers.map(member => {
-                    const firstPayment = firstPaymentByMember[member.id];
-                    const firstPaymentRaw = firstPayment
-                        ? firstPayment.created_at
+                    const allPayments = paymentRecordsByMember[member.id] || [];
+                    const successfulMonthlyPayments = successfulMonthlyByMember[member.id] || [];
+                    const successfulPayments = allPayments.filter(payment =>
+                        successfulStatuses.includes(String(payment.payment_status || payment.status || '').toUpperCase())
+                    );
+
+                    // First monthly payment is the anchor for duration and renewal.
+                    const firstMonthlyPayment = successfulMonthlyPayments.length
+                        ? [...successfulMonthlyPayments].sort((a, b) =>
+                            new Date(a.created_at || 0).getTime() - new Date(b.created_at || 0).getTime()
+                        )[0]
                         : null;
-                    const firstPaymentDate = firstPaymentRaw
-                        ? new Date(firstPaymentRaw)
-                        : null;
+                    const firstPaymentRaw = firstMonthlyPayment ? firstMonthlyPayment.created_at : null;
+                    const firstPaymentDate = firstPaymentRaw ? new Date(firstPaymentRaw) : null;
+                    const firstMonthlyMonth = monthKey(firstPaymentRaw);
+
+                    // Count distinct monthly contribution months so duplicate successful
+                    // transactions in the same month do not create extra covered months.
+                    const paidMonthKeys = [...new Set(
+                        successfulMonthlyPayments.map(p => monthKey(p.created_at)).filter(Boolean)
+                    )].sort();
+                    const monthlyPaymentsCount = paidMonthKeys.length;
 
                     let renewalDate = null;
                     let monthsToRenew = 0;
-                    let duration = 'Awaiting first payment';
+                    let duration = 'Awaiting first monthly payment';
+                    let expectedMonths = 0;
+                    let missedMonths = 0;
+                    let octoberPaid = false;
 
                     if (firstPaymentDate && !Number.isNaN(firstPaymentDate.getTime())) {
-                        // Preserve the exact payment day/month and add 12 months.
+                        // Renewal = 12 months from the first successful monthly payment.
                         renewalDate = new Date(firstPaymentDate);
                         renewalDate.setFullYear(renewalDate.getFullYear() + 1);
 
-                        const now = new Date();
-                        let monthsElapsed =
-                            (now.getFullYear() - firstPaymentDate.getFullYear()) * 12 +
-                            (now.getMonth() - firstPaymentDate.getMonth());
+                        const firstMonthKey = firstMonthlyMonth;
+                        expectedMonths = Math.max(1, monthDifference(firstMonthKey, todayMonthKey) + 1);
+                        missedMonths = Math.max(0, expectedMonths - monthlyPaymentsCount);
+                        octoberPaid = paidMonthKeys.includes(todayMonthKey);
 
-                        if (now.getDate() < firstPaymentDate.getDate()) {
-                            monthsElapsed -= 1;
-                        }
-
-                        monthsElapsed = Math.max(0, monthsElapsed);
-                        duration = `${monthsElapsed} month${monthsElapsed === 1 ? '' : 's'}`;
+                        const elapsedMonths = Math.max(0, monthDifference(firstMonthKey, todayMonthKey));
+                        duration = `${elapsedMonths} month${elapsedMonths === 1 ? '' : 's'}`;
 
                         monthsToRenew =
-                            (renewalDate.getFullYear() - now.getFullYear()) * 12 +
-                            (renewalDate.getMonth() - now.getMonth());
-
-                        if (now.getDate() > renewalDate.getDate()) {
-                            monthsToRenew -= 1;
-                        }
+                            (renewalDate.getFullYear() - today.getFullYear()) * 12 +
+                            (renewalDate.getMonth() - today.getMonth());
+                        if (today.getDate() > renewalDate.getDate()) monthsToRenew -= 1;
                     }
 
-                    const authoritativeStatus =
-                        String(member.status || member.member_status || 'PENDING').toUpperCase();
+                    const covered = monthlyPaymentsCount >= 4;
+                    const awaitingOctober = Boolean(firstPaymentDate && !octoberPaid);
+                    const authoritativeStatus = String(
+                        member.status || member.member_status || 'PENDING'
+                    ).toUpperCase();
 
                     return {
                         ...member,
                         calculated_status: authoritativeStatus,
-                        missed_months: Number(member.months_missing || 0),
+                        missed_months: missedMonths,
+                        expected_months: expectedMonths,
+                        monthly_payment_count: monthlyPaymentsCount,
+                        successful_payment_count: successfulPayments.length,
+                        payment_count: allPayments.length,
+                        october_paid: octoberPaid,
+                        awaiting_october: awaitingOctober,
+                        covered_after_4_months: covered,
                         total_paid: totalPaidByMember[member.id] ?? Number(member.amount_paid || 0),
-                        payment_count: (paymentRecordsByMember[member.id] || []).length,
                         first_payment_date: firstPaymentDate
-                            ? firstPaymentDate.toISOString().slice(0, 10)
+                            ? dateKey(firstPaymentRaw)
                             : null,
                         membership_duration: duration,
                         renewal_due_date: renewalDate
-                            ? renewalDate.toISOString().slice(0, 10)
+                            ? dateKey(renewalDate)
                             : null,
                         months_to_renew: monthsToRenew
                     };
@@ -1649,12 +1717,16 @@
             const successfulStatuses = ['COMPLETED', 'SUCCESS', 'SUCCESSFUL', 'PAID', 'CONFIRMED'];
             const successfulPayments = payments.filter(p => successfulStatuses.includes(String(p.payment_status || p.status || '').toUpperCase()));
             const totalPaid = successfulPayments.reduce((sum, p) => sum + Number(p.amount || 0), 0);
-            const firstSuccessful = [...successfulPayments].sort((a, b) => {
-                const ad = new Date(a.confirmed_at || a.verified_at || a.created_at || 0).getTime();
-                const bd = new Date(b.confirmed_at || b.verified_at || b.created_at || 0).getTime();
+            const monthlyTypes = ['MONTHLY', 'REGISTRATION_AND_MONTHLY', 'ADVANCE'];
+            const successfulMonthlyPayments = successfulPayments.filter(p =>
+                monthlyTypes.includes(String(p.payment_type || '').toUpperCase())
+            );
+            const firstSuccessful = [...successfulMonthlyPayments].sort((a, b) => {
+                const ad = new Date(a.created_at || 0).getTime();
+                const bd = new Date(b.created_at || 0).getTime();
                 return ad - bd;
             })[0];
-            const firstPaymentRaw = firstSuccessful ? (firstSuccessful.confirmed_at || firstSuccessful.verified_at || firstSuccessful.created_at) : null;
+            const firstPaymentRaw = firstSuccessful ? firstSuccessful.created_at : null;
             const firstPaymentDate = firstPaymentRaw ? new Date(firstPaymentRaw) : null;
             const renewalDate = firstPaymentDate && !Number.isNaN(firstPaymentDate.getTime()) ? new Date(firstPaymentDate) : null;
             if (renewalDate) renewalDate.setFullYear(renewalDate.getFullYear() + 1);
@@ -1751,6 +1823,8 @@
                                 <th>Duration</th>
                                 <th>Renewal</th>
                                 <th>Payments</th>
+                                <th>Missed Months</th>
+                                <th>Coverage</th>
                                 <th>Total Paid</th>
                                 <th>Actions</th>
                             </tr>
@@ -1765,7 +1839,9 @@
                 const plan = member.plan_type || '—';
                 const status = member.calculated_status || 'PENDING';
                 const missedPayments = Number(member.missed_months || 0);
-                const monthsPaid = Number(member.months_paid || 0);
+                const monthlyPaymentsCount = Number(member.monthly_payment_count || 0);
+                const successfulPaymentCount = Number(member.successful_payment_count || 0);
+                const totalPaymentRecords = Number(member.payment_count || 0);
                 const totalPaid = Number(member.total_paid ?? member.amount_paid ?? 0);
                 const duration = member.membership_duration || 'Awaiting first payment';
                 const monthsToRenew = Number(member.months_to_renew ?? 0);
@@ -1783,15 +1859,19 @@
 
                 // ---- Payments display ----
                 let paymentDisplay;
-                if (missedPayments === 0) paymentDisplay = 'Up to date';
-                else if (missedPayments === 1) paymentDisplay = '1 month missed';
-                else paymentDisplay = `${missedPayments} months missed`;
+                if (!member.first_payment_date) {
+                    paymentDisplay = 'Awaiting first monthly payment';
+                } else if (member.awaiting_october) {
+                    paymentDisplay = 'October payment due';
+                } else {
+                    paymentDisplay = 'October paid';
+                }
 
-                const paymentMainClass = missedPayments === 0 ? 'ok' : 'missed';
+                const paymentMainClass = member.awaiting_october ? 'missed' : 'ok';
                 const paymentCell = `
                     <div class="payment-cell">
                         <span class="payment-main ${paymentMainClass}">${paymentDisplay}</span>
-                        <small>${monthsPaid} paid</small>
+                        <small>${monthlyPaymentsCount} month${monthlyPaymentsCount === 1 ? '' : 's'} paid • ${successfulPaymentCount} successful</small>
                     </div>`;
 
                 // ---- Renewal badge (derived from view) ----
@@ -1825,9 +1905,21 @@
                             <span class="mini-badge ${renewalClass}" title="First payment: ${firstPaymentDate} | Renewal due: ${renewalDate}">
                                 <i class="fas ${renewalClass === 'late' ? 'fa-triangle-exclamation' : renewalClass === 'soon' ? 'fa-bell' : 'fa-calendar-check'}"></i>
                                 ${renewalLabel}
+                                <small style="display:block;margin-top:2px;opacity:.75;">${renewalDate !== '—' ? renewalDate : 'No renewal date'}</small>
                             </span>
                         </td>
                         <td>${paymentCell}</td>
+                        <td>
+                            <span class="mini-badge ${missedPayments === 0 ? 'ok' : 'late'}">
+                                ${missedPayments} missed
+                            </span>
+                        </td>
+                        <td>
+                            <span class="mini-badge ${member.covered_after_4_months ? 'ok' : 'soon'}" title="Coverage starts after 4 successful monthly payments">
+                                <i class="fas ${member.covered_after_4_months ? 'fa-shield-halved' : 'fa-hourglass-half'}"></i>
+                                ${member.covered_after_4_months ? 'Covered' : `${monthlyPaymentsCount}/4 payments`}
+                            </span>
+                        </td>
                         <td><strong>KES ${totalPaid.toLocaleString('en-KE', {minimumFractionDigits: 0, maximumFractionDigits: 2})}</strong></td>
                         <td>
                             <div class="row-actions">
