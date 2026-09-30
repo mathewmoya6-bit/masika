@@ -1443,42 +1443,59 @@
                 .replace(/'/g, '&#039;');
         }
 
+        // Payment status is authoritative from payment_status.
+        // Legacy status is used only as a fallback for older rows.
+        function getPaymentState(payment) {
+            const paymentStatus = String(payment?.payment_status || '').trim().toUpperCase();
+            const legacyStatus = String(payment?.status || '').trim().toLowerCase();
+
+            if (paymentStatus === 'SUCCESSFUL' || ['completed', 'success', 'successful', 'confirmed'].includes(legacyStatus)) {
+                return 'successful';
+            }
+
+            if (paymentStatus === 'FAILED' || ['failed', 'cancelled', 'canceled', 'rejected'].includes(legacyStatus)) {
+                return 'failed';
+            }
+
+            if (paymentStatus === 'REVERSED' || legacyStatus === 'reversed') {
+                return 'reversed';
+            }
+
+            if (paymentStatus === 'PARTIAL' || legacyStatus === 'partial') {
+                return 'partial';
+            }
+
+            return 'pending';
+        }
+
+        function isPaymentSuccessful(payment) {
+            return getPaymentState(payment) === 'successful';
+        }
+
+        function isPaymentPending(payment) {
+            return getPaymentState(payment) === 'pending';
+        }
+
         function normalizePaymentStatus(payment) {
-            const status = String(
-                payment?.status ||
-                payment?.payment_status ||
-                ''
-            ).trim().toLowerCase();
+            const state = getPaymentState(payment);
 
-            if (['completed', 'success', 'successful', 'confirmed'].includes(status)) {
-                return {
-                    value: 'completed',
-                    label: 'Completed',
-                    className: 'completed'
-                };
+            if (state === 'successful') {
+                return { value: 'completed', label: 'Completed', className: 'completed' };
             }
 
-            if (['failed', 'cancelled', 'canceled', 'rejected'].includes(status)) {
-                return {
-                    value: 'failed',
-                    label: 'Failed',
-                    className: 'failed'
-                };
+            if (state === 'failed') {
+                return { value: 'failed', label: 'Failed', className: 'failed' };
             }
 
-            if (status === 'pending') {
-                return {
-                    value: 'pending',
-                    label: 'Pending',
-                    className: 'pending'
-                };
+            if (state === 'reversed') {
+                return { value: 'reversed', label: 'Reversed', className: 'failed' };
             }
 
-            return {
-                value: status || 'unknown',
-                label: status ? status.charAt(0).toUpperCase() + status.slice(1) : 'Unknown',
-                className: 'pending'
-            };
+            if (state === 'partial') {
+                return { value: 'partial', label: 'Partial', className: 'pending' };
+            }
+
+            return { value: 'pending', label: 'Pending', className: 'pending' };
         }
 
         function getPaymentTransactionReference(payment) {
@@ -1596,24 +1613,15 @@
                 // ============================================
                 // 6. REVENUE CALCULATIONS
                 // ============================================
-                const completedPayments = payments.filter(p => {
-                    const status = String(
-                        p.status ||
-                        p.payment_status ||
-                        ''
-                    ).trim().toLowerCase();
-
-                    return ['completed', 'success', 'successful', 'confirmed']
-                        .includes(status);
-                });
-                const totalRevenue = completedPayments.reduce((sum, p) => sum + (p.amount || 0), 0);
+                const completedPayments = payments.filter(isPaymentSuccessful);
+                const totalRevenue = completedPayments.reduce((sum, p) => sum + Number(p.amount || 0), 0);
 
                 // Today
                 const today = new Date().toDateString();
                 const todayPayments = completedPayments.filter(p =>
                     p.created_at && new Date(p.created_at).toDateString() === today
                 );
-                const todayRevenue = todayPayments.reduce((sum, p) => sum + (p.amount || 0), 0);
+                const todayRevenue = todayPayments.reduce((sum, p) => sum + Number(p.amount || 0), 0);
 
                 // This month
                 const now = new Date();
@@ -1621,34 +1629,17 @@
                 const monthPayments = completedPayments.filter(p =>
                     p.created_at && new Date(p.created_at) >= monthStart
                 );
-                const monthRevenue = monthPayments.reduce((sum, p) => sum + (p.amount || 0), 0);
+                const monthRevenue = monthPayments.reduce((sum, p) => sum + Number(p.amount || 0), 0);
 
-                // Unassigned
-                const unassignedPayments = payments.filter(p => {
-                    const status = String(
-                        p.status ||
-                        p.payment_status ||
-                        ''
-                    ).trim().toLowerCase();
+                // Successful but not yet assigned to a member
+                const unassignedPayments = payments.filter(p =>
+                    isPaymentSuccessful(p) && !p.member_id
+                );
+                const unassignedTotal = unassignedPayments.reduce((sum, p) => sum + Number(p.amount || 0), 0);
 
-                    return (
-                        ['completed', 'success', 'successful', 'confirmed'].includes(status) &&
-                        !p.member_id
-                    );
-                });
-                const unassignedTotal = unassignedPayments.reduce((sum, p) => sum + (p.amount || 0), 0);
-
-                // Pending
-                const pendingPayments = payments.filter(p => {
-                    const status = String(
-                        p.status ||
-                        p.payment_status ||
-                        ''
-                    ).trim().toLowerCase();
-
-                    return status === 'pending';
-                });
-                const pendingTotal = pendingPayments.reduce((sum, p) => sum + (p.amount || 0), 0);
+                // Pending: payment_status PENDING, with legacy status only as fallback
+                const pendingPayments = payments.filter(isPaymentPending);
+                const pendingTotal = pendingPayments.reduce((sum, p) => sum + Number(p.amount || 0), 0);
 
                 console.log('💰 Revenue - Today:', todayRevenue, 'Month:', monthRevenue, 'Total:', totalRevenue);
 
@@ -2023,18 +2014,9 @@
                     return;
                 }
 
-                const data = (allData || []).filter(payment => {
-                    const status = String(
-                        payment.status ||
-                        payment.payment_status ||
-                        ''
-                    ).trim().toLowerCase();
-
-                    return (
-                        ['completed', 'success', 'successful', 'confirmed'].includes(status) &&
-                        !payment.member_id
-                    );
-                });
+                const data = (allData || []).filter(payment =>
+                    isPaymentSuccessful(payment) && !payment.member_id
+                );
 
                 console.log('📋 Unassigned payments:', data?.length || 0);
 
@@ -2207,8 +2189,8 @@
             try {
                 const { data: member, error: memberError } = await supabaseClient
                     .from('members')
-                    .select('id, membership_number, first_name, last_name')
-                    .eq('membership_number', memberNumber)
+                    .select('id, member_number, first_name, last_name')
+                    .eq('member_number', memberNumber)
                     .single();
 
                 if (memberError || !member) {
@@ -2234,7 +2216,7 @@
                 }
 
                 console.log('✅ Payment assigned:', data);
-                showToast('success', `Payment assigned to ${member.membership_number} successfully.`);
+                showToast('success', `Payment assigned to ${member.member_number} successfully.`);
                 await loadDashboardData();
 
             } catch (error) {
@@ -2267,46 +2249,77 @@
         // ============================================================
         // REAL-TIME SUBSCRIPTIONS
         // ============================================================
+        let dashboardChannel = null;
+
         function setupRealtime() {
             console.log('🔌 Setting up real-time subscriptions...');
 
-            const channel = supabaseClient.channel('dashboard-changes')
+            // Prevent duplicate channels after re-login/navigation.
+            if (dashboardChannel) {
+                try {
+                    supabaseClient.removeChannel(dashboardChannel);
+                } catch (e) {
+                    console.warn('Could not remove previous realtime channel:', e);
+                }
+                dashboardChannel = null;
+            }
+
+            dashboardChannel = supabaseClient
+                .channel('dashboard-changes-v2')
                 .on(
                     'postgres_changes',
                     { event: '*', schema: 'public', table: 'payments' },
-                    () => debounceRefresh()
+                    (payload) => {
+                        console.log('💳 Payment realtime event:', payload.eventType, payload.new || payload.old);
+                        debounceRefresh();
+                    }
                 )
                 .on(
                     'postgres_changes',
                     { event: '*', schema: 'public', table: 'members' },
-                    () => debounceRefresh()
+                    (payload) => {
+                        console.log('👤 Member realtime event:', payload.eventType);
+                        debounceRefresh();
+                    }
                 )
                 .on(
                     'postgres_changes',
                     { event: '*', schema: 'public', table: 'public_agent_codes' },
-                    () => debounceRefresh()
+                    (payload) => {
+                        console.log('🤝 Agent realtime event:', payload.eventType);
+                        debounceRefresh();
+                    }
                 )
-                .subscribe((status) => {
-                    console.log('🔌 Subscription status:', status);
+                .subscribe((status, err) => {
+                    console.log('🔌 Realtime status:', status, err || '');
+
                     if (status === 'SUBSCRIBED') {
-                        document.getElementById('liveIndicator').classList.add('connected');
-                        document.getElementById('liveIndicatorLabel').textContent = 'Live';
+                        setLiveStatus('Live');
+                    } else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
+                        setLiveStatus('Error');
+                        console.error('❌ Realtime channel error:', err || status);
+                    } else if (status === 'CLOSED') {
+                        setLiveStatus('Disconnected');
                     }
                 });
         }
 
         function debounceRefresh() {
             clearTimeout(refreshTimeout);
-            refreshTimeout = setTimeout(() => {
-                loadDashboardData();
-            }, 1000);
+            refreshTimeout = setTimeout(async () => {
+                try {
+                    await loadDashboardData();
+                } catch (error) {
+                    console.error('❌ Realtime refresh failed:', error);
+                }
+            }, 500);
         }
 
         function setupAutoRefresh() {
-            console.log('⏰ Setting up auto-refresh (60s)');
+            console.log('⏰ Setting up auto-refresh (30s fallback)');
             setInterval(() => {
                 loadDashboardData();
-            }, 60000);
+            }, 30000);
         }
 
         // ============================================================
