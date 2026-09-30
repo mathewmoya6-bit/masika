@@ -1468,32 +1468,39 @@
                 const paymentRecordsByMember = {};
 
                 if (memberIds.length) {
-                    const { data: firstPayments, error: firstPaymentsError } = await supabaseClient
+                    const { data: paymentRows, error: paymentRowsError } = await supabaseClient
                         .from('payments')
                         .select('member_id, amount, created_at, confirmed_at, verified_at, payment_status, status, counts_toward_membership, payment_type, mpesa_receipt_number')
                         .in('member_id', memberIds)
-                        .in('payment_status', ['SUCCESSFUL', 'SUCCESS', 'PAID', 'CONFIRMED', 'COMPLETED'])
                         .order('created_at', { ascending: true });
 
-                    if (!firstPaymentsError) {
-                        (firstPayments || []).forEach(payment => {
-                            if (!firstPaymentByMember[payment.member_id]) {
-                                firstPaymentByMember[payment.member_id] = payment;
-                            }
+                    if (!paymentRowsError) {
+                        const successfulStatuses = ['SUCCESSFUL', 'SUCCESS', 'PAID', 'CONFIRMED', 'COMPLETED'];
+                        (paymentRows || []).forEach(payment => {
                             const memberId = payment.member_id;
-                            totalPaidByMember[memberId] = (totalPaidByMember[memberId] || 0) + Number(payment.amount || 0);
                             if (!paymentRecordsByMember[memberId]) paymentRecordsByMember[memberId] = [];
                             paymentRecordsByMember[memberId].push(payment);
+
+                            const status = String(payment.payment_status || payment.status || '').toUpperCase();
+                            if (!successfulStatuses.includes(status)) return;
+
+                            // The membership clock starts on the original payment
+                            // transaction date (created_at), not the later callback /
+                            // verification timestamp.
+                            if (!firstPaymentByMember[memberId]) {
+                                firstPaymentByMember[memberId] = payment;
+                            }
+                            totalPaidByMember[memberId] = (totalPaidByMember[memberId] || 0) + Number(payment.amount || 0);
                         });
                     } else {
-                        console.warn('First payment lookup failed:', firstPaymentsError);
+                        console.warn('Member payment mapping lookup failed:', paymentRowsError);
                     }
                 }
 
                 currentMembersCache = pageMembers.map(member => {
                     const firstPayment = firstPaymentByMember[member.id];
                     const firstPaymentRaw = firstPayment
-                        ? (firstPayment.confirmed_at || firstPayment.verified_at || firstPayment.created_at)
+                        ? firstPayment.created_at
                         : null;
                     const firstPaymentDate = firstPaymentRaw
                         ? new Date(firstPaymentRaw)
@@ -1509,9 +1516,6 @@
                         renewalDate.setFullYear(renewalDate.getFullYear() + 1);
 
                         const now = new Date();
-                        // Membership duration is measured from the exact first-payment
-                        // calendar date. On the anniversary itself the member has completed
-                        // the full number of calendar months.
                         let monthsElapsed =
                             (now.getFullYear() - firstPaymentDate.getFullYear()) * 12 +
                             (now.getMonth() - firstPaymentDate.getMonth());
@@ -1523,8 +1527,6 @@
                         monthsElapsed = Math.max(0, monthsElapsed);
                         duration = `${monthsElapsed} month${monthsElapsed === 1 ? '' : 's'}`;
 
-                        // Remaining time is based on the exact renewal anniversary.
-                        // Example: 30/09/2026 -> 30/09/2027 = exactly 12 months.
                         monthsToRenew =
                             (renewalDate.getFullYear() - now.getFullYear()) * 12 +
                             (renewalDate.getMonth() - now.getMonth());
@@ -1532,12 +1534,6 @@
                         if (now.getDate() > renewalDate.getDate()) {
                             monthsToRenew -= 1;
                         }
-
-                        // Do not show 11 months on the first-payment anniversary cycle
-                        // merely because the current day is later in the month. Keep the
-                        // exact calendar-month difference visible, with 12 months at the
-                        // start of a fresh 12-month cycle.
-                        monthsToRenew = Math.max(0, monthsToRenew);
                     }
 
                     const authoritativeStatus =
@@ -1824,11 +1820,7 @@
                         <td>${escapeHTML(phone)}</td>
                         <td><span class="status-badge ${escapeHTML(plan.toLowerCase())}">${escapeHTML(plan)}</span></td>
                         <td>${statusBadge}</td>
-                        <td>
-                            <span class="mini-badge info" title="First successful payment: ${firstPaymentDate}">
-                                <i class="fas fa-clock"></i> ${escapeHTML(duration)}
-                            </span>
-                        </td>
+                        <td><span class="mini-badge info"><i class="fas fa-clock"></i> ${escapeHTML(duration)}</span></td>
                         <td>
                             <span class="mini-badge ${renewalClass}" title="First payment: ${firstPaymentDate} | Renewal due: ${renewalDate}">
                                 <i class="fas ${renewalClass === 'late' ? 'fa-triangle-exclamation' : renewalClass === 'soon' ? 'fa-bell' : 'fa-calendar-check'}"></i>
