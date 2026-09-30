@@ -45,6 +45,18 @@
 #           - UTC Python timestamps (not SQL "now()")
 #           - Immediate member months_paid / amount_paid recalculation
 #             runs inside the callback, no frontend/manual step required
+#   9. NEW  PostgreSQL is the authoritative source for payment totals:
+#           - calculate_member_payment_validation() now READS months_paid,
+#             months_missing, months_short, amount_paid, amount_expected
+#             from the members row (maintained by a DB trigger on payments)
+#             instead of recomputing them in Python.
+#           - The greedy month-match loop is removed.
+#           - Python writes ONLY: status, member_status,
+#             payment_validation_status, payment_validated_at,
+#             payment_validation_note, updated_at.
+#           - The M-Pesa callback fires calculate_member_payment_validation()
+#             immediately after a successful payment so status reflects
+#             the new totals, without touching the totals themselves.
 #
 # NEW ENV VARS (Render -> Environment)
 #   ALLOWED_ORIGINS         = https://masika-murex.vercel.app,https://www.masikabbs.com,https://masikabbs.com
@@ -70,9 +82,18 @@
 #     add column if not exists notes text,
 #     add column if not exists phone_number text;
 #
+#   -- REQUIRED for the "PostgreSQL is authoritative" migration --
 #   alter table public.members
 #     add column if not exists months_paid int default 0,
-#     add column if not exists amount_paid numeric default 0;
+#     add column if not exists months_missing int default 0,
+#     add column if not exists months_short int default 0,
+#     add column if not exists amount_paid numeric default 0,
+#     add column if not exists amount_expected numeric default 0;
+#
+#   -- And a trigger on public.payments that keeps those five
+#   -- members columns up to date whenever a payment transitions to
+#   -- payment_status = 'SUCCESSFUL' (or back to FAILED). Python no
+#   -- longer writes them.
 # ============================================================
 
 import os
@@ -1881,47 +1902,24 @@ async def payment_callback(request: Request):
                 f"M-Pesa payment SUCCESSFUL: {checkout_request_id}, receipt={mpesa_receipt}"
             )
 
-            # --------------------------------------------------------
-            # IMMEDIATE MEMBER RECALCULATION
-            # Run right here so we never depend on the frontend or a
-            # separate manual step to reflect the new payment.
-            # --------------------------------------------------------
             member_id = payment.get("member_id")
 
+            # --------------------------------------------------------
+            # Reconcile the member's payment status.
+            #
+            # The DB trigger (on `payments`) has already updated
+            # months_paid / months_missing / months_short /
+            # amount_paid / amount_expected on the `members` row.
+            # This call only re-derives the member's status and
+            # validation metadata from those authoritative values —
+            # it never overwrites them.
+            # --------------------------------------------------------
             if member_id:
                 try:
-                    successful = (
-                        supabase.table("payments")
-                        .select("amount,payment_type")
-                        .eq("member_id", member_id)
-                        .eq("payment_status", "SUCCESSFUL")
-                        .eq("counts_toward_membership", True)
-                        .execute()
-                    )
-
-                    rows = successful.data or []
-
-                    monthly_rows = [
-                        p for p in rows
-                        if str(p.get("payment_type", "")).upper() == "MONTHLY"
-                    ]
-
-                    months_paid = len(monthly_rows)
-                    amount_paid = sum(float(p.get("amount") or 0) for p in rows)
-
-                    supabase.table("members").update({
-                        "months_paid": months_paid,
-                        "amount_paid": amount_paid,
-                        "updated_at": now_iso,
-                    }).eq("id", member_id).execute()
-
-                    logger.info(
-                        f"Member {member_id} recalculated: "
-                        f"months_paid={months_paid}, amount_paid={amount_paid}"
-                    )
+                    calculate_member_payment_validation(member_id)
                 except Exception as e:
                     logger.exception(
-                        f"Member recalculation failed for {member_id}: {e}"
+                        f"Post-payment validation failed for {member_id}: {e}"
                     )
 
             # --------------------------------------------------------
@@ -2253,7 +2251,7 @@ async def process_pending_notifications(
 
 
 # ============================================================
-# ADMIN PAYMENT COLLECTION  (NEW)
+# ADMIN PAYMENT COLLECTION
 # ============================================================
 
 def _resolve_payment_collector_sync(token: str) -> dict:
@@ -2514,6 +2512,39 @@ def get_plan_monthly_fee(plan_slug: str) -> float:
 
 
 def calculate_member_payment_validation(member_id: str) -> dict:
+    """
+    Reconcile a member's status from the AUTHORITATIVE payment totals
+    maintained by PostgreSQL on the `members` row.
+
+    IMPORTANT — read carefully:
+
+    A database trigger on `payments` is now the single source of truth
+    for the five payment-total columns on `members`:
+
+        months_paid
+        months_missing
+        months_short
+        amount_paid
+        amount_expected
+
+    This function READS those values. It does NOT recompute them, and it
+    does NOT write them back. Its only job is to derive a member's
+    status (ACTIVE / DORMANT / PENDING) plus validation metadata from
+    those authoritative numbers, then write ONLY:
+
+        status
+        member_status
+        payment_validation_status
+        payment_validated_at
+        payment_validation_note
+        updated_at
+
+    The old greedy month-match loop (a KES 100 payment satisfying
+    two KES 50 months) used to run here and could disagree with the
+    trigger — for example flipping a correct `months_missing = 0`
+    back to `1`. That logic has been deliberately removed.
+    """
+
     if not supabase:
         raise HTTPException(status_code=500, detail="Database not available")
 
@@ -2557,11 +2588,20 @@ def calculate_member_payment_validation(member_id: str) -> dict:
             "message": f"No monthly contribution is configured for plan '{plan}'."
         }
 
+    # --------------------------------------------------------
+    # Load the member's successful payments.
+    #
+    # Only payments the callback marked payment_status = SUCCESSFUL
+    # with counts_toward_membership = true are considered. This is
+    # the same filter the DB trigger uses, so the two systems agree
+    # on which payments count.
+    # --------------------------------------------------------
     payment_result = (
         supabase.table("payments")
         .select("*")
         .eq("member_id", member_id)
-        .eq("status", "completed")
+        .eq("payment_status", "SUCCESSFUL")
+        .eq("counts_toward_membership", True)
         .order("payment_date", desc=False)
         .execute()
     )
@@ -2583,30 +2623,40 @@ def calculate_member_payment_validation(member_id: str) -> dict:
             monthly_paid += amount
             monthly_payments.append(payment)
 
+    # --------------------------------------------------------
+    # Months expected since registration.
+    #
+    # This is the only number still derived in Python — it is a
+    # pure function of registration_date and today's date, and
+    # the trigger uses the same calendar-month rule.
+    # --------------------------------------------------------
     expected_months = _months_between(
         registration_date,
         date.today()
     )
 
-    expected_monthly_amount = expected_months * monthly_fee
+    # --------------------------------------------------------
+    # Authoritative payment totals — read from the members row,
+    # not recomputed. PostgreSQL owns these via the trigger on
+    # `payments`; Python must never overwrite them.
+    #
+    # Note: amount_expected is NOT recomputed here either. It comes
+    # from the members row so a plan price change doesn't cause a
+    # mid-cycle flip.
+    # --------------------------------------------------------
+    months_paid = int(member.get("months_paid") or 0)
+    months_missing = int(member.get("months_missing") or 0)
+    months_short = int(member.get("months_short") or 0)
+    amount_paid = float(member.get("amount_paid") or 0)
+    amount_expected = float(member.get("amount_expected") or 0)
 
-    remaining_credit = monthly_paid
-    months_paid = 0
-    months_short = 0
-    months_missing = 0
-
-    for _ in range(expected_months):
-        if remaining_credit >= monthly_fee:
-            remaining_credit -= monthly_fee
-            months_paid += 1
-
-        elif remaining_credit > 0:
-            months_short += 1
-            remaining_credit = 0
-
-        else:
-            months_missing += 1
-
+    # --------------------------------------------------------
+    # Determine status.
+    #
+    # No historical payment evidence: don't falsely declare
+    # DORMANT — the new system has no completed monthly payments
+    # for this member yet, so the correct state is PENDING.
+    # --------------------------------------------------------
     has_new_system_monthly_evidence = len(monthly_payments) > 0
 
     if expected_months == 0:
@@ -2636,15 +2686,17 @@ def calculate_member_payment_validation(member_id: str) -> dict:
             f"{months_short} month(s) short."
         )
 
+    # --------------------------------------------------------
+    # Write ONLY status + validation metadata.
+    #
+    # months_paid / months_missing / months_short / amount_paid /
+    # amount_expected are OWNED BY POSTGRESQL. Writing them here
+    # would silently undo the trigger's calculation.
+    # --------------------------------------------------------
     update_data = {
         "status": current_status,
         "member_status": current_status,
         "payment_validation_status": validation_status,
-        "months_paid": months_paid,
-        "months_missing": months_missing,
-        "months_short": months_short,
-        "amount_expected": expected_monthly_amount,
-        "amount_paid": monthly_paid,
         "payment_validated_at": datetime.now().isoformat(),
         "payment_validation_note": note,
         "updated_at": datetime.now().isoformat()
@@ -2677,12 +2729,16 @@ def calculate_member_payment_validation(member_id: str) -> dict:
         "monthly_fee": monthly_fee,
 
         "expected_months": expected_months,
+
+        # Authoritative values, read from the members row — NOT
+        # recomputed. If these look wrong, the trigger needs fixing;
+        # Python will faithfully pass through whatever the DB says.
         "months_paid": months_paid,
         "months_missing": months_missing,
         "months_short": months_short,
 
-        "amount_expected": round(expected_monthly_amount, 2),
-        "amount_paid": round(monthly_paid, 2),
+        "amount_expected": round(amount_expected, 2),
+        "amount_paid": round(amount_paid, 2),
 
         "registration_paid": round(registration_paid, 2),
 
