@@ -883,16 +883,23 @@
         // MASIKA BENEVOLENT — REGISTRATION PAGE
         //
         // PRICING SOURCE OF TRUTH: Supabase `plans` table.
-        // This page reads the SAME columns that admin-pricing.html
-        // writes (plan_code, plan_name, monthly_premium,
-        // registration_fee, dependant_fee, waiting_period_months,
-        // max_dependants, is_active) so that price edits made in the
-        // admin panel are reflected here immediately, via a Realtime
-        // subscription.
         //
-        // `dependant_fee` supplies the per-parent charge for the
-        // Wazazi plan. It is requested from Supabase and used in both
-        // the live summary and the submit-time fallback total.
+        // Columns read (matches main.py's get_live_plan_pricing()):
+        //   plan_code, plan_name, description,
+        //   registration_fee,
+        //   principal_registration_fee,
+        //   parent_registration_fee,
+        //   monthly_premium,
+        //   principal_monthly_premium,
+        //   parent_monthly_premium,
+        //   minimum_parents, maximum_parents,
+        //   waiting_period_months, is_active
+        //
+        // WAZAZI MATH (mirrors main.py calculate_registration_amount):
+        //   principal = principal_registration_fee (fallback: registration_fee)
+        //   per_parent = parent_registration_fee
+        //   total = principal + (parent_count x per_parent)
+        //   minimum_parents enforced client-side; maximum_parents too.
         //
         // There is NO hardcoded price fallback. If the plans table
         // cannot be reached, the form tells the user pricing is
@@ -996,10 +1003,7 @@
 
         // ============================================================
         // LOAD PLANS — Supabase `plans` table is the ONLY source.
-        // Columns match admin-pricing.html exactly: plan_code,
-        // plan_name, description, monthly_premium, registration_fee,
-        // dependant_fee, waiting_period_months, max_dependants,
-        // is_active.
+        // Column list must match main.py get_live_plan_pricing().
         //
         // A row with plan_code = 'CHAMA' (case-insensitive) supplies
         // the per-member chama registration rate; it is excluded from
@@ -1017,7 +1021,7 @@
             try {
                 const { data, error } = await supabaseClient
                     .from('plans')
-                    .select('id, plan_code, plan_name, description, monthly_premium, registration_fee, dependant_fee, waiting_period_months, max_dependants, is_active')
+                    .select('id, plan_code, plan_name, description, monthly_premium, registration_fee, principal_registration_fee, parent_registration_fee, principal_monthly_premium, parent_monthly_premium, minimum_parents, maximum_parents, waiting_period_months, max_dependants, is_active')
                     .eq('is_active', true)
                     .order('registration_fee', { ascending: true });
 
@@ -1091,17 +1095,24 @@
                 const name = plan.plan_name || 'Plan';
                 const description = plan.description || '';
                 const registrationFee = Number(plan.registration_fee || 0);
+                const principalFee = Number(plan.principal_registration_fee || registrationFee);
+                const parentFee = Number(plan.parent_registration_fee || 0);
                 const monthlyFee = Number(plan.monthly_premium || 0);
-                const dependantFee = Number(plan.dependant_fee || 0);
+                const principalMonthly = Number(plan.principal_monthly_premium || monthlyFee);
                 const planJson = escapeHtml(JSON.stringify({ ...plan, slug }));
 
                 const shouldCheck = previouslySelected
                     ? previouslySelected === slug
                     : index === 0;
 
-                const dependantLine = dependantFee > 0
-                    ? `<br><small>KES ${dependantFee.toLocaleString()} per additional parent</small>`
-                    : '';
+                let priceBlock = `KES ${registrationFee.toLocaleString()}<small> one-time registration</small><br><small>KES ${monthlyFee.toLocaleString()}/month</small>`;
+
+                if (slug === 'wazazi') {
+                    priceBlock =
+                        `KES ${principalFee.toLocaleString()}<small> principal registration</small><br>` +
+                        `KES ${parentFee.toLocaleString()}<small> per parent</small><br>` +
+                        `<small>KES ${principalMonthly.toLocaleString()}/month principal</small>`;
+                }
 
                 return `
                     <div class="plan-option">
@@ -1116,13 +1127,7 @@
                         <label for="plan_${index}" class="plan-label">
                             <div class="plan-name">${escapeHtml(name)}</div>
                             <div class="plan-description">${escapeHtml(description)}</div>
-                            <div class="plan-price">
-                                KES ${registrationFee.toLocaleString()}
-                                <small>one-time registration</small>
-                                <br>
-                                <small>KES ${monthlyFee.toLocaleString()}/month</small>
-                                ${dependantLine}
-                            </div>
+                            <div class="plan-price">${priceBlock}</div>
                         </label>
                     </div>
                 `;
@@ -1450,8 +1455,17 @@
         }
 
         // ============================================================
-        // SUMMARY — all figures come straight from the selected plan's
-        // live Supabase data. No hardcoded amounts.
+        // SUMMARY — mirrors main.py's calculate_registration_amount().
+        //
+        // Wazazi:
+        //   principal = principal_registration_fee (fallback registration_fee)
+        //   per_parent = parent_registration_fee
+        //   dependant_fee = parent_count x per_parent
+        //   total = principal + dependant_fee
+        //
+        // Other plans:
+        //   principal = registration_fee
+        //   dependant_fee = 0
         // ============================================================
         function updateSummary() {
             const selected = getSelectedPlan();
@@ -1466,22 +1480,18 @@
 
             const { slug: planSlug, plan } = selected;
             const registrationFee = Number(plan.registration_fee || 0);
-
-            // Per-parent dependant fee for the Wazazi-style plan, read from
-            // the plan row itself (column: dependant_fee) — NOT hardcoded.
-            // Add a numeric `dependant_fee` column to the `plans` table in
-            // Supabase for any plan that charges per extra dependant.
-            const perDependantFee = Number(plan.dependant_fee || 0);
+            const principalFee = Number(plan.principal_registration_fee || registrationFee);
+            const perParentFee = Number(plan.parent_registration_fee || 0);
 
             let dependantFee = 0;
-            if (planSlug === 'wazazi' && perDependantFee > 0) {
-                dependantFee = countParentDependants() * perDependantFee;
+            if (planSlug === 'wazazi') {
+                dependantFee = countParentDependants() * perParentFee;
             }
 
-            const total = registrationFee + dependantFee;
+            const total = principalFee + dependantFee;
 
             elements.summaryPlan.textContent = plan.plan_name || plan.name || 'Plan';
-            elements.summaryPrincipal.textContent = `KES ${registrationFee.toLocaleString()}`;
+            elements.summaryPrincipal.textContent = `KES ${principalFee.toLocaleString()}`;
             elements.summaryDependants.textContent = `KES ${dependantFee.toLocaleString()}`;
             elements.summaryTotal.textContent = `KES ${total.toLocaleString()}`;
         }
@@ -1489,10 +1499,16 @@
         function updateDependantEligibility(planSlug) {
             if (planSlug === 'wazazi') {
                 const selected = getSelectedPlan();
-                const fee = Number(selected?.plan?.dependant_fee || 0);
-                elements.planHelp.textContent = fee > 0
-                    ? `Wazazi Plan: at least one parent is required (up to 4 parents). Each parent adds KES ${fee.toLocaleString()} to the registration amount.`
-                    : 'Wazazi Plan: at least one parent is required (up to 4 parents). Per-parent fee is not configured in Pricing.';
+                const principal = Number(selected?.plan?.principal_registration_fee || selected?.plan?.registration_fee || 0);
+                const perParent = Number(selected?.plan?.parent_registration_fee || 0);
+                const minP = Number(selected?.plan?.minimum_parents || 1);
+                const maxP = Number(selected?.plan?.maximum_parents || 4);
+
+                elements.planHelp.textContent =
+                    `Wazazi Plan: at least ${minP} parent required (up to ${maxP}). ` +
+                    `Principal KES ${principal.toLocaleString()}, ` +
+                    `each parent KES ${perParent.toLocaleString()}.`;
+
                 ensureRequiredParent();
                 return;
             }
@@ -1639,12 +1655,16 @@
                 return { valid: false, error: 'Parent dependants require the Wazazi plan.' };
             }
 
-            if (data.plan === 'wazazi' && parents.length > 4) {
-                return { valid: false, error: 'Wazazi allows a maximum of four parents.' };
-            }
-
-            if (data.plan === 'wazazi' && parents.length < 1) {
-                return { valid: false, error: 'The Wazazi plan requires at least one parent as a dependant.' };
+            if (data.plan === 'wazazi') {
+                const plan = getSelectedPlan()?.plan || {};
+                const minP = Number(plan.minimum_parents || 1);
+                const maxP = Number(plan.maximum_parents || 4);
+                if (parents.length < minP) {
+                    return { valid: false, error: `The Wazazi plan requires at least ${minP} parent as a dependant.` };
+                }
+                if (parents.length > maxP) {
+                    return { valid: false, error: `Wazazi allows a maximum of ${maxP} parents.` };
+                }
             }
 
             for (let i = 0; i < data.dependants.length; i++) {
@@ -1728,11 +1748,13 @@
                 // Trust the backend-calculated amount; only fall back to the
                 // live (Supabase-sourced) frontend total if the backend
                 // doesn't return one. Never a hardcoded number.
+                // Mirrors main.py calculate_registration_amount().
                 const registrationFee = Number(selected.plan.registration_fee || 0);
-                const perDependantFee = Number(selected.plan.dependant_fee || 0);
+                const principalFee = Number(selected.plan.principal_registration_fee || registrationFee);
+                const perParentFee = Number(selected.plan.parent_registration_fee || 0);
                 const parentCount = formData.dependants.filter(d => d.relationship === 'PARENT').length;
-                const frontendDependantFee = formData.plan === 'wazazi' ? parentCount * perDependantFee : 0;
-                const frontendTotal = registrationFee + frontendDependantFee;
+                const frontendDependantFee = formData.plan === 'wazazi' ? parentCount * perParentFee : 0;
+                const frontendTotal = principalFee + frontendDependantFee;
 
                 const registrationAmount = Number(
                     result.registration_amount ??
@@ -2201,7 +2223,7 @@
         console.log('✅ Masika registration JavaScript ready');
         console.log('📌 Plans are loaded LIVE from Supabase `plans` table (admin-pricing writes here)');
         console.log('📌 Realtime subscription active — admin price edits push instantly');
-        console.log('📌 dependant_fee is requested and used for Wazazi per-parent pricing');
+        console.log('📌 Wazazi math: principal_registration_fee + parents x parent_registration_fee');
         console.log('📌 Sales agents: public.sales_agents.sales_code');
         console.log('📌 Branches: public.branches.branch_code (filtered by is_active = true)');
         console.log('🆔 Payment identifier: member_id');
