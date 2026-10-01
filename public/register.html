@@ -885,9 +885,14 @@
         // PRICING SOURCE OF TRUTH: Supabase `plans` table.
         // This page reads the SAME columns that admin-pricing.html
         // writes (plan_code, plan_name, monthly_premium,
-        // registration_fee, waiting_period_months, max_dependants,
-        // is_active) so that price edits made in the admin panel are
-        // reflected here immediately, via a Realtime subscription.
+        // registration_fee, dependant_fee, waiting_period_months,
+        // max_dependants, is_active) so that price edits made in the
+        // admin panel are reflected here immediately, via a Realtime
+        // subscription.
+        //
+        // `dependant_fee` supplies the per-parent charge for the
+        // Wazazi plan. It is requested from Supabase and used in both
+        // the live summary and the submit-time fallback total.
         //
         // There is NO hardcoded price fallback. If the plans table
         // cannot be reached, the form tells the user pricing is
@@ -993,7 +998,8 @@
         // LOAD PLANS — Supabase `plans` table is the ONLY source.
         // Columns match admin-pricing.html exactly: plan_code,
         // plan_name, description, monthly_premium, registration_fee,
-        // waiting_period_months, max_dependants, is_active.
+        // dependant_fee, waiting_period_months, max_dependants,
+        // is_active.
         //
         // A row with plan_code = 'CHAMA' (case-insensitive) supplies
         // the per-member chama registration rate; it is excluded from
@@ -1011,7 +1017,7 @@
             try {
                 const { data, error } = await supabaseClient
                     .from('plans')
-                    .select('id, plan_code, plan_name, description, monthly_premium, registration_fee, waiting_period_months, max_dependants, is_active')
+                    .select('id, plan_code, plan_name, description, monthly_premium, registration_fee, dependant_fee, waiting_period_months, max_dependants, is_active')
                     .eq('is_active', true)
                     .order('registration_fee', { ascending: true });
 
@@ -1086,11 +1092,16 @@
                 const description = plan.description || '';
                 const registrationFee = Number(plan.registration_fee || 0);
                 const monthlyFee = Number(plan.monthly_premium || 0);
+                const dependantFee = Number(plan.dependant_fee || 0);
                 const planJson = escapeHtml(JSON.stringify({ ...plan, slug }));
 
                 const shouldCheck = previouslySelected
                     ? previouslySelected === slug
                     : index === 0;
+
+                const dependantLine = dependantFee > 0
+                    ? `<br><small>KES ${dependantFee.toLocaleString()} per additional parent</small>`
+                    : '';
 
                 return `
                     <div class="plan-option">
@@ -1110,6 +1121,7 @@
                                 <small>one-time registration</small>
                                 <br>
                                 <small>KES ${monthlyFee.toLocaleString()}/month</small>
+                                ${dependantLine}
                             </div>
                         </label>
                     </div>
@@ -1476,7 +1488,11 @@
 
         function updateDependantEligibility(planSlug) {
             if (planSlug === 'wazazi') {
-                elements.planHelp.textContent = 'Wazazi Plan: at least one parent is required (up to 4 parents). Registration fee per parent is set in Pricing.';
+                const selected = getSelectedPlan();
+                const fee = Number(selected?.plan?.dependant_fee || 0);
+                elements.planHelp.textContent = fee > 0
+                    ? `Wazazi Plan: at least one parent is required (up to 4 parents). Each parent adds KES ${fee.toLocaleString()} to the registration amount.`
+                    : 'Wazazi Plan: at least one parent is required (up to 4 parents). Per-parent fee is not configured in Pricing.';
                 ensureRequiredParent();
                 return;
             }
@@ -2185,6 +2201,7 @@
         console.log('✅ Masika registration JavaScript ready');
         console.log('📌 Plans are loaded LIVE from Supabase `plans` table (admin-pricing writes here)');
         console.log('📌 Realtime subscription active — admin price edits push instantly');
+        console.log('📌 dependant_fee is requested and used for Wazazi per-parent pricing');
         console.log('📌 Sales agents: public.sales_agents.sales_code');
         console.log('📌 Branches: public.branches.branch_code (filtered by is_active = true)');
         console.log('🆔 Payment identifier: member_id');
