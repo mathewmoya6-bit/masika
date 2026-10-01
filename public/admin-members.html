@@ -6,7 +6,7 @@
     <title>Members | Masika Benevolent</title>
     <link rel="icon" type="image/png" sizes="32x32" href="assets/branding/favicon-32.png">
 
-    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.117.2"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
@@ -962,14 +962,14 @@
     <!-- MEMBER DETAIL MODAL (with payment history)                    -->
     <!-- ============================================================ -->
     <div class="modal-overlay" id="memberModal">
-        <div class="modal modal-lg">
+        <div class="modal modal-lg" role="dialog" aria-modal="true" aria-labelledby="memberModalName">
             <h3>
                 <span><i class="fas fa-id-card" style="color:var(--primary);"></i> <span id="memberModalName">Member</span></span>
                 <span style="display:flex;gap:8px;">
                     <button class="btn btn-secondary btn-sm" id="memberEditToggleBtn" onclick="toggleEditMember()">
                         <i class="fas fa-pen"></i> Edit Details
                     </button>
-                    <button class="btn btn-secondary btn-sm" onclick="closeMemberModal()">
+                    <button class="btn btn-secondary btn-sm" aria-label="Close" onclick="closeMemberModal()">
                         <i class="fas fa-times"></i>
                     </button>
                 </span>
@@ -1041,10 +1041,10 @@
     <!-- STK MODAL                                                      -->
     <!-- ============================================================ -->
     <div class="modal-overlay" id="stkModal">
-        <div class="modal modal-sm">
+        <div class="modal modal-sm" role="dialog" aria-modal="true" aria-label="Send STK Push">
             <h3>
                 <span><i class="fas fa-mobile-alt" style="color:var(--success);"></i> Send STK Push</span>
-                <button class="btn btn-secondary btn-sm" onclick="closeStkModal()"><i class="fas fa-times"></i></button>
+                <button class="btn btn-secondary btn-sm" aria-label="Close" onclick="closeStkModal()"><i class="fas fa-times"></i></button>
             </h3>
 
             <p style="font-size:13px;color:var(--text-light);margin-bottom:14px;" id="stkMemberLabel"></p>
@@ -1088,7 +1088,6 @@
         const SUPABASE_URL = 'https://wpxzlcdrirlcyvfiquld.supabase.co';
         const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6IndweHpsY2RyaXJsY3l2ZmlxdWxkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODc5Mjc4MDcsImV4cCI6MjEwMzUwMzgwN30.OUP9pmPbrML_egpHflZtDfLv1_UDM37_BYjtb842xjg';
 
-        console.log('🚀 Members script loaded');
 
         const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
@@ -1102,6 +1101,7 @@
         // ============================================================
         const API_BASE_URL = 'https://masika-c921.onrender.com/api';
         const STK_POLL_INTERVAL_MS = 10000;
+        const COVERAGE_MIN_PAYMENTS = 4; // monthly payments required before cover starts
         const STK_POLL_MAX_ATTEMPTS = 12; // 2 minutes, matches collectpayments.html
 
         async function getAuthToken() {
@@ -1161,6 +1161,8 @@
         let realtimeReconnectTimer = null;
         let fallbackTimer = null;
         let loadSeq = 0; // guards against out-of-order responses
+        let memberTotalCount = null;
+        let stkMonthlyPremium = null;
 
         // Payment history state
         let currentMemberPayments = [];
@@ -1184,6 +1186,7 @@
             const ok = await checkAuth();
             if (ok) {
                 await loadMembers(1);
+                loadAgentCount();
                 startRealtime();
             }
 
@@ -1250,7 +1253,7 @@
         // member modal's payment history refreshes automatically.
         // ============================================================
         const REALTIME_DEBOUNCE_MS = 400;
-        const FALLBACK_REFRESH_MS = 5000;
+        const FALLBACK_REFRESH_MS = 30000;
         const REALTIME_RECONNECT_MS = 2000;
 
         function setLiveIndicator(on, label) {
@@ -1266,7 +1269,6 @@
             realtimeDebounce = setTimeout(async () => {
                 if (!authReady || memberEditMode) return;
                 try {
-                    console.log(`Realtime refresh: ${reason}`);
                     await loadMembers(currentPage, true);
 
                     // If the member modal is open and not in edit mode,
@@ -1305,7 +1307,6 @@
         function startRealtime() {
             if (!authReady || realtimeChannel) return;
 
-            console.log('Starting Masika Realtime...');
             setLiveIndicator(false, 'Connecting...');
 
             realtimeChannel = supabaseClient
@@ -1318,23 +1319,19 @@
                 .on('postgres_changes', {
                     event: '*', schema: 'public', table: 'payments'
                 }, payload => {
-                    console.log('Realtime payments:', payload.eventType);
                     scheduleSilentReload('payment change');
                 })
                 .on('postgres_changes', {
                     event: '*', schema: 'public', table: 'members'
                 }, payload => {
-                    console.log('Realtime members:', payload.eventType);
                     scheduleSilentReload('member change');
                 })
                 .on('postgres_changes', {
                     event: '*', schema: 'public', table: 'memberships'
                 }, payload => {
-                    console.log('Realtime memberships:', payload.eventType);
                     scheduleSilentReload('membership change');
                 })
                 .subscribe((status, err) => {
-                    console.log('Realtime status:', status, err || '');
 
                     if (status === 'SUBSCRIBED') {
                         setLiveIndicator(true, 'Live');
@@ -1442,7 +1439,7 @@
                 }
 
                 if (search) {
-                    const s = search.replace(/[%,]/g, '');
+                    const s = search.replace(/[%,()"'\\*]/g, '');
                     query = query.or(
                         `full_name.ilike.%${s}%,` +
                         `member_number.ilike.%${s}%,` +
@@ -1510,11 +1507,12 @@
                 };
 
                 if (memberIds.length) {
-                    const { data: paymentRows, error: paymentsError } = await supabaseClient
+                    const { data: paymentRows, error: paymentsError } = await fetchAllRows(() => supabaseClient
                         .from('payments')
-                        .select('member_id, amount, created_at, confirmed_at, verified_at, payment_status, status, counts_toward_membership, payment_type, mpesa_receipt_number')
+                        .select('id, member_id, amount, created_at, confirmed_at, verified_at, payment_status, status, counts_toward_membership, payment_type, mpesa_receipt_number')
                         .in('member_id', memberIds)
-                        .order('created_at', { ascending: true });
+                        .order('created_at', { ascending: true })
+                        .order('id', { ascending: true }));
 
                     if (paymentsError) {
                         console.warn('Payment mapping lookup failed:', paymentsError);
@@ -1555,17 +1553,17 @@
                     // First monthly payment is the anchor for duration and renewal.
                     const firstMonthlyPayment = successfulMonthlyPayments.length
                         ? [...successfulMonthlyPayments].sort((a, b) =>
-                            new Date(a.created_at || 0).getTime() - new Date(b.created_at || 0).getTime()
+                            new Date(paymentWhen(a) || 0).getTime() - new Date(paymentWhen(b) || 0).getTime()
                         )[0]
                         : null;
-                    const firstPaymentRaw = firstMonthlyPayment ? firstMonthlyPayment.created_at : null;
+                    const firstPaymentRaw = firstMonthlyPayment ? paymentWhen(firstMonthlyPayment) : null;
                     const firstPaymentDate = firstPaymentRaw ? new Date(firstPaymentRaw) : null;
                     const firstMonthlyMonth = monthKey(firstPaymentRaw);
 
                     // Count distinct monthly contribution months so duplicate successful
                     // transactions in the same month do not create extra covered months.
                     const paidMonthKeys = [...new Set(
-                        successfulMonthlyPayments.map(p => monthKey(p.created_at)).filter(Boolean)
+                        successfulMonthlyPayments.map(p => monthKey(paymentWhen(p))).filter(Boolean)
                     )].sort();
                     const monthlyPaymentsCount = paidMonthKeys.length;
 
@@ -1574,7 +1572,7 @@
                     let duration = 'Awaiting first monthly payment';
                     let expectedMonths = 0;
                     let missedMonths = 0;
-                    let octoberPaid = false;
+                    let currentMonthPaid = false;
 
                     if (firstPaymentDate && !Number.isNaN(firstPaymentDate.getTime())) {
                         // Renewal = 12 months from the first successful monthly payment.
@@ -1584,7 +1582,7 @@
                         const firstMonthKey = firstMonthlyMonth;
                         expectedMonths = Math.max(1, monthDifference(firstMonthKey, todayMonthKey) + 1);
                         missedMonths = Math.max(0, expectedMonths - monthlyPaymentsCount);
-                        octoberPaid = paidMonthKeys.includes(todayMonthKey);
+                        currentMonthPaid = paidMonthKeys.includes(todayMonthKey);
 
                         const elapsedMonths = Math.max(0, monthDifference(firstMonthKey, todayMonthKey));
                         duration = `${elapsedMonths} month${elapsedMonths === 1 ? '' : 's'}`;
@@ -1595,8 +1593,8 @@
                         if (today.getDate() > renewalDate.getDate()) monthsToRenew -= 1;
                     }
 
-                    const covered = monthlyPaymentsCount >= 4;
-                    const awaitingOctober = Boolean(firstPaymentDate && !octoberPaid);
+                    const covered = monthlyPaymentsCount >= COVERAGE_MIN_PAYMENTS;
+                    const awaitingCurrentMonth = Boolean(firstPaymentDate && !currentMonthPaid);
                     const authoritativeStatus = String(
                         member.status || member.member_status || 'PENDING'
                     ).toUpperCase();
@@ -1609,8 +1607,8 @@
                         monthly_payment_count: monthlyPaymentsCount,
                         successful_payment_count: successfulPayments.length,
                         payment_count: allPayments.length,
-                        october_paid: octoberPaid,
-                        awaiting_october: awaitingOctober,
+                        current_month_paid: currentMonthPaid,
+                        awaiting_current_month: awaitingCurrentMonth,
                         covered_after_4_months: covered,
                         total_paid: totalPaidByMember[member.id] ?? Number(member.amount_paid || 0),
                         first_payment_date: firstPaymentDate
@@ -1627,12 +1625,17 @@
                 renderMembers(currentMembersCache);
                 renderPagination();
 
-                const { count: total } = await supabaseClient
-                    .from(MEMBERS_TABLE)
-                    .select('id', { count: 'exact', head: true })
-                    .is('deleted_at', null);
-
-                document.getElementById('memberCountBadge').textContent = total || 0;
+                const filtersActive = Boolean(search || statusFilterValue || planFilterValue);
+                if (!filtersActive) {
+                    memberTotalCount = totalRecords;
+                } else if (memberTotalCount === null || !silent) {
+                    const { count: total } = await supabaseClient
+                        .from(MEMBERS_TABLE)
+                        .select('id', { count: 'exact', head: true })
+                        .is('deleted_at', null);
+                    memberTotalCount = total || 0;
+                }
+                document.getElementById('memberCountBadge').textContent = memberTotalCount ?? 0;
 
             } catch (err) {
                 console.error('Load members error:', err);
@@ -1673,12 +1676,12 @@
             }
 
             try {
-                const { data, error } = await supabaseClient
+                const { data, error } = await fetchAllRows(() => supabaseClient
                     .from('payments')
                     .select('*')
                     .eq('member_id', memberId)
                     .order('created_at', { ascending: false })
-                    .limit(1000);
+                    .order('id', { ascending: false }));
 
                 if (error) throw error;
                 if (seq !== paymentsLoadSeq) return; // superseded
@@ -1722,11 +1725,11 @@
                 monthlyTypes.includes(String(p.payment_type || '').toUpperCase())
             );
             const firstSuccessful = [...successfulMonthlyPayments].sort((a, b) => {
-                const ad = new Date(a.created_at || 0).getTime();
-                const bd = new Date(b.created_at || 0).getTime();
+                const ad = new Date(paymentWhen(a) || 0).getTime();
+                const bd = new Date(paymentWhen(b) || 0).getTime();
                 return ad - bd;
             })[0];
-            const firstPaymentRaw = firstSuccessful ? firstSuccessful.created_at : null;
+            const firstPaymentRaw = firstSuccessful ? paymentWhen(firstSuccessful) : null;
             const firstPaymentDate = firstPaymentRaw ? new Date(firstPaymentRaw) : null;
             const renewalDate = firstPaymentDate && !Number.isNaN(firstPaymentDate.getTime()) ? new Date(firstPaymentDate) : null;
             if (renewalDate) renewalDate.setFullYear(renewalDate.getFullYear() + 1);
@@ -1861,13 +1864,13 @@
                 let paymentDisplay;
                 if (!member.first_payment_date) {
                     paymentDisplay = 'Awaiting first monthly payment';
-                } else if (member.awaiting_october) {
-                    paymentDisplay = 'October payment due';
+                } else if (member.awaiting_current_month) {
+                    paymentDisplay = `${currentMonthName()} payment due`;
                 } else {
-                    paymentDisplay = 'October paid';
+                    paymentDisplay = `${currentMonthName()} paid`;
                 }
 
-                const paymentMainClass = member.awaiting_october ? 'missed' : 'ok';
+                const paymentMainClass = member.awaiting_current_month ? 'missed' : 'ok';
                 const paymentCell = `
                     <div class="payment-cell">
                         <span class="payment-main ${paymentMainClass}">${paymentDisplay}</span>
@@ -1915,24 +1918,24 @@
                             </span>
                         </td>
                         <td>
-                            <span class="mini-badge ${member.covered_after_4_months ? 'ok' : 'soon'}" title="Coverage starts after 4 successful monthly payments">
+                            <span class="mini-badge ${member.covered_after_4_months ? 'ok' : 'soon'}" title="Coverage starts after ${COVERAGE_MIN_PAYMENTS} successful monthly payments">
                                 <i class="fas ${member.covered_after_4_months ? 'fa-shield-halved' : 'fa-hourglass-half'}"></i>
-                                ${member.covered_after_4_months ? 'Covered' : `${monthlyPaymentsCount}/4 payments`}
+                                ${member.covered_after_4_months ? 'Covered' : `${monthlyPaymentsCount}/${COVERAGE_MIN_PAYMENTS} payments`}
                             </span>
                         </td>
                         <td><strong>KES ${totalPaid.toLocaleString('en-KE', {minimumFractionDigits: 0, maximumFractionDigits: 2})}</strong></td>
                         <td>
                             <div class="row-actions">
-                                <button class="btn-icon view" title="View member" onclick="openMemberModal('${member.id}')">
+                                <button class="btn-icon view" title="View member" aria-label="View member" onclick="openMemberModal('${member.id}')">
                                     <i class="fas fa-eye"></i>
                                 </button>
-                                <button class="btn-icon edit" title="Edit member" onclick="openMemberModal('${member.id}', true)">
+                                <button class="btn-icon edit" title="Edit member" aria-label="Edit member" onclick="openMemberModal('${member.id}', true)">
                                     <i class="fas fa-pen"></i>
                                 </button>
-                                <button class="btn-icon stk" title="Send STK push" onclick="openStkModal('${member.id}')">
+                                <button class="btn-icon stk" title="Send STK push" aria-label="Send STK push" onclick="openStkModal('${member.id}')">
                                     <i class="fas fa-mobile-alt"></i>
                                 </button>
-                                <button class="btn-icon idcard" title="Member ID card" id="idcard-btn-${member.id}" onclick="generateIdCard('${member.id}')">
+                                <button class="btn-icon idcard" title="Member ID card" aria-label="Member ID card" id="idcard-btn-${member.id}" onclick="generateIdCard('${member.id}')">
                                     <i class="fas fa-id-card"></i>
                                 </button>
                             </div>
@@ -2016,7 +2019,7 @@
 
         function renderMemberViewFields(member) {
             document.getElementById('memberPersonalInfo').innerHTML = `
-                <div><span class="label">Full Name</span><div class="value">${escapeHTML(member.first_name || '')} ${escapeHTML(member.last_name || '')}</div></div>
+                <div><span class="label">Full Name</span><div class="value">${escapeHTML(`${member.first_name || ''} ${member.last_name || ''}`.trim())}</div></div>
                 <div><span class="label">Date of Birth</span><div class="value">${escapeHTML(member.date_of_birth || '-')}</div></div>
                 <div><span class="label">Gender</span><div class="value">${escapeHTML(member.gender || '-')}</div></div>
                 <div><span class="label">ID Number</span><div class="value">${escapeHTML(member.id_number || '-')}</div></div>`;
@@ -2160,6 +2163,7 @@
         async function saveMemberStatus() {
             if (!selectedMemberId) return showModalError('No member selected.');
             const ns = document.getElementById('memberStatusSelect').value;
+            if (['CANCELLED', 'SUSPENDED'].includes(ns) && !confirm(`Set this member to ${ns}?`)) return;
             try {
                 const { error } = await supabaseClient.from('members')
                     .update({ status: ns, updated_at: new Date().toISOString() })
@@ -2193,6 +2197,7 @@
         async function openStkModal(memberId) {
             stkMemberId = memberId;
             stkMembershipNumber = null;
+            stkMonthlyPremium = null;
             clearStkModal();
 
             const cached = currentMembersCache.find(m => m.id === memberId);
@@ -2225,6 +2230,7 @@
                             .eq('plan_code', member.plan_type)
                             .maybeSingle();
                         if (plan?.principal_monthly_premium) {
+                            stkMonthlyPremium = plan.principal_monthly_premium;
                             document.getElementById('stkAmount').value = plan.principal_monthly_premium;
                         }
                     }
@@ -2258,6 +2264,8 @@
 
         async function sendStkPush() {
             if (!stkMemberId) return;
+            const memberIdAtSend = stkMemberId;
+            const membershipNoAtSend = stkMembershipNumber;
 
             const errEl = document.getElementById('stkModalError');
             errEl.style.display = 'none';
@@ -2267,8 +2275,8 @@
             const amount = Math.round(rawAmount);
             const paymentType = document.getElementById('stkPaymentType').value || 'monthly';
 
-            if (!phone || phone.length < 10) {
-                errEl.textContent = 'Enter a valid M-Pesa phone number.';
+            if (!/^254[17]\d{8}$/.test(phone)) {
+                errEl.textContent = 'Enter a valid M-Pesa number (2547XXXXXXXX or 2541XXXXXXXX).';
                 errEl.style.display = 'block';
                 return;
             }
@@ -2297,12 +2305,12 @@
 
             try {
                 const payload = {
-                    member_id: stkMemberId,
+                    member_id: memberIdAtSend,
                     phone_number: phone,
                     amount: amount,
                     payment_type: paymentType
                 };
-                if (stkMembershipNumber) payload.membership_number = stkMembershipNumber;
+                if (membershipNoAtSend) payload.membership_number = membershipNoAtSend;
 
                 const response = await fetch(`${API_BASE_URL}/admin/payments/collect`, {
                     method: 'POST',
@@ -2328,7 +2336,7 @@
                 showToast('STK push sent to ' + phone, 'success');
 
                 if (stkCheckoutId) {
-                    startStkPolling(stkCheckoutId);
+                    startStkPolling(stkCheckoutId, memberIdAtSend);
                 } else {
                     resetStkSendBtn();
                 }
@@ -2343,7 +2351,7 @@
         }
 
         // Fetches a fresh token on every tick so long polls never fail on expiry.
-        function startStkPolling(checkoutId) {
+        function startStkPolling(checkoutId, memberId) {
             stopStkPolling();
             stkPollAttempts = 0;
 
@@ -2371,9 +2379,7 @@
 
                         // AUTOMATIC UPDATE: refresh member list and modal payment history
                         loadMembers(currentPage, true);
-                        if (selectedMemberId) {
-                            loadMemberPayments(selectedMemberId, true);
-                        }
+                        if (selectedMemberId && selectedMemberId === memberId) { loadMemberPayments(selectedMemberId, true); }
                     } else if (isFailed) {
                         stopStkPolling();
                         setStkStatus('failed', 'Payment was not completed.');
@@ -2384,9 +2390,7 @@
                         setStkStatus('pending', 'Taking longer than expected — check the Payments page for the final result.');
                         resetStkSendBtn();
                         loadMembers(currentPage, true);
-                        if (selectedMemberId) {
-                            loadMemberPayments(selectedMemberId, true);
-                        }
+                        if (selectedMemberId && selectedMemberId === memberId) { loadMemberPayments(selectedMemberId, true); }
                     }
                     // pending — keep polling silently.
                 } catch (err) {
@@ -2492,10 +2496,11 @@
         // ============================================================
         async function exportMembers() {
             try {
-                const { data, error } = await supabaseClient
+                const { data, error } = await fetchAllRows(() => supabaseClient
                     .from(MEMBERS_TABLE)
                     .select(MEMBER_COLUMNS)
-                    .is('deleted_at', null);
+                    .is('deleted_at', null)
+                    .order('id', { ascending: true }));
                 if (error) throw error;
                 if (!data || !data.length) return showToast('No members to export.', 'warning');
 
@@ -2527,7 +2532,7 @@
                         Number(m.months_missing || 0),
                         Number(m.months_paid || 0),
                         m.registration_date || '',
-                        renewalDate ? renewalDate.toISOString().slice(0, 10) : '',
+                        renewalDate ? localDateStr(renewalDate) : '',
                         Number(m.amount_paid || 0),
                         Number(m.amount_expected || 0)
                     ];
@@ -2535,7 +2540,7 @@
 
                 let csv = headers.join(',') + '\n';
                 rows.forEach(row => {
-                    csv += row.map(c => `"${String(c).replace(/"/g, '""')}"`).join(',') + '\n';
+                    csv += row.map(csvCell).join(',') + '\n';
                 });
 
                 const blob = new Blob([csv], { type: 'text/csv' });
@@ -2624,6 +2629,50 @@
             setTimeout(() => t.remove(), type === 'warning' ? 9000 : 4000);
         }
 
+        function paymentWhen(p) {
+            return p.confirmed_at || p.verified_at || p.created_at || null;
+        }
+
+        function localDateStr(d) {
+            const pad = n => String(n).padStart(2, '0');
+            return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+        }
+
+        function currentMonthName() {
+            return new Intl.DateTimeFormat('en-US', { timeZone: 'Africa/Nairobi', month: 'long' }).format(new Date());
+        }
+
+        function csvCell(value) {
+            let t = String(value ?? '');
+            if (/^[=+\-@\t\r]/.test(t)) t = "'" + t; // block spreadsheet formula injection
+            return '"' + t.replace(/"/g, '""') + '"';
+        }
+
+        // Supabase caps each response at 1000 rows; page through with .range().
+        async function fetchAllRows(makeQuery, pageSz = 1000) {
+            const all = [];
+            for (let from = 0; ; from += pageSz) {
+                const { data, error } = await makeQuery().range(from, from + pageSz - 1);
+                if (error) return { data: null, error };
+                all.push(...(data || []));
+                if (!data || data.length < pageSz) break;
+            }
+            return { data: all, error: null };
+        }
+
+        async function loadAgentCount() {
+            const badge = document.getElementById('agentCountBadge');
+            try {
+                const { count, error } = await supabaseClient
+                    .from('staff').select('id', { count: 'exact', head: true })
+                    .not('sales_code', 'is', null);
+                if (error) throw error;
+                badge.textContent = count || 0;
+            } catch (err) {
+                badge.style.display = 'none';
+            }
+        }
+
         function escapeHTML(value) {
             if (value === null || value === undefined || value === '') return '-';
             return String(value)
@@ -2632,7 +2681,7 @@
         }
 
         function escapeAttr(value) {
-            return String(value || '')
+            return String(value ?? '')
                 .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
                 .replace(/"/g, '&quot;').replace(/'/g, '&#039;');
         }
@@ -2662,6 +2711,11 @@
 
         document.getElementById('memberModal').addEventListener('click', function(e) {
             if (e.target === this) closeMemberModal();
+        });
+        document.getElementById('stkPaymentType').addEventListener('change', function() {
+            const amt = document.getElementById('stkAmount');
+            if (this.value === 'monthly' && stkMonthlyPremium) amt.value = stkMonthlyPremium;
+            else if (this.value !== 'monthly') amt.value = '';
         });
         document.getElementById('stkModal').addEventListener('click', function(e) {
             if (e.target === this) closeStkModal();
