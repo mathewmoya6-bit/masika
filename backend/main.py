@@ -1,99 +1,59 @@
 # MAIN ENTRY POINT - backend/main.py
 # Complete Production-Ready FastAPI Application
 # Render runs: uvicorn main:app
-# FIXED PAYMENT VERSION: 2026-09-22
+# WAZAZI PRICING VERSION: 2026-10-01
 # M-Pesa STK rows are never left pending without a CheckoutRequestID.
 # Callback ResultCode/status values are normalized before comparison.
 # ============================================================
 #
-# CHANGES IN THIS VERSION
+# CHANGES IN THIS VERSION (2026-10-01)
+#   A. FIX  get_live_plan_pricing() now reads the real `plans` columns:
+#           registration_fee, principal_registration_fee,
+#           parent_registration_fee, monthly_premium,
+#           principal_monthly_premium, parent_monthly_premium,
+#           minimum_parents, maximum_parents.
+#           The old `dependant_fee` column does not exist, so the parent
+#           charge was being skipped.
+#   B. NEW  calculate_registration_amount() / calculate_monthly_amount()
+#           Wazazi: principal fee + parents x parent fee.
+#           Spouse and children never add a registration or monthly charge.
+#   C. FIX  public_register() and initiate_stk_push() use the calculator.
+#   D. NEW  maximum_parents is enforced in public_register(),
+#           auth register() and create_dependant().
+#   E. FIX  get_plan_monthly_fee() falls back to principal_monthly_premium
+#           for Wazazi if monthly_premium is empty.
+#   F. NEW  create_dependant() returns registration_fee_due when a parent
+#           is added to a Wazazi member after registration.
+#
+# CHANGES IN PREVIOUS VERSION (2026-09-22)
 #   1. NEW  /api/admin/payments/collect  and  /api/admin/payments/status/{id}
-#           Staff-initiated STK push, protected by the Supabase login token
-#           + staff/role check (see "ADMIN PAYMENT COLLECTION" section).
-#   2. FIX  activate_registration() only activates a member/chama for
-#           REGISTRATION payments (monthly/top-up/add-on no longer flip
-#           registration_fee_paid / member_status).
-#   3. FIX  get_payment_status() now returns the M-Pesa receipt for
-#           payments that were already confirmed by the callback.
-#   4. FIX  admin_collect_payment() now maps PaymentTypeEnum's lowercase
-#           values (registration/monthly/topup/addon) onto the payments
-#           table's actual `payment_type` Postgres enum labels, which are
-#           uppercase (REGISTRATION/MONTHLY/TOPUP/ADDON) and historically
-#           inconsistent elsewhere in the table (registration/
-#           chama_registration also exist lowercase). Without this, admin
-#           STK pushes for anything but a registration fee failed with
-#           "invalid input value for enum payment_type" since the enum
-#           has no lowercase 'monthly'/'topup'/'addon' at all.
-#   5. NEW  /api/public/notifications/process
-#           Cron-triggered sweep that sends pending SMS notifications
-#           (see "NOTIFICATIONS" section). Protected by NOTIFICATION_PROCESS_KEY.
-#   6. NEW  send_registration_sms() / send_payment_confirmation_sms()
-#           Registration welcome SMS is sent from public_register() right
-#           after the member row is created. Payment confirmation SMS is
-#           sent from activate_registration() — which already runs on every
-#           path that marks a payment "completed" (callback, on-demand
-#           status poll, reconciliation sweep) — for ANY completed member
-#           payment, not just registration. Both reuse the same TEXTSMS_*
-#           config and format_phone_number() as send_payment_reminder_sms();
-#           neither blocks or fails the caller if the SMS send fails.
-#   7. FIX  send_payment_reminder_sms() now returns (success, detail) and
-#           the notification sweep writes TextSMS's actual response into
-#           notifications.failure_reason instead of a generic string, so
-#           failures are diagnosable from SQL instead of Render logs.
-#   8. NEW  Permanent callback fix:
-#           - Idempotency guard based on payment_status == SUCCESSFUL
-#           - UTC Python timestamps (not SQL "now()")
-#           - Immediate member months_paid / amount_paid recalculation
-#             runs inside the callback, no frontend/manual step required
-#   9. NEW  PostgreSQL is the authoritative source for payment totals:
-#           - calculate_member_payment_validation() now READS months_paid,
-#             months_missing, months_short, amount_paid, amount_expected
-#             from the members row (maintained by a DB trigger on payments)
-#             instead of recomputing them in Python.
-#           - The greedy month-match loop is removed.
-#           - Python writes ONLY: status, member_status,
-#             payment_validation_status, payment_validated_at,
-#             payment_validation_note, updated_at.
-#           - The M-Pesa callback fires calculate_member_payment_validation()
-#             immediately after a successful payment so status reflects
-#             the new totals, without touching the totals themselves.
+#   2. FIX  activate_registration() only activates for REGISTRATION payments
+#   3. FIX  get_payment_status() returns the M-Pesa receipt
+#   4. FIX  admin_collect_payment() maps payment_type to DB enum labels
+#   5. NEW  /api/public/notifications/process (cron SMS sweep)
+#   6. NEW  registration + payment confirmation SMS
+#   7. FIX  send_payment_reminder_sms() returns (success, detail)
+#   8. NEW  Permanent callback fix (idempotency, UTC timestamps)
+#   9. NEW  PostgreSQL is authoritative for payment totals
 #
-# NEW ENV VARS (Render -> Environment)
+# ENV VARS (Render -> Environment)
 #   ALLOWED_ORIGINS         = https://masika-murex.vercel.app,https://www.masikabbs.com,https://masikabbs.com
-#   PAYMENT_COLLECTOR_ROLES = SUPER_ADMIN        (comma-separated role_codes)
-#   ADMIN_MAX_COLLECT_AMOUNT = 250000            (optional)
-#   NOTIFICATION_PROCESS_KEY = <random secret>   (required header X-Notification-Key on the sweep endpoint)
-#   TEXTSMS_API_KEY / TEXTSMS_PARTNER_ID / TEXTSMS_SHORTCODE   (required for SMS sending; see send_payment_reminder_sms)
+#   PAYMENT_COLLECTOR_ROLES = SUPER_ADMIN
+#   ADMIN_MAX_COLLECT_AMOUNT = 250000
+#   NOTIFICATION_PROCESS_KEY = <random secret>
+#   TEXTSMS_API_KEY / TEXTSMS_PARTNER_ID / TEXTSMS_SHORTCODE
 #
-# DB MIGRATION REQUIRED FOR THIS VERSION
+# DB MIGRATION (already applied earlier)
 #   ALTER TYPE payment_type ADD VALUE IF NOT EXISTS 'TOPUP';
 #   ALTER TYPE payment_type ADD VALUE IF NOT EXISTS 'ADDON';
+#   payments: payment_status, result_code, result_desc, mpesa_receipt_number,
+#             confirmed_at, verified_at, counts_toward_membership,
+#             raw_callback, notes, phone_number
+#   members:  months_paid, months_missing, months_short, amount_paid,
+#             amount_expected  (maintained by a trigger on payments)
 #
-#   -- REQUIRED for the permanent callback fix --
-#   alter table public.payments
-#     add column if not exists payment_status text,
-#     add column if not exists result_code int,
-#     add column if not exists result_desc text,
-#     add column if not exists mpesa_receipt_number text,
-#     add column if not exists confirmed_at timestamptz,
-#     add column if not exists verified_at timestamptz,
-#     add column if not exists counts_toward_membership boolean default false,
-#     add column if not exists raw_callback jsonb,
-#     add column if not exists notes text,
-#     add column if not exists phone_number text;
-#
-#   -- REQUIRED for the "PostgreSQL is authoritative" migration --
-#   alter table public.members
-#     add column if not exists months_paid int default 0,
-#     add column if not exists months_missing int default 0,
-#     add column if not exists months_short int default 0,
-#     add column if not exists amount_paid numeric default 0,
-#     add column if not exists amount_expected numeric default 0;
-#
-#   -- And a trigger on public.payments that keeps those five
-#   -- members columns up to date whenever a payment transitions to
-#   -- payment_status = 'SUCCESSFUL' (or back to FAILED). Python no
-#   -- longer writes them.
+# NOTE: the payments trigger must compute amount_expected for Wazazi as
+#       principal_monthly_premium + parents x parent_monthly_premium.
 # ============================================================
 
 import os
@@ -721,19 +681,26 @@ def build_dependant_row(
 
 
 # ------------------------------------------------------------
-# LIVE PRICING HELPER
+# LIVE PRICING HELPERS
 # ------------------------------------------------------------
 def get_live_plan_pricing(plan_slug: str) -> Dict[str, float]:
     """
-    Fetch the CURRENT registration fee (and per-dependant fee, if
-    configured) for a plan from Supabase's `plans` table.
+    Fetch the CURRENT pricing for a plan from Supabase's `plans` table.
+
+    Wazazi uses the principal_* and parent_* columns. Other plans only use
+    registration_fee / monthly_premium. Spouse and children never add a
+    registration or monthly charge.
     """
     if not supabase:
         raise HTTPException(status_code=500, detail="Database not available")
 
     result = (
         supabase.table("plans")
-        .select("registration_fee, dependant_fee, is_active")
+        .select(
+            "registration_fee, principal_registration_fee, parent_registration_fee, "
+            "monthly_premium, principal_monthly_premium, parent_monthly_premium, "
+            "minimum_parents, maximum_parents, is_active"
+        )
         .ilike("plan_code", plan_slug)
         .limit(1)
         .execute()
@@ -753,10 +720,49 @@ def get_live_plan_pricing(plan_slug: str) -> Dict[str, float]:
             detail=f"Plan '{plan_slug}' is not currently available for registration."
         )
 
+    registration_fee = float(row.get("registration_fee") or 0)
+
     return {
-        "registration_fee": float(row.get("registration_fee") or 0),
-        "dependant_fee": float(row.get("dependant_fee") or 0),
+        "registration_fee": registration_fee,
+        "principal_registration_fee": float(row.get("principal_registration_fee") or registration_fee),
+        "parent_registration_fee": float(row.get("parent_registration_fee") or 0),
+        "monthly_premium": float(row.get("monthly_premium") or 0),
+        "principal_monthly_premium": float(row.get("principal_monthly_premium") or 0),
+        "parent_monthly_premium": float(row.get("parent_monthly_premium") or 0),
+        "minimum_parents": int(row.get("minimum_parents") or 0),
+        "maximum_parents": int(row.get("maximum_parents") or 0),
     }
+
+
+def calculate_registration_amount(plan: str, pricing: Dict[str, float], parent_count: int) -> float:
+    """Wazazi: principal fee + parents x parent fee. Spouse/children are free."""
+    amount = pricing["principal_registration_fee"]
+    if (plan or "").lower() == "wazazi":
+        max_parents = int(pricing.get("maximum_parents") or 0)
+        if max_parents and parent_count > max_parents:
+            raise HTTPException(status_code=400, detail=f"Maximum {max_parents} parents allowed.")
+        amount += parent_count * pricing["parent_registration_fee"]
+    return amount
+
+
+def calculate_monthly_amount(plan: str, pricing: Dict[str, float], parent_count: int) -> float:
+    """Wazazi: principal monthly + parents x parent monthly. Others: monthly_premium."""
+    if (plan or "").lower() == "wazazi":
+        return pricing["principal_monthly_premium"] + parent_count * pricing["parent_monthly_premium"]
+    return pricing["monthly_premium"]
+
+
+def count_active_parents(member_id: str) -> int:
+    """Number of ACTIVE dependants with relationship PARENT for a member."""
+    result = (
+        supabase.table("dependants")
+        .select("id", count="exact")
+        .eq("principal_member_id", member_id)
+        .ilike("relationship", "parent")
+        .eq("status", "ACTIVE")
+        .execute()
+    )
+    return result.count or 0
 
 # ============================================================
 # M-PESA HELPERS
@@ -1212,12 +1218,14 @@ async def public_register(payload: PublicRegistrationRequest):
         plan = plan.lower()
         waiting_period = 6 if plan == "dignity" else 4
 
+        # Pricing is validated BEFORE the member row is created so a parent
+        # cap violation never leaves an orphaned member behind.
         pricing = get_live_plan_pricing(plan)
-        registration_amount = pricing["registration_fee"]
-
-        if plan == "wazazi" and pricing["dependant_fee"] > 0:
-            parent_count = sum(1 for d in payload.dependants if d.get("relationship", "").upper() == "PARENT")
-            registration_amount += parent_count * pricing["dependant_fee"]
+        parent_count = sum(
+            1 for d in payload.dependants
+            if str(d.get("relationship", "")).strip().upper() == "PARENT"
+        )
+        registration_amount = calculate_registration_amount(plan, pricing, parent_count)
 
         member_record = {
             "member_number": member_number,
@@ -1448,18 +1456,10 @@ async def initiate_stk_push(request: STKPushRequest):
         member_plan = (member_result.data[0].get("plan") or "").lower()
 
         pricing = get_live_plan_pricing(member_plan)
-        verified_amount = pricing["registration_fee"]
-
-        if member_plan == "wazazi" and pricing["dependant_fee"] > 0:
-            parent_count_result = (
-                supabase.table("dependants")
-                .select("id", count="exact")
-                .eq("principal_member_id", request.member_id)
-                .ilike("relationship", "parent")
-                .execute()
-            )
-            parent_count = parent_count_result.count or 0
-            verified_amount += parent_count * pricing["dependant_fee"]
+        parent_count = 0
+        if member_plan == "wazazi":
+            parent_count = count_active_parents(request.member_id)
+        verified_amount = calculate_registration_amount(member_plan, pricing, parent_count)
 
     else:
         group_result = supabase.table("chama_groups").select("registration_amount").eq("id", request.group_id).limit(1).execute()
@@ -2487,6 +2487,12 @@ def _months_between(start_date: date, end_date: date) -> int:
 
 
 def get_plan_monthly_fee(plan_slug: str) -> float:
+    """
+    Monthly fee used for the "is a monthly contribution configured" check.
+    For Wazazi, falls back to principal_monthly_premium when monthly_premium
+    is empty. The real per-member expectation (principal + parents x parent
+    fee) is calculated by the DB trigger.
+    """
     if not supabase:
         raise HTTPException(status_code=500, detail="Database not available")
 
@@ -2494,7 +2500,7 @@ def get_plan_monthly_fee(plan_slug: str) -> float:
 
     result = (
         supabase.table("plans")
-        .select("plan_code, monthly_premium, is_active")
+        .select("plan_code, monthly_premium, principal_monthly_premium, is_active")
         .ilike("plan_code", plan_slug)
         .limit(1)
         .execute()
@@ -2508,7 +2514,11 @@ def get_plan_monthly_fee(plan_slug: str) -> float:
 
     plan = result.data[0]
 
-    return float(plan.get("monthly_premium") or 0)
+    monthly = float(plan.get("monthly_premium") or 0)
+    if monthly <= 0 and plan_slug == "wazazi":
+        monthly = float(plan.get("principal_monthly_premium") or 0)
+
+    return monthly
 
 
 def calculate_member_payment_validation(member_id: str) -> dict:
@@ -2516,9 +2526,7 @@ def calculate_member_payment_validation(member_id: str) -> dict:
     Reconcile a member's status from the AUTHORITATIVE payment totals
     maintained by PostgreSQL on the `members` row.
 
-    IMPORTANT — read carefully:
-
-    A database trigger on `payments` is now the single source of truth
+    A database trigger on `payments` is the single source of truth
     for the five payment-total columns on `members`:
 
         months_paid
@@ -2538,11 +2546,6 @@ def calculate_member_payment_validation(member_id: str) -> dict:
         payment_validated_at
         payment_validation_note
         updated_at
-
-    The old greedy month-match loop (a KES 100 payment satisfying
-    two KES 50 months) used to run here and could disagree with the
-    trigger — for example flipping a correct `months_missing = 0`
-    back to `1`. That logic has been deliberately removed.
     """
 
     if not supabase:
@@ -2625,10 +2628,6 @@ def calculate_member_payment_validation(member_id: str) -> dict:
 
     # --------------------------------------------------------
     # Months expected since registration.
-    #
-    # This is the only number still derived in Python — it is a
-    # pure function of registration_date and today's date, and
-    # the trigger uses the same calendar-month rule.
     # --------------------------------------------------------
     expected_months = _months_between(
         registration_date,
@@ -2639,10 +2638,6 @@ def calculate_member_payment_validation(member_id: str) -> dict:
     # Authoritative payment totals — read from the members row,
     # not recomputed. PostgreSQL owns these via the trigger on
     # `payments`; Python must never overwrite them.
-    #
-    # Note: amount_expected is NOT recomputed here either. It comes
-    # from the members row so a plan price change doesn't cause a
-    # mid-cycle flip.
     # --------------------------------------------------------
     months_paid = int(member.get("months_paid") or 0)
     months_missing = int(member.get("months_missing") or 0)
@@ -2652,10 +2647,6 @@ def calculate_member_payment_validation(member_id: str) -> dict:
 
     # --------------------------------------------------------
     # Determine status.
-    #
-    # No historical payment evidence: don't falsely declare
-    # DORMANT — the new system has no completed monthly payments
-    # for this member yet, so the correct state is PENDING.
     # --------------------------------------------------------
     has_new_system_monthly_evidence = len(monthly_payments) > 0
 
@@ -2688,10 +2679,6 @@ def calculate_member_payment_validation(member_id: str) -> dict:
 
     # --------------------------------------------------------
     # Write ONLY status + validation metadata.
-    #
-    # months_paid / months_missing / months_short / amount_paid /
-    # amount_expected are OWNED BY POSTGRESQL. Writing them here
-    # would silently undo the trigger's calculation.
     # --------------------------------------------------------
     update_data = {
         "status": current_status,
@@ -2730,9 +2717,6 @@ def calculate_member_payment_validation(member_id: str) -> dict:
 
         "expected_months": expected_months,
 
-        # Authoritative values, read from the members row — NOT
-        # recomputed. If these look wrong, the trigger needs fixing;
-        # Python will faithfully pass through whatever the DB says.
         "months_paid": months_paid,
         "months_missing": months_missing,
         "months_short": months_short,
@@ -3041,6 +3025,12 @@ async def register(member_data: MemberCreate):
         raise HTTPException(status_code=400, detail="Email already registered")
     if supabase.table("members").select("id_number").eq("id_number", member_data.id_number).execute().data:
         raise HTTPException(status_code=400, detail="ID number already registered")
+
+    # Enforce the parent cap before anything is written.
+    if member_data.plan == PlanEnum.WAZAZI:
+        parent_count = sum(1 for d in member_data.dependants if d.relationship == RelationshipEnum.PARENT)
+        calculate_registration_amount("wazazi", get_live_plan_pricing("wazazi"), parent_count)
+
     member_number = generate_member_number()
     password = generate_password()
     password_hash = hash_password(password)
@@ -3232,9 +3222,26 @@ async def get_dependants(member_id: str):
 async def create_dependant(dependant: DependantCreate):
     if not supabase:
         raise HTTPException(status_code=500, detail="Database not available")
-    member = supabase.table("members").select("id").eq("id", dependant.member_id).execute()
-    if not member.data:
+    member_result = supabase.table("members").select("id, plan").eq("id", dependant.member_id).execute()
+    if not member_result.data:
         raise HTTPException(status_code=404, detail="Member not found")
+
+    member_plan = (member_result.data[0].get("plan") or "").strip().lower()
+    registration_fee_due = 0.0
+
+    # Parent rules apply to Wazazi only: enforce the cap and tell the caller
+    # what registration fee the new parent adds. Spouse/children are free.
+    if member_plan == "wazazi" and dependant.relationship == RelationshipEnum.PARENT:
+        pricing = get_live_plan_pricing("wazazi")
+        max_parents = int(pricing.get("maximum_parents") or 0)
+        current_parents = count_active_parents(dependant.member_id)
+        if max_parents and current_parents >= max_parents:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Maximum {max_parents} parents allowed. This member already has {current_parents}."
+            )
+        registration_fee_due = pricing["parent_registration_fee"]
+
     result = supabase.table("dependants").insert(
         build_dependant_row(
             principal_member_id=dependant.member_id,
@@ -3246,7 +3253,12 @@ async def create_dependant(dependant: DependantCreate):
             email=dependant.email,
         )
     ).execute()
-    return {"success": True, "data": result.data[0] if result.data else None, "message": "Dependant added successfully"}
+    return {
+        "success": True,
+        "data": result.data[0] if result.data else None,
+        "registration_fee_due": registration_fee_due,
+        "message": "Dependant added successfully"
+    }
 
 @dependants_router.put("/{dependant_id}")
 async def update_dependant(dependant_id: str, dependant_update: DependantUpdate):
