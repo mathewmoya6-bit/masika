@@ -7,7 +7,7 @@
 # ============================================================
 #
 # CHANGES IN THIS VERSION (2026-10-01)
-#   A. FIX  get_live_plan_pricing() now reads the real `plans` columns:
+#   A. FIX  get_live_plan_pricing() reads the real `plans` columns:
 #           registration_fee, principal_registration_fee,
 #           parent_registration_fee, monthly_premium,
 #           principal_monthly_premium, parent_monthly_premium,
@@ -18,8 +18,10 @@
 #           Wazazi: principal fee + parents x parent fee.
 #           Spouse and children never add a registration or monthly charge.
 #   C. FIX  public_register() and initiate_stk_push() use the calculator.
-#   D. NEW  maximum_parents is enforced in public_register(),
-#           auth register() and create_dependant().
+#   D. NEW  BOTH minimum_parents AND maximum_parents are enforced in
+#           calculate_registration_amount(), which is called from
+#           public_register(), auth register() and create_dependant().
+#           A Wazazi registration with zero parents is now rejected.
 #   E. FIX  get_plan_monthly_fee() falls back to principal_monthly_premium
 #           for Wazazi if monthly_premium is empty.
 #   F. NEW  create_dependant() returns registration_fee_due when a parent
@@ -735,12 +737,31 @@ def get_live_plan_pricing(plan_slug: str) -> Dict[str, float]:
 
 
 def calculate_registration_amount(plan: str, pricing: Dict[str, float], parent_count: int) -> float:
-    """Wazazi: principal fee + parents x parent fee. Spouse/children are free."""
+    """
+    Wazazi: principal fee + parents x parent fee. Spouse/children are free.
+
+    Enforces BOTH minimum_parents and maximum_parents for Wazazi.
+    This is called from public_register(), auth register() and
+    create_dependant(), so a Wazazi registration with zero parents is
+    rejected before any row is written.
+    """
     amount = pricing["principal_registration_fee"]
     if (plan or "").lower() == "wazazi":
+        min_parents = int(pricing.get("minimum_parents") or 1)
         max_parents = int(pricing.get("maximum_parents") or 0)
+
+        if parent_count < min_parents:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Wazazi requires at least {min_parents} parent as a dependant."
+            )
+
         if max_parents and parent_count > max_parents:
-            raise HTTPException(status_code=400, detail=f"Maximum {max_parents} parents allowed.")
+            raise HTTPException(
+                status_code=400,
+                detail=f"Maximum {max_parents} parents allowed."
+            )
+
         amount += parent_count * pricing["parent_registration_fee"]
     return amount
 
@@ -1219,7 +1240,7 @@ async def public_register(payload: PublicRegistrationRequest):
         waiting_period = 6 if plan == "dignity" else 4
 
         # Pricing is validated BEFORE the member row is created so a parent
-        # cap violation never leaves an orphaned member behind.
+        # cap (or min-parents) violation never leaves an orphaned member behind.
         pricing = get_live_plan_pricing(plan)
         parent_count = sum(
             1 for d in payload.dependants
@@ -3026,7 +3047,7 @@ async def register(member_data: MemberCreate):
     if supabase.table("members").select("id_number").eq("id_number", member_data.id_number).execute().data:
         raise HTTPException(status_code=400, detail="ID number already registered")
 
-    # Enforce the parent cap before anything is written.
+    # Enforce min/max parents before anything is written.
     if member_data.plan == PlanEnum.WAZAZI:
         parent_count = sum(1 for d in member_data.dependants if d.relationship == RelationshipEnum.PARENT)
         calculate_registration_amount("wazazi", get_live_plan_pricing("wazazi"), parent_count)
