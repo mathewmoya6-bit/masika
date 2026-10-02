@@ -883,24 +883,30 @@
         // MASIKA BENEVOLENT — REGISTRATION PAGE
         //
         // PRICING SOURCE OF TRUTH: Supabase `plans` table.
-        //
-        // WAZAZI MATH (mirrors main.py calculate_registration_amount):
-        //   principal = principal_registration_fee (fallback: registration_fee)
-        //   per_parent = parent_registration_fee
-        //   total = principal + (parent_count x per_parent)
+        // This page reads the SAME columns that admin-pricing.html
+        // writes (plan_code, plan_name, monthly_premium,
+        // registration_fee, waiting_period_months, max_dependants,
+        // is_active) so that price edits made in the admin panel are
+        // reflected here immediately, via a Realtime subscription.
         //
         // There is NO hardcoded price fallback. If the plans table
-        // cannot be reached, the form says pricing is unavailable.
+        // cannot be reached, the form tells the user pricing is
+        // unavailable instead of silently using stale numbers.
         //
         // BRANCHES: loaded from the Supabase `branches` table.
-        // The submitted value is the branch_code.
-        // Requires an RLS SELECT policy for the anon role (see
-        // loadBranches() below).
+        // Columns used: branch_code, branch_name, is_active.
+        // NOTE: `branches` uses a BOOLEAN `is_active` column
+        // (NOT a text `status` column), so we filter with
+        // .eq('is_active', true) instead of .ilike('status', ...).
         // ============================================================
 
         const SUPABASE_URL = 'https://wpxzlcdrirlcyvfiquld.supabase.co';
         const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6IndweHpsY2RyaXJsY3l2ZmlxdWxkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODc5Mjc4MDcsImV4cCI6MjEwMzUwMzgwN30.OUP9pmPbrML_egpHflZtDfLv1_UDM37_BYjtb842xjg';
         const API_BASE_URL = 'https://masika-c921.onrender.com/api';
+
+        console.log('🚀 Masika registration page loaded');
+        console.log('📡 API:', API_BASE_URL);
+        console.log('📡 Supabase:', SUPABASE_URL);
 
         const supabaseClient = window.supabase
             ? window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY)
@@ -913,8 +919,8 @@
         // STATE
         // ------------------------------------------------------------
         let allPlans = [];                 // live plans from Supabase (excludes the CHAMA rate row)
-        let chamaRegistrationFee = null;   // per-member chama rate, read from plans (plan_code = CHAMA)
-        let selectedPlanSlug = null;       // preserved across realtime re-renders
+        let chamaRegistrationFee = null;    // per-member chama rate, read from plans (plan_code = CHAMA)
+        let selectedPlanSlug = null;        // preserved across realtime re-renders
         let parsedChamaMembers = [];
         let isSubmitting = false;
         let allSalesAgents = [];
@@ -966,6 +972,8 @@
         // INIT
         // ============================================================
         document.addEventListener('DOMContentLoaded', () => {
+            console.log('📄 DOM loaded');
+
             const yearEl = $('year');
             if (yearEl) yearEl.textContent = new Date().getFullYear();
 
@@ -983,6 +991,9 @@
 
         // ============================================================
         // LOAD PLANS — Supabase `plans` table is the ONLY source.
+        // Columns match admin-pricing.html exactly: plan_code,
+        // plan_name, description, monthly_premium, registration_fee,
+        // waiting_period_months, max_dependants, is_active.
         //
         // A row with plan_code = 'CHAMA' (case-insensitive) supplies
         // the per-member chama registration rate; it is excluded from
@@ -1000,7 +1011,7 @@
             try {
                 const { data, error } = await supabaseClient
                     .from('plans')
-                    .select('id, plan_code, plan_name, description, monthly_premium, registration_fee, principal_registration_fee, parent_registration_fee, principal_monthly_premium, parent_monthly_premium, minimum_parents, maximum_parents, waiting_period_months, max_dependants, is_active')
+                    .select('id, plan_code, plan_name, description, monthly_premium, registration_fee, waiting_period_months, max_dependants, is_active')
                     .eq('is_active', true)
                     .order('registration_fee', { ascending: true });
 
@@ -1027,8 +1038,10 @@
                 allPlans = memberPlans;
                 renderPlans(memberPlans);
 
+                console.log(`✅ Loaded ${memberPlans.length} plan(s) from Supabase (live pricing)`);
+
             } catch (error) {
-                console.error('Failed to load plans from Supabase:', error);
+                console.error('❌ Failed to load plans from Supabase:', error);
                 container.innerHTML = '<div class="help-text" style="color:var(--danger)">Unable to load membership plans. Please refresh the page.</div>';
                 showAlert('Failed to load current pricing. Please refresh and try again.', 'error');
             }
@@ -1045,9 +1058,14 @@
                 .on(
                     'postgres_changes',
                     { event: '*', schema: 'public', table: 'plans' },
-                    () => loadPlans()
+                    (payload) => {
+                        console.log('🔄 Plan pricing changed in Supabase, refreshing…', payload);
+                        loadPlans();
+                    }
                 )
-                .subscribe();
+                .subscribe((status) => {
+                    console.log('📡 Realtime plans channel status:', status);
+                });
         }
 
         function renderPlans(plans) {
@@ -1067,24 +1085,12 @@
                 const name = plan.plan_name || 'Plan';
                 const description = plan.description || '';
                 const registrationFee = Number(plan.registration_fee || 0);
-                const principalFee = Number(plan.principal_registration_fee || registrationFee);
-                const parentFee = Number(plan.parent_registration_fee || 0);
                 const monthlyFee = Number(plan.monthly_premium || 0);
-                const principalMonthly = Number(plan.principal_monthly_premium || monthlyFee);
                 const planJson = escapeHtml(JSON.stringify({ ...plan, slug }));
 
                 const shouldCheck = previouslySelected
                     ? previouslySelected === slug
                     : index === 0;
-
-                let priceBlock = `KES ${registrationFee.toLocaleString()}<small> one-time registration</small><br><small>KES ${monthlyFee.toLocaleString()}/month</small>`;
-
-                if (slug === 'wazazi') {
-                    priceBlock =
-                        `KES ${principalFee.toLocaleString()}<small> principal registration</small><br>` +
-                        `KES ${parentFee.toLocaleString()}<small> per parent</small><br>` +
-                        `<small>KES ${principalMonthly.toLocaleString()}/month principal</small>`;
-                }
 
                 return `
                     <div class="plan-option">
@@ -1099,7 +1105,12 @@
                         <label for="plan_${index}" class="plan-label">
                             <div class="plan-name">${escapeHtml(name)}</div>
                             <div class="plan-description">${escapeHtml(description)}</div>
-                            <div class="plan-price">${priceBlock}</div>
+                            <div class="plan-price">
+                                KES ${registrationFee.toLocaleString()}
+                                <small>one-time registration</small>
+                                <br>
+                                <small>KES ${monthlyFee.toLocaleString()}/month</small>
+                            </div>
                         </label>
                     </div>
                 `;
@@ -1169,36 +1180,26 @@
                     });
                 });
 
+                console.log(`✅ Loaded ${allSalesAgents.length} active sales agents`);
+
             } catch (error) {
-                console.error('Failed to load sales agents:', error);
+                console.error('❌ Failed to load sales agents:', error);
                 setAll('<option value="">Unable to load sales agents</option>');
                 showAlert(`Failed to load sales agents: ${error.message}`, 'warning');
             }
         }
 
         // ============================================================
-        // LOAD BRANCHES  (FIXED)
-        //
+        // LOAD BRANCHES
         // Fills BOTH the individual and the chama branch dropdowns
-        // from a single Supabase query on public.branches.
+        // from a single Supabase query.
         //
-        // What changed:
-        //  - Uses select('*') so a missing/renamed column (county, town,
-        //    branch_name, is_active, status...) can't break the query.
-        //  - "Active" filtering and label building happen on the client,
-        //    tolerant of is_active / active / status columns, or none.
-        //  - Real errors are surfaced; an empty result explains the likely
-        //    cause (missing RLS SELECT policy for anon).
+        // Source of truth: public.branches
+        // Columns used: branch_code, branch_name, county, town, is_active
+        // The submitted value is the branch_code.
         //
-        // Submitted value = branch_code.
-        //
-        // REQUIRED IN SUPABASE (run once in the SQL editor):
-        //
-        //   alter table public.branches enable row level security;
-        //   drop policy if exists "Public can read branches" on public.branches;
-        //   create policy "Public can read branches"
-        //     on public.branches for select to anon, authenticated using (true);
-        //   grant select on public.branches to anon, authenticated;
+        // IMPORTANT: `branches` uses a BOOLEAN `is_active` column,
+        // not a text `status` column. Filter with .eq('is_active', true).
         // ============================================================
         async function loadBranches() {
             const selects = [elements.branch, elements.chamaBranch].filter(Boolean);
@@ -1214,53 +1215,37 @@
 
                 const { data, error } = await supabaseClient
                     .from('branches')
-                    .select('*');
+                    .select('branch_code, branch_name, county, town, is_active')
+                    .eq('is_active', true)
+                    .order('branch_name', { ascending: true });
 
                 if (error) throw error;
 
-                const rows = data || [];
-                console.log('Branches fetched:', rows.length, rows[0] || '(no rows)');
-
-                const isActive = b => {
-                    if (typeof b.is_active === 'boolean') return b.is_active;
-                    if (typeof b.active === 'boolean') return b.active;
-                    if (typeof b.status === 'string') return b.status.trim().toLowerCase() === 'active';
-                    return true; // no active flag in this schema
-                };
-
-                const branches = rows
-                    .filter(isActive)
-                    .map(b => ({
-                        code: String(b.branch_code ?? b.code ?? b.id ?? '').trim(),
-                        name: String(b.branch_name ?? b.name ?? 'Branch').trim()
-                    }))
-                    .filter(b => b.code)
-                    .sort((a, b) => a.name.localeCompare(b.name));
+                const branches = data || [];
 
                 if (!branches.length) {
                     setAll('<option value="">No branches available</option>');
-                    if (!rows.length) {
-                        console.warn('branches returned 0 rows. This is usually a missing RLS SELECT policy for the anon role.');
-                        showAlert('No branches were returned. Check the branches table permissions (RLS) in Supabase.', 'warning');
-                    }
                     return;
                 }
 
                 selects.forEach(select => {
                     select.innerHTML = '<option value="">Select branch</option>';
 
-                    branches.forEach(b => {
+                    branches.forEach(branch => {
+                        if (!branch.branch_code) return;
                         const option = document.createElement('option');
-                        option.value = b.code;
-                        option.textContent = `${b.code} - ${b.name}`;
+                        option.value = String(branch.branch_code).trim();
+                        option.textContent = `${branch.branch_code} - ${branch.branch_name || 'Branch'}`;
                         select.appendChild(option);
                     });
                 });
 
+                console.log(`✅ Loaded ${branches.length} active branches`);
+
             } catch (error) {
-                console.error('Failed to load branches:', error);
+                console.error('❌ Failed to load branches:', error);
                 setAll('<option value="">Unable to load branches</option>');
-                showAlert(`Failed to load branches: ${error.message || error.details || 'unknown error'}`, 'warning');
+                showAlert(`Failed to load branches: ${error.message}`, 'warning');
             }
         }
 
@@ -1331,866 +1316,3 @@
                 <div class="form-grid">
                     <div class="form-group">
                         <label>First Name <span class="required">*</span></label>
-                        <input type="text" name="dep_first_name_${count}" required>
-                    </div>
-                    <div class="form-group">
-                        <label>Last Name <span class="required">*</span></label>
-                        <input type="text" name="dep_last_name_${count}" required>
-                    </div>
-                    <div class="form-group">
-                        <label>Relationship <span class="required">*</span></label>
-                        <select name="dep_relationship_${count}" required>
-                            <option value="">Select</option>
-                            <option value="SPOUSE">Spouse</option>
-                            <option value="CHILD">Child</option>
-                            <option value="PARENT">Parent</option>
-                        </select>
-                    </div>
-                    <div class="form-group">
-                        <label>Date of Birth <span class="required">*</span></label>
-                        <input type="date" name="dep_dob_${count}" required>
-                    </div>
-                    <div class="form-group">
-                        <label>Phone</label>
-                        <input type="tel" name="dep_phone_${count}" placeholder="Optional">
-                    </div>
-                </div>
-            `;
-
-            if (options.relationship) {
-                card.querySelector('select[name^="dep_relationship_"]').value = options.relationship;
-            }
-            if (locked) {
-                // A disabled select still returns .value in JS, so getFormData() keeps working.
-                card.querySelector('select[name^="dep_relationship_"]').disabled = true;
-            }
-
-            container.appendChild(card);
-
-            card.querySelectorAll('input, select').forEach(element => {
-                element.addEventListener('change', updateSummary);
-                element.addEventListener('input', updateSummary);
-            });
-
-            updateSummary();
-        }
-
-        function renumberDependants() {
-            elements.dependantsContainer.querySelectorAll('.dependant-card').forEach((element, index) => {
-                const number = index + 1;
-                element.dataset.index = number;
-                const title = element.querySelector('.dependant-header strong');
-                if (title) title.textContent = `Dependant #${number}`;
-            });
-        }
-
-        function removeDependant(button) {
-            const card = button.closest('.dependant-card');
-            if (!card) return;
-
-            card.remove();
-            renumberDependants();
-
-            // Wazazi always needs at least one parent.
-            if (getSelectedPlan()?.slug === 'wazazi') ensureRequiredParent();
-
-            updateSummary();
-        }
-
-        // Wazazi: guarantee one parent card exists (locked to PARENT, can't be removed).
-        function ensureRequiredParent() {
-            if (countParentDependants() > 0) return;
-            addDependant({ relationship: 'PARENT', locked: true });
-        }
-
-        // Switching away from Wazazi: drop the auto-added card if still blank,
-        // otherwise keep the typed data and unlock the card.
-        function relaxRequiredParent() {
-            document.querySelectorAll('.dependant-card[data-required-parent="true"]').forEach(card => {
-                const hasData = [...card.querySelectorAll('input')].some(i => i.value.trim() !== '');
-                if (!hasData) {
-                    card.remove();
-                    return;
-                }
-                delete card.dataset.requiredParent;
-                const select = card.querySelector('select[name^="dep_relationship_"]');
-                if (select) select.disabled = false;
-                card.querySelector('.required-badge')?.setAttribute('hidden', '');
-                card.querySelector('.remove-dependant')?.removeAttribute('hidden');
-            });
-            renumberDependants();
-            updateSummary();
-        }
-
-        // ============================================================
-        // SELECTED PLAN
-        // ============================================================
-        function getSelectedPlan() {
-            const input = document.querySelector('input[name="plan_type"]:checked');
-            if (!input) return null;
-
-            try {
-                return {
-                    slug: input.value,
-                    plan: JSON.parse(input.dataset.plan || '{}')
-                };
-            } catch (error) {
-                console.error('Invalid plan data on selected input:', error);
-                return null;
-            }
-        }
-
-        // ============================================================
-        // DEPENDANT COUNT
-        // ============================================================
-        function countParentDependants() {
-            let count = 0;
-            document.querySelectorAll('.dependant-card').forEach(card => {
-                const relationship = card.querySelector('select[name^="dep_relationship_"]')?.value || '';
-                if (relationship === 'PARENT') count++;
-            });
-            return count;
-        }
-
-        // ============================================================
-        // SUMMARY — mirrors main.py's calculate_registration_amount().
-        // ============================================================
-        function updateSummary() {
-            const selected = getSelectedPlan();
-
-            if (!selected) {
-                elements.summaryPlan.textContent = '—';
-                elements.summaryPrincipal.textContent = 'KES 0';
-                elements.summaryDependants.textContent = 'KES 0';
-                elements.summaryTotal.textContent = 'KES 0';
-                return;
-            }
-
-            const { slug: planSlug, plan } = selected;
-            const registrationFee = Number(plan.registration_fee || 0);
-            const principalFee = Number(plan.principal_registration_fee || registrationFee);
-            const perParentFee = Number(plan.parent_registration_fee || 0);
-
-            let dependantFee = 0;
-            if (planSlug === 'wazazi') {
-                dependantFee = countParentDependants() * perParentFee;
-            }
-
-            const total = principalFee + dependantFee;
-
-            elements.summaryPlan.textContent = plan.plan_name || plan.name || 'Plan';
-            elements.summaryPrincipal.textContent = `KES ${principalFee.toLocaleString()}`;
-            elements.summaryDependants.textContent = `KES ${dependantFee.toLocaleString()}`;
-            elements.summaryTotal.textContent = `KES ${total.toLocaleString()}`;
-        }
-
-        function updateDependantEligibility(planSlug) {
-            if (planSlug === 'wazazi') {
-                const selected = getSelectedPlan();
-                const principal = Number(selected?.plan?.principal_registration_fee || selected?.plan?.registration_fee || 0);
-                const perParent = Number(selected?.plan?.parent_registration_fee || 0);
-                const minP = Number(selected?.plan?.minimum_parents || 1);
-                const maxP = Number(selected?.plan?.maximum_parents || 4);
-
-                elements.planHelp.textContent =
-                    `Wazazi Plan: at least ${minP} parent required (up to ${maxP}). ` +
-                    `Principal KES ${principal.toLocaleString()}, ` +
-                    `each parent KES ${perParent.toLocaleString()}.`;
-
-                ensureRequiredParent();
-                return;
-            }
-
-            relaxRequiredParent();
-
-            if (planSlug === 'dignity') {
-                elements.planHelp.textContent = 'Dignity Plan: covers spouse and children under 18, at no extra registration cost.';
-            } else {
-                elements.planHelp.textContent = 'Comfort Plan: covers spouse and up to 4 children under 18, at no extra registration cost.';
-            }
-        }
-
-        // ============================================================
-        // PHONE NORMALIZATION
-        // ============================================================
-        function normalizePhone(value) {
-            let phone = String(value || '').trim().replace(/\s+/g, '').replace(/-/g, '');
-            if (!phone) return '';
-
-            if (phone.startsWith('+254')) {
-                phone = phone.substring(1);
-            } else if (phone.startsWith('0')) {
-                phone = '254' + phone.substring(1);
-            } else if (/^[17]\d{8}$/.test(phone)) {
-                phone = '254' + phone;
-            }
-
-            return phone;
-        }
-
-        // ============================================================
-        // FORM DATA
-        // ============================================================
-        function getFormData() {
-            const selected = getSelectedPlan();
-            const planSlug = selected ? selected.slug : '';
-
-            const dependants = [];
-            document.querySelectorAll('.dependant-card').forEach(card => {
-                const firstName = card.querySelector('input[name^="dep_first_name_"]')?.value.trim() || '';
-                const lastName = card.querySelector('input[name^="dep_last_name_"]')?.value.trim() || '';
-                const relationship = card.querySelector('select[name^="dep_relationship_"]')?.value || '';
-                const dob = card.querySelector('input[name^="dep_dob_"]')?.value || '';
-                const phone = normalizePhone(card.querySelector('input[name^="dep_phone_"]')?.value || '');
-
-                dependants.push({
-                    first_name: firstName,
-                    last_name: lastName,
-                    relationship: relationship,
-                    date_of_birth: dob,
-                    phone: phone || null
-                });
-            });
-
-            const salesCode = elements.salesCode ? (elements.salesCode.value || null) : null;
-
-            return {
-                first_name: $('firstName').value.trim(),
-                last_name: $('lastName').value.trim(),
-                other_name: $('otherName').value.trim() || null,
-                id_number: $('idNumber').value.trim(),
-                date_of_birth: $('dateOfBirth').value,
-                gender: $('gender').value,
-                marital_status: $('maritalStatus').value,
-                phone: normalizePhone($('phone').value),
-                alternative_phone: normalizePhone($('alternativePhone').value) || null,
-                email: $('email').value.trim() || null,
-                county: $('county').value,
-                location: $('location').value.trim() || null,
-                town: $('town').value.trim() || null,
-                branch: $('branch').value,
-                next_of_kin_name: $('nextOfKinName').value.trim(),
-                next_of_kin_id_number: $('nextOfKinId').value.trim(),
-                next_of_kin_phone: normalizePhone($('nextOfKinPhone').value),
-                plan: planSlug,
-                sales_code: salesCode,
-                benefit_option: $('benefitOption').value,
-                dependants: dependants
-            };
-        }
-
-        // ============================================================
-        // VALIDATE INDIVIDUAL REGISTRATION
-        // ============================================================
-        function validateFormData(data) {
-            const required = ['first_name', 'last_name', 'id_number', 'date_of_birth', 'gender', 'marital_status', 'phone', 'county', 'branch', 'benefit_option', 'next_of_kin_name', 'next_of_kin_id_number', 'next_of_kin_phone'];
-
-            if (!data.plan) {
-                return { valid: false, error: 'Please select a membership plan.' };
-            }
-
-            for (const field of required) {
-                if (!data[field] || String(data[field]).trim() === '') {
-                    return { valid: false, error: `Please fill in ${field.replace(/_/g, ' ')}` };
-                }
-            }
-
-            if (!/^254[17]\d{8}$/.test(data.phone)) {
-                return { valid: false, error: 'Please enter a valid Kenyan phone number.' };
-            }
-
-            if (!/^254[17]\d{8}$/.test(data.next_of_kin_phone)) {
-                return { valid: false, error: 'Please enter a valid next of kin phone number.' };
-            }
-
-            if (data.id_number.length < 5) {
-                return { valid: false, error: 'Please enter a valid ID number.' };
-            }
-
-            if (data.next_of_kin_id_number.length < 5) {
-                return { valid: false, error: 'Please enter a valid next of kin ID number.' };
-            }
-
-            const birthDate = new Date(data.date_of_birth);
-            if (Number.isNaN(birthDate.getTime())) {
-                return { valid: false, error: 'Please enter a valid date of birth.' };
-            }
-
-            const today = new Date();
-            let age = today.getFullYear() - birthDate.getFullYear();
-            const monthDifference = today.getMonth() - birthDate.getMonth();
-            if (monthDifference < 0 || (monthDifference === 0 && today.getDate() < birthDate.getDate())) {
-                age--;
-            }
-
-            if (age < 1 || age > 80) {
-                return { valid: false, error: 'Age must be between 1 and 80 years.' };
-            }
-
-            const parents = data.dependants.filter(d => d.relationship === 'PARENT');
-            const spouses = data.dependants.filter(d => d.relationship === 'SPOUSE');
-            const children = data.dependants.filter(d => d.relationship === 'CHILD');
-
-            if (spouses.length > 1) {
-                return { valid: false, error: 'Only one spouse dependant is allowed.' };
-            }
-
-            if (children.length > 4) {
-                return { valid: false, error: 'A maximum of four children is allowed.' };
-            }
-
-            if (data.plan !== 'wazazi' && parents.length > 0) {
-                return { valid: false, error: 'Parent dependants require the Wazazi plan.' };
-            }
-
-            if (data.plan === 'wazazi') {
-                const plan = getSelectedPlan()?.plan || {};
-                const minP = Number(plan.minimum_parents || 1);
-                const maxP = Number(plan.maximum_parents || 4);
-                if (parents.length < minP) {
-                    return { valid: false, error: `The Wazazi plan requires at least ${minP} parent as a dependant.` };
-                }
-                if (parents.length > maxP) {
-                    return { valid: false, error: `Wazazi allows a maximum of ${maxP} parents.` };
-                }
-            }
-
-            for (let i = 0; i < data.dependants.length; i++) {
-                const dependant = data.dependants[i];
-                const number = i + 1;
-
-                if (!dependant.first_name || !dependant.last_name) {
-                    return { valid: false, error: `Please complete the name for dependant ${number}.` };
-                }
-
-                if (!dependant.relationship) {
-                    return { valid: false, error: `Please select a relationship for dependant ${number}.` };
-                }
-
-                if (!dependant.date_of_birth) {
-                    return { valid: false, error: `Please enter a date of birth for dependant ${number}.` };
-                }
-            }
-
-            return { valid: true };
-        }
-
-        // ============================================================
-        // INDIVIDUAL REGISTRATION
-        // ============================================================
-        async function handleRegistration(event) {
-            event.preventDefault();
-
-            if (isSubmitting) return;
-
-            clearAlert();
-
-            const formData = getFormData();
-            const validation = validateFormData(formData);
-
-            if (!validation.valid) {
-                showAlert(validation.error, 'error');
-                return;
-            }
-
-            const selected = getSelectedPlan();
-            if (!selected) {
-                showAlert('Please select a membership plan.', 'error');
-                return;
-            }
-
-            isSubmitting = true;
-            setLoading(true, 'Creating your registration...');
-
-            try {
-                const response = await fetch(`${API_BASE_URL}/public/register`, {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'Accept': 'application/json'
-                    },
-                    body: JSON.stringify(formData)
-                });
-
-                const result = await response.json();
-
-                if (!response.ok || !result.success) {
-                    const detail = Array.isArray(result.detail)
-                        ? result.detail.map(d => d.msg).join(' | ')
-                        : (result.detail || result.message);
-                    throw new Error(detail || 'Registration failed.');
-                }
-
-                const memberId = result.member_id || result.id;
-
-                if (!memberId) {
-                    throw new Error('Registration succeeded but no member ID was returned.');
-                }
-
-                // Trust the backend-calculated amount; only fall back to the
-                // live (Supabase-sourced) frontend total if the backend
-                // doesn't return one. Never a hardcoded number.
-                const registrationFee = Number(selected.plan.registration_fee || 0);
-                const principalFee = Number(selected.plan.principal_registration_fee || registrationFee);
-                const perParentFee = Number(selected.plan.parent_registration_fee || 0);
-                const parentCount = formData.dependants.filter(d => d.relationship === 'PARENT').length;
-                const frontendDependantFee = formData.plan === 'wazazi' ? parentCount * perParentFee : 0;
-                const frontendTotal = principalFee + frontendDependantFee;
-
-                const registrationAmount = Number(
-                    result.registration_amount ??
-                    result.amount ??
-                    frontendTotal
-                );
-
-                sessionStorage.setItem('newMemberId', String(memberId));
-
-                if (result.member_number) {
-                    sessionStorage.setItem('newMemberNumber', String(result.member_number));
-                }
-
-                sessionStorage.setItem('newMemberName', `${formData.first_name} ${formData.last_name}`.trim());
-                sessionStorage.setItem('newMemberPhone', formData.phone);
-                sessionStorage.setItem('registrationAmount', String(registrationAmount));
-                sessionStorage.setItem('isChamaRegistration', 'false');
-                sessionStorage.setItem('newPlanSlug', formData.plan); // payment.html uses this
-
-                if (formData.sales_code) {
-                    sessionStorage.setItem('newSalesCode', formData.sales_code);
-                }
-
-                showAlert('Registration successful! Redirecting to payment...', 'success');
-
-                setTimeout(() => {
-                    window.location.href = `payment.html?member_id=${encodeURIComponent(memberId)}`;
-                }, 1200);
-
-            } catch (error) {
-                console.error('Registration error:', error);
-                showAlert(error.message || 'Registration failed. Please try again.', 'error');
-            } finally {
-                isSubmitting = false;
-                setLoading(false);
-            }
-        }
-
-        // ============================================================
-        // CHAMA REGISTRATION
-        // ============================================================
-        async function handleChamaRegistration(event) {
-            event.preventDefault();
-
-            if (isSubmitting) return;
-
-            clearAlert();
-
-            if (chamaRegistrationFee === null) {
-                showAlert('Chama registration rate is not configured. Please contact the office before proceeding.', 'error');
-                return;
-            }
-
-            const chamaName = $('chamaName').value.trim();
-            const chamaPhone = normalizePhone($('chamaPhone').value);
-            const declaredMembers = parseInt(elements.chamaMemberTotal.value, 10);
-
-            const chairperson = {
-                name: $('chairpersonName').value.trim(),
-                phone: normalizePhone($('chairpersonPhone').value),
-                id_number: $('chairpersonId').value.trim()
-            };
-
-            const treasurer = {
-                name: $('treasurerName').value.trim(),
-                phone: normalizePhone($('treasurerPhone').value),
-                id_number: $('treasurerId').value.trim()
-            };
-
-            const secretary = {
-                name: $('secretaryName').value.trim(),
-                phone: normalizePhone($('secretaryPhone').value),
-                id_number: $('secretaryId').value.trim()
-            };
-
-            if (!chamaName) {
-                showAlert('Please enter the chama/group name.', 'error');
-                return;
-            }
-
-            if (!/^254[17]\d{8}$/.test(chamaPhone)) {
-                showAlert('Please enter a valid group contact phone.', 'error');
-                return;
-            }
-
-            if (!Number.isInteger(declaredMembers) || declaredMembers < MIN_CHAMA_MEMBERS) {
-                showAlert(`Number of members must be at least ${MIN_CHAMA_MEMBERS}.`, 'error');
-                return;
-            }
-
-            for (const [label, official] of [
-                ['Chairperson', chairperson],
-                ['Treasurer', treasurer],
-                ['Secretary', secretary]
-            ]) {
-                if (!official.name) {
-                    showAlert(`${label} name is required.`, 'error');
-                    return;
-                }
-
-                if (!/^254[17]\d{8}$/.test(official.phone)) {
-                    showAlert(`${label} phone number is invalid.`, 'error');
-                    return;
-                }
-
-                if (!official.id_number) {
-                    showAlert(`${label} ID is required.`, 'error');
-                    return;
-                }
-            }
-
-            // Registration Source (sales agent is optional, benefit option and branch are required)
-            const chamaBenefitOption = elements.chamaBenefitOption.value;
-            if (!chamaBenefitOption) {
-                showAlert('Please select a benefit option.', 'error');
-                return;
-            }
-            const chamaSalesCode = elements.chamaSalesCode.value || null;
-
-            const chamaBranch = elements.chamaBranch.value;
-            if (!chamaBranch) {
-                showAlert('Please select a branch.', 'error');
-                return;
-            }
-
-            if (parsedChamaMembers.length > 0 &&
-                declaredMembers !== parsedChamaMembers.length) {
-                showAlert(
-                    `The number of members entered (${declaredMembers}) does not match the CSV (${parsedChamaMembers.length}). Please correct the number or CSV.`,
-                    'error'
-                );
-                return;
-            }
-
-            const normalizedMembers = parsedChamaMembers.map(member => ({
-                first_name: String(member.first_name || '').trim(),
-                last_name: String(member.last_name || '').trim(),
-                phone: normalizePhone(member.phone),
-                id_number: String(member.id_number || '').trim(),
-                date_of_birth: String(member.date_of_birth || '').trim(),
-                gender: String(member.gender || '').trim().toUpperCase()
-            }));
-
-            isSubmitting = true;
-            setLoading(true, 'Creating chama registration...');
-
-            try {
-                const payload = {
-                    group_name: chamaName,
-                    phone: chamaPhone,
-                    number_of_members: declaredMembers,
-                    chairperson,
-                    treasurer,
-                    secretary,
-                    sales_code: chamaSalesCode,
-                    benefit_option: chamaBenefitOption,
-                    branch: chamaBranch,
-                    members: normalizedMembers
-                };
-
-                const response = await fetch(`${API_BASE_URL}/public/register/chama`, {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'Accept': 'application/json'
-                    },
-                    body: JSON.stringify(payload)
-                });
-
-                const result = await response.json();
-
-                if (!response.ok || !result.success) {
-                    const detail = Array.isArray(result.detail)
-                        ? result.detail.map(d => d.msg).join(' | ')
-                        : (result.detail || result.message);
-                    throw new Error(detail || 'Chama registration failed.');
-                }
-
-                const groupId = result.group_id || result.chama_group_id || result.id;
-
-                if (!groupId) {
-                    throw new Error('Chama registration succeeded but no group ID was returned.');
-                }
-
-                const totalAmount = Number(
-                    result.registration_amount ??
-                    result.amount ??
-                    (declaredMembers * chamaRegistrationFee)
-                );
-
-                sessionStorage.setItem('newChamaGroupId', String(groupId));
-                sessionStorage.setItem('newChamaGroupName', chamaName);
-                sessionStorage.setItem('newChamaMemberCount', String(declaredMembers));
-                sessionStorage.setItem('newChamaPhone', chamaPhone);
-                sessionStorage.setItem('registrationAmount', String(totalAmount));
-                sessionStorage.setItem('isChamaRegistration', 'true');
-
-                if (chamaSalesCode) {
-                    sessionStorage.setItem('newSalesCode', chamaSalesCode);
-                }
-
-                showAlert(`Chama registration successful! ${declaredMembers} members registered. Redirecting to payment...`, 'success');
-
-                setTimeout(() => {
-                    window.location.href = `payment.html?group_id=${encodeURIComponent(groupId)}`;
-                }, 1200);
-
-            } catch (error) {
-                console.error('Chama registration error:', error);
-                showAlert(error.message || 'Chama registration failed.', 'error');
-            } finally {
-                isSubmitting = false;
-                setLoading(false);
-            }
-        }
-
-        // ============================================================
-        // CHAMA CSV
-        // ============================================================
-        function handleChamaCsv(event) {
-            const file = event.target.files?.[0];
-
-            if (!file) {
-                parsedChamaMembers = [];
-                renderChamaPreview();
-                return;
-            }
-
-            clearAlert();
-
-            if (!file.name.toLowerCase().endsWith('.csv')) {
-                parsedChamaMembers = [];
-                renderChamaPreview();
-                showAlert('Please upload a CSV file.', 'error');
-                return;
-            }
-
-            const reader = new FileReader();
-
-            reader.onload = function(event) {
-                const csv = event.target.result;
-                const result = Papa.parse(csv, {
-                    header: true,
-                    skipEmptyLines: true,
-                    trimHeaders: true,
-                    transformHeader: header => String(header || '').trim().toLowerCase().replace(/\s+/g, '_')
-                });
-
-                if (result.errors && result.errors.length) {
-                    showAlert('Error parsing CSV: ' + result.errors[0].message, 'error');
-                    return;
-                }
-
-                const requiredColumns = ['first_name', 'last_name', 'phone', 'id_number', 'date_of_birth', 'gender'];
-                const headers = Object.keys(result.data[0] || {});
-                const missing = requiredColumns.filter(column => !headers.includes(column));
-
-                if (missing.length) {
-                    showAlert(`CSV missing required columns: ${missing.join(', ')}`, 'error');
-                    parsedChamaMembers = [];
-                    renderChamaPreview();
-                    return;
-                }
-
-                parsedChamaMembers = result.data.filter(row =>
-                    row.first_name && row.last_name && row.phone &&
-                    row.id_number && row.date_of_birth && row.gender
-                );
-
-                renderChamaPreview();
-
-                showAlert(`Loaded ${parsedChamaMembers.length} member(s) from the CSV.`, 'success');
-            };
-
-            reader.readAsText(file);
-        }
-
-        // The member count used for the summary and the amount to pay is
-        // the number typed into the "Number of Members" field.
-        function getChamaMemberCount() {
-            const input = elements.chamaMemberTotal;
-
-            if (!input) return 0;
-
-            const value = String(input.value || '').trim();
-            if (!value) return 0;
-
-            const count = parseInt(value, 10);
-
-            return Number.isInteger(count) && count >= 0 ? count : 0;
-        }
-
-        function updateChamaMemberCount() {
-            const memberCount = getChamaMemberCount();
-
-            elements.chamaMemberCount.textContent = memberCount.toLocaleString();
-
-            if (chamaRegistrationFee === null) {
-                elements.chamaTotal.textContent = 'Rate not configured';
-                return;
-            }
-
-            const total = memberCount * Number(chamaRegistrationFee);
-
-            elements.chamaTotal.textContent = `KES ${total.toLocaleString()}`;
-        }
-
-        function renderChamaPreview() {
-            const members = parsedChamaMembers;
-            const memberCount = getChamaMemberCount();
-
-            elements.chamaMemberCount.textContent = memberCount.toLocaleString();
-
-            if (chamaRegistrationFee === null) {
-                elements.chamaTotal.textContent = 'Rate not configured';
-            } else {
-                const total = memberCount * Number(chamaRegistrationFee);
-                elements.chamaTotal.textContent = `KES ${total.toLocaleString()}`;
-            }
-
-            const preview = elements.csvPreview;
-            const count = elements.csvCount;
-
-            if (!members.length) {
-                preview.classList.remove('show');
-                preview.innerHTML = '';
-                count.textContent = '';
-                count.classList.remove('mismatch');
-                return;
-            }
-
-            // With no CSV, the entered number is used. With a CSV, the two must match.
-            const mismatch = memberCount > 0 && memberCount !== members.length;
-
-            count.textContent = mismatch
-                ? `${members.length} member(s) in the CSV, but you entered ${memberCount}. They must match before you can continue.`
-                : `${members.length} member(s) in the CSV.`;
-            count.classList.toggle('mismatch', mismatch);
-
-            const headers = ['first_name', 'last_name', 'phone', 'id_number', 'gender'];
-            let html = '<table><thead><tr>';
-            headers.forEach(header => {
-                html += `<th>${header.replace(/_/g, ' ').toUpperCase()}</th>`;
-            });
-            html += '</tr></thead><tbody>';
-
-            members.slice(0, 10).forEach(row => {
-                html += '<tr>';
-                headers.forEach(header => {
-                    html += `<td>${escapeHtml(row[header] || '')}</td>`;
-                });
-                html += '</tr>';
-            });
-
-            if (members.length > 10) {
-                html += `
-                    <tr>
-                        <td colspan="${headers.length}" style="text-align:center;font-weight:700;">
-                            ... and ${members.length - 10} more rows
-                        </td>
-                    </tr>
-                `;
-            }
-
-            html += '</tbody></table>';
-            preview.innerHTML = html;
-            preview.classList.add('show');
-        }
-
-        // ============================================================
-        // RESET
-        // ============================================================
-        function resetIndividualForm() {
-            if (!confirm('Reset this registration form?')) return;
-
-            elements.registrationForm.reset();
-            elements.dependantsContainer.innerHTML = '';
-            selectedPlanSlug = null;
-
-            const firstPlan = document.querySelector('input[name="plan_type"]');
-            if (firstPlan) {
-                firstPlan.checked = true;
-                selectedPlanSlug = firstPlan.value;
-                updateDependantEligibility(firstPlan.value);
-            }
-
-            updateSummary();
-            clearAlert();
-        }
-
-        function resetChamaForm() {
-            if (!confirm('Reset this chama registration?')) return;
-
-            // reset() also clears the chama sales agent, branch and benefit option selects
-            elements.chamaForm.reset();
-            parsedChamaMembers = [];
-            renderChamaPreview();
-            clearAlert();
-        }
-
-        // ============================================================
-        // ALERTS
-        // ============================================================
-        function showAlert(message, type = 'info') {
-            const alertBox = elements.alertBox;
-            alertBox.className = `alert show ${type}`;
-            alertBox.textContent = message;
-            alertBox.style.display = 'block';
-        }
-
-        function clearAlert() {
-            const alertBox = elements.alertBox;
-            alertBox.className = 'alert';
-            alertBox.textContent = '';
-            alertBox.style.display = 'none';
-        }
-
-        // ============================================================
-        // LOADING
-        // ============================================================
-        function setLoading(loading, message = 'Processing...') {
-            elements.loadingText.textContent = message;
-            elements.loadingBox.classList.toggle('show', loading);
-
-            if (elements.submitBtn) elements.submitBtn.disabled = loading;
-            if (elements.chamaSubmitBtn) elements.chamaSubmitBtn.disabled = loading;
-        }
-
-        // ============================================================
-        // HTML ESCAPING
-        // ============================================================
-        function escapeHtml(value) {
-            if (value === null || value === undefined) return '';
-            return String(value)
-                .replace(/&/g, '&amp;')
-                .replace(/</g, '&lt;')
-                .replace(/>/g, '&gt;')
-                .replace(/"/g, '&quot;')
-                .replace(/'/g, '&#039;');
-        }
-
-        // ============================================================
-        // EXPOSE
-        // ============================================================
-        window.removeDependant = removeDependant;
-        window.addDependant = addDependant;
-        window.updateSummary = updateSummary;
-        window.showAlert = showAlert;
-        window.clearAlert = clearAlert;
-        window.loadPlans = loadPlans;
-        window.loadSalesAgents = loadSalesAgents;
-        window.loadBranches = loadBranches;
-        window.normalizePhone = normalizePhone;
-        window.escapeHtml = escapeHtml;
-    </script>
-
-</body>
-</html>
