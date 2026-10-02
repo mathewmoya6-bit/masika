@@ -884,45 +884,23 @@
         //
         // PRICING SOURCE OF TRUTH: Supabase `plans` table.
         //
-        // Columns read (matches main.py's get_live_plan_pricing()):
-        //   plan_code, plan_name, description,
-        //   registration_fee,
-        //   principal_registration_fee,
-        //   parent_registration_fee,
-        //   monthly_premium,
-        //   principal_monthly_premium,
-        //   parent_monthly_premium,
-        //   minimum_parents, maximum_parents,
-        //   waiting_period_months, is_active
-        //
         // WAZAZI MATH (mirrors main.py calculate_registration_amount):
         //   principal = principal_registration_fee (fallback: registration_fee)
         //   per_parent = parent_registration_fee
         //   total = principal + (parent_count x per_parent)
-        //   minimum_parents enforced client-side; maximum_parents too.
         //
         // There is NO hardcoded price fallback. If the plans table
-        // cannot be reached, the form tells the user pricing is
-        // unavailable instead of silently using stale numbers.
+        // cannot be reached, the form says pricing is unavailable.
         //
         // BRANCHES: loaded from the Supabase `branches` table.
-        // Columns used: branch_code, branch_name, county, town.
         // The submitted value is the branch_code.
-        //
-        // Resilience: different deployments use either a boolean
-        // `is_active` column or a text `status` column. We try the
-        // boolean filter first, then fall back to a text status
-        // filter, and finally to loading all rows, so branch loading
-        // never silently comes back empty.
+        // Requires an RLS SELECT policy for the anon role (see
+        // loadBranches() below).
         // ============================================================
 
         const SUPABASE_URL = 'https://wpxzlcdrirlcyvfiquld.supabase.co';
         const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6IndweHpsY2RyaXJsY3l2ZmlxdWxkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODc5Mjc4MDcsImV4cCI6MjEwMzUwMzgwN30.OUP9pmPbrML_egpHflZtDfLv1_UDM37_BYjtb842xjg';
         const API_BASE_URL = 'https://masika-c921.onrender.com/api';
-
-        console.log('🚀 Masika registration page loaded');
-        console.log('📡 API:', API_BASE_URL);
-        console.log('📡 Supabase:', SUPABASE_URL);
 
         const supabaseClient = window.supabase
             ? window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY)
@@ -935,8 +913,8 @@
         // STATE
         // ------------------------------------------------------------
         let allPlans = [];                 // live plans from Supabase (excludes the CHAMA rate row)
-        let chamaRegistrationFee = null;    // per-member chama rate, read from plans (plan_code = CHAMA)
-        let selectedPlanSlug = null;        // preserved across realtime re-renders
+        let chamaRegistrationFee = null;   // per-member chama rate, read from plans (plan_code = CHAMA)
+        let selectedPlanSlug = null;       // preserved across realtime re-renders
         let parsedChamaMembers = [];
         let isSubmitting = false;
         let allSalesAgents = [];
@@ -988,8 +966,6 @@
         // INIT
         // ============================================================
         document.addEventListener('DOMContentLoaded', () => {
-            console.log('📄 DOM loaded');
-
             const yearEl = $('year');
             if (yearEl) yearEl.textContent = new Date().getFullYear();
 
@@ -1007,7 +983,6 @@
 
         // ============================================================
         // LOAD PLANS — Supabase `plans` table is the ONLY source.
-        // Column list must match main.py get_live_plan_pricing().
         //
         // A row with plan_code = 'CHAMA' (case-insensitive) supplies
         // the per-member chama registration rate; it is excluded from
@@ -1052,10 +1027,8 @@
                 allPlans = memberPlans;
                 renderPlans(memberPlans);
 
-                console.log(`✅ Loaded ${memberPlans.length} plan(s) from Supabase (live pricing)`);
-
             } catch (error) {
-                console.error('❌ Failed to load plans from Supabase:', error);
+                console.error('Failed to load plans from Supabase:', error);
                 container.innerHTML = '<div class="help-text" style="color:var(--danger)">Unable to load membership plans. Please refresh the page.</div>';
                 showAlert('Failed to load current pricing. Please refresh and try again.', 'error');
             }
@@ -1072,14 +1045,9 @@
                 .on(
                     'postgres_changes',
                     { event: '*', schema: 'public', table: 'plans' },
-                    (payload) => {
-                        console.log('🔄 Plan pricing changed in Supabase, refreshing…', payload);
-                        loadPlans();
-                    }
+                    () => loadPlans()
                 )
-                .subscribe((status) => {
-                    console.log('📡 Realtime plans channel status:', status);
-                });
+                .subscribe();
         }
 
         function renderPlans(plans) {
@@ -1201,10 +1169,8 @@
                     });
                 });
 
-                console.log(`✅ Loaded ${allSalesAgents.length} active sales agents`);
-
             } catch (error) {
-                console.error('❌ Failed to load sales agents:', error);
+                console.error('Failed to load sales agents:', error);
                 setAll('<option value="">Unable to load sales agents</option>');
                 showAlert(`Failed to load sales agents: ${error.message}`, 'warning');
             }
@@ -1212,18 +1178,27 @@
 
         // ============================================================
         // LOAD BRANCHES  (FIXED)
+        //
         // Fills BOTH the individual and the chama branch dropdowns
-        // from a single Supabase query.
+        // from a single Supabase query on public.branches.
         //
-        // Source of truth: public.branches
-        // Columns used: branch_code, branch_name, county, town
-        // The submitted value is the branch_code.
+        // What changed:
+        //  - Uses select('*') so a missing/renamed column (county, town,
+        //    branch_name, is_active, status...) can't break the query.
+        //  - "Active" filtering and label building happen on the client,
+        //    tolerant of is_active / active / status columns, or none.
+        //  - Real errors are surfaced; an empty result explains the likely
+        //    cause (missing RLS SELECT policy for anon).
         //
-        // Resilience: different deployments use either a boolean
-        // `is_active` column or a text `status` column. We try the
-        // boolean filter first, then fall back to a text status
-        // filter, and finally to loading all rows, so branch loading
-        // never silently comes back empty.
+        // Submitted value = branch_code.
+        //
+        // REQUIRED IN SUPABASE (run once in the SQL editor):
+        //
+        //   alter table public.branches enable row level security;
+        //   drop policy if exists "Public can read branches" on public.branches;
+        //   create policy "Public can read branches"
+        //     on public.branches for select to anon, authenticated using (true);
+        //   grant select on public.branches to anon, authenticated;
         // ============================================================
         async function loadBranches() {
             const selects = [elements.branch, elements.chamaBranch].filter(Boolean);
@@ -1237,62 +1212,55 @@
                     throw new Error('Supabase client is not available.');
                 }
 
-                let branches = [];
-
-                // Attempt 1: boolean is_active column
-                let { data, error } = await supabaseClient
+                const { data, error } = await supabaseClient
                     .from('branches')
-                    .select('branch_code, branch_name, county, town, is_active')
-                    .eq('is_active', true)
-                    .order('branch_name', { ascending: true });
+                    .select('*');
 
-                if (!error && data && data.length) {
-                    branches = data;
-                } else {
-                    // Attempt 2: text status column
-                    const fallback = await supabaseClient
-                        .from('branches')
-                        .select('branch_code, branch_name, county, town, status')
-                        .ilike('status', 'active')
-                        .order('branch_name', { ascending: true });
+                if (error) throw error;
 
-                    if (!fallback.error && fallback.data && fallback.data.length) {
-                        branches = fallback.data;
-                    } else {
-                        // Attempt 3: no active filter at all
-                        const all = await supabaseClient
-                            .from('branches')
-                            .select('branch_code, branch_name, county, town')
-                            .order('branch_name', { ascending: true });
+                const rows = data || [];
+                console.log('Branches fetched:', rows.length, rows[0] || '(no rows)');
 
-                        if (all.error) throw all.error;
-                        branches = all.data || [];
-                    }
-                }
+                const isActive = b => {
+                    if (typeof b.is_active === 'boolean') return b.is_active;
+                    if (typeof b.active === 'boolean') return b.active;
+                    if (typeof b.status === 'string') return b.status.trim().toLowerCase() === 'active';
+                    return true; // no active flag in this schema
+                };
+
+                const branches = rows
+                    .filter(isActive)
+                    .map(b => ({
+                        code: String(b.branch_code ?? b.code ?? b.id ?? '').trim(),
+                        name: String(b.branch_name ?? b.name ?? 'Branch').trim()
+                    }))
+                    .filter(b => b.code)
+                    .sort((a, b) => a.name.localeCompare(b.name));
 
                 if (!branches.length) {
                     setAll('<option value="">No branches available</option>');
+                    if (!rows.length) {
+                        console.warn('branches returned 0 rows. This is usually a missing RLS SELECT policy for the anon role.');
+                        showAlert('No branches were returned. Check the branches table permissions (RLS) in Supabase.', 'warning');
+                    }
                     return;
                 }
 
                 selects.forEach(select => {
                     select.innerHTML = '<option value="">Select branch</option>';
 
-                    branches.forEach(branch => {
-                        if (!branch.branch_code) return;
+                    branches.forEach(b => {
                         const option = document.createElement('option');
-                        option.value = String(branch.branch_code).trim();
-                        option.textContent = `${branch.branch_code} - ${branch.branch_name || 'Branch'}`;
+                        option.value = b.code;
+                        option.textContent = `${b.code} - ${b.name}`;
                         select.appendChild(option);
                     });
                 });
 
-                console.log(`✅ Loaded ${branches.length} branches`);
-
             } catch (error) {
-                console.error('❌ Failed to load branches:', error);
+                console.error('Failed to load branches:', error);
                 setAll('<option value="">Unable to load branches</option>');
-                showAlert(`Failed to load branches: ${error.message}`, 'warning');
+                showAlert(`Failed to load branches: ${error.message || error.details || 'unknown error'}`, 'warning');
             }
         }
 
@@ -1486,16 +1454,6 @@
 
         // ============================================================
         // SUMMARY — mirrors main.py's calculate_registration_amount().
-        //
-        // Wazazi:
-        //   principal = principal_registration_fee (fallback registration_fee)
-        //   per_parent = parent_registration_fee
-        //   dependant_fee = parent_count x per_parent
-        //   total = principal + dependant_fee
-        //
-        // Other plans:
-        //   principal = registration_fee
-        //   dependant_fee = 0
         // ============================================================
         function updateSummary() {
             const selected = getSelectedPlan();
@@ -1728,12 +1686,6 @@
             clearAlert();
 
             const formData = getFormData();
-
-            console.log('📝 Registration payload:', {
-                ...formData,
-                sales_code: formData.sales_code || 'none'
-            });
-
             const validation = validateFormData(formData);
 
             if (!validation.valid) {
@@ -1778,7 +1730,6 @@
                 // Trust the backend-calculated amount; only fall back to the
                 // live (Supabase-sourced) frontend total if the backend
                 // doesn't return one. Never a hardcoded number.
-                // Mirrors main.py calculate_registration_amount().
                 const registrationFee = Number(selected.plan.registration_fee || 0);
                 const principalFee = Number(selected.plan.principal_registration_fee || registrationFee);
                 const perParentFee = Number(selected.plan.parent_registration_fee || 0);
@@ -1802,17 +1753,11 @@
                 sessionStorage.setItem('newMemberPhone', formData.phone);
                 sessionStorage.setItem('registrationAmount', String(registrationAmount));
                 sessionStorage.setItem('isChamaRegistration', 'false');
-                sessionStorage.setItem('newPlanSlug', formData.plan); // ← payment.html uses this
+                sessionStorage.setItem('newPlanSlug', formData.plan); // payment.html uses this
 
                 if (formData.sales_code) {
                     sessionStorage.setItem('newSalesCode', formData.sales_code);
                 }
-
-                console.log('✅ Registration created', {
-                    member_id: memberId,
-                    sales_code: formData.sales_code,
-                    amount: registrationAmount
-                });
 
                 showAlert('Registration successful! Redirecting to payment...', 'success');
 
@@ -1821,7 +1766,7 @@
                 }, 1200);
 
             } catch (error) {
-                console.error('❌ Registration error:', error);
+                console.error('Registration error:', error);
                 showAlert(error.message || 'Registration failed. Please try again.', 'error');
             } finally {
                 isSubmitting = false;
@@ -1999,7 +1944,7 @@
                 }, 1200);
 
             } catch (error) {
-                console.error('❌ Chama registration error:', error);
+                console.error('Chama registration error:', error);
                 showAlert(error.message || 'Chama registration failed.', 'error');
             } finally {
                 isSubmitting = false;
@@ -2095,24 +2040,20 @@
 
             const total = memberCount * Number(chamaRegistrationFee);
 
-            elements.chamaTotal.textContent =
-                `KES ${total.toLocaleString()}`;
+            elements.chamaTotal.textContent = `KES ${total.toLocaleString()}`;
         }
 
         function renderChamaPreview() {
             const members = parsedChamaMembers;
             const memberCount = getChamaMemberCount();
 
-            elements.chamaMemberCount.textContent =
-                memberCount.toLocaleString();
+            elements.chamaMemberCount.textContent = memberCount.toLocaleString();
 
             if (chamaRegistrationFee === null) {
                 elements.chamaTotal.textContent = 'Rate not configured';
             } else {
                 const total = memberCount * Number(chamaRegistrationFee);
-
-                elements.chamaTotal.textContent =
-                    `KES ${total.toLocaleString()}`;
+                elements.chamaTotal.textContent = `KES ${total.toLocaleString()}`;
             }
 
             const preview = elements.csvPreview;
@@ -2249,14 +2190,6 @@
         window.loadBranches = loadBranches;
         window.normalizePhone = normalizePhone;
         window.escapeHtml = escapeHtml;
-
-        console.log('✅ Masika registration JavaScript ready');
-        console.log('📌 Plans are loaded LIVE from Supabase `plans` table (admin-pricing writes here)');
-        console.log('📌 Realtime subscription active — admin price edits push instantly');
-        console.log('📌 Wazazi math: principal_registration_fee + parents x parent_registration_fee');
-        console.log('📌 Sales agents: public.sales_agents.sales_code');
-        console.log('📌 Branches: public.branches.branch_code (is_active → status → all fallback)');
-        console.log('🆔 Payment identifier: member_id');
     </script>
 
 </body>
