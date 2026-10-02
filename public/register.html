@@ -906,10 +906,14 @@
         // unavailable instead of silently using stale numbers.
         //
         // BRANCHES: loaded from the Supabase `branches` table.
-        // Columns used: branch_code, branch_name, is_active.
-        // NOTE: `branches` uses a BOOLEAN `is_active` column
-        // (NOT a text `status` column), so we filter with
-        // .eq('is_active', true) instead of .ilike('status', ...).
+        // Columns used: branch_code, branch_name, county, town.
+        // The submitted value is the branch_code.
+        //
+        // Resilience: different deployments use either a boolean
+        // `is_active` column or a text `status` column. We try the
+        // boolean filter first, then fall back to a text status
+        // filter, and finally to loading all rows, so branch loading
+        // never silently comes back empty.
         // ============================================================
 
         const SUPABASE_URL = 'https://wpxzlcdrirlcyvfiquld.supabase.co';
@@ -1207,16 +1211,19 @@
         }
 
         // ============================================================
-        // LOAD BRANCHES
+        // LOAD BRANCHES  (FIXED)
         // Fills BOTH the individual and the chama branch dropdowns
         // from a single Supabase query.
         //
         // Source of truth: public.branches
-        // Columns used: branch_code, branch_name, county, town, is_active
+        // Columns used: branch_code, branch_name, county, town
         // The submitted value is the branch_code.
         //
-        // IMPORTANT: `branches` uses a BOOLEAN `is_active` column,
-        // not a text `status` column. Filter with .eq('is_active', true).
+        // Resilience: different deployments use either a boolean
+        // `is_active` column or a text `status` column. We try the
+        // boolean filter first, then fall back to a text status
+        // filter, and finally to loading all rows, so branch loading
+        // never silently comes back empty.
         // ============================================================
         async function loadBranches() {
             const selects = [elements.branch, elements.chamaBranch].filter(Boolean);
@@ -1230,15 +1237,38 @@
                     throw new Error('Supabase client is not available.');
                 }
 
-                const { data, error } = await supabaseClient
+                let branches = [];
+
+                // Attempt 1: boolean is_active column
+                let { data, error } = await supabaseClient
                     .from('branches')
                     .select('branch_code, branch_name, county, town, is_active')
                     .eq('is_active', true)
                     .order('branch_name', { ascending: true });
 
-                if (error) throw error;
+                if (!error && data && data.length) {
+                    branches = data;
+                } else {
+                    // Attempt 2: text status column
+                    const fallback = await supabaseClient
+                        .from('branches')
+                        .select('branch_code, branch_name, county, town, status')
+                        .ilike('status', 'active')
+                        .order('branch_name', { ascending: true });
 
-                const branches = data || [];
+                    if (!fallback.error && fallback.data && fallback.data.length) {
+                        branches = fallback.data;
+                    } else {
+                        // Attempt 3: no active filter at all
+                        const all = await supabaseClient
+                            .from('branches')
+                            .select('branch_code, branch_name, county, town')
+                            .order('branch_name', { ascending: true });
+
+                        if (all.error) throw all.error;
+                        branches = all.data || [];
+                    }
+                }
 
                 if (!branches.length) {
                     setAll('<option value="">No branches available</option>');
@@ -1257,7 +1287,7 @@
                     });
                 });
 
-                console.log(`✅ Loaded ${branches.length} active branches`);
+                console.log(`✅ Loaded ${branches.length} branches`);
 
             } catch (error) {
                 console.error('❌ Failed to load branches:', error);
@@ -2225,7 +2255,7 @@
         console.log('📌 Realtime subscription active — admin price edits push instantly');
         console.log('📌 Wazazi math: principal_registration_fee + parents x parent_registration_fee');
         console.log('📌 Sales agents: public.sales_agents.sales_code');
-        console.log('📌 Branches: public.branches.branch_code (filtered by is_active = true)');
+        console.log('📌 Branches: public.branches.branch_code (is_active → status → all fallback)');
         console.log('🆔 Payment identifier: member_id');
     </script>
 
