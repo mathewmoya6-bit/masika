@@ -1183,8 +1183,8 @@
         // from a single Supabase query on public.branches.
         //
         // What changed:
-        //  - Uses select('*') so a missing/renamed column (county, town,
-        //    branch_name, is_active, status...) can't break the query.
+        //  - Selects only the columns anon is granted (column-level grants
+        //    make select('*') fail with "permission denied").
         //  - "Active" filtering and label building happen on the client,
         //    tolerant of is_active / active / status columns, or none.
         //  - Real errors are surfaced; an empty result explains the likely
@@ -1214,7 +1214,7 @@
 
                 const { data, error } = await supabaseClient
                     .from('branches')
-                    .select('*');
+                    .select('id, branch_code, branch_name, county, town, is_active');
 
                 if (error) throw error;
 
