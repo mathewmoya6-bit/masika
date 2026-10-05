@@ -2495,9 +2495,218 @@ async def get_id_card(member_id: str):
 # PUBLIC M-RATIBA ROUTES
 # ============================================================
 
+
+def _mratiba_next_collection_date(current_date: date, frequency: str) -> date:
+    """Return the next scheduled collection date from the configured Ratiba frequency."""
+    value = str(frequency or MRATIBA_FREQUENCY or "MONTHLY").strip().upper()
+
+    if value in {"DAILY", "DAY"}:
+        return current_date + timedelta(days=1)
+    if value in {"WEEKLY", "WEEK"}:
+        return current_date + timedelta(days=7)
+    if value in {"BIWEEKLY", "FORTNIGHTLY"}:
+        return current_date + timedelta(days=14)
+
+    # Default Ratiba schedule for Masika is monthly.
+    month_index = current_date.month - 1 + 1
+    year = current_date.year + month_index // 12
+    month = month_index % 12 + 1
+
+    if month == 12:
+        following_month = date(year + 1, 1, 1)
+    else:
+        following_month = date(year, month + 1, 1)
+
+    last_day = (following_month - timedelta(days=1)).day
+    return date(year, month, min(current_date.day, last_day))
+
+
+def _mratiba_end_date_value(mandate: dict) -> Optional[date]:
+    value = mandate.get("end_date")
+    if not value:
+        return None
+    try:
+        return date.fromisoformat(str(value))
+    except (TypeError, ValueError):
+        return None
+
+
+def _mratiba_success_callback(values: Dict[str, Any]) -> bool:
+    """Return True only when the callback contains evidence of an actual collection."""
+    receipt = str(
+        values.get("mpesareceiptnumber")
+        or values.get("receiptnumber")
+        or values.get("receipt")
+        or ""
+    ).strip()
+    if receipt:
+        return True
+
+    # A provider authorization/standing-order acknowledgement can also carry
+    # ResultCode=0. That is NOT a collection. Without an M-Pesa receipt or an
+    # actual transaction reference, do not create a Masika payment.
+    transaction_id = str(
+        values.get("transactionid")
+        or values.get("transactionreference")
+        or ""
+    ).strip()
+    if transaction_id:
+        result_code = str(values.get("resultcode") or "").strip()
+        status_value = str(values.get("status") or "").strip().lower()
+        return result_code == "0" or status_value in {
+            "success", "successful", "completed", "complete", "paid"
+        }
+
+    return False
+
+
+def _mratiba_failed_callback(values: Dict[str, Any]) -> bool:
+    status_value = str(values.get("status") or "").strip().lower()
+    result_code = str(values.get("resultcode") or "").strip()
+
+    if status_value in {
+        "failed", "failure", "cancelled", "canceled",
+        "rejected", "declined", "unsuccessful", "error",
+    }:
+        return True
+
+    return result_code in KNOWN_MPESA_FAILURE_CODES
+
+
+async def _upsert_mratiba_collection(
+    mandate: dict,
+    *,
+    amount: float,
+    due_date: date,
+    collection_status: str,
+    transaction_id: Optional[str],
+    receipt: Optional[str],
+    failure_reason: Optional[str],
+    raw_callback: dict,
+) -> Optional[dict]:
+    """Create/update one collection while remaining safe against duplicate callbacks."""
+    mandate_id = mandate["id"]
+    now_iso = datetime.now(timezone.utc).isoformat()
+
+    # First look up provider identifiers. This handles callback retries.
+    if transaction_id:
+        result = (
+            supabase.table("m_ratiba_collections")
+            .select("*")
+            .eq("mandate_id", mandate_id)
+            .eq("transaction_id", transaction_id)
+            .limit(1)
+            .execute()
+        )
+        if result.data:
+            existing = result.data[0]
+            update = {
+                "amount": amount,
+                "status": collection_status,
+                "transaction_id": transaction_id,
+                "mpesa_receipt": receipt,
+                "failure_reason": failure_reason,
+                "raw_callback": raw_callback,
+                "updated_at": now_iso,
+            }
+            if collection_status in {"paid", "failed"}:
+                update["attempted_at"] = now_iso
+            if collection_status == "paid":
+                update["paid_at"] = now_iso
+            updated = (
+                supabase.table("m_ratiba_collections")
+                .update(update)
+                .eq("id", existing["id"])
+                .execute()
+            )
+            return updated.data[0] if updated.data else existing
+
+    if receipt:
+        result = (
+            supabase.table("m_ratiba_collections")
+            .select("*")
+            .eq("mandate_id", mandate_id)
+            .eq("mpesa_receipt", receipt)
+            .limit(1)
+            .execute()
+        )
+        if result.data:
+            return result.data[0]
+
+    # The schema has a unique partial index on mandate_id + due_date.
+    result = (
+        supabase.table("m_ratiba_collections")
+        .select("*")
+        .eq("mandate_id", mandate_id)
+        .eq("due_date", due_date.isoformat())
+        .limit(1)
+        .execute()
+    )
+
+    if result.data:
+        existing = result.data[0]
+        update = {
+            "amount": amount,
+            "status": collection_status,
+            "transaction_id": transaction_id,
+            "mpesa_receipt": receipt,
+            "failure_reason": failure_reason,
+            "raw_callback": raw_callback,
+            "updated_at": now_iso,
+        }
+        if collection_status in {"paid", "failed"}:
+            update["attempted_at"] = now_iso
+        if collection_status == "paid":
+            update["paid_at"] = now_iso
+        updated = (
+            supabase.table("m_ratiba_collections")
+            .update(update)
+            .eq("id", existing["id"])
+            .execute()
+        )
+        return updated.data[0] if updated.data else existing
+
+    row = {
+        "member_id": mandate["member_id"],
+        "mandate_id": mandate_id,
+        "amount": amount,
+        "due_date": due_date.isoformat(),
+        "status": collection_status,
+        "transaction_id": transaction_id,
+        "mpesa_receipt": receipt,
+        "attempted_at": now_iso if collection_status in {"paid", "failed"} else None,
+        "paid_at": now_iso if collection_status == "paid" else None,
+        "failure_reason": failure_reason,
+        "raw_callback": raw_callback,
+        "created_at": now_iso,
+        "updated_at": now_iso,
+    }
+
+    try:
+        inserted = supabase.table("m_ratiba_collections").insert(row).execute()
+        return inserted.data[0] if inserted.data else row
+    except Exception as exc:
+        # A concurrent callback may have inserted the same scheduled row.
+        logger.warning("Ratiba collection insert conflict: %s", exc)
+        retry = (
+            supabase.table("m_ratiba_collections")
+            .select("*")
+            .eq("mandate_id", mandate_id)
+            .eq("due_date", due_date.isoformat())
+            .limit(1)
+            .execute()
+        )
+        if retry.data:
+            return retry.data[0]
+        raise
+
+
 @public_router.post("/mratiba/create", response_model=MRatibaCreateResponse)
-async def create_mratiba(payload: MRatibaCreateRequest, current_user: str = Depends(get_current_user)):
-    """Authorize one authenticated member for a Safaricom Ratiba standing order."""
+async def create_mratiba(
+    payload: MRatibaCreateRequest,
+    current_user: str = Depends(get_current_user),
+):
+    """Create a Safaricom Ratiba standing-order request for the authenticated member."""
     if not supabase:
         raise HTTPException(status_code=500, detail="Database not available")
     if not _ratiba_table_available():
@@ -2524,7 +2733,7 @@ async def create_mratiba(payload: MRatibaCreateRequest, current_user: str = Depe
     if str(member.get("member_status") or "").upper() not in {"ACTIVE", "PENDING"}:
         raise HTTPException(status_code=400, detail="Membership is not eligible for M-Ratiba")
 
-    plan = str(member.get("plan") or "").lower()
+    plan = str(member.get("plan") or "").strip().lower()
     if not plan:
         raise HTTPException(status_code=400, detail="Member plan is not configured")
 
@@ -2539,7 +2748,10 @@ async def create_mratiba(payload: MRatibaCreateRequest, current_user: str = Depe
     frequency = (payload.frequency or MRATIBA_FREQUENCY).strip()
     if not frequency:
         raise HTTPException(status_code=400, detail="Ratiba frequency is required")
-    if date.fromisoformat(end_date) < date.fromisoformat(start_date):
+
+    start_date_obj = date.fromisoformat(start_date)
+    end_date_obj = date.fromisoformat(end_date)
+    if end_date_obj < start_date_obj:
         raise HTTPException(status_code=400, detail="end_date cannot be before start_date")
 
     existing = (
@@ -2576,38 +2788,74 @@ async def create_mratiba(payload: MRatibaCreateRequest, current_user: str = Depe
         custom_sto_id=custom_sto_id,
     )
     if not provider_result.get("success"):
-        raise HTTPException(status_code=502, detail=provider_result.get("message") or "M-Ratiba authorization failed")
+        raise HTTPException(
+            status_code=502,
+            detail=provider_result.get("message") or "M-Ratiba authorization failed",
+        )
 
     now_iso = datetime.now(timezone.utc).isoformat()
+
+    # A provider acceptance is NOT proof that money has been collected.
+    # Keep the local mandate pending until a successful collection callback.
     row = {
         "member_id": payload.member_id,
         "phone_number": phone,
         "plan_code": plan,
         "monthly_amount": amount,
-        "authorization_status": "active",
+        "authorization_status": "pending",
         "provider": "mpesa_ratiba",
         "custom_sto_id": custom_sto_id,
         "provider_reference": provider_result.get("provider_reference"),
-        "authorized_at": now_iso,
+        "authorized_at": None,
+        "next_collection_date": start_date,
+        "last_collection_date": None,
+        "last_transaction_id": None,
+        "last_mpesa_receipt": None,
+        "failure_count": 0,
+        "last_failure_reason": None,
         "start_date": start_date,
         "end_date": end_date,
         "created_at": now_iso,
         "updated_at": now_iso,
         "raw_create_response": provider_result.get("response"),
     }
+
     try:
         saved = supabase.table("member_m_ratiba").insert(row).execute()
-    except Exception as e:
-        logger.exception("Ratiba was created by provider but could not be saved locally")
+    except Exception as exc:
+        logger.exception("Ratiba was accepted by provider but could not be saved locally")
         raise HTTPException(
             status_code=500,
-            detail="Ratiba was accepted by M-Pesa but the local authorization record could not be saved. Contact support before retrying.",
-        ) from e
+            detail=(
+                "Ratiba was accepted by M-Pesa but the local authorization record "
+                "could not be saved. Contact support before retrying."
+            ),
+        ) from exc
 
     mandate = saved.data[0] if saved.data else {}
+
+    # Create the first scheduled collection. It is not marked paid until
+    # the provider sends a successful collection callback.
+    try:
+        await _upsert_mratiba_collection(
+            mandate,
+            amount=amount,
+            due_date=start_date_obj,
+            collection_status="scheduled",
+            transaction_id=None,
+            receipt=None,
+            failure_reason=None,
+            raw_callback={"source": "mratiba_create", "custom_sto_id": custom_sto_id},
+        )
+    except Exception:
+        logger.exception("Could not create first scheduled Ratiba collection for %s", mandate.get("id"))
+
     return MRatibaCreateResponse(
         success=True,
-        message="M-Ratiba standing order created successfully.",
+        message=(
+            "M-Ratiba standing order accepted by M-Pesa. "
+            "Authorization remains pending until the first successful collection."
+        ),
         mandate_id=mandate.get("id"),
         provider_reference=provider_result.get("provider_reference"),
         custom_sto_id=custom_sto_id,
@@ -2621,7 +2869,7 @@ async def create_mratiba(payload: MRatibaCreateRequest, current_user: str = Depe
 
 @public_router.post("/mratiba/callback")
 async def mratiba_callback(request: Request):
-    """Receive and reconcile a Ratiba callback without assuming one provider payload shape."""
+    """Receive and reconcile a Safaricom Ratiba callback idempotently."""
     if not supabase:
         return _CALLBACK_ACK
     if not _ratiba_table_available():
@@ -2636,73 +2884,224 @@ async def mratiba_callback(request: Request):
     try:
         data = await request.json()
     except Exception:
+        logger.warning("M-Ratiba callback contained invalid JSON")
         return _CALLBACK_ACK
 
     logger.info("M-Pesa Ratiba callback received")
     values = _extract_mratiba_callback_values(data)
+
     account_reference = str(values.get("accountreference") or "").strip()
     custom_sto_id = str(values.get("customstoid") or "").strip()
     provider_reference = str(
-        values.get("standingorderid") or values.get("standingorderreference") or
-        values.get("transactionid") or values.get("transactionreference") or ""
+        values.get("standingorderid")
+        or values.get("standingorderreference")
+        or values.get("transactionid")
+        or values.get("transactionreference")
+        or ""
     ).strip() or None
-    receipt = str(values.get("mpesareceiptnumber") or values.get("receiptnumber") or values.get("receipt") or "").strip() or None
-    status_value = str(values.get("status") or values.get("resultcode") or "").strip().lower()
+    receipt = str(
+        values.get("mpesareceiptnumber")
+        or values.get("receiptnumber")
+        or values.get("receipt")
+        or ""
+    ).strip() or None
 
     mandate = None
+
     if custom_sto_id:
-        r = supabase.table("member_m_ratiba").select("*").eq("custom_sto_id", custom_sto_id).limit(1).execute()
-        mandate = r.data[0] if r.data else None
+        result = (
+            supabase.table("member_m_ratiba")
+            .select("*")
+            .eq("custom_sto_id", custom_sto_id)
+            .limit(1)
+            .execute()
+        )
+        mandate = result.data[0] if result.data else None
+
+    if not mandate and provider_reference:
+        result = (
+            supabase.table("member_m_ratiba")
+            .select("*")
+            .eq("provider_reference", provider_reference)
+            .limit(1)
+            .execute()
+        )
+        mandate = result.data[0] if result.data else None
+
     if not mandate and account_reference:
-        member_result = supabase.table("members").select("id, member_number").eq("member_number", account_reference).limit(1).execute()
+        member_result = (
+            supabase.table("members")
+            .select("id, member_number")
+            .eq("member_number", account_reference)
+            .limit(1)
+            .execute()
+        )
         if member_result.data:
-            r = supabase.table("member_m_ratiba").select("*").eq("member_id", member_result.data[0]["id"]).in_("authorization_status", ["active", "paused"]).limit(1).execute()
-            mandate = r.data[0] if r.data else None
+            result = (
+                supabase.table("member_m_ratiba")
+                .select("*")
+                .eq("member_id", member_result.data[0]["id"])
+                .in_("authorization_status", ["pending", "active", "paused"])
+                .order("created_at", desc=True)
+                .limit(1)
+                .execute()
+            )
+            mandate = result.data[0] if result.data else None
 
     if not mandate:
-        logger.warning("Ratiba callback could not be matched to a mandate")
+        logger.warning(
+            "Ratiba callback could not be matched: custom_sto_id=%s provider_reference=%s account=%s",
+            custom_sto_id,
+            provider_reference,
+            account_reference,
+        )
         return _CALLBACK_ACK
 
     mandate_id = mandate["id"]
     member_id = mandate["member_id"]
+
     amount_value = values.get("amount")
     try:
-        amount = float(amount_value) if amount_value not in (None, "") else float(mandate.get("monthly_amount") or 0)
+        amount = (
+            float(amount_value)
+            if amount_value not in (None, "")
+            else float(mandate.get("monthly_amount") or 0)
+        )
     except (TypeError, ValueError):
         amount = float(mandate.get("monthly_amount") or 0)
 
-    now_iso = datetime.now(timezone.utc).isoformat()
-    supabase.table("member_m_ratiba").update({
-        "last_transaction_id": provider_reference,
-        "last_mpesa_receipt": receipt,
-        "raw_last_callback": data,
-        "last_collection_date": date.today().isoformat() if receipt else mandate.get("last_collection_date"),
-        "updated_at": now_iso,
-    }).eq("id", mandate_id).execute()
+    if amount <= 0:
+        logger.error("Ratiba callback has invalid amount for mandate %s", mandate_id)
+        return _CALLBACK_ACK
 
-    # Do not create a payment from an obviously non-success callback.
-    failed_tokens = {"failed", "failure", "cancelled", "canceled", "rejected", "declined", "1", "1032", "2001"}
-    if status_value in failed_tokens:
+    now_iso = datetime.now(timezone.utc).isoformat()
+    today = date.today()
+
+    next_date_raw = mandate.get("next_collection_date")
+    try:
+        due_date = date.fromisoformat(str(next_date_raw)) if next_date_raw else today
+    except ValueError:
+        due_date = today
+
+    # --------------------------------------------------------
+    # Failure callback.
+    # --------------------------------------------------------
+    if _mratiba_failed_callback(values):
+        failure_reason = str(
+            values.get("resultdesc")
+            or values.get("resultcode")
+            or values.get("status")
+            or "M-Ratiba collection failed"
+        )[:500]
+
+        await _upsert_mratiba_collection(
+            mandate,
+            amount=amount,
+            due_date=due_date,
+            collection_status="failed",
+            transaction_id=provider_reference,
+            receipt=receipt,
+            failure_reason=failure_reason,
+            raw_callback=data,
+        )
+
+        failure_count = int(mandate.get("failure_count") or 0) + 1
         supabase.table("member_m_ratiba").update({
-            "failure_count": int(mandate.get("failure_count") or 0) + 1,
-            "last_failure_reason": str(values.get("resultdesc") or values.get("resultcode") or status_value),
+            "last_transaction_id": provider_reference,
+            "last_mpesa_receipt": receipt,
+            "failure_count": failure_count,
+            "last_failure_reason": failure_reason,
+            "raw_last_callback": data,
+            "updated_at": now_iso,
+        }).eq("id", mandate_id).execute()
+
+        logger.warning("Ratiba collection failed for mandate %s: %s", mandate_id, failure_reason)
+        return _CALLBACK_ACK
+
+    # A provider callback without success evidence is retained for audit only.
+    if not _mratiba_success_callback(values):
+        supabase.table("member_m_ratiba").update({
+            "raw_last_callback": data,
             "updated_at": now_iso,
         }).eq("id", mandate_id).execute()
         return _CALLBACK_ACK
 
-    if not receipt and not provider_reference:
-        # No evidence of an actual collection yet; retain the callback for audit only.
-        return _CALLBACK_ACK
-
-    # Idempotency: the same provider transaction must never become two payments.
+    # --------------------------------------------------------
+    # Successful collection: protect against duplicate callbacks.
+    # --------------------------------------------------------
     if provider_reference:
-        duplicate = supabase.table("payments").select("id").eq("transaction_reference", provider_reference).limit(1).execute()
-        if duplicate.data:
+        duplicate = (
+            supabase.table("m_ratiba_collections")
+            .select("id, status")
+            .eq("mandate_id", mandate_id)
+            .eq("transaction_id", provider_reference)
+            .limit(1)
+            .execute()
+        )
+        if duplicate.data and duplicate.data[0].get("status") == "paid":
+            logger.info("Duplicate Ratiba callback ignored: %s", provider_reference)
             return _CALLBACK_ACK
+
     if receipt:
-        duplicate = supabase.table("payments").select("id").eq("mpesa_receipt", receipt).limit(1).execute()
-        if duplicate.data:
+        duplicate = (
+            supabase.table("m_ratiba_collections")
+            .select("id, status")
+            .eq("mandate_id", mandate_id)
+            .eq("mpesa_receipt", receipt)
+            .limit(1)
+            .execute()
+        )
+        if duplicate.data and duplicate.data[0].get("status") == "paid":
+            logger.info("Duplicate Ratiba receipt ignored: %s", receipt)
             return _CALLBACK_ACK
+
+    # The normal payments table is also an idempotency boundary.
+    # If the payment exists but the previous callback crashed before the
+    # mandate was advanced, reuse it and finish the Ratiba reconciliation.
+    existing_payment = None
+
+    if provider_reference:
+        duplicate = (
+            supabase.table("payments")
+            .select("*")
+            .eq("transaction_reference", provider_reference)
+            .limit(1)
+            .execute()
+        )
+        if duplicate.data:
+            existing_payment = duplicate.data[0]
+
+    if not existing_payment and receipt:
+        duplicate = (
+            supabase.table("payments")
+            .select("*")
+            .eq("mpesa_receipt", receipt)
+            .limit(1)
+            .execute()
+        )
+        if duplicate.data:
+            existing_payment = duplicate.data[0]
+
+    if existing_payment:
+        logger.info(
+            "Ratiba payment already exists; completing mandate reconciliation: %s",
+            existing_payment.get("id"),
+        )
+
+    collection = await _upsert_mratiba_collection(
+        mandate,
+        amount=amount,
+        due_date=due_date,
+        collection_status="paid",
+        transaction_id=provider_reference,
+        receipt=receipt,
+        failure_reason=None,
+        raw_callback=data,
+    )
+
+    if not collection:
+        logger.error("Could not record successful Ratiba collection for %s", mandate_id)
+        return _CALLBACK_ACK
 
     payment_row = {
         "member_id": member_id,
@@ -2713,10 +3112,10 @@ async def mratiba_callback(request: Request):
         "mpesa_receipt_number": receipt,
         "status": "completed",
         "payment_status": "SUCCESSFUL",
-        "payment_date": date.today().isoformat(),
+        "payment_date": today.isoformat(),
         "phone": mandate.get("phone_number"),
         "phone_number": mandate.get("phone_number"),
-        "transaction_reference": provider_reference or custom_sto_id,
+        "transaction_reference": provider_reference or receipt or custom_sto_id,
         "confirmed_at": now_iso,
         "verified_at": now_iso,
         "counts_toward_membership": True,
@@ -2724,33 +3123,76 @@ async def mratiba_callback(request: Request):
         "created_at": now_iso,
         "updated_at": now_iso,
     }
-    try:
-        inserted = supabase.table("payments").insert(payment_row).execute()
-    except Exception as e:
-        logger.exception("Could not record Ratiba payment")
-        return _CALLBACK_ACK
+
+    if existing_payment:
+        payment = existing_payment
+    else:
+        try:
+            inserted = supabase.table("payments").insert(payment_row).execute()
+        except Exception as exc:
+            logger.exception("Could not create the normal Masika payment from Ratiba: %s", exc)
+            # Keep the collection row. The next callback/reconciliation can identify it.
+            return _CALLBACK_ACK
+        payment = inserted.data[0] if inserted.data else payment_row
+
+    next_collection = _mratiba_next_collection_date(today, MRATIBA_FREQUENCY)
+    end_date = _mratiba_end_date_value(mandate)
+    next_collection_value = (
+        next_collection.isoformat()
+        if not end_date or next_collection <= end_date
+        else None
+    )
 
     supabase.table("member_m_ratiba").update({
-        "last_collection_date": date.today().isoformat(),
+        "authorization_status": "active",
+        "authorized_at": mandate.get("authorized_at") or now_iso,
+        "next_collection_date": next_collection_value,
+        "last_collection_date": today.isoformat(),
         "last_transaction_id": provider_reference,
         "last_mpesa_receipt": receipt,
         "failure_count": 0,
         "last_failure_reason": None,
+        "raw_last_callback": data,
         "updated_at": now_iso,
     }).eq("id", mandate_id).execute()
 
-    payment = inserted.data[0] if inserted.data else payment_row
+    # Schedule the next collection only when the Ratiba end date has not been reached.
+    if next_collection_value:
+        refreshed_mandate = dict(mandate)
+        refreshed_mandate["next_collection_date"] = next_collection_value
+        try:
+            await _upsert_mratiba_collection(
+                refreshed_mandate,
+                amount=amount,
+                due_date=next_collection,
+                collection_status="scheduled",
+                transaction_id=None,
+                receipt=None,
+                failure_reason=None,
+                raw_callback={"source": "ratiba_success_advance"},
+            )
+        except Exception:
+            logger.exception("Could not schedule next Ratiba collection for %s", mandate_id)
+
     try:
         calculate_member_payment_validation(member_id)
-    except Exception as e:
-        logger.exception("Ratiba payment validation failed for %s: %s", member_id, e)
+    except Exception as exc:
+        logger.exception("Ratiba payment validation failed for %s: %s", member_id, exc)
+
     try:
         await activate_registration(payment)
-    except Exception as e:
-        logger.exception("Ratiba payment activation/notification failed: %s", e)
+    except Exception as exc:
+        logger.exception("Ratiba payment activation/notification failed: %s", exc)
 
+    logger.info(
+        "Ratiba collection successful: mandate=%s member=%s amount=%s receipt=%s next=%s",
+        mandate_id,
+        member_id,
+        amount,
+        receipt,
+        next_collection_value,
+    )
     return _CALLBACK_ACK
-
 
 app.include_router(public_router)
 
@@ -2942,11 +3384,42 @@ async def admin_mratiba_list(
     if not _ratiba_table_available():
         raise HTTPException(status_code=503, detail="M-Ratiba database migration has not been applied")
 
-    query = supabase.table("member_m_ratiba").select("*").order("created_at", desc=True).limit(min(max(limit, 1), 500))
+    safe_limit = min(max(limit, 1), 500)
+    query = (
+        supabase.table("member_m_ratiba")
+        .select("*")
+        .order("created_at", desc=True)
+        .limit(safe_limit)
+    )
     if status_filter:
         query = query.eq("authorization_status", status_filter.strip().lower())
+
     result = query.execute()
-    return {"success": True, "count": len(result.data or []), "data": result.data or []}
+    mandates = result.data or []
+
+    member_ids = list({str(row["member_id"]) for row in mandates if row.get("member_id")})
+    member_map: Dict[str, dict] = {}
+
+    if member_ids:
+        members_result = (
+            supabase.table("members")
+            .select("id, member_number, first_name, last_name")
+            .in_("id", member_ids)
+            .execute()
+        )
+        member_map = {str(row["id"]): row for row in (members_result.data or [])}
+
+    output = []
+    for mandate in mandates:
+        member = member_map.get(str(mandate.get("member_id")), {})
+        item = dict(mandate)
+        item["member_number"] = member.get("member_number")
+        item["member_name"] = " ".join(
+            part for part in [member.get("first_name"), member.get("last_name")] if part
+        ).strip() or None
+        output.append(item)
+
+    return {"success": True, "count": len(output), "data": output}
 
 
 @admin_mratiba_router.get("/{mandate_id}")
@@ -2958,9 +3431,35 @@ async def admin_mratiba_detail(
         raise HTTPException(status_code=500, detail="Database not available")
     if not _ratiba_table_available():
         raise HTTPException(status_code=503, detail="M-Ratiba database migration has not been applied")
-    result = supabase.table("member_m_ratiba").select("*").eq("id", mandate_id).limit(1).execute()
+
+    result = (
+        supabase.table("member_m_ratiba")
+        .select("*")
+        .eq("id", mandate_id)
+        .limit(1)
+        .execute()
+    )
     if not result.data:
         raise HTTPException(status_code=404, detail="M-Ratiba authorization not found")
+
+    mandate = result.data[0]
+    member = {}
+    if mandate.get("member_id"):
+        member_result = (
+            supabase.table("members")
+            .select("id, member_number, first_name, last_name, phone, plan, member_status")
+            .eq("id", mandate["member_id"])
+            .limit(1)
+            .execute()
+        )
+        member = member_result.data[0] if member_result.data else {}
+
+    mandate_view = dict(mandate)
+    mandate_view["member_number"] = member.get("member_number")
+    mandate_view["member_name"] = " ".join(
+        part for part in [member.get("first_name"), member.get("last_name")] if part
+    ).strip() or None
+
     collections = (
         supabase.table("m_ratiba_collections")
         .select("*")
@@ -2969,7 +3468,12 @@ async def admin_mratiba_detail(
         .limit(100)
         .execute()
     )
-    return {"success": True, "mandate": result.data[0], "collections": collections.data or []}
+
+    return {
+        "success": True,
+        "mandate": mandate_view,
+        "collections": collections.data or [],
+    }
 
 
 app.include_router(admin_mratiba_router)
