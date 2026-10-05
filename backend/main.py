@@ -6,6 +6,8 @@
 #   SECRET_KEY, ENVIRONMENT, ALLOWED_ORIGINS
 #   MPESA_CONSUMER_KEY / MPESA_CONSUMER_SECRET / MPESA_PASSKEY / MPESA_SHORTCODE
 #   MPESA_ENVIRONMENT, BASE_URL, MPESA_CALLBACK_URL, MPESA_CALLBACK_IP_WHITELIST
+#   MRATIBA_SHORTCODE, MRATIBA_FREQUENCY, MRATIBA_TRANSACTION_TYPE, MRATIBA_RECEIVER_PARTY_IDENTIFIER_TYPE
+#   MRATIBA_CALLBACK_URL, MRATIBA_END_DATE
 #   RECONCILE_SECRET, NOTIFICATION_PROCESS_KEY
 #   PAYMENT_COLLECTOR_ROLES (default SUPER_ADMIN), ADMIN_MAX_COLLECT_AMOUNT
 #   TEXTSMS_API_KEY / TEXTSMS_PARTNER_ID / TEXTSMS_SHORTCODE
@@ -124,43 +126,22 @@ MPESA_AUTH_URL = f"{MPESA_BASE_URL}/oauth/v1/generate?grant_type=client_credenti
 MPESA_STK_PUSH_URL = f"{MPESA_BASE_URL}/mpesa/stkpush/v1/processrequest"
 MPESA_STK_QUERY_URL = f"{MPESA_BASE_URL}/mpesa/stkpushquery/v1/query"
 
-# ============================================================
-# M-PESA RATIBA / STANDING ORDER
-# ============================================================
-
-MRATIBA_SHORTCODE = os.getenv(
-    "MRATIBA_SHORTCODE",
-    "348127",
-).strip()
-
-MRATIBA_FREQUENCY = os.getenv(
-    "MRATIBA_FREQUENCY",
-    "MONTHLY",
-).strip()
-
+# --- M-Pesa Ratiba / Standing Order ---
+# Ratiba uses the same OAuth credentials but a separate standing-order endpoint.
+MRATIBA_SHORTCODE = os.getenv("MRATIBA_SHORTCODE", MPESA_SHORTCODE).strip()
+MRATIBA_FREQUENCY = os.getenv("MRATIBA_FREQUENCY", "MONTHLY").strip()
 MRATIBA_TRANSACTION_TYPE = os.getenv(
-    "MRATIBA_TRANSACTION_TYPE",
-    "Standing Order Customer Pay Bill",
+    "MRATIBA_TRANSACTION_TYPE", "Standing Order Customer Pay Bill"
 ).strip()
-
 MRATIBA_RECEIVER_PARTY_IDENTIFIER_TYPE = os.getenv(
-    "MRATIBA_RECEIVER_PARTY_IDENTIFIER_TYPE",
-    "4",
+    "MRATIBA_RECEIVER_PARTY_IDENTIFIER_TYPE", "4"
 ).strip()
-
-MRATIBA_CALLBACK_URL = (
-    os.getenv("MRATIBA_CALLBACK_URL", "").strip().rstrip("/")
-    or f"{BASE_URL}/api/public/mratiba/callback"
-)
-
-MRATIBA_END_DATE = os.getenv(
-    "MRATIBA_END_DATE",
-    "2027-08-31",
-).strip()
-
-MPESA_RATIBA_CREATE_URL = (
-    f"{MPESA_BASE_URL}/standingorder/v1/createStandingOrderExternal"
-)
+MRATIBA_CALLBACK_URL = os.getenv(
+    "MRATIBA_CALLBACK_URL", f"{BASE_URL}/api/public/mratiba/callback"
+).strip().rstrip("/")
+MRATIBA_END_DATE = os.getenv("MRATIBA_END_DATE", "2027-08-31").strip()
+MRATIBA_BASE_URL = MPESA_BASE_URL
+MRATIBA_CREATE_URL = f"{MRATIBA_BASE_URL}/standingorder/v1/createStandingOrderExternal"
 
 # Fail fast rather than taking live payments against sandbox defaults.
 if MPESA_ENVIRONMENT == "production":
@@ -524,6 +505,28 @@ class AdminCollectPaymentRequest(BaseModel):
 class BulkValidateRequest(BaseModel):
     member_ids: Optional[List[str]] = None
     limit: int = 200
+
+
+class MRatibaCreateRequest(BaseModel):
+    member_id: str
+    membership_number: str
+    phone_number: str
+    start_date: Optional[str] = None
+    end_date: Optional[str] = None
+    frequency: Optional[str] = None
+
+
+class MRatibaCreateResponse(BaseModel):
+    success: bool
+    message: str
+    mandate_id: Optional[str] = None
+    provider_reference: Optional[str] = None
+    custom_sto_id: Optional[str] = None
+    member_number: Optional[str] = None
+    amount: Optional[float] = None
+    frequency: Optional[str] = None
+    start_date: Optional[str] = None
+    end_date: Optional[str] = None
 
 # ============================================================
 # SECURITY HELPERS
@@ -980,6 +983,172 @@ async def query_mpesa_transaction_status(checkout_request_id: str) -> dict:
     except Exception as e:
         logger.error(f"Status query error: {e}")
         return {"success": False}
+
+# ============================================================
+# M-PESA RATIBA / STANDING ORDER HELPERS
+# ============================================================
+
+def _safe_iso_date(value: Optional[str], field_name: str) -> Optional[str]:
+    """Validate YYYY-MM-DD without guessing a provider-specific date format."""
+    if value is None or not str(value).strip():
+        return None
+    value = str(value).strip()
+    try:
+        return date.fromisoformat(value).isoformat()
+    except ValueError:
+        raise HTTPException(status_code=400, detail=f"{field_name} must be YYYY-MM-DD")
+
+
+def _extract_mratiba_reference(data: Any) -> Optional[str]:
+    """Extract a provider reference without assuming one exact response schema."""
+    if not isinstance(data, dict):
+        return None
+    preferred = (
+        "StandingOrderID", "StandingOrderId", "StandingOrderReference",
+        "StandingOrderNumber", "TransactionID", "TransactionId",
+        "ConversationID", "ConversationId", "OriginatorConversationID",
+        "MerchantRequestID", "CustomStoId", "customStoId",
+    )
+    for key in preferred:
+        value = data.get(key)
+        if value not in (None, ""):
+            return str(value)
+    for key, value in data.items():
+        if isinstance(value, (dict, list)):
+            found = _extract_mratiba_reference(value)
+            if found:
+                return found
+    return None
+
+
+def _extract_mratiba_status(data: Any) -> Optional[str]:
+    if not isinstance(data, dict):
+        return None
+    for key in ("ResultCode", "resultCode", "ResponseCode", "responseCode", "Status", "status"):
+        value = data.get(key)
+        if value not in (None, ""):
+            return str(value)
+    return None
+
+
+def _extract_mratiba_callback_values(data: Any) -> Dict[str, Any]:
+    """Flatten common Ratiba/callback keys while preserving the raw callback."""
+    result: Dict[str, Any] = {}
+
+    def walk(value: Any):
+        if isinstance(value, dict):
+            for key, item in value.items():
+                low = str(key).lower().replace("_", "")
+                if low in {
+                    "mpesareceiptnumber", "receipt", "receiptnumber", "transactionid",
+                    "transactionreference", "amount", "phone", "phonenumber", "partyA",
+                    "partya", "accountreference", "customstoid", "standingorderid",
+                    "standingorderreference", "status", "resultcode", "resultdesc",
+                    "resulthttpcode", "conversationid", "originatorconversationid",
+                }:
+                    result[low] = item
+                walk(item)
+        elif isinstance(value, list):
+            for item in value:
+                walk(item)
+
+    walk(data)
+    return result
+
+
+async def create_mpesa_ratiba_standing_order(
+    *,
+    member_number: str,
+    phone: str,
+    amount: float,
+    start_date: str,
+    end_date: str,
+    frequency: str,
+    custom_sto_id: str,
+) -> Dict[str, Any]:
+    """Create the Safaricom Ratiba standing order from the supplied Postman contract."""
+    if not httpx or not mpesa_http_client:
+        return {"success": False, "message": "HTTP client not available"}
+    if not MRATIBA_SHORTCODE:
+        return {"success": False, "message": "MRATIBA_SHORTCODE is not configured"}
+    if not MRATIBA_CALLBACK_URL.startswith("https://") and MPESA_ENVIRONMENT == "production":
+        return {"success": False, "message": "MRATIBA_CALLBACK_URL must be HTTPS in production"}
+
+    token = await get_mpesa_access_token()
+    if not token:
+        return {"success": False, "message": "Failed to get M-Pesa access token"}
+
+    whole_amount = int(round(float(amount)))
+    if whole_amount <= 0:
+        return {"success": False, "message": "Ratiba amount must be at least KES 1"}
+
+    payload = {
+        "StandingOrderName": f"Masika {member_number}"[:50],
+        "BusinessShortCode": MRATIBA_SHORTCODE,
+        "CustomStoId": custom_sto_id,
+        "TransactionType": MRATIBA_TRANSACTION_TYPE,
+        "Amount": str(whole_amount),
+        "PartyA": phone,
+        "ReceiverPartyIdentifierType": MRATIBA_RECEIVER_PARTY_IDENTIFIER_TYPE,
+        "CallBackURL": MRATIBA_CALLBACK_URL,
+        "AccountReference": member_number,
+        "TransactionDesc": "Masika monthly contribution"[:20],
+        "Frequency": frequency,
+        "StartDate": start_date,
+        "EndDate": end_date,
+    }
+
+    try:
+        response = await _mpesa_request_with_retry(
+            "POST",
+            MRATIBA_CREATE_URL,
+            json=payload,
+            headers={"Authorization": f"Bearer {token}", "Content-Type": "application/json"},
+        )
+        if response is None:
+            return {"success": False, "message": "Ratiba request failed after retries"}
+
+        try:
+            data = response.json()
+        except Exception:
+            data = {"raw_text": response.text[:2000]}
+
+        if response.status_code == 401:
+            _mpesa_token_cache["token"] = None
+            _mpesa_token_cache["expires_at"] = None
+
+        if 200 <= response.status_code < 300:
+            provider_reference = _extract_mratiba_reference(data)
+            return {
+                "success": True,
+                "provider_reference": provider_reference,
+                "custom_sto_id": custom_sto_id,
+                "response": data,
+                "payload": payload,
+            }
+
+        logger.error("M-Pesa Ratiba create HTTP %s: %s", response.status_code, str(data)[:2000])
+        return {
+            "success": False,
+            "message": f"Ratiba provider returned HTTP {response.status_code}",
+            "response": data,
+            "payload": payload,
+        }
+    except Exception as e:
+        logger.exception("Ratiba standing-order creation failed")
+        return {"success": False, "message": str(e)}
+
+
+def _ratiba_table_available() -> bool:
+    """Return False rather than crashing if the Ratiba migration has not been applied yet."""
+    if not supabase:
+        return False
+    try:
+        supabase.table("member_m_ratiba").select("id").limit(1).execute()
+        return True
+    except Exception:
+        return False
+
 
 # ============================================================
 # SMS HELPERS
@@ -2322,6 +2491,267 @@ async def get_id_card(member_id: str):
         raise HTTPException(status_code=400, detail=f"ID card generation failed: {str(e)}")
 
 
+# ============================================================
+# PUBLIC M-RATIBA ROUTES
+# ============================================================
+
+@public_router.post("/mratiba/create", response_model=MRatibaCreateResponse)
+async def create_mratiba(payload: MRatibaCreateRequest, current_user: str = Depends(get_current_user)):
+    """Authorize one authenticated member for a Safaricom Ratiba standing order."""
+    if not supabase:
+        raise HTTPException(status_code=500, detail="Database not available")
+    if not _ratiba_table_available():
+        raise HTTPException(status_code=503, detail="M-Ratiba database migration has not been applied")
+    if str(current_user) != str(payload.member_id):
+        raise HTTPException(status_code=403, detail="You may only create M-Ratiba for your own membership")
+
+    phone = format_phone_number(payload.phone_number)
+    if not re.match(r"^254[17]\d{8}$", phone):
+        raise HTTPException(status_code=400, detail="Invalid Kenyan M-Pesa phone number")
+
+    member_result = (
+        supabase.table("members")
+        .select("id, member_number, phone, plan, member_status, is_active")
+        .eq("id", payload.member_id)
+        .eq("member_number", payload.membership_number)
+        .limit(1)
+        .execute()
+    )
+    if not member_result.data:
+        raise HTTPException(status_code=404, detail="Member not found or membership number does not match")
+
+    member = member_result.data[0]
+    if str(member.get("member_status") or "").upper() not in {"ACTIVE", "PENDING"}:
+        raise HTTPException(status_code=400, detail="Membership is not eligible for M-Ratiba")
+
+    plan = str(member.get("plan") or "").lower()
+    if not plan:
+        raise HTTPException(status_code=400, detail="Member plan is not configured")
+
+    pricing = get_live_plan_pricing(plan)
+    parent_count = count_active_parents(payload.member_id) if plan == "wazazi" else 0
+    amount = calculate_monthly_amount(plan, pricing, parent_count)
+    if amount <= 0:
+        raise HTTPException(status_code=400, detail="The member's monthly contribution is not configured")
+
+    start_date = _safe_iso_date(payload.start_date, "start_date") or date.today().isoformat()
+    end_date = _safe_iso_date(payload.end_date, "end_date") or MRATIBA_END_DATE
+    frequency = (payload.frequency or MRATIBA_FREQUENCY).strip()
+    if not frequency:
+        raise HTTPException(status_code=400, detail="Ratiba frequency is required")
+    if date.fromisoformat(end_date) < date.fromisoformat(start_date):
+        raise HTTPException(status_code=400, detail="end_date cannot be before start_date")
+
+    existing = (
+        supabase.table("member_m_ratiba")
+        .select("*")
+        .eq("member_id", payload.member_id)
+        .in_("authorization_status", ["pending", "active", "paused"])
+        .limit(1)
+        .execute()
+    )
+    if existing.data:
+        current = existing.data[0]
+        return MRatibaCreateResponse(
+            success=True,
+            message="An M-Ratiba authorization already exists for this member.",
+            mandate_id=current.get("id"),
+            provider_reference=current.get("provider_reference"),
+            custom_sto_id=current.get("custom_sto_id"),
+            member_number=member.get("member_number"),
+            amount=float(current.get("monthly_amount") or amount),
+            frequency=frequency,
+            start_date=current.get("start_date") or start_date,
+            end_date=current.get("end_date") or end_date,
+        )
+
+    custom_sto_id = f"MAS-{member['member_number']}-{secrets.token_hex(4).upper()}"
+    provider_result = await create_mpesa_ratiba_standing_order(
+        member_number=str(member["member_number"]),
+        phone=phone,
+        amount=amount,
+        start_date=start_date,
+        end_date=end_date,
+        frequency=frequency,
+        custom_sto_id=custom_sto_id,
+    )
+    if not provider_result.get("success"):
+        raise HTTPException(status_code=502, detail=provider_result.get("message") or "M-Ratiba authorization failed")
+
+    now_iso = datetime.now(timezone.utc).isoformat()
+    row = {
+        "member_id": payload.member_id,
+        "phone_number": phone,
+        "plan_code": plan,
+        "monthly_amount": amount,
+        "authorization_status": "active",
+        "provider": "mpesa_ratiba",
+        "custom_sto_id": custom_sto_id,
+        "provider_reference": provider_result.get("provider_reference"),
+        "authorized_at": now_iso,
+        "start_date": start_date,
+        "end_date": end_date,
+        "created_at": now_iso,
+        "updated_at": now_iso,
+        "raw_create_response": provider_result.get("response"),
+    }
+    try:
+        saved = supabase.table("member_m_ratiba").insert(row).execute()
+    except Exception as e:
+        logger.exception("Ratiba was created by provider but could not be saved locally")
+        raise HTTPException(
+            status_code=500,
+            detail="Ratiba was accepted by M-Pesa but the local authorization record could not be saved. Contact support before retrying.",
+        ) from e
+
+    mandate = saved.data[0] if saved.data else {}
+    return MRatibaCreateResponse(
+        success=True,
+        message="M-Ratiba standing order created successfully.",
+        mandate_id=mandate.get("id"),
+        provider_reference=provider_result.get("provider_reference"),
+        custom_sto_id=custom_sto_id,
+        member_number=member.get("member_number"),
+        amount=amount,
+        frequency=frequency,
+        start_date=start_date,
+        end_date=end_date,
+    )
+
+
+@public_router.post("/mratiba/callback")
+async def mratiba_callback(request: Request):
+    """Receive and reconcile a Ratiba callback without assuming one provider payload shape."""
+    if not supabase:
+        return _CALLBACK_ACK
+    if not _ratiba_table_available():
+        logger.error("M-Ratiba callback received but member_m_ratiba table is unavailable")
+        return _CALLBACK_ACK
+
+    client_ip = request.client.host if request.client else None
+    if not is_ip_allowed(client_ip):
+        logger.warning("Rejected Ratiba callback from disallowed IP: %s", client_ip)
+        raise HTTPException(status_code=403, detail="Forbidden")
+
+    try:
+        data = await request.json()
+    except Exception:
+        return _CALLBACK_ACK
+
+    logger.info("M-Pesa Ratiba callback received")
+    values = _extract_mratiba_callback_values(data)
+    account_reference = str(values.get("accountreference") or "").strip()
+    custom_sto_id = str(values.get("customstoid") or "").strip()
+    provider_reference = str(
+        values.get("standingorderid") or values.get("standingorderreference") or
+        values.get("transactionid") or values.get("transactionreference") or ""
+    ).strip() or None
+    receipt = str(values.get("mpesareceiptnumber") or values.get("receiptnumber") or values.get("receipt") or "").strip() or None
+    status_value = str(values.get("status") or values.get("resultcode") or "").strip().lower()
+
+    mandate = None
+    if custom_sto_id:
+        r = supabase.table("member_m_ratiba").select("*").eq("custom_sto_id", custom_sto_id).limit(1).execute()
+        mandate = r.data[0] if r.data else None
+    if not mandate and account_reference:
+        member_result = supabase.table("members").select("id, member_number").eq("member_number", account_reference).limit(1).execute()
+        if member_result.data:
+            r = supabase.table("member_m_ratiba").select("*").eq("member_id", member_result.data[0]["id"]).in_("authorization_status", ["active", "paused"]).limit(1).execute()
+            mandate = r.data[0] if r.data else None
+
+    if not mandate:
+        logger.warning("Ratiba callback could not be matched to a mandate")
+        return _CALLBACK_ACK
+
+    mandate_id = mandate["id"]
+    member_id = mandate["member_id"]
+    amount_value = values.get("amount")
+    try:
+        amount = float(amount_value) if amount_value not in (None, "") else float(mandate.get("monthly_amount") or 0)
+    except (TypeError, ValueError):
+        amount = float(mandate.get("monthly_amount") or 0)
+
+    now_iso = datetime.now(timezone.utc).isoformat()
+    supabase.table("member_m_ratiba").update({
+        "last_transaction_id": provider_reference,
+        "last_mpesa_receipt": receipt,
+        "raw_last_callback": data,
+        "last_collection_date": date.today().isoformat() if receipt else mandate.get("last_collection_date"),
+        "updated_at": now_iso,
+    }).eq("id", mandate_id).execute()
+
+    # Do not create a payment from an obviously non-success callback.
+    failed_tokens = {"failed", "failure", "cancelled", "canceled", "rejected", "declined", "1", "1032", "2001"}
+    if status_value in failed_tokens:
+        supabase.table("member_m_ratiba").update({
+            "failure_count": int(mandate.get("failure_count") or 0) + 1,
+            "last_failure_reason": str(values.get("resultdesc") or values.get("resultcode") or status_value),
+            "updated_at": now_iso,
+        }).eq("id", mandate_id).execute()
+        return _CALLBACK_ACK
+
+    if not receipt and not provider_reference:
+        # No evidence of an actual collection yet; retain the callback for audit only.
+        return _CALLBACK_ACK
+
+    # Idempotency: the same provider transaction must never become two payments.
+    if provider_reference:
+        duplicate = supabase.table("payments").select("id").eq("transaction_reference", provider_reference).limit(1).execute()
+        if duplicate.data:
+            return _CALLBACK_ACK
+    if receipt:
+        duplicate = supabase.table("payments").select("id").eq("mpesa_receipt", receipt).limit(1).execute()
+        if duplicate.data:
+            return _CALLBACK_ACK
+
+    payment_row = {
+        "member_id": member_id,
+        "amount": amount,
+        "payment_type": "MONTHLY",
+        "payment_method": "mpesa",
+        "mpesa_receipt": receipt,
+        "mpesa_receipt_number": receipt,
+        "status": "completed",
+        "payment_status": "SUCCESSFUL",
+        "payment_date": date.today().isoformat(),
+        "phone": mandate.get("phone_number"),
+        "phone_number": mandate.get("phone_number"),
+        "transaction_reference": provider_reference or custom_sto_id,
+        "confirmed_at": now_iso,
+        "verified_at": now_iso,
+        "counts_toward_membership": True,
+        "raw_callback": data,
+        "created_at": now_iso,
+        "updated_at": now_iso,
+    }
+    try:
+        inserted = supabase.table("payments").insert(payment_row).execute()
+    except Exception as e:
+        logger.exception("Could not record Ratiba payment")
+        return _CALLBACK_ACK
+
+    supabase.table("member_m_ratiba").update({
+        "last_collection_date": date.today().isoformat(),
+        "last_transaction_id": provider_reference,
+        "last_mpesa_receipt": receipt,
+        "failure_count": 0,
+        "last_failure_reason": None,
+        "updated_at": now_iso,
+    }).eq("id", mandate_id).execute()
+
+    payment = inserted.data[0] if inserted.data else payment_row
+    try:
+        calculate_member_payment_validation(member_id)
+    except Exception as e:
+        logger.exception("Ratiba payment validation failed for %s: %s", member_id, e)
+    try:
+        await activate_registration(payment)
+    except Exception as e:
+        logger.exception("Ratiba payment activation/notification failed: %s", e)
+
+    return _CALLBACK_ACK
+
+
 app.include_router(public_router)
 
 # Extra callback routes so whichever URL Safaricom is configured with works.
@@ -2493,6 +2923,56 @@ async def admin_payment_status(
 
 
 app.include_router(admin_payments_router)
+
+# ============================================================
+# ADMIN M-RATIBA ROUTES
+# ============================================================
+
+admin_mratiba_router = APIRouter(prefix="/api/admin/mratiba", tags=["Admin M-Ratiba"])
+
+
+@admin_mratiba_router.get("")
+async def admin_mratiba_list(
+    status_filter: Optional[str] = None,
+    limit: int = 100,
+    collector: dict = Depends(get_payment_collector),
+):
+    if not supabase:
+        raise HTTPException(status_code=500, detail="Database not available")
+    if not _ratiba_table_available():
+        raise HTTPException(status_code=503, detail="M-Ratiba database migration has not been applied")
+
+    query = supabase.table("member_m_ratiba").select("*").order("created_at", desc=True).limit(min(max(limit, 1), 500))
+    if status_filter:
+        query = query.eq("authorization_status", status_filter.strip().lower())
+    result = query.execute()
+    return {"success": True, "count": len(result.data or []), "data": result.data or []}
+
+
+@admin_mratiba_router.get("/{mandate_id}")
+async def admin_mratiba_detail(
+    mandate_id: str,
+    collector: dict = Depends(get_payment_collector),
+):
+    if not supabase:
+        raise HTTPException(status_code=500, detail="Database not available")
+    if not _ratiba_table_available():
+        raise HTTPException(status_code=503, detail="M-Ratiba database migration has not been applied")
+    result = supabase.table("member_m_ratiba").select("*").eq("id", mandate_id).limit(1).execute()
+    if not result.data:
+        raise HTTPException(status_code=404, detail="M-Ratiba authorization not found")
+    collections = (
+        supabase.table("m_ratiba_collections")
+        .select("*")
+        .eq("mandate_id", mandate_id)
+        .order("due_date", desc=True)
+        .limit(100)
+        .execute()
+    )
+    return {"success": True, "mandate": result.data[0], "collections": collections.data or []}
+
+
+app.include_router(admin_mratiba_router)
 
 # ============================================================
 # AUTH ROUTES
