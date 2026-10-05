@@ -124,6 +124,44 @@ MPESA_AUTH_URL = f"{MPESA_BASE_URL}/oauth/v1/generate?grant_type=client_credenti
 MPESA_STK_PUSH_URL = f"{MPESA_BASE_URL}/mpesa/stkpush/v1/processrequest"
 MPESA_STK_QUERY_URL = f"{MPESA_BASE_URL}/mpesa/stkpushquery/v1/query"
 
+# ============================================================
+# M-PESA RATIBA / STANDING ORDER
+# ============================================================
+
+MRATIBA_SHORTCODE = os.getenv(
+    "MRATIBA_SHORTCODE",
+    "348127",
+).strip()
+
+MRATIBA_FREQUENCY = os.getenv(
+    "MRATIBA_FREQUENCY",
+    "MONTHLY",
+).strip()
+
+MRATIBA_TRANSACTION_TYPE = os.getenv(
+    "MRATIBA_TRANSACTION_TYPE",
+    "Standing Order Customer Pay Bill",
+).strip()
+
+MRATIBA_RECEIVER_PARTY_IDENTIFIER_TYPE = os.getenv(
+    "MRATIBA_RECEIVER_PARTY_IDENTIFIER_TYPE",
+    "4",
+).strip()
+
+MRATIBA_CALLBACK_URL = (
+    os.getenv("MRATIBA_CALLBACK_URL", "").strip().rstrip("/")
+    or f"{BASE_URL}/api/public/mratiba/callback"
+)
+
+MRATIBA_END_DATE = os.getenv(
+    "MRATIBA_END_DATE",
+    "2027-08-31",
+).strip()
+
+MPESA_RATIBA_CREATE_URL = (
+    f"{MPESA_BASE_URL}/standingorder/v1/createStandingOrderExternal"
+)
+
 # Fail fast rather than taking live payments against sandbox defaults.
 if MPESA_ENVIRONMENT == "production":
     _mpesa_errors = []
