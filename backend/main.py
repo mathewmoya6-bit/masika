@@ -1,6 +1,4 @@
-@payments_router.get("/member/{member_id}", response_model=List[PaymentResponse])
-async def get_member_payments(member_id: str, limit: int = 10, offset: int = 0):
-    if not supabase:
+       if not supabase:
         raise HTTPException(status_code=500, detail="Database not available")
     member = supabase.table("members").select("member_number").eq("id", member_id).execute()
     if not member.data:
