@@ -1059,8 +1059,9 @@
                 </div>
                 <div class="stat-card success">
                     <span class="stat-icon">✅</span>
-                    <div class="stat-value" id="activeAgents">0</div>
-                    <div class="stat-label">Active Agents</div>
+                    <div class="stat-value" id="activeAgents">N/A</div>
+                    <div class="stat-label">Agent Status Tracking</div>
+                    <div class="stat-sub">Status field not available in agent codes table</div>
                 </div>
                 <div class="stat-card blue">
                     <span class="stat-icon">📅</span>
@@ -1154,16 +1155,13 @@
                             <table>
                                 <thead>
                                     <tr>
-                                        <th>Name</th>
-                                        <th>Phone</th>
-                                        <th>Date</th>
-                                        <th>Status</th>
-                                        <th>Actions</th>
+                                        <th>Agent Name</th>
+                                        <th>Agent Code</th>
                                     </tr>
                                 </thead>
                                 <tbody id="pendingAgentsBody">
                                     <tr>
-                                        <td colspan="5" class="empty-state">Loading…</td>
+                                        <td colspan="2" class="empty-state">Loading...</td>
                                     </tr>
                                 </tbody>
                             </table>
@@ -1576,18 +1574,11 @@
                 console.log('✅ Total Agents:', totalAgents);
 
                 // ============================================
-                // 3. ACTIVE AGENTS - FROM public_agent_codes
+                // 3. AGENT STATUS
+                // public_agent_codes has no is_active column
                 // ============================================
-                const { count: activeAgentsCount, error: activeError } = await supabaseClient
-                    .from('public_agent_codes')
-                    .select('*', { count: 'exact', head: true })
-                    .eq('is_active', true);
 
-                if (activeError) {
-                    console.error('❌ Active agents error:', activeError);
-                }
-                const activeAgents = activeAgentsCount || 0;
-                console.log('✅ Active Agents:', activeAgents);
+                console.log('ℹ️ Agent status tracking is not available.');
 
                 // ============================================
                 // 4. PAYMENTS
@@ -1605,11 +1596,19 @@
                 // ============================================
                 // 5. UPDATE STATS
                 // ============================================
-                document.getElementById('totalMembers').textContent = totalMembers.toLocaleString();
-                document.getElementById('totalAgents').textContent = totalAgents.toLocaleString();
-                document.getElementById('activeAgents').textContent = activeAgents.toLocaleString();
-                document.getElementById('memberCountBadge').textContent = totalMembers;
-                document.getElementById('pendingAgentsBadge').textContent = (totalAgents - activeAgents) || 0;
+
+                document.getElementById('totalMembers').textContent =
+                    totalMembers.toLocaleString();
+
+                document.getElementById('totalAgents').textContent =
+                    totalAgents.toLocaleString();
+
+                document.getElementById('activeAgents').textContent = 'N/A';
+
+                document.getElementById('memberCountBadge').textContent =
+                    totalMembers;
+
+                document.getElementById('pendingAgentsBadge').textContent = '—';
 
                 // ============================================
                 // 6. REVENUE CALCULATIONS
@@ -1738,59 +1737,86 @@
 
         // ============================================================
         // LOAD RECENT AGENTS - FROM public_agent_codes
+        // Actual columns: code, agent_name
         // ============================================================
+
         async function loadRecentAgents() {
+
             console.log('📋 Loading recent agents from public_agent_codes...');
 
+            const tbody = document.getElementById('pendingAgentsBody');
+
+            if (!tbody) {
+                console.warn('Recent agents table body not found.');
+                return;
+            }
+
             try {
+
                 const { data, error } = await supabaseClient
                     .from('public_agent_codes')
-                    .select('*')
-                    .order('created_at', { ascending: false })
-                    .limit(5);
+                    .select('code, agent_name')
+                    .order('agent_name', { ascending: true })
+                    .limit(10);
 
                 if (error) {
+
                     console.error('❌ Recent agents error:', error);
-                    return;
-                }
 
-                console.log('📋 Recent agents:', data?.length || 0);
-
-                const tbody = document.getElementById('pendingAgentsBody');
-
-                if (!data || data.length === 0) {
                     tbody.innerHTML = `
                         <tr>
-                            <td colspan="5" class="empty-state">
-                                <i class="fas fa-user-tie"></i>
-                                No agents registered yet
+                            <td colspan="2" class="error-state">
+                                Unable to load agent codes.
                             </td>
                         </tr>
                     `;
+
                     return;
                 }
 
-                tbody.innerHTML = data.map(a => {
-                    const agentStatus = a.is_active ? 'Active' : 'Inactive';
-                    const badgeClass = a.is_active ? 'active' : 'inactive';
+                if (!data || data.length === 0) {
 
-                    return `
+                    tbody.innerHTML = `
                         <tr>
-                            <td><strong>${escapeHtml(a.full_name || a.agent_code || 'N/A')}</strong></td>
-                            <td>${escapeHtml(a.phone || 'N/A')}</td>
-                            <td>${a.created_at ? new Date(a.created_at).toLocaleDateString('en-KE') : 'N/A'}</td>
-                            <td><span class="status-badge ${badgeClass}">${agentStatus}</span></td>
-                            <td>
-                                <button onclick="deleteAgent('${a.id}')" class="btn btn-danger btn-sm" title="Delete Agent">
-                                    <i class="fas fa-trash"></i>
-                                </button>
+                            <td colspan="2" class="empty-state">
+                                <i class="fas fa-user-tie"></i>
+                                No agent codes available
                             </td>
                         </tr>
                     `;
-                }).join('');
+
+                    return;
+                }
+
+                tbody.innerHTML = data.map(agent => `
+                    <tr>
+                        <td>
+                            <strong>
+                                ${escapeHtml(agent.agent_name || 'Unnamed Agent')}
+                            </strong>
+                        </td>
+
+                        <td>
+                            <code>
+                                ${escapeHtml(agent.code || '—')}
+                            </code>
+                        </td>
+                    </tr>
+                `).join('');
+
+                console.log('✅ Recent agent codes loaded:', data.length);
 
             } catch (error) {
+
                 console.error('❌ Load recent agents error:', error);
+
+                tbody.innerHTML = `
+                    <tr>
+                        <td colspan="2" class="error-state">
+                            An unexpected error occurred while loading agent codes.
+                        </td>
+                    </tr>
+                `;
             }
         }
 
@@ -2133,49 +2159,6 @@
         };
 
         // ============================================================
-        // DELETE SALES AGENT - FROM public_agent_codes
-        // ============================================================
-        window.deleteAgent = async function (agentId) {
-            if (!agentId) {
-                showToast('error', 'Invalid agent ID.');
-                return;
-            }
-
-            const confirmed = confirm(
-                '⚠️ DELETE SALES AGENT\n\n' +
-                'This will permanently delete this sales agent.\n\n' +
-                'Are you sure you want to continue?'
-            );
-
-            if (!confirmed) {
-                return;
-            }
-
-            try {
-                showToast('info', 'Deleting sales agent...');
-
-                // Delete directly from public_agent_codes table
-                const { error } = await supabaseClient
-                    .from('public_agent_codes')
-                    .delete()
-                    .eq('id', agentId);
-
-                if (error) {
-                    console.error('❌ Delete agent error:', error);
-                    throw error;
-                }
-
-                console.log('✅ Agent deleted successfully');
-                showToast('success', 'Sales agent deleted successfully.');
-                await loadDashboardData();
-
-            } catch (error) {
-                console.error('❌ Delete agent error:', error);
-                showToast('error', 'Failed to delete sales agent: ' + (error?.message || 'Unknown error'));
-            }
-        };
-
-        // ============================================================
         // ASSIGN PAYMENT
         // ============================================================
         window.assignPayment = async function(paymentId) {
@@ -2431,7 +2414,6 @@
         window.showToast = showToast;
         window.assignPayment = assignPayment;
         window.deleteMember = deleteMember;
-        window.deleteAgent = deleteAgent;
         window.loadDashboardData = loadDashboardData;
         window.formatKES = formatKES;
         window.formatDate = formatDate;
