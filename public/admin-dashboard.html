@@ -1442,6 +1442,27 @@
                 .replace(/'/g, '&#039;');
         }
 
+        // Supabase returns at most 1000 rows per request, so page through the table.
+        // Only the columns the stats need (avoids pulling raw_callback JSON).
+        async function fetchAllPayments() {
+            const pageSize = 1000;
+            const rows = [];
+            let from = 0;
+            while (true) {
+                const { data, error } = await supabaseClient
+                    .from('payments')
+                    .select('id, amount, payment_status, status, member_id, created_at')
+                    .order('created_at', { ascending: false })
+                    .order('id', { ascending: true })
+                    .range(from, from + pageSize - 1);
+                if (error) return { data: rows, error };
+                rows.push(...(data || []));
+                if (!data || data.length < pageSize) break;
+                from += pageSize;
+            }
+            return { data: rows, error: null };
+        }
+
         // Payment status is authoritative from payment_status.
         // Legacy status is used only as a fallback for older rows.
         function getPaymentState(payment) {
@@ -1583,9 +1604,7 @@
                 // ============================================
                 // 4. PAYMENTS
                 // ============================================
-                const { data: allPayments, error: paymentsError } = await supabaseClient
-                    .from('payments')
-                    .select('*');
+                const { data: allPayments, error: paymentsError } = await fetchAllPayments();
 
                 if (paymentsError) {
                     console.error('❌ Payments error:', paymentsError);
