@@ -3295,7 +3295,336 @@ async def mpesa_c2b_confirmation(request: Request):
 
 
 # ============================================================
+# SAFARICOM WEBHOOK  /api/webhooks/mpesa  (Paybill C2B + STK)
+# ============================================================
+
+webhook_router = APIRouter(prefix="/api/webhooks", tags=["Webhooks"])
+
+
+async def _record_paybill_payment(data: dict) -> dict:
+    """Save one Paybill C2B confirmation. Safe to call twice with the same TransID."""
+    receipt = str(data.get("TransID") or "").strip()
+    raw_account = str(data.get("BillRefNumber") or "").strip()
+    account = _normalise_member_account(raw_account)
+    try:
+        amount = float(data.get("TransAmount") or 0)
+    except (TypeError, ValueError):
+        amount = 0.0
+    phone = str(data.get("MSISDN") or "").strip()
+    trans_time = str(data.get("TransTime") or "").strip()
+
+    if not receipt or amount <= 0:
+        logger.error("Paybill webhook invalid: receipt=%r amount=%r", receipt, amount)
+        return {"ResultCode": 1, "ResultDesc": "Invalid transaction data"}
+
+    # Idempotency: the STK flow already saves its own receipt, and Safaricom
+    # resends confirmations, so a known receipt is acknowledged and skipped.
+    dup = (
+        supabase.table("payments").select("id")
+        .eq("mpesa_receipt_number", receipt).limit(1).execute()
+    )
+    if dup.data:
+        logger.info("Paybill webhook: receipt %s already recorded (payment %s) - skipped",
+                    receipt, dup.data[0].get("id"))
+        return {"ResultCode": 0, "ResultDesc": "Already processed"}
+
+    member = None
+    if account:
+        res = (
+            supabase.table("members").select("id, member_number, phone")
+            .eq("member_number", account).limit(1).execute()
+        )
+        member = res.data[0] if res.data else None
+
+    now = datetime.now(timezone.utc).isoformat()
+    payment_date = datetime.now(timezone.utc).date().isoformat()
+    if trans_time:
+        try:
+            payment_date = datetime.strptime(trans_time, "%Y%m%d%H%M%S").date().isoformat()
+        except ValueError:
+            logger.warning("Paybill webhook: unrecognised TransTime %r", trans_time)
+
+    normalised_phone = format_phone_number(phone) if phone else ""
+
+    row = {
+        "member_id": member["id"] if member else None,   # NULL = shows as "Unassigned" on dashboard
+        "account_number": raw_account or None,
+        "account_reference": raw_account or None,
+        "amount": amount,
+        "payment_type": "MONTHLY",
+        "payment_method": "mpesa",
+        "status": "completed",
+        "payment_status": "SUCCESSFUL",
+        "mpesa_receipt": receipt,
+        "mpesa_receipt_number": receipt,
+        "transaction_reference": receipt,
+        "payment_date": payment_date,
+        "phone": normalised_phone or phone,
+        "phone_number": normalised_phone or phone,
+        "confirmed_at": now,
+        "verified_at": now,
+        "counts_toward_membership": True,
+        "raw_callback": data,
+        "created_at": now,
+        "updated_at": now,
+    }
+    inserted = supabase.table("payments").insert(row).execute()
+    if not inserted.data:
+        raise RuntimeError("Paybill payment insert returned no record")
+
+    logger.info("Paybill webhook: SAVED receipt=%s amount=%s account=%s -> %s",
+                receipt, amount, raw_account,
+                member["member_number"] if member else "UNASSIGNED (no matching member)")
+
+    if member:
+        try:
+            calculate_member_payment_validation(member["id"])
+        except Exception:
+            logger.exception("Paybill validation failed for member %s", member["id"])
+        sms_phone = normalised_phone or member.get("phone")
+        if sms_phone:
+            try:
+                await send_payment_confirmation_sms(sms_phone, str(amount), str(member["member_number"]))
+            except Exception:
+                logger.exception("Paybill confirmation SMS failed for member %s", member["id"])
+
+    return {"ResultCode": 0, "ResultDesc": "Accepted"}
+
+
+@webhook_router.post("/mpesa")
+async def mpesa_webhook(request: Request):
+    """Single entry point for Safaricom callbacks registered at /api/webhooks/mpesa."""
+    client_ip = request.client.host if request.client else None
+    if not is_ip_allowed(client_ip):
+        logger.warning("Rejected M-Pesa webhook from disallowed IP: %s", client_ip)
+        raise HTTPException(status_code=403, detail="Forbidden")
+
+    try:
+        data = await request.json()
+    except Exception:
+        logger.warning("M-Pesa webhook: body was not valid JSON (ip=%s)", client_ip)
+        return {"ResultCode": 0, "ResultDesc": "Accepted"}
+
+    if not isinstance(data, dict):
+        logger.warning("M-Pesa webhook: unexpected payload type %s", type(data).__name__)
+        return {"ResultCode": 0, "ResultDesc": "Accepted"}
+
+    # One log line for EVERY call - this is what was missing before.
+    logger.info("M-Pesa webhook received from %s: keys=%s", client_ip, list(data.keys())[:8])
+
+    try:
+        # Paybill C2B confirmation (customer paid straight from the M-Pesa menu)
+        if "TransID" in data:
+            if not supabase:
+                return {"ResultCode": 1, "ResultDesc": "Database unavailable"}
+            return await _record_paybill_payment(data)
+
+        # STK push result: reuse the existing, tested handler
+        if (data.get("Body") or {}).get("stkCallback"):
+            return await payment_callback(request)
+
+        logger.info("M-Pesa webhook: unrecognised payload, acknowledged only: %s", str(data)[:500])
+        return {"ResultCode": 0, "ResultDesc": "Accepted"}
+
+    except HTTPException:
+        raise
+    except Exception:
+        logger.exception("M-Pesa webhook processing failed")
+        # Non-zero so Safaricom may retry a payment that failed to save.
+        return {"ResultCode": 1, "ResultDesc": "Processing failed"}
+
+
+
+# ============================================================
+# ADMIN PAYMENT COLLECTION (staff-only STK push)
+# Used by admin-collectpayments.html
+#   POST /api/admin/payments/collect
+#   GET  /api/admin/payments/status/{checkout_request_id}
+# ============================================================
+
+admin_router = APIRouter(prefix="/api/admin", tags=["Admin"])
+
+
+async def get_current_collector(credentials: HTTPAuthorizationCredentials = Depends(security)) -> dict:
+    """Verify the Supabase session token, then require an active staff row whose role may collect payments."""
+    if not httpx or not supabase:
+        raise HTTPException(status_code=500, detail="Service not available")
+
+    token = credentials.credentials
+    try:
+        async with httpx.AsyncClient(timeout=15) as client:
+            resp = await client.get(
+                f"{SUPABASE_URL}/auth/v1/user",
+                headers={"Authorization": f"Bearer {token}", "apikey": SUPABASE_KEY},
+            )
+    except Exception as e:
+        logger.error(f"Admin auth lookup failed: {e}")
+        raise HTTPException(status_code=503, detail="Could not verify login. Try again.")
+
+    if resp.status_code != 200:
+        raise HTTPException(status_code=401, detail="Invalid or expired session")
+
+    auth_user_id = (resp.json() or {}).get("id")
+    if not auth_user_id:
+        raise HTTPException(status_code=401, detail="Invalid session")
+
+    staff_res = (
+        supabase.table("staff").select("id, full_name, status, role_id")
+        .eq("auth_user_id", auth_user_id).limit(1).execute()
+    )
+    if not staff_res.data:
+        raise HTTPException(status_code=403, detail="Not a staff account")
+    staff = staff_res.data[0]
+
+    if str(staff.get("status") or "").lower() != "active":
+        raise HTTPException(status_code=403, detail="Staff account is not active")
+
+    role_code = ""
+    if staff.get("role_id"):
+        role_res = supabase.table("roles").select("role_code").eq("id", staff["role_id"]).limit(1).execute()
+        role_code = str((role_res.data[0] if role_res.data else {}).get("role_code") or "").upper()
+
+    if PAYMENT_COLLECTOR_ROLES and role_code not in PAYMENT_COLLECTOR_ROLES:
+        raise HTTPException(status_code=403, detail="Your role may not collect payments")
+
+    staff["role_code"] = role_code
+    return staff
+
+
+@admin_router.post("/payments/collect")
+async def admin_collect_payment(
+    payload: AdminCollectPaymentRequest,
+    staff: dict = Depends(get_current_collector),
+):
+    phone = format_phone_number(payload.phone_number)
+    if not re.match(r"^254[17]\d{8}$", phone):
+        raise HTTPException(status_code=400, detail="Invalid Kenyan M-Pesa phone number")
+
+    if payload.amount < 1 or abs(payload.amount - round(payload.amount)) > 0.001:
+        raise HTTPException(status_code=400, detail="Amount must be a whole number of shillings (at least 1)")
+    amount = int(round(payload.amount))
+    if amount > ADMIN_MAX_COLLECT_AMOUNT:
+        raise HTTPException(status_code=400, detail=f"Amount exceeds the limit of KES {int(ADMIN_MAX_COLLECT_AMOUNT):,}")
+
+    if not payload.member_id and not payload.membership_number:
+        raise HTTPException(status_code=400, detail="member_id or membership_number is required")
+
+    query = supabase.table("members").select("id, member_number, first_name, last_name")
+    query = query.eq("id", payload.member_id) if payload.member_id else query.eq("member_number", payload.membership_number)
+    member_res = query.limit(1).execute()
+    if not member_res.data:
+        raise HTTPException(status_code=404, detail="Member not found")
+    member = member_res.data[0]
+
+    if payload.membership_number and member.get("member_number") != payload.membership_number:
+        raise HTTPException(status_code=400, detail="Membership number does not match the selected member")
+
+    if not (MPESA_CONSUMER_KEY and MPESA_CONSUMER_SECRET and MPESA_PASSKEY and MPESA_SHORTCODE):
+        raise HTTPException(status_code=503, detail="M-Pesa server configuration is incomplete")
+
+    ptype = payload.payment_type.value
+    transaction_ref = f"TXN-{datetime.now().strftime('%Y%m%d')}-{secrets.token_hex(4).upper()}"
+    now_iso = datetime.now(timezone.utc).isoformat()
+
+    supabase.table("payments").insert({
+        "transaction_reference": transaction_ref,
+        "member_id": member["id"],
+        "phone": phone,
+        "amount": amount,
+        "payment_type": PAYMENT_TYPE_DB_LABELS.get(ptype, ptype.upper()),
+        "payment_method": "mpesa",
+        "status": "pending",
+        "payment_date": datetime.now(timezone.utc).date().isoformat(),
+        "created_at": now_iso,
+        "updated_at": now_iso,
+    }).execute()
+
+    stk = await initiate_mpesa_stk_push(phone, amount, transaction_ref, "Masika Payment")
+    checkout_id = stk.get("checkout_request_id")
+    if not (stk.get("success") and checkout_id):
+        reason = stk.get("message") or "M-Pesa did not accept the request"
+        _mark_payment_failed(transaction_ref, reason)
+        raise HTTPException(status_code=502, detail=reason)
+
+    supabase.table("payments").update({
+        "checkout_request_id": checkout_id,
+        "merchant_request_id": stk.get("merchant_request_id"),
+        "updated_at": datetime.now(timezone.utc).isoformat(),
+    }).eq("transaction_reference", transaction_ref).execute()
+
+    logger.info(
+        "Admin STK push: staff=%s (%s) member=%s amount=%s type=%s checkout=%s",
+        staff.get("id"), staff.get("full_name"), member.get("member_number"), amount, ptype, checkout_id,
+    )
+
+    return {
+        "success": True,
+        "message": "STK push sent. Waiting for the member to enter their M-Pesa PIN.",
+        "checkout_request_id": checkout_id,
+        "merchant_request_id": stk.get("merchant_request_id"),
+        "transaction_id": transaction_ref,
+        "member_number": member.get("member_number"),
+        "amount": amount,
+        "phone_number": phone,
+        "payment_type": ptype,
+    }
+
+
+@admin_router.get("/payments/status/{checkout_request_id}")
+async def admin_payment_status(checkout_request_id: str, staff: dict = Depends(get_current_collector)):
+    res = supabase.table("payments").select("*").eq("checkout_request_id", checkout_request_id).limit(1).execute()
+    if not res.data:
+        raise HTTPException(status_code=404, detail="Payment not found")
+    payment = res.data[0]
+
+    state = str(payment.get("status") or "").lower()
+    if state == "pending":
+        # Callback may have been lost; ask Safaricom directly.
+        try:
+            q = await query_mpesa_transaction_status(checkout_request_id)
+            now_iso = datetime.now(timezone.utc).isoformat()
+            if q.get("success"):
+                receipt = q.get("receipt")
+                upd = {
+                    "status": "completed", "payment_status": "SUCCESSFUL",
+                    "mpesa_receipt": receipt, "mpesa_receipt_number": receipt,
+                    "confirmed_at": now_iso, "verified_at": now_iso,
+                    "counts_toward_membership": True, "updated_at": now_iso,
+                }
+                supabase.table("payments").update(upd).eq("id", payment["id"]).execute()
+                payment.update(upd)
+                if payment.get("member_id"):
+                    try:
+                        calculate_member_payment_validation(payment["member_id"])
+                    except Exception:
+                        logger.exception("Post-status validation failed")
+            elif q.get("failed"):
+                upd = {
+                    "status": "failed", "payment_status": "FAILED",
+                    "failure_reason": q.get("reason"), "updated_at": now_iso,
+                }
+                supabase.table("payments").update(upd).eq("id", payment["id"]).execute()
+                payment.update(upd)
+        except Exception:
+            logger.exception("Admin status query failed")
+
+    return {
+        "status": payment.get("status"),
+        "payment_status": payment.get("payment_status"),
+        "amount": payment.get("amount"),
+        "payment_type": payment.get("payment_type"),
+        "mpesa_receipt": payment.get("mpesa_receipt") or payment.get("mpesa_receipt_number"),
+        "mpesa_receipt_number": payment.get("mpesa_receipt_number") or payment.get("mpesa_receipt"),
+        "transaction_id": payment.get("transaction_reference"),
+        "checkout_request_id": checkout_request_id,
+        "failure_reason": payment.get("failure_reason"),
+    }
+
+
+# ============================================================
 # MOUNT ROUTERS
 # ============================================================
 
 app.include_router(public_router)
+app.include_router(webhook_router)
+app.include_router(admin_router)
