@@ -3118,6 +3118,13 @@ async def mratiba_callback(request: Request):
     return _CALLBACK_ACK
 
 
+def _normalise_member_account(raw) -> str:
+    """'msk 123', 'MSK-000123', 'MSK123' -> 'MSK000123'. Anything else is returned uppercased."""
+    s = re.sub(r"[\s\-_]", "", str(raw or "")).upper()
+    m = re.fullmatch(r"MSK0*(\d{1,6})", s)
+    return f"MSK{int(m.group(1)):06d}" if m else s
+
+
 # ============================================================
 # PUBLIC PAYBILL (C2B) CONFIRMATION CALLBACK
 # ============================================================
@@ -3131,7 +3138,8 @@ async def mratiba_callback(request: Request):
 # delivery from Safaricom is acknowledged without double-counting.
 # ============================================================
 
-@public_router.post("/mpesa/c2b/confirmation")
+@public_router.post("/c2b/confirmation")        # register THIS URL with Safaricom (no "mpesa" in it)
+@public_router.post("/mpesa/c2b/confirmation")  # legacy path kept
 async def mpesa_c2b_confirmation(request: Request):
     """Safaricom Paybill C2B confirmation callback."""
     if not supabase:
@@ -3149,7 +3157,8 @@ async def mpesa_c2b_confirmation(request: Request):
         logger.info("Paybill C2B callback received: %s", data)
 
         receipt = str(data.get("TransID") or "").strip()
-        account = str(data.get("BillRefNumber") or "").strip().upper()
+        raw_account = str(data.get("BillRefNumber") or "").strip()
+        account = _normalise_member_account(raw_account)
         try:
             amount = float(data.get("TransAmount") or 0)
         except (TypeError, ValueError):
@@ -3157,9 +3166,9 @@ async def mpesa_c2b_confirmation(request: Request):
         phone = str(data.get("MSISDN") or "").strip()
         trans_time = str(data.get("TransTime") or "").strip()
 
-        if not receipt or not account or amount <= 0:
+        if not receipt or amount <= 0:
             logger.error(
-                "Paybill callback missing receipt, account or amount: "
+                "Paybill callback missing receipt or amount: "
                 "receipt=%s account=%s amount=%s",
                 receipt, account, amount,
             )
@@ -3193,16 +3202,14 @@ async def mpesa_c2b_confirmation(request: Request):
             .execute()
         )
 
-        if not member_result.data:
+        member = member_result.data[0] if member_result.data else None
+        now = datetime.now(timezone.utc).isoformat()
+        if not member:
             logger.error(
-                "Unmatched Paybill transaction: receipt=%s account=%s amount=%s",
-                receipt, account, amount,
+                "Unmatched Paybill transaction: receipt=%s account=%s amount=%s - "
+                "saving as UNASSIGNED so it shows on the dashboard",
+                receipt, raw_account, amount,
             )
-            # Acknowledge so Safaricom does not retry; reconciliation is manual.
-            return {
-                "ResultCode": 0,
-                "ResultDesc": "Received; member requires reconciliation",
-            }
 
         member = member_result.data[0]
         now = datetime.now(timezone.utc).isoformat()
@@ -3225,7 +3232,9 @@ async def mpesa_c2b_confirmation(request: Request):
         # count toward membership. The `payments` DB trigger recomputes
         # months_paid / months_missing / amount_paid / amount_expected.
         payment = {
-            "member_id": member["id"],
+            "member_id": member["id"] if member else None,
+            "account_number": raw_account or None,
+            "account_reference": raw_account or None,
             "amount": amount,
             "payment_type": "MONTHLY",
             "payment_method": "mpesa",
@@ -3250,31 +3259,32 @@ async def mpesa_c2b_confirmation(request: Request):
         if not inserted.data:
             raise RuntimeError("Paybill payment insert returned no record")
 
-        # ---- Re-derive the member's status from the trigger-owned totals. ----
-        try:
-            calculate_member_payment_validation(member["id"])
-        except Exception:
-            logger.exception(
-                "Paybill payment validation failed for member %s",
-                member["id"],
-            )
-
-        # ---- Best-effort confirmation SMS to the payer. ----
-        sms_phone = normalised_phone or member.get("phone")
-        if sms_phone:
+        if member:
+            # ---- Re-derive the member's status from the trigger-owned totals. ----
             try:
-                await send_payment_confirmation_sms(
-                    sms_phone, str(amount), str(member.get("member_number"))
-                )
+                calculate_member_payment_validation(member["id"])
             except Exception:
                 logger.exception(
-                    "Paybill confirmation SMS failed for member %s",
+                    "Paybill payment validation failed for member %s",
                     member["id"],
                 )
 
+            # ---- Best-effort confirmation SMS to the payer. ----
+            sms_phone = normalised_phone or member.get("phone")
+            if sms_phone:
+                try:
+                    await send_payment_confirmation_sms(
+                        sms_phone, str(amount), str(member.get("member_number"))
+                    )
+                except Exception:
+                    logger.exception(
+                        "Paybill confirmation SMS failed for member %s",
+                        member["id"],
+                    )
+
         logger.info(
             "Paybill payment saved: member=%s receipt=%s amount=%s",
-            account, receipt, amount,
+            account if member else "UNASSIGNED", receipt, amount,
         )
 
         return {"ResultCode": 0, "ResultDesc": "Accepted"}
