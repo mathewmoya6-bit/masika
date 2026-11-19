@@ -1482,8 +1482,8 @@ async def public_register(payload: PublicRegistrationRequest):
         supabase.table("payments").insert({
             "member_id": member_id,
             "amount": registration_amount,
-            "payment_type": "REGISTRATION",
-            "payment_method": "MPESA",
+            "payment_type": "registration",
+            "payment_method": "mpesa",
             "mpesa_receipt": None,
             "status": "pending",
             "payment_date": now.date().isoformat(),
@@ -1599,8 +1599,8 @@ async def public_register_chama(payload: ChamaRegistrationRequest):
         supabase.table("payments").insert({
             "chama_group_id": group_id,
             "amount": registration_amount,
-            "payment_type": "REGISTRATION",
-            "payment_method": "MPESA",
+            "payment_type": "chama_registration",
+            "payment_method": "mpesa",
             "status": "pending",
             "phone": payload.phone,
             "created_at": now,
@@ -1709,8 +1709,7 @@ async def initiate_stk_push(request: STKPushRequest):
             "transaction_reference": transaction_ref,
             "phone": phone,
             "amount": verified_amount,
-            "payment_type": "REGISTRATION",
-            "payment_method": "MPESA",
+            "payment_type": "registration" if request.member_id else "chama_registration",
             "status": "pending",
             "created_at": datetime.now().isoformat(),
             "updated_at": datetime.now().isoformat(),
@@ -1846,10 +1845,10 @@ async def payment_callback(request: Request):
     try:
         data = await request.json()
     except Exception as e:
-        logger.error("Payment callback JSON error: %s", e)
-        return {"ResultCode": 1, "ResultDesc": "Invalid callback JSON"}
+        logger.error(f"Payment callback JSON error: {e}")
+        return _CALLBACK_ACK
 
-    logger.info("M-Pesa STK callback received: checkout_request_id=%s", ((data.get("Body") or {}).get("stkCallback") or {}).get("CheckoutRequestID"))
+    logger.info(f"M-Pesa callback received: {data}")
 
     try:
         stk_callback = (data.get("Body") or {}).get("stkCallback") or {}
@@ -1861,24 +1860,24 @@ async def payment_callback(request: Request):
         except (TypeError, ValueError):
             result_code = None
 
-        if not checkout_request_id or result_code is None:
-            logger.warning("M-Pesa callback missing CheckoutRequestID or ResultCode")
-            return {"ResultCode": 1, "ResultDesc": "Incomplete callback"}
+        if not checkout_request_id:
+            logger.warning("M-Pesa callback missing CheckoutRequestID")
+            return _CALLBACK_ACK
 
         result = (
             supabase.table("payments").select("*")
             .eq("checkout_request_id", checkout_request_id).limit(1).execute()
         )
         if not result.data:
-            logger.warning("Payment not found for callback: %s", checkout_request_id)
-            return {"ResultCode": 1, "ResultDesc": "Payment record not found; retry"}
+            logger.warning(f"Payment not found: {checkout_request_id}")
+            return {"ResultCode": 0, "ResultDesc": "Payment record not found"}
 
         payment = result.data[0]
         payment_id = payment["id"]
 
         # Idempotency: don't reactivate, overwrite the receipt or double-count.
         if (
-            str(payment.get("payment_status", "")).upper() in {"CONFIRMED", "SUCCESSFUL"}
+            str(payment.get("payment_status", "")).upper() == "SUCCESSFUL"
             and payment.get("mpesa_receipt_number")
         ):
             logger.info(f"Payment already successful: {payment_id}")
@@ -1906,7 +1905,7 @@ async def payment_callback(request: Request):
 
         if result_code == 0:
             update_data = {
-                "payment_status": "CONFIRMED",
+                "payment_status": "SUCCESSFUL",
                 "status": "completed",
                 "result_code": 0,
                 "result_desc": result_desc or "Payment successful",
@@ -1973,8 +1972,8 @@ async def payment_callback(request: Request):
         return _CALLBACK_ACK
 
     except Exception as e:
-        logger.exception("Payment callback processing error: %s", e)
-        return {"ResultCode": 1, "ResultDesc": "Processing failed; retry"}
+        logger.exception(f"Payment callback processing error: {e}")
+        return _CALLBACK_ACK
 
 # ------------------------------------------------------------
 # Reconciliation sweep
@@ -2231,7 +2230,7 @@ def calculate_member_payment_validation(member_id: str) -> dict:
         supabase.table("payments")
         .select("*")
         .eq("member_id", member_id)
-        .in_("payment_status", ["CONFIRMED", "SUCCESSFUL"])
+        .eq("payment_status", "SUCCESSFUL")
         .eq("counts_toward_membership", True)
         .order("payment_date", desc=False)
         .execute()
@@ -3033,9 +3032,9 @@ async def mratiba_callback(request: Request):
                         "member_id": member_id,
                         "amount": amount,
                         "payment_type": "MONTHLY",
-                        "payment_method": "MPESA",
+                        "payment_method": "mpesa_ratiba",
                         "status": "completed",
-                        "payment_status": "CONFIRMED",
+                        "payment_status": "SUCCESSFUL",
                         "mpesa_receipt": receipt,
                         "mpesa_receipt_number": receipt or provider_reference,
                         "transaction_reference": provider_reference or receipt,
@@ -3133,45 +3132,18 @@ async def mratiba_callback(request: Request):
 # ============================================================
 
 def _normalise_member_account(raw) -> str:
-    """Canonicalise member references while preserving non-member account labels."""
-    value = re.sub(r"[\s\-_]", "", str(raw or "")).upper()
-    match = re.fullmatch(r"MSK0*(\d{1,6})", value)
-    return f"MSK{int(match.group(1)):06d}" if match else value
+    """Normalize Masika account references to the database's canonical format.
 
-
-def _member_account_digits(value: str) -> str:
-    match = re.fullmatch(r"MSK0*(\d{1,6})", str(value or "").upper())
-    return str(int(match.group(1))) if match else ""
-
-
-def _find_member_for_paybill(raw_account: str, canonical_account: str) -> Optional[dict]:
-    """Match both padded and unpadded MSK numbers (e.g. MSK82249/MSK082249)."""
-    if not supabase or not canonical_account:
-        return None
-
-    candidates = [canonical_account]
-    raw_clean = re.sub(r"[\s\-_]", "", str(raw_account or "")).upper()
-    if raw_clean and raw_clean not in candidates:
-        candidates.append(raw_clean)
-
-    exact = (
-        supabase.table("members").select("id, member_number, phone")
-        .in_("member_number", candidates).limit(5).execute()
-    )
-    if exact.data:
-        return exact.data[0]
-
-    digits = _member_account_digits(canonical_account)
-    if digits:
-        # Search a suffix variant, then compare canonical forms in Python.
-        possible = (
-            supabase.table("members").select("id, member_number, phone")
-            .ilike("member_number", f"%{digits}").limit(20).execute()
-        )
-        for row in possible.data or []:
-            if _normalise_member_account(row.get("member_number")) == canonical_account:
-                return row
-    return None
+    Existing member records use unpadded numbers (for example MSK82249).
+    Accept inputs such as 'msk 82249', 'MSK-082249', and 'MSK82249', but
+    remove leading zeroes so they all resolve to the stored MSK82249 value.
+    Non-MSK references are returned uppercased with separators removed.
+    """
+    s = re.sub(r"[\s\-_]", "", str(raw or "")).upper()
+    m = re.fullmatch(r"MSK0*(\d{1,6})", s)
+    if m:
+        return f"MSK{int(m.group(1))}"
+    return s
 
 
 async def _record_paybill_payment(data: dict) -> dict:
@@ -3206,7 +3178,13 @@ async def _record_paybill_payment(data: dict) -> dict:
         return {"ResultCode": 0, "ResultDesc": "Already processed"}
 
     # ---- Match the account number to a member (may legitimately be None). ----
-    member = _find_member_for_paybill(raw_account, account) if account else None
+    member = None
+    if account:
+        res = (
+            supabase.table("members").select("id, member_number, phone")
+            .eq("member_number", account).limit(1).execute()
+        )
+        member = res.data[0] if res.data else None
 
     if not member:
         logger.error(
@@ -3228,34 +3206,18 @@ async def _record_paybill_payment(data: dict) -> dict:
 
     normalised_phone = format_phone_number(phone) if phone else ""
 
-    # If this member has an unpaid registration STK/payment record and the
-    # Paybill amount matches it, settle that existing registration instead of
-    # incorrectly recording the money as a monthly contribution.
-    pending_registration = None
-    if member:
-        pending_result = (
-            supabase.table("payments").select("*")
-            .eq("member_id", member["id"])
-            .eq("payment_type", "REGISTRATION")
-            .eq("status", "pending")
-            .order("created_at", desc=True).limit(1).execute()
-        )
-        if pending_result.data:
-            candidate = pending_result.data[0]
-            expected = float(candidate.get("amount") or 0)
-            if expected > 0 and abs(expected - amount) < 0.01:
-                pending_registration = candidate
-
-    payment_type = "REGISTRATION" if pending_registration else "MONTHLY"
+    # Paybill payments are monthly contributions (not registration) and count
+    # toward membership. The `payments` DB trigger recomputes months_paid /
+    # months_missing / amount_paid / amount_expected.
     row = {
-        "member_id": member["id"] if member else None,
+        "member_id": member["id"] if member else None,  # NULL = "Unassigned" on dashboard
         "account_number": raw_account or None,
         "account_reference": raw_account or None,
         "amount": amount,
-        "payment_type": payment_type,
-        "payment_method": "MPESA",
+        "payment_type": "MONTHLY",
+        "payment_method": "mpesa",
         "status": "completed",
-        "payment_status": "CONFIRMED",
+        "payment_status": "SUCCESSFUL",
         "mpesa_receipt": receipt,
         "mpesa_receipt_number": receipt,
         "transaction_reference": receipt,
@@ -3266,17 +3228,14 @@ async def _record_paybill_payment(data: dict) -> dict:
         "verified_at": now,
         "counts_toward_membership": True,
         "raw_callback": data,
+        "created_at": now,
         "updated_at": now,
     }
 
     try:
-        if pending_registration:
-            inserted = supabase.table("payments").update(row).eq("id", pending_registration["id"]).execute()
-        else:
-            row["created_at"] = now
-            inserted = supabase.table("payments").insert(row).execute()
+        inserted = supabase.table("payments").insert(row).execute()
         if not inserted.data:
-            raise RuntimeError("Paybill payment write returned no record")
+            raise RuntimeError("Paybill payment insert returned no record")
     except Exception as exc:
         # A concurrent delivery of the same receipt may have won the race.
         recheck = (
@@ -3295,21 +3254,11 @@ async def _record_paybill_payment(data: dict) -> dict:
     )
 
     if member:
-        if payment_type == "REGISTRATION":
-            try:
-                refreshed = (
-                    supabase.table("payments").select("*")
-                    .eq("mpesa_receipt_number", receipt).limit(1).execute()
-                )
-                await activate_registration(refreshed.data[0] if refreshed.data else {**row, "member_id": member["id"]})
-            except Exception:
-                logger.exception("Paybill registration activation failed for member %s", member["id"])
-        else:
-            # Re-derive status from the DB-trigger-owned totals.
-            try:
-                calculate_member_payment_validation(member["id"])
-            except Exception:
-                logger.exception("Paybill payment validation failed for member %s", member["id"])
+        # Re-derive the member's status from the trigger-owned totals.
+        try:
+            calculate_member_payment_validation(member["id"])
+        except Exception:
+            logger.exception("Paybill payment validation failed for member %s", member["id"])
 
         # Best-effort confirmation SMS to the payer.
         sms_phone = normalised_phone or member.get("phone")
@@ -3355,7 +3304,7 @@ async def mpesa_c2b_confirmation(request: Request):
         logger.warning("Paybill C2B: unexpected payload type %s", type(data).__name__)
         return {"ResultCode": 0, "ResultDesc": "Accepted"}
 
-    logger.info("Paybill C2B callback received: receipt=%s account=%s amount=%s", data.get("TransID"), data.get("BillRefNumber"), data.get("TransAmount"))
+    logger.info("Paybill C2B callback received: %s", data)
 
     try:
         return await _record_paybill_payment(data)
@@ -3512,7 +3461,7 @@ async def admin_collect_payment(
         "phone": phone,
         "amount": amount,
         "payment_type": PAYMENT_TYPE_DB_LABELS.get(ptype, ptype.upper()),
-        "payment_method": "MPESA",
+        "payment_method": "mpesa",
         "status": "pending",
         "payment_date": datetime.now(timezone.utc).date().isoformat(),
         "created_at": now_iso,
@@ -3566,7 +3515,7 @@ async def admin_payment_status(checkout_request_id: str, staff: dict = Depends(g
             if q.get("success"):
                 receipt = q.get("receipt")
                 upd = {
-                    "status": "completed", "payment_status": "CONFIRMED",
+                    "status": "completed", "payment_status": "SUCCESSFUL",
                     "mpesa_receipt": receipt, "mpesa_receipt_number": receipt,
                     "confirmed_at": now_iso, "verified_at": now_iso,
                     "counts_toward_membership": True, "updated_at": now_iso,
