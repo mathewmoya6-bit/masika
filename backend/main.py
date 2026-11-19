@@ -3204,7 +3204,22 @@ async def _record_paybill_payment(data: dict) -> dict:
         except ValueError:
             logger.warning("Paybill: unrecognised TransTime %r", trans_time)
 
-    normalised_phone = format_phone_number(phone) if phone else ""
+    # Safaricom may mask MSISDN in C2B callbacks. In that case the value can
+    # be a long hexadecimal hash, NOT a telephone number. Never put that value
+    # into payments.phone_number (varchar(30)) or payments.phone.
+    normalised_phone = ""
+    if phone:
+        candidate_phone = format_phone_number(phone)
+        # Kenyan numbers should normalize to 254 followed by 9 digits.
+        # Reject hashes, arbitrary text, and malformed/overlong values.
+        if re.fullmatch(r"254[17]\d{8}", candidate_phone):
+            normalised_phone = candidate_phone
+        else:
+            logger.info(
+                "Paybill callback MSISDN is masked or invalid; storing no phone number "
+                "for receipt=%s (raw length=%s)",
+                receipt, len(phone),
+            )
 
     # Paybill payments are monthly contributions (not registration) and count
     # toward membership. The `payments` DB trigger recomputes months_paid /
@@ -3222,8 +3237,8 @@ async def _record_paybill_payment(data: dict) -> dict:
         "mpesa_receipt_number": receipt,
         "transaction_reference": receipt,
         "payment_date": payment_date,
-        "phone": normalised_phone or phone,
-        "phone_number": normalised_phone or phone,
+        "phone": normalised_phone or None,
+        "phone_number": normalised_phone or None,
         "confirmed_at": now,
         "verified_at": now,
         "counts_toward_membership": True,
