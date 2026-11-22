@@ -959,6 +959,21 @@
 
         .flex-wrap { flex-wrap: wrap; }
         .flex-1 { flex: 1; }
+
+        /* ===== MEMBER PAYMENT LEDGER ===== */
+        .ledger-search { display:flex; gap:10px; flex-wrap:wrap; margin-bottom:16px; }
+        .ledger-search input { flex:1; min-width:220px; padding:10px 14px; border:1px solid #d9dee3; border-radius:8px; font-size:14px; font-family:inherit; }
+        .ledger-search input:focus { outline:none; border-color:var(--primary); box-shadow:0 0 0 3px var(--primary-light); }
+        .ledger-tiles { display:grid; grid-template-columns:repeat(auto-fit,minmax(150px,1fr)); gap:12px; margin-bottom:16px; }
+        .ledger-tile { background:var(--primary-light); border-radius:10px; padding:12px 14px; }
+        .ledger-tile .lt-label { font-size:12px; color:var(--text-light); }
+        .ledger-tile .lt-value { font-size:18px; font-weight:700; color:var(--primary-dark); margin-top:2px; }
+        .ledger-tile.warn { background:var(--warning-light); }
+        .ledger-tile.bad { background:var(--danger-light); }
+        .ledger-tile.bad .lt-value { color:var(--danger); }
+        .ledger-pick { display:block; width:100%; text-align:left; padding:10px 12px; margin-bottom:6px; border:1px solid #e5e7eb; border-radius:8px; background:#fff; cursor:pointer; font-family:inherit; }
+        .ledger-pick:hover { background:var(--primary-light); }
+        .ledger-sub { margin:18px 0 8px; font-size:14px; font-weight:600; color:var(--text); }
     </style>
 </head>
 <body>
@@ -1196,6 +1211,18 @@
                         <p>Loading...</p>
                     </div>
                 </div>
+            </div>
+
+            <!-- Member Payment Ledger -->
+            <div class="card" id="paymentLedgerCard">
+                <div class="card-header">
+                    <h3><i class="fas fa-calendar-check" style="color:var(--primary);"></i> Member Payment Ledger</h3>
+                </div>
+                <div class="ledger-search">
+                    <input type="text" id="ledgerSearchInput" placeholder="Search by member number, phone or name" onkeydown="if(event.key==='Enter'){searchMemberLedger();}">
+                    <button class="btn btn-primary" onclick="searchMemberLedger()"><i class="fas fa-search"></i> Search</button>
+                </div>
+                <div id="ledgerResult"><p class="empty-state">Search for a member to see which months they have paid.</p></div>
             </div>
 
         </main>
@@ -2319,6 +2346,134 @@
         // REAL-TIME SUBSCRIPTIONS
         // ============================================================
         let dashboardChannel = null;
+
+
+        // ============================================================
+        // MEMBER PAYMENT LEDGER (read-only)
+        // Needs masika_payment_engine.sql to be installed in Supabase.
+        // ============================================================
+        function ledgerMonthLabel(d) {
+            return new Date(d + 'T00:00:00').toLocaleDateString('en-GB', { month: 'short', year: 'numeric' });
+        }
+
+        function ledgerStatus(daysOverdue) {
+            const d = Number(daysOverdue) || 0;
+            if (d >= 90) return { label: 'Lapsed - register afresh (4 month wait)', cls: 'bad' };
+            if (d >= 60) return { label: 'Dormant - 2 month wait', cls: 'bad' };
+            if (d >= 40) return { label: 'Dormant - 1 month wait', cls: 'warn' };
+            return { label: 'Active', cls: '' };
+        }
+
+        async function searchMemberLedger() {
+            const box = document.getElementById('ledgerResult');
+            const raw = (document.getElementById('ledgerSearchInput').value || '').trim();
+            const term = raw.replace(/[,()%*]/g, ' ').trim();
+            if (term.length < 2) { box.innerHTML = '<p class="empty-state">Enter at least 2 characters.</p>'; return; }
+
+            box.innerHTML = '<div class="loading-spinner"><div class="spinner"></div><p>Searching...</p></div>';
+
+            const { data: members, error } = await supabaseClient
+                .from('members')
+                .select('id, member_number, first_name, last_name, phone')
+                .or(`member_number.ilike.%${term}%,phone.ilike.%${term}%,first_name.ilike.%${term}%,last_name.ilike.%${term}%`)
+                .limit(10);
+
+            if (error) { box.innerHTML = `<p class="empty-state">Search failed: ${escapeHtml(error.message)}</p>`; return; }
+            if (!members || !members.length) { box.innerHTML = '<p class="empty-state">No member found.</p>'; return; }
+            if (members.length === 1) { return loadMemberLedger(members[0].id); }
+
+            box.innerHTML = '<p class="ledger-sub">Select a member</p>' + members.map(m =>
+                `<button class="ledger-pick" onclick="loadMemberLedger('${m.id}')">
+                    <strong>${escapeHtml(m.member_number || '—')}</strong> · ${escapeHtml((m.first_name || '') + ' ' + (m.last_name || ''))} · ${escapeHtml(m.phone || '')}
+                </button>`).join('');
+        }
+
+        async function loadMemberLedger(memberId) {
+            const box = document.getElementById('ledgerResult');
+            box.innerHTML = '<div class="loading-spinner"><div class="spinner"></div><p>Loading ledger...</p></div>';
+
+            const [summaryRes, periodsRes, allocRes] = await Promise.all([
+                supabaseClient.from('member_payment_summary').select('*').eq('member_id', memberId).maybeSingle(),
+                supabaseClient.from('member_payment_periods').select('id, period_month, amount_due, amount_paid').eq('member_id', memberId).order('period_month', { ascending: true }),
+                supabaseClient.from('payment_period_allocations')
+                    .select('amount, period_id, payments(id, amount, mpesa_receipt_number, transaction_reference, payment_date, created_at)')
+                    .eq('member_id', memberId)
+            ]);
+
+            const err = summaryRes.error || periodsRes.error || allocRes.error;
+            if (err) {
+                box.innerHTML = `<p class="empty-state">Could not load the ledger: ${escapeHtml(err.message)}.<br>Confirm masika_payment_engine.sql has been run.</p>`;
+                return;
+            }
+
+            const sum = summaryRes.data || {};
+            const periods = periodsRes.data || [];
+            const allocs = allocRes.data || [];
+            const monthById = {};
+            periods.forEach(p => { monthById[p.id] = p.period_month; });
+
+            if (!periods.length) {
+                box.innerHTML = `<p class="empty-state">No ledger for ${escapeHtml(sum.member_number || 'this member')} yet. Their plan may be missing or conflicting, so no months were allocated.</p>`;
+                return;
+            }
+
+            const st = ledgerStatus(sum.days_overdue);
+            const nextDue = periods.find(p => Number(p.amount_paid) < Number(p.amount_due));
+            const lastPeriod = periods[periods.length - 1];
+
+            const tiles = `
+                <div class="ledger-tiles">
+                    <div class="ledger-tile"><div class="lt-label">Member</div><div class="lt-value" style="font-size:14px;">${escapeHtml(sum.member_number || '—')}<br>${escapeHtml(sum.full_name || '')}</div></div>
+                    <div class="ledger-tile"><div class="lt-label">Monthly subscription</div><div class="lt-value">${formatKES(lastPeriod.amount_due)}</div></div>
+                    <div class="ledger-tile ${Number(sum.outstanding) > 0 ? 'bad' : ''}"><div class="lt-label">Outstanding arrears</div><div class="lt-value">${formatKES(sum.outstanding || 0)}</div></div>
+                    <div class="ledger-tile"><div class="lt-label">Prepaid balance</div><div class="lt-value">${formatKES(sum.prepaid || 0)}</div></div>
+                    <div class="ledger-tile ${st.cls}"><div class="lt-label">Status</div><div class="lt-value" style="font-size:14px;">${escapeHtml(st.label)}</div></div>
+                    <div class="ledger-tile"><div class="lt-label">Next month to pay</div><div class="lt-value">${nextDue ? ledgerMonthLabel(nextDue.period_month) : 'Paid ahead'}</div></div>
+                </div>`;
+
+            const today = new Date().toISOString().slice(0, 7) + '-01';
+            const monthRows = periods.map(p => {
+                const due = Number(p.amount_due), paid = Number(p.amount_paid);
+                let cls = 'pending', label = 'Unpaid';
+                if (paid >= due) { cls = 'successful'; label = p.period_month > today ? 'Prepaid' : 'Paid'; }
+                else if (paid > 0) { label = 'Partial'; }
+                else if (p.period_month <= today) { cls = 'failed'; }
+                return `<tr>
+                    <td>${ledgerMonthLabel(p.period_month)}</td>
+                    <td>${formatKES(due)}</td>
+                    <td>${formatKES(paid)}</td>
+                    <td>${formatKES(Math.max(due - paid, 0))}</td>
+                    <td><span class="status-badge ${cls}">${label}</span></td>
+                </tr>`;
+            }).reverse().join('');
+
+            const allocRows = allocs
+                .map(a => ({ ...a, month: monthById[a.period_id] || '' }))
+                .sort((a, b) => (a.payments?.payment_date || a.payments?.created_at || '').localeCompare(b.payments?.payment_date || b.payments?.created_at || '') || a.month.localeCompare(b.month))
+                .map(a => {
+                    const pay = a.payments || {};
+                    const ref = pay.mpesa_receipt_number || pay.transaction_reference || '—';
+                    return `<tr>
+                        <td>${escapeHtml(ref)}</td>
+                        <td>${formatDate(pay.payment_date || pay.created_at)}</td>
+                        <td>${formatKES(pay.amount || 0)}</td>
+                        <td>${a.month ? ledgerMonthLabel(a.month) : '—'}</td>
+                        <td>${formatKES(a.amount)}</td>
+                    </tr>`;
+                }).join('');
+
+            box.innerHTML = tiles + `
+                <div class="ledger-sub">Monthly calendar</div>
+                <div class="table-wrapper"><table>
+                    <thead><tr><th>Month</th><th>Due</th><th>Paid</th><th>Balance</th><th>Status</th></tr></thead>
+                    <tbody>${monthRows}</tbody>
+                </table></div>
+                <div class="ledger-sub">Payment allocation history</div>
+                <div class="table-wrapper"><table>
+                    <thead><tr><th>Receipt / Reference</th><th>Date</th><th>Payment</th><th>Credited to</th><th>Allocated</th></tr></thead>
+                    <tbody>${allocRows || '<tr><td colspan="5" class="empty-state">No payments allocated yet.</td></tr>'}</tbody>
+                </table></div>`;
+        }
 
         function setupRealtime() {
             console.log('🔌 Setting up real-time subscriptions...');
